@@ -10,15 +10,49 @@ import { Heart, Loader2 } from "lucide-react";
 import { z } from "zod";
 
 const emailSchema = z.string().trim().email("Email non valida");
-const passwordSchema = z.string().min(6, "La password deve avere almeno 6 caratteri");
+const passwordSchema = z
+  .string()
+  .min(8, "La password deve avere almeno 8 caratteri")
+  .regex(/[A-Z]/, "La password deve contenere almeno una lettera maiuscola")
+  .regex(/[0-9]/, "La password deve contenere almeno un numero");
+
+const signupSchema = z.object({
+  email: emailSchema,
+  password: passwordSchema,
+  confirmPassword: z.string(),
+  firstName: z.string().min(1, "Nome obbligatorio"),
+  lastName: z.string().min(1, "Cognome obbligatorio"),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Le password non corrispondono",
+  path: ["confirmPassword"],
+});
+
+// Password strength calculator
+const getPasswordStrength = (password: string): { strength: number; label: string; color: string } => {
+  let strength = 0;
+  
+  if (password.length >= 8) strength++;
+  if (password.length >= 12) strength++;
+  if (/[a-z]/.test(password)) strength++;
+  if (/[A-Z]/.test(password)) strength++;
+  if (/[0-9]/.test(password)) strength++;
+  if (/[^A-Za-z0-9]/.test(password)) strength++;
+  
+  if (strength <= 2) return { strength: 33, label: "Debole", color: "bg-red-500" };
+  if (strength <= 4) return { strength: 66, label: "Media", color: "bg-yellow-500" };
+  return { strength: 100, label: "Forte", color: "bg-green-500" };
+};
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [passwordStrength, setPasswordStrength] = useState({ strength: 0, label: "", color: "" });
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -39,16 +73,46 @@ const Auth = () => {
     return () => subscription.unsubscribe();
   }, [navigate]);
 
+  // Real-time password strength update
+  const handlePasswordChange = (newPassword: string) => {
+    setPassword(newPassword);
+    if (!isLogin && newPassword) {
+      setPasswordStrength(getPasswordStrength(newPassword));
+    }
+  };
+
+  // Real-time validation
+  const validateForm = () => {
+    const errors: Record<string, string> = {};
+    
+    if (!isLogin) {
+      try {
+        signupSchema.parse({ email, password, confirmPassword, firstName, lastName });
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          error.errors.forEach((err) => {
+            if (err.path[0]) {
+              errors[err.path[0] as string] = err.message;
+            }
+          });
+        }
+      }
+    }
+    
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setValidationErrors({});
 
     try {
-      // Validate inputs
-      emailSchema.parse(email);
-      passwordSchema.parse(password);
-
       if (isLogin) {
+        // Validate inputs for login
+        emailSchema.parse(email);
+        passwordSchema.parse(password);
         const { error } = await supabase.auth.signInWithPassword({
           email,
           password,
@@ -61,9 +125,24 @@ const Auth = () => {
           description: "Benvenuto su Nozze Senza Stress",
         });
       } else {
-        // Additional validation for signup
-        if (!firstName.trim() || !lastName.trim()) {
-          throw new Error("Nome e cognome sono obbligatori");
+        // Validate signup form
+        const validation = signupSchema.safeParse({ 
+          email, 
+          password, 
+          confirmPassword, 
+          firstName, 
+          lastName 
+        });
+
+        if (!validation.success) {
+          const errors: Record<string, string> = {};
+          validation.error.errors.forEach((err) => {
+            if (err.path[0]) {
+              errors[err.path[0] as string] = err.message;
+            }
+          });
+          setValidationErrors(errors);
+          throw new Error(Object.values(errors)[0]);
         }
 
         const { error } = await supabase.auth.signUp({
@@ -173,15 +252,62 @@ const Auth = () => {
               id="password"
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => handlePasswordChange(e.target.value)}
+              onBlur={validateForm}
               placeholder="••••••••"
               required
               disabled={loading}
-              minLength={6}
+              minLength={8}
+              className={validationErrors.password ? "border-destructive" : ""}
             />
+            {validationErrors.password && (
+              <p className="text-sm text-destructive">{validationErrors.password}</p>
+            )}
+            
+            {!isLogin && password && (
+              <div className="space-y-1">
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Robustezza password:</span>
+                  <span className={passwordStrength.strength === 100 ? "text-green-600" : passwordStrength.strength === 66 ? "text-yellow-600" : "text-red-600"}>
+                    {passwordStrength.label}
+                  </span>
+                </div>
+                <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                  <div 
+                    className={`h-full transition-all duration-300 ${passwordStrength.color}`}
+                    style={{ width: `${passwordStrength.strength}%` }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
-          <Button type="submit" className="w-full" disabled={loading}>
+          {!isLogin && (
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Conferma Password</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                onBlur={validateForm}
+                placeholder="••••••••"
+                required
+                disabled={loading}
+                minLength={8}
+                className={validationErrors.confirmPassword ? "border-destructive" : ""}
+              />
+              {validationErrors.confirmPassword && (
+                <p className="text-sm text-destructive">{validationErrors.confirmPassword}</p>
+              )}
+            </div>
+          )}
+
+          <Button 
+            type="submit" 
+            className="w-full" 
+            disabled={loading || (!isLogin && Object.keys(validationErrors).length > 0)}
+          >
             {loading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -194,6 +320,19 @@ const Auth = () => {
             )}
           </Button>
         </form>
+
+        {isLogin && (
+          <div className="text-center">
+            <button
+              type="button"
+              onClick={() => navigate("/forgot-password")}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors underline"
+              disabled={loading}
+            >
+              Password dimenticata?
+            </button>
+          </div>
+        )}
 
         <div className="text-center">
           <button
