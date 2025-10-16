@@ -72,6 +72,13 @@ const AcceptInvite = () => {
     setAccepting(true);
 
     try {
+      console.log("Starting invitation acceptance...");
+      console.log("User ID:", session.user.id);
+      console.log("Wedding ID:", invitation.wedding_id);
+      console.log("Role:", invitation.role);
+      console.log("Invitation email:", invitation.email);
+      console.log("User email:", session.user.email);
+
       // Verifica che l'email dell'utente corrisponda all'email dell'invito
       if (session.user.email !== invitation.email) {
         toast({
@@ -83,30 +90,36 @@ const AcceptInvite = () => {
         return;
       }
 
+      console.log("Inserting user role...");
       // Inserisci il ruolo nella tabella user_roles
-      const { error: roleError } = await supabase
+      const { data: roleData, error: roleError } = await supabase
         .from("user_roles")
         .insert({
           user_id: session.user.id,
           wedding_id: invitation.wedding_id,
           role: invitation.role,
-        });
+        })
+        .select();
 
       if (roleError) {
         console.error("Role insert error:", roleError);
-        throw new Error(`Errore inserimento ruolo: ${roleError.message}`);
+        throw new Error(`Errore inserimento ruolo: ${roleError.message} (Code: ${roleError.code})`);
       }
+      console.log("Role inserted successfully:", roleData);
 
+      console.log("Updating invitation status...");
       // Aggiorna lo status dell'invito
-      const { error: updateError } = await supabase
+      const { data: updateData, error: updateError } = await supabase
         .from("wedding_invitations")
         .update({ status: "accepted" })
-        .eq("id", invitation.id);
+        .eq("id", invitation.id)
+        .select();
 
       if (updateError) {
         console.error("Invitation update error:", updateError);
-        throw new Error(`Errore aggiornamento invito: ${updateError.message}`);
+        throw new Error(`Errore aggiornamento invito: ${updateError.message} (Code: ${updateError.code})`);
       }
+      console.log("Invitation updated successfully:", updateData);
 
       toast({
         title: "Invito accettato!",
