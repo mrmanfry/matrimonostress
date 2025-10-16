@@ -33,7 +33,7 @@ const handler = async (req: Request): Promise<Response> => {
     const roleLabel = role === 'co_planner' ? 'Co-Planner' : role === 'manager' ? 'Manager' : 'Guest';
 
     const emailResponse = await resend.emails.send({
-      from: "Wedding Planner <onboarding@resend.dev>",
+      from: "Matrimonio Senza Stress <info@matrimonostress.com>",
       to: [email],
       subject: `${inviterName} ti ha invitato a collaborare al matrimonio!`,
       html: `
