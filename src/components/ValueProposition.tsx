@@ -34,7 +34,7 @@ const objectives = [
 
 const ValueProposition = () => {
   return (
-    <section className="py-24 px-4 bg-muted/30">
+    <section id="features" className="py-24 px-4 bg-muted/30">
       <div className="container mx-auto max-w-7xl">
         {/* Section Header */}
         <div className="text-center mb-16 space-y-4">

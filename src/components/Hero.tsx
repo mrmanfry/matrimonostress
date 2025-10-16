@@ -50,12 +50,14 @@ const Hero = () => {
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-4">
-            <Button size="lg" variant="hero" className="text-lg px-8 py-6">
-              <Heart className="w-5 h-5" />
-              Inizia Gratis
+            <Button size="lg" variant="hero" className="text-lg px-8 py-6" asChild>
+              <a href="/auth">
+                <Heart className="w-5 h-5" />
+                Inizia Gratis
+              </a>
             </Button>
-            <Button size="lg" variant="outline" className="text-lg px-8 py-6 border-2">
-              Scopri Come Funziona
+            <Button size="lg" variant="outline" className="text-lg px-8 py-6 border-2" asChild>
+              <a href="#features">Scopri Come Funziona</a>
             </Button>
           </div>
 
