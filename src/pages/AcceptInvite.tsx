@@ -106,18 +106,6 @@ const AcceptInvite = () => {
         throw updateError;
       }
 
-      // Verifica che il ruolo sia stato inserito correttamente prima di reindirizzare
-      const { data: roleCheck } = await supabase
-        .from("user_roles")
-        .select("id")
-        .eq("user_id", session.user.id)
-        .eq("wedding_id", invitation.wedding_id)
-        .single();
-
-      if (!roleCheck) {
-        throw new Error("Errore durante la verifica del ruolo");
-      }
-
       toast({
         title: "Invito accettato!",
         description: "Benvenuto nel team di pianificazione del matrimonio!",
