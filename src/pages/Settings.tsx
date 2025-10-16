@@ -345,10 +345,13 @@ const Settings = () => {
               className="w-full p-2 rounded-md border border-input bg-background"
               disabled={loading}
             >
+              <option value="co_planner">Co-Planner (Controllo Totale)</option>
               <option value="manager">Manager (Gestione Operativa)</option>
             </select>
             <p className="text-sm text-muted-foreground">
-              Il Manager può gestire invitati, budget e fornitori, ma non può eliminare lo spazio matrimonio.
+              {inviteRole === "co_planner" 
+                ? "Il Co-Planner ha controllo totale sul matrimonio, inclusa la possibilità di eliminarlo."
+                : "Il Manager può gestire invitati, budget e fornitori, ma non può eliminare lo spazio matrimonio."}
             </p>
           </div>
 
