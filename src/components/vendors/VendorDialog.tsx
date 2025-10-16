@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +17,16 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Select,
   SelectContent,
@@ -63,7 +74,11 @@ export function VendorDialog({
   const [uploadedFiles, setUploadedFiles] = useState<Array<{ name: string; path: string }>>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [showExpenseDialog, setShowExpenseDialog] = useState(false);
+  const [savedVendorData, setSavedVendorData] = useState<{name: string, category_id: string | null} | null>(null);
+  const [previousStatus, setPreviousStatus] = useState<string | null>(null);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const {
     register,
@@ -91,12 +106,14 @@ export function VendorDialog({
         notes: vendor.notes || "",
         category_id: vendor.category_id || "",
       });
+      setPreviousStatus(vendor.status);
       if (vendor.id) {
         loadExistingFiles(vendor.id);
       }
     } else {
       reset(emptyVendor);
       setUploadedFiles([]);
+      setPreviousStatus(null);
     }
   }, [vendor, open, reset]);
 
@@ -315,21 +332,47 @@ export function VendorDialog({
         notes: data.notes || null,
         category_id: data.category_id || null,
       };
+      
       await onSave(vendorData);
-      onOpenChange(false);
+      
+      // Workflow: Fornitore confermato -> suggerisci creazione spesa
+      const isStatusChangedToBooked = vendor && previousStatus !== 'booked' && data.status === 'booked';
+      
+      if (isStatusChangedToBooked) {
+        setSavedVendorData({
+          name: data.name,
+          category_id: data.category_id || null
+        });
+        setShowExpenseDialog(true);
+      } else {
+        onOpenChange(false);
+      }
     } catch (error) {
       console.error("Error saving vendor:", error);
     }
   };
 
+  const handleCreateExpense = () => {
+    setShowExpenseDialog(false);
+    onOpenChange(false);
+    // Naviga alla pagina budget con il fornitore pre-selezionato
+    navigate(`/app/budget?createExpense=true&vendorName=${encodeURIComponent(savedVendorData?.name || '')}&categoryId=${savedVendorData?.category_id || ''}`);
+  };
+
+  const handleSkipExpense = () => {
+    setShowExpenseDialog(false);
+    onOpenChange(false);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>
-            {vendor ? "Modifica Fornitore" : "Nuovo Fornitore"}
-          </DialogTitle>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {vendor ? "Modifica Fornitore" : "Nuovo Fornitore"}
+            </DialogTitle>
+          </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
@@ -551,5 +594,27 @@ export function VendorDialog({
         </form>
       </DialogContent>
     </Dialog>
+    
+    <AlertDialog open={showExpenseDialog} onOpenChange={setShowExpenseDialog}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Crea Spesa nel Budget</AlertDialogTitle>
+          <AlertDialogDescription>
+            Hai confermato il fornitore <strong>{savedVendorData?.name}</strong>.
+            <br /><br />
+            Vuoi creare la relativa voce di spesa nel budget?
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={handleSkipExpense}>
+            No, più tardi
+          </AlertDialogCancel>
+          <AlertDialogAction onClick={handleCreateExpense}>
+            Sì, crea ora
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

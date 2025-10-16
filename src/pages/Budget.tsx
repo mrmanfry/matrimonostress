@@ -86,6 +86,26 @@ const Budget = () => {
 
   useEffect(() => {
     loadData();
+    
+    // Gestisci i query params per l'apertura automatica del dialog spese
+    const createExpense = searchParams.get('createExpense');
+    const vendorName = searchParams.get('vendorName');
+    const categoryId = searchParams.get('categoryId');
+    
+    if (createExpense === 'true' && vendorName) {
+      // Aspetta che i dati siano caricati prima di aprire il dialog
+      setTimeout(() => {
+        setExpenseDialogOpen(true);
+        // Pre-compila la descrizione con il nome del fornitore
+        // La categoria viene pre-selezionata nel dialog
+      }, 500);
+      
+      // Rimuovi i query params
+      searchParams.delete('createExpense');
+      searchParams.delete('vendorName');
+      searchParams.delete('categoryId');
+      setSearchParams(searchParams);
+    }
   }, []);
 
   const loadData = async () => {
@@ -231,6 +251,30 @@ const Budget = () => {
 
       await loadExpenses(wedding.id);
       setSelectedExpense(null);
+      
+      // Workflow: Controlla se il budget è stato superato
+      if (wedding.total_budget) {
+        const { data: expensesData } = await supabase
+          .from("expenses")
+          .select("estimated_amount, final_amount")
+          .eq("wedding_id", wedding.id);
+          
+        if (expensesData) {
+          const totalSpent = expensesData.reduce((sum, exp) => {
+            return sum + (exp.final_amount || exp.estimated_amount);
+          }, 0);
+          
+          if (totalSpent > wedding.total_budget) {
+            const overBudget = totalSpent - wedding.total_budget;
+            toast({
+              title: "⚠️ Budget Superato",
+              description: `Hai superato il budget totale di €${overBudget.toFixed(2)}`,
+              variant: "destructive",
+              duration: 6000,
+            });
+          }
+        }
+      }
     } catch (error: any) {
       toast({
         title: "Errore",
