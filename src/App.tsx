@@ -11,6 +11,7 @@ import Dashboard from "./pages/Dashboard";
 import Guests from "./pages/Guests";
 import Budget from "./pages/Budget";
 import Checklist from "./pages/Checklist";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -31,6 +32,7 @@ const App = () => (
             <Route path="guests" element={<Guests />} />
             <Route path="budget" element={<Budget />} />
             <Route path="checklist" element={<Checklist />} />
+            <Route path="settings" element={<Settings />} />
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

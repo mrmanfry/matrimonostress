@@ -19,6 +19,7 @@ const weddingSchema = z.object({
 const Onboarding = () => {
   const [partner1Name, setPartner1Name] = useState("");
   const [partner2Name, setPartner2Name] = useState("");
+  const [partner2Email, setPartner2Email] = useState("");
   const [weddingDate, setWeddingDate] = useState("");
   const [totalBudget, setTotalBudget] = useState("");
   const [loading, setLoading] = useState(false);
@@ -40,18 +41,52 @@ const Onboarding = () => {
         total_budget: budgetValue || undefined,
       });
 
+      // Validate partner email
+      if (partner2Email) {
+        z.string().email().parse(partner2Email);
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
 
-      const { error } = await supabase.from("weddings").insert({
-        partner1_name: partner1Name,
-        partner2_name: partner2Name,
-        wedding_date: weddingDate,
-        total_budget: budgetValue,
-        created_by: user.id,
-      });
+      const { data: wedding, error: weddingError } = await supabase
+        .from("weddings")
+        .insert({
+          partner1_name: partner1Name,
+          partner2_name: partner2Name,
+          wedding_date: weddingDate,
+          total_budget: budgetValue,
+          created_by: user.id,
+        })
+        .select()
+        .single();
 
-      if (error) throw error;
+      if (weddingError) throw weddingError;
+
+      // If partner email provided, create invitation
+      if (partner2Email && wedding) {
+        const token = crypto.randomUUID();
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + 7); // 7 days to accept
+
+        const { error: inviteError } = await supabase
+          .from("wedding_invitations")
+          .insert({
+            wedding_id: wedding.id,
+            invited_by: user.id,
+            email: partner2Email,
+            role: 'co_planner',
+            token,
+            expires_at: expiresAt.toISOString(),
+          });
+
+        if (inviteError) throw inviteError;
+
+        toast({
+          title: "Invito inviato!",
+          description: `Un'email è stata inviata a ${partner2Email}`,
+        });
+      }
 
       toast({
         title: "Perfetto!",
@@ -118,6 +153,22 @@ const Onboarding = () => {
               disabled={loading}
               maxLength={100}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="partner2Email">Email Partner 2 (opzionale)</Label>
+            <Input
+              id="partner2Email"
+              type="email"
+              value={partner2Email}
+              onChange={(e) => setPartner2Email(e.target.value)}
+              placeholder="partner2@email.com"
+              disabled={loading}
+              maxLength={255}
+            />
+            <p className="text-sm text-muted-foreground">
+              Se fornita, il tuo partner riceverà un invito per accedere allo spazio matrimonio
+            </p>
           </div>
 
           <div className="space-y-2">
