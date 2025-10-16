@@ -1,8 +1,11 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { guestSchema, type GuestFormData } from "@/lib/validationSchemas";
 import {
   Dialog,
   DialogContent,
@@ -39,16 +42,16 @@ interface GuestDialogProps {
   onSave: (guest: Guest) => Promise<void>;
 }
 
-const emptyGuest: Guest = {
+const emptyGuest = {
   first_name: "",
   last_name: "",
-  rsvp_status: "pending",
+  rsvp_status: "pending" as const,
   adults_count: 1,
   children_count: 0,
   menu_choice: "",
   dietary_restrictions: "",
   notes: "",
-  group_id: null,
+  group_id: undefined,
 };
 
 export function GuestDialog({
@@ -58,28 +61,62 @@ export function GuestDialog({
   groups,
   onSave,
 }: GuestDialogProps) {
-  const [formData, setFormData] = useState<Guest>(emptyGuest);
-  const [loading, setLoading] = useState(false);
+  const {
+    register,
+    handleSubmit,
+    reset,
+    setValue,
+    watch,
+    formState: { errors, isSubmitting },
+  } = useForm<GuestFormData>({
+    resolver: zodResolver(guestSchema),
+    defaultValues: emptyGuest,
+  });
+
+  const rsvpStatus = watch("rsvp_status");
+  const groupId = watch("group_id");
 
   useEffect(() => {
     if (guest) {
-      setFormData(guest);
+      const guestRsvpStatus = ["pending", "confirmed", "declined"].includes(guest.rsvp_status)
+        ? guest.rsvp_status as GuestFormData["rsvp_status"]
+        : "pending" as GuestFormData["rsvp_status"];
+      
+      reset({
+        first_name: guest.first_name,
+        last_name: guest.last_name,
+        rsvp_status: guestRsvpStatus,
+        adults_count: guest.adults_count,
+        children_count: guest.children_count,
+        menu_choice: guest.menu_choice || "",
+        dietary_restrictions: guest.dietary_restrictions || "",
+        notes: guest.notes || "",
+        group_id: guest.group_id || undefined,
+      });
     } else {
-      setFormData(emptyGuest);
+      reset(emptyGuest);
     }
-  }, [guest, open]);
+  }, [guest, open, reset]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-
+  const onSubmit = async (data: GuestFormData) => {
     try {
-      await onSave(formData);
+      const guestData = {
+        ...data,
+        id: guest?.id,
+        first_name: data.first_name,
+        last_name: data.last_name,
+        rsvp_status: data.rsvp_status,
+        adults_count: data.adults_count,
+        children_count: data.children_count,
+        menu_choice: data.menu_choice || "",
+        dietary_restrictions: data.dietary_restrictions || "",
+        notes: data.notes || "",
+        group_id: data.group_id || null,
+      };
+      await onSave(guestData as Guest);
       onOpenChange(false);
     } catch (error) {
       console.error("Error saving guest:", error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -92,32 +129,30 @@ export function GuestDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="first_name">Nome *</Label>
               <Input
                 id="first_name"
-                value={formData.first_name}
-                onChange={(e) =>
-                  setFormData({ ...formData, first_name: e.target.value })
-                }
-                required
+                {...register("first_name")}
                 maxLength={100}
               />
+              {errors.first_name && (
+                <p className="text-sm text-destructive">{errors.first_name.message}</p>
+              )}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="last_name">Cognome *</Label>
               <Input
                 id="last_name"
-                value={formData.last_name}
-                onChange={(e) =>
-                  setFormData({ ...formData, last_name: e.target.value })
-                }
-                required
+                {...register("last_name")}
                 maxLength={100}
               />
+              {errors.last_name && (
+                <p className="text-sm text-destructive">{errors.last_name.message}</p>
+              )}
             </div>
           </div>
 
@@ -125,10 +160,8 @@ export function GuestDialog({
             <div className="space-y-2">
               <Label htmlFor="rsvp_status">Stato RSVP</Label>
               <Select
-                value={formData.rsvp_status}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, rsvp_status: value })
-                }
+                value={rsvpStatus}
+                onValueChange={(value) => setValue("rsvp_status", value as GuestFormData["rsvp_status"])}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -144,13 +177,8 @@ export function GuestDialog({
             <div className="space-y-2">
               <Label htmlFor="group_id">Gruppo</Label>
               <Select
-                value={formData.group_id || "none"}
-                onValueChange={(value) =>
-                  setFormData({
-                    ...formData,
-                    group_id: value === "none" ? null : value,
-                  })
-                }
+                value={groupId || "none"}
+                onValueChange={(value) => setValue("group_id", value === "none" ? null : value)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Nessun gruppo" />
@@ -175,14 +203,11 @@ export function GuestDialog({
                 type="number"
                 min="0"
                 max="20"
-                value={formData.adults_count}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    adults_count: parseInt(e.target.value) || 0,
-                  })
-                }
+                {...register("adults_count", { valueAsNumber: true })}
               />
+              {errors.adults_count && (
+                <p className="text-sm text-destructive">{errors.adults_count.message}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -192,14 +217,11 @@ export function GuestDialog({
                 type="number"
                 min="0"
                 max="20"
-                value={formData.children_count}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    children_count: parseInt(e.target.value) || 0,
-                  })
-                }
+                {...register("children_count", { valueAsNumber: true })}
               />
+              {errors.children_count && (
+                <p className="text-sm text-destructive">{errors.children_count.message}</p>
+              )}
             </div>
           </div>
 
@@ -207,13 +229,13 @@ export function GuestDialog({
             <Label htmlFor="menu_choice">Scelta Menù</Label>
             <Input
               id="menu_choice"
-              value={formData.menu_choice}
-              onChange={(e) =>
-                setFormData({ ...formData, menu_choice: e.target.value })
-              }
+              {...register("menu_choice")}
               placeholder="Es: Carne, Pesce, Vegetariano"
               maxLength={200}
             />
+            {errors.menu_choice && (
+              <p className="text-sm text-destructive">{errors.menu_choice.message}</p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -222,31 +244,28 @@ export function GuestDialog({
             </Label>
             <Textarea
               id="dietary_restrictions"
-              value={formData.dietary_restrictions}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  dietary_restrictions: e.target.value,
-                })
-              }
+              {...register("dietary_restrictions")}
               placeholder="Es: Celiaco, vegano, allergia ai crostacei"
               rows={2}
               maxLength={500}
             />
+            {errors.dietary_restrictions && (
+              <p className="text-sm text-destructive">{errors.dietary_restrictions.message}</p>
+            )}
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="notes">Note</Label>
             <Textarea
               id="notes"
-              value={formData.notes}
-              onChange={(e) =>
-                setFormData({ ...formData, notes: e.target.value })
-              }
+              {...register("notes")}
               placeholder="Informazioni aggiuntive"
               rows={3}
               maxLength={1000}
             />
+            {errors.notes && (
+              <p className="text-sm text-destructive">{errors.notes.message}</p>
+            )}
           </div>
 
           <DialogFooter>
@@ -254,12 +273,12 @@ export function GuestDialog({
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
-              disabled={loading}
+              disabled={isSubmitting}
             >
               Annulla
             </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? "Salvataggio..." : "Salva"}
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Salvataggio..." : "Salva"}
             </Button>
           </DialogFooter>
         </form>

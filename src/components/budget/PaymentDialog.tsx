@@ -1,7 +1,10 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { paymentSchema, type PaymentFormData } from "@/lib/validationSchemas";
 import {
   Dialog,
   DialogContent,
@@ -43,13 +46,14 @@ interface PaymentDialogProps {
   onSave: (payment: Payment) => Promise<void>;
 }
 
-const emptyPayment: Omit<Payment, "expense_id"> = {
+const emptyPayment = {
   description: "",
   amount: 0,
   due_date: "",
-  paid_at: null,
+  paid_at: undefined,
   paid_by: "",
-  status: "pending",
+  status: "pending" as const,
+  expense_id: "",
 };
 
 export function PaymentDialog({
@@ -60,38 +64,58 @@ export function PaymentDialog({
   expenseDescription,
   onSave,
 }: PaymentDialogProps) {
-  const [formData, setFormData] = useState<Payment>({
-    ...emptyPayment,
-    expense_id: expenseId,
+  const {
+    register,
+    handleSubmit,
+    reset,
+    setValue,
+    watch,
+    formState: { errors, isSubmitting },
+  } = useForm<PaymentFormData>({
+    resolver: zodResolver(paymentSchema),
+    defaultValues: { ...emptyPayment, expense_id: expenseId },
   });
-  const [dueDate, setDueDate] = useState<Date | undefined>(undefined);
-  const [loading, setLoading] = useState(false);
+
+  const dueDate = watch("due_date");
+  const status = watch("status");
 
   useEffect(() => {
     if (payment) {
-      setFormData(payment);
-      setDueDate(payment.due_date ? new Date(payment.due_date) : undefined);
-    } else {
-      setFormData({ ...emptyPayment, expense_id: expenseId });
-      setDueDate(undefined);
-    }
-  }, [payment, expenseId, open]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!dueDate) return;
-
-    setLoading(true);
-    try {
-      await onSave({
-        ...formData,
-        due_date: dueDate.toISOString().split("T")[0],
+      const paymentStatus = payment.status === "paid" || payment.status === "pending" 
+        ? payment.status as PaymentFormData["status"]
+        : "pending" as PaymentFormData["status"];
+      
+      reset({
+        description: payment.description,
+        amount: payment.amount,
+        due_date: payment.due_date,
+        status: paymentStatus,
+        paid_by: payment.paid_by || "",
+        paid_at: payment.paid_at || undefined,
+        expense_id: payment.expense_id,
       });
+    } else {
+      reset({ ...emptyPayment, expense_id: expenseId });
+    }
+  }, [payment, expenseId, open, reset]);
+
+  const onSubmit = async (data: PaymentFormData) => {
+    try {
+      const paymentData = {
+        ...data,
+        id: payment?.id,
+        description: data.description,
+        amount: data.amount,
+        due_date: data.due_date,
+        status: data.status,
+        paid_by: data.paid_by || "",
+        paid_at: data.paid_at || null,
+        expense_id: data.expense_id,
+      };
+      await onSave(paymentData as Payment);
       onOpenChange(false);
     } catch (error) {
       console.error("Error saving payment:", error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -107,19 +131,18 @@ export function PaymentDialog({
           </p>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="description">Descrizione *</Label>
             <Input
               id="description"
-              value={formData.description}
-              onChange={(e) =>
-                setFormData({ ...formData, description: e.target.value })
-              }
+              {...register("description")}
               placeholder="Es: Acconto 30%, Saldo finale"
-              required
               maxLength={200}
             />
+            {errors.description && (
+              <p className="text-sm text-destructive">{errors.description.message}</p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -130,15 +153,11 @@ export function PaymentDialog({
                 type="number"
                 min="0"
                 step="0.01"
-                value={formData.amount}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    amount: parseFloat(e.target.value) || 0,
-                  })
-                }
-                required
+                {...register("amount", { valueAsNumber: true })}
               />
+              {errors.amount && (
+                <p className="text-sm text-destructive">{errors.amount.message}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -153,19 +172,24 @@ export function PaymentDialog({
                     )}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dueDate ? format(dueDate, "PPP", { locale: it }) : "Seleziona data"}
+                    {dueDate ? format(new Date(dueDate), "PPP", { locale: it }) : "Seleziona data"}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
                   <Calendar
                     mode="single"
-                    selected={dueDate}
-                    onSelect={setDueDate}
+                    selected={dueDate ? new Date(dueDate) : undefined}
+                    onSelect={(date) => 
+                      setValue("due_date", date ? date.toISOString().split("T")[0] : "", { shouldValidate: true })
+                    }
                     initialFocus
                     className="pointer-events-auto"
                   />
                 </PopoverContent>
               </Popover>
+              {errors.due_date && (
+                <p className="text-sm text-destructive">{errors.due_date.message}</p>
+              )}
             </div>
           </div>
 
@@ -173,10 +197,8 @@ export function PaymentDialog({
             <div className="space-y-2">
               <Label htmlFor="status">Stato *</Label>
               <Select
-                value={formData.status}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, status: value })
-                }
+                value={status}
+                onValueChange={(value) => setValue("status", value as PaymentFormData["status"])}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -192,13 +214,13 @@ export function PaymentDialog({
               <Label htmlFor="paid_by">Pagato da</Label>
               <Input
                 id="paid_by"
-                value={formData.paid_by}
-                onChange={(e) =>
-                  setFormData({ ...formData, paid_by: e.target.value })
-                }
+                {...register("paid_by")}
                 placeholder="Es: Mario, Sofia"
                 maxLength={100}
               />
+              {errors.paid_by && (
+                <p className="text-sm text-destructive">{errors.paid_by.message}</p>
+              )}
             </div>
           </div>
 
@@ -207,12 +229,12 @@ export function PaymentDialog({
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
-              disabled={loading}
+              disabled={isSubmitting}
             >
               Annulla
             </Button>
-            <Button type="submit" disabled={loading || !dueDate}>
-              {loading ? "Salvataggio..." : "Salva"}
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Salvataggio..." : "Salva"}
             </Button>
           </DialogFooter>
         </form>

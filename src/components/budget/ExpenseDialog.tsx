@@ -1,8 +1,10 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { expenseSchema, type ExpenseFormData } from "@/lib/validationSchemas";
 import {
   Dialog,
   DialogContent,
@@ -52,28 +54,44 @@ export function ExpenseDialog({
   vendors,
   onSave,
 }: ExpenseDialogProps) {
-  const [formData, setFormData] = useState<Expense>(emptyExpense);
-  const [loading, setLoading] = useState(false);
+  const {
+    register,
+    handleSubmit,
+    reset,
+    setValue,
+    watch,
+    formState: { errors, isSubmitting },
+  } = useForm<ExpenseFormData>({
+    resolver: zodResolver(expenseSchema),
+    defaultValues: emptyExpense,
+  });
+
+  const categoryId = watch("category_id");
+  const vendorId = watch("vendor_id");
 
   useEffect(() => {
     if (expense) {
-      setFormData(expense);
+      reset(expense);
     } else {
-      setFormData(emptyExpense);
+      reset(emptyExpense);
     }
-  }, [expense, open]);
+  }, [expense, open, reset]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-
+  const onSubmit = async (data: ExpenseFormData) => {
     try {
-      await onSave(formData);
+      const expenseData = {
+        ...data,
+        id: expense?.id,
+        description: data.description,
+        category_id: data.category_id,
+        estimated_amount: data.estimated_amount,
+        final_amount: data.final_amount || null,
+        vendor_id: data.vendor_id || null,
+      };
+      await onSave(expenseData as Expense);
       onOpenChange(false);
     } catch (error) {
       console.error("Error saving expense:", error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -86,29 +104,25 @@ export function ExpenseDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="description">Descrizione *</Label>
             <Input
               id="description"
-              value={formData.description}
-              onChange={(e) =>
-                setFormData({ ...formData, description: e.target.value })
-              }
+              {...register("description")}
               placeholder="Es: Affitto location, Catering, Fiorista"
-              required
               maxLength={200}
             />
+            {errors.description && (
+              <p className="text-sm text-destructive">{errors.description.message}</p>
+            )}
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="category_id">Categoria *</Label>
             <Select
-              value={formData.category_id}
-              onValueChange={(value) =>
-                setFormData({ ...formData, category_id: value })
-              }
-              required
+              value={categoryId}
+              onValueChange={(value) => setValue("category_id", value, { shouldValidate: true })}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Seleziona categoria" />
@@ -121,15 +135,16 @@ export function ExpenseDialog({
                 ))}
               </SelectContent>
             </Select>
+            {errors.category_id && (
+              <p className="text-sm text-destructive">{errors.category_id.message}</p>
+            )}
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="vendor_id">Fornitore</Label>
             <Select
-              value={formData.vendor_id || "none"}
-              onValueChange={(value) =>
-                setFormData({ ...formData, vendor_id: value === "none" ? null : value })
-              }
+              value={vendorId || "none"}
+              onValueChange={(value) => setValue("vendor_id", value === "none" ? null : value)}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Seleziona fornitore (opzionale)" />
@@ -153,15 +168,11 @@ export function ExpenseDialog({
                 type="number"
                 min="0"
                 step="0.01"
-                value={formData.estimated_amount}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    estimated_amount: parseFloat(e.target.value) || 0,
-                  })
-                }
-                required
+                {...register("estimated_amount", { valueAsNumber: true })}
               />
+              {errors.estimated_amount && (
+                <p className="text-sm text-destructive">{errors.estimated_amount.message}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -171,17 +182,15 @@ export function ExpenseDialog({
                 type="number"
                 min="0"
                 step="0.01"
-                value={formData.final_amount || ""}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    final_amount: e.target.value
-                      ? parseFloat(e.target.value)
-                      : null,
-                  })
-                }
+                {...register("final_amount", { 
+                  valueAsNumber: true,
+                  setValueAs: (v) => v === "" ? null : parseFloat(v)
+                })}
                 placeholder="Opzionale"
               />
+              {errors.final_amount && (
+                <p className="text-sm text-destructive">{errors.final_amount.message}</p>
+              )}
               <p className="text-xs text-muted-foreground">
                 Lascia vuoto se non ancora confermato
               </p>
@@ -193,12 +202,12 @@ export function ExpenseDialog({
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
-              disabled={loading}
+              disabled={isSubmitting}
             >
               Annulla
             </Button>
-            <Button type="submit" disabled={loading || !formData.category_id}>
-              {loading ? "Salvataggio..." : "Salva"}
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Salvataggio..." : "Salva"}
             </Button>
           </DialogFooter>
         </form>

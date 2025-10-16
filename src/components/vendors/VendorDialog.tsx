@@ -1,8 +1,11 @@
 import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { vendorSchema, type VendorFormData } from "@/lib/validationSchemas";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Upload, FileText, X } from "lucide-react";
@@ -40,22 +43,15 @@ interface VendorDialogProps {
   onSave: (vendor: Partial<Vendor>) => Promise<void>;
 }
 
-const emptyVendor: Vendor = {
+const emptyVendor: VendorFormData = {
   name: "",
-  contact_name: null,
-  email: null,
-  phone: null,
+  contact_name: "",
+  email: "",
+  phone: "",
   status: "evaluating",
-  notes: null,
-  category_id: null,
+  notes: "",
+  category_id: "",
 };
-
-const statusOptions = [
-  { value: "evaluating", label: "Valutazione" },
-  { value: "booked", label: "Prenotato" },
-  { value: "paid", label: "Pagato" },
-  { value: "excluded", label: "Escluso" },
-];
 
 export function VendorDialog({
   open,
@@ -64,21 +60,44 @@ export function VendorDialog({
   categories,
   onSave,
 }: VendorDialogProps) {
-  const [formData, setFormData] = useState<Vendor>(emptyVendor);
-  const [loading, setLoading] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<Array<{ name: string; path: string }>>([]);
   const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
 
+  const {
+    register,
+    handleSubmit,
+    reset,
+    setValue,
+    watch,
+    formState: { errors, isSubmitting },
+  } = useForm<VendorFormData>({
+    resolver: zodResolver(vendorSchema),
+    defaultValues: emptyVendor,
+  });
+
+  const categoryId = watch("category_id");
+  const status = watch("status");
+
   useEffect(() => {
     if (vendor) {
-      setFormData(vendor);
-      loadExistingFiles(vendor.id!);
+      reset({
+        name: vendor.name,
+        contact_name: vendor.contact_name || "",
+        email: vendor.email || "",
+        phone: vendor.phone || "",
+        status: vendor.status as VendorFormData["status"],
+        notes: vendor.notes || "",
+        category_id: vendor.category_id || "",
+      });
+      if (vendor.id) {
+        loadExistingFiles(vendor.id);
+      }
     } else {
-      setFormData(emptyVendor);
+      reset(emptyVendor);
       setUploadedFiles([]);
     }
-  }, [vendor, open]);
+  }, [vendor, open, reset]);
 
   const loadExistingFiles = async (vendorId: string) => {
     try {
@@ -195,17 +214,21 @@ export function VendorDialog({
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-
+  const onSubmit = async (data: VendorFormData) => {
     try {
-      await onSave(formData);
+      const vendorData = {
+        ...data,
+        id: vendor?.id,
+        contact_name: data.contact_name || null,
+        email: data.email || null,
+        phone: data.phone || null,
+        notes: data.notes || null,
+        category_id: data.category_id || null,
+      };
+      await onSave(vendorData);
       onOpenChange(false);
     } catch (error) {
       console.error("Error saving vendor:", error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -218,38 +241,31 @@ export function VendorDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">Nome Fornitore *</Label>
             <Input
               id="name"
-              value={formData.name}
-              onChange={(e) =>
-                setFormData({ ...formData, name: e.target.value })
-              }
+              {...register("name")}
               placeholder="Es: Fioreria La Rosa"
-              required
               maxLength={200}
             />
+            {errors.name && (
+              <p className="text-sm text-destructive">{errors.name.message}</p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="category_id">Categoria</Label>
+              <Label htmlFor="category_id">Categoria *</Label>
               <Select
-                value={formData.category_id || "none"}
-                onValueChange={(value) =>
-                  setFormData({
-                    ...formData,
-                    category_id: value === "none" ? null : value,
-                  })
-                }
+                value={categoryId}
+                onValueChange={(value) => setValue("category_id", value, { shouldValidate: true })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Seleziona categoria" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Nessuna</SelectItem>
                   {categories.map((cat) => (
                     <SelectItem key={cat.id} value={cat.id}>
                       {cat.name}
@@ -257,26 +273,25 @@ export function VendorDialog({
                   ))}
                 </SelectContent>
               </Select>
+              {errors.category_id && (
+                <p className="text-sm text-destructive">{errors.category_id.message}</p>
+              )}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="status">Stato *</Label>
+              <Label htmlFor="status">Stato</Label>
               <Select
-                value={formData.status}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, status: value })
-                }
-                required
+                value={status}
+                onValueChange={(value) => setValue("status", value as VendorFormData["status"])}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {statusOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="evaluating">In valutazione</SelectItem>
+                  <SelectItem value="booked">Prenotato</SelectItem>
+                  <SelectItem value="confirmed">Confermato</SelectItem>
+                  <SelectItem value="rejected">Rifiutato</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -286,16 +301,13 @@ export function VendorDialog({
             <Label htmlFor="contact_name">Nome Contatto</Label>
             <Input
               id="contact_name"
-              value={formData.contact_name || ""}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  contact_name: e.target.value || null,
-                })
-              }
+              {...register("contact_name")}
               placeholder="Es: Mario Rossi"
               maxLength={200}
             />
+            {errors.contact_name && (
+              <p className="text-sm text-destructive">{errors.contact_name.message}</p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -304,13 +316,13 @@ export function VendorDialog({
               <Input
                 id="email"
                 type="email"
-                value={formData.email || ""}
-                onChange={(e) =>
-                  setFormData({ ...formData, email: e.target.value || null })
-                }
+                {...register("email")}
                 placeholder="contatto@fornitore.it"
-                maxLength={200}
+                maxLength={255}
               />
+              {errors.email && (
+                <p className="text-sm text-destructive">{errors.email.message}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -318,13 +330,13 @@ export function VendorDialog({
               <Input
                 id="phone"
                 type="tel"
-                value={formData.phone || ""}
-                onChange={(e) =>
-                  setFormData({ ...formData, phone: e.target.value || null })
-                }
+                {...register("phone")}
                 placeholder="+39 123 456 7890"
-                maxLength={50}
+                maxLength={20}
               />
+              {errors.phone && (
+                <p className="text-sm text-destructive">{errors.phone.message}</p>
+              )}
             </div>
           </div>
 
@@ -332,14 +344,14 @@ export function VendorDialog({
             <Label htmlFor="notes">Note</Label>
             <Textarea
               id="notes"
-              value={formData.notes || ""}
-              onChange={(e) =>
-                setFormData({ ...formData, notes: e.target.value || null })
-              }
+              {...register("notes")}
               placeholder="Appunti, preventivi ricevuti, etc..."
               rows={4}
               maxLength={1000}
             />
+            {errors.notes && (
+              <p className="text-sm text-destructive">{errors.notes.message}</p>
+            )}
             <p className="text-xs text-muted-foreground">
               Spazio per preventivi, pro/contro, dettagli contrattuali
             </p>
@@ -411,12 +423,12 @@ export function VendorDialog({
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
-              disabled={loading}
+              disabled={isSubmitting}
             >
               Annulla
             </Button>
-            <Button type="submit" disabled={loading || !formData.name}>
-              {loading ? "Salvataggio..." : "Salva"}
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Salvataggio..." : "Salva"}
             </Button>
           </DialogFooter>
         </form>
