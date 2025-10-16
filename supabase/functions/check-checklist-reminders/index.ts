@@ -132,7 +132,7 @@ serve(async (req: Request): Promise<Response> => {
 
       // Costruisci l'HTML dell'email
       const weddingName = `${wedding.partner1_name} & ${wedding.partner2_name}`;
-      const appUrl = Deno.env.get("SUPABASE_URL")?.replace(".supabase.co", ".lovable.app") || "";
+      const appUrl = Deno.env.get("APP_URL") || "";
       
       let tasksHtml = weddingTasks.map(task => `
         <li style="margin-bottom: 15px;">
