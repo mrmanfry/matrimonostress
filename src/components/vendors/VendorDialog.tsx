@@ -62,6 +62,7 @@ export function VendorDialog({
 }: VendorDialogProps) {
   const [uploadedFiles, setUploadedFiles] = useState<Array<{ name: string; path: string }>>([]);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const { toast } = useToast();
 
   const {
@@ -123,24 +124,106 @@ export function VendorDialog({
     }
   };
 
+  const validateFile = (file: File): { valid: boolean; error?: string } => {
+    const maxSize = 10 * 1024 * 1024; // 10MB in bytes
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'image/jpeg',
+      'image/png',
+      'image/webp'
+    ];
+
+    if (file.size > maxSize) {
+      return {
+        valid: false,
+        error: `Il file "${file.name}" supera la dimensione massima di 10MB (dimensione: ${(file.size / 1024 / 1024).toFixed(2)}MB)`
+      };
+    }
+
+    if (!allowedTypes.includes(file.type)) {
+      return {
+        valid: false,
+        error: `Il formato del file "${file.name}" non è supportato. Formati consentiti: PDF, DOC, DOCX, JPG, PNG, WEBP`
+      };
+    }
+
+    return { valid: true };
+  };
+
+  const uploadWithRetry = async (
+    filePath: string,
+    file: File,
+    maxRetries = 3,
+    retryDelay = 1000
+  ): Promise<void> => {
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        setUploadProgress(0);
+        
+        const { error: uploadError } = await supabase.storage
+          .from("vendor-documents")
+          .upload(filePath, file, { 
+            upsert: true,
+          });
+
+        if (uploadError) throw uploadError;
+
+        setUploadProgress(100);
+        return; // Success - exit retry loop
+      } catch (error: any) {
+        lastError = error;
+        console.error(`Upload attempt ${attempt} failed:`, error);
+
+        // Check if it's a network error that can be retried
+        const isNetworkError = error.message?.includes('network') || 
+                               error.message?.includes('fetch') ||
+                               error.status === 0;
+
+        if (attempt < maxRetries && isNetworkError) {
+          await new Promise(resolve => setTimeout(resolve, retryDelay * attempt));
+          continue;
+        }
+
+        throw error; // If not retryable or max retries reached, throw
+      }
+    }
+
+    throw lastError || new Error('Upload failed after retries');
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0 || !vendor?.id) return;
 
+    const file = files[0];
+
+    // Validate file before upload
+    const validation = validateFile(file);
+    if (!validation.valid) {
+      toast({
+        title: "File non valido",
+        description: validation.error,
+        variant: "destructive",
+      });
+      e.target.value = "";
+      return;
+    }
+
     setUploading(true);
+    setUploadProgress(0);
 
     try {
       const { data: user } = await supabase.auth.getUser();
-      if (!user.user) throw new Error("User not authenticated");
+      if (!user.user) throw new Error("Utente non autenticato");
 
-      const file = files[0];
       const filePath = `${user.user.id}/${vendor.id}/${file.name}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from("vendor-documents")
-        .upload(filePath, file, { upsert: true });
-
-      if (uploadError) throw uploadError;
+      // Upload with automatic retry on network errors
+      await uploadWithRetry(filePath, file);
 
       setUploadedFiles((prev) => [
         ...prev,
@@ -153,13 +236,20 @@ export function VendorDialog({
       });
     } catch (error: any) {
       console.error("Upload error:", error);
+      
+      const isNetworkError = error.message?.includes('network') || 
+                            error.message?.includes('fetch');
+      
       toast({
         title: "Errore caricamento",
-        description: error.message,
+        description: isNetworkError 
+          ? "Errore di connessione. Controlla la rete e riprova."
+          : error.message || "Si è verificato un errore durante il caricamento",
         variant: "destructive",
       });
     } finally {
       setUploading(false);
+      setUploadProgress(0);
       e.target.value = "";
     }
   };
@@ -361,22 +451,39 @@ export function VendorDialog({
             <div className="space-y-2">
               <Label>Documenti</Label>
               <div className="border rounded-lg p-4 space-y-3">
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="file"
-                    id="file-upload"
-                    onChange={handleFileUpload}
-                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
-                    disabled={uploading}
-                    className="hidden"
-                  />
-                  <Label
-                    htmlFor="file-upload"
-                    className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md cursor-pointer hover:bg-primary/90 transition-colors"
-                  >
-                    <Upload className="h-4 w-4" />
-                    {uploading ? "Caricamento..." : "Carica Documento"}
-                  </Label>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="file"
+                      id="file-upload"
+                      onChange={handleFileUpload}
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
+                      disabled={uploading}
+                      className="hidden"
+                    />
+                    <Label
+                      htmlFor="file-upload"
+                      className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md cursor-pointer hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Upload className="h-4 w-4" />
+                      {uploading ? "Caricamento..." : "Carica Documento"}
+                    </Label>
+                  </div>
+
+                  {uploading && uploadProgress > 0 && (
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Caricamento in corso...</span>
+                        <span>{uploadProgress}%</span>
+                      </div>
+                      <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                        <div 
+                          className="bg-primary h-full transition-all duration-300 ease-out"
+                          style={{ width: `${uploadProgress}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {uploadedFiles.length > 0 ? (
@@ -411,9 +518,19 @@ export function VendorDialog({
                   </p>
                 )}
 
-                <p className="text-xs text-muted-foreground">
-                  Formati supportati: PDF, DOC, DOCX, JPG, PNG, WEBP (max 10MB)
-                </p>
+                <div className="pt-2 space-y-1">
+                  <p className="text-xs text-muted-foreground">
+                    <strong>Formati supportati:</strong> PDF, DOC, DOCX, JPG, PNG, WEBP
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    <strong>Dimensione massima:</strong> 10MB per file
+                  </p>
+                  {uploading && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                      ⚠️ In caso di errori di rete, il sistema riproverà automaticamente
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           )}
