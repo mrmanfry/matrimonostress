@@ -1,15 +1,40 @@
 import { useEffect, useState } from "react";
-import { Outlet, useNavigate, Link, useLocation } from "react-router-dom";
+import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Heart, LayoutDashboard, Users, Euro, CheckSquare, LogOut, Menu, X, Settings, Package, UtensilsCrossed, Calendar } from "lucide-react";
+import { 
+  Heart, 
+  LayoutDashboard, 
+  Users, 
+  Euro, 
+  CheckSquare, 
+  LogOut, 
+  Settings, 
+  Package, 
+  UtensilsCrossed, 
+  Calendar 
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { User } from "@supabase/supabase-js";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
+import { NavLink } from "react-router-dom";
 
 const AppLayout = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [weddingInfo, setWeddingInfo] = useState<{ partner1: string; partner2: string; daysUntil: number } | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -41,11 +66,34 @@ const AppLayout = () => {
       
       if (!user) {
         navigate("/auth");
+      } else {
+        loadWeddingInfo(user.id);
       }
     });
 
     return () => subscription.unsubscribe();
   }, [navigate]);
+
+  const loadWeddingInfo = async (userId: string) => {
+    const { data } = await supabase
+      .from("weddings")
+      .select("partner1_name, partner2_name, wedding_date")
+      .eq("created_by", userId)
+      .single();
+
+    if (data) {
+      const weddingDate = new Date(data.wedding_date);
+      const today = new Date();
+      const diffTime = weddingDate.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      setWeddingInfo({
+        partner1: data.partner1_name,
+        partner2: data.partner2_name,
+        daysUntil: diffDays > 0 ? diffDays : 0,
+      });
+    }
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -71,88 +119,61 @@ const AppLayout = () => {
     return null;
   }
 
+  const isActive = (path: string) => location.pathname === path;
+
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row">
-      {/* Sidebar Desktop */}
-      <aside className="hidden lg:flex lg:flex-col lg:w-64 bg-card border-r border-border">
-        <div className="p-6 border-b border-border">
-          <Link to="/" className="flex items-center gap-2">
-            <Heart className="w-6 h-6 text-accent fill-accent" />
-            <span className="font-bold text-lg">Nozze Senza Stress</span>
-          </Link>
-        </div>
+    <SidebarProvider>
+      <div className="min-h-screen flex w-full">
+        {/* Sidebar */}
+        <Sidebar collapsible="icon">
+          <SidebarHeader className="border-b border-border p-4">
+            <div className="flex items-center gap-2">
+              <Heart className="w-6 h-6 text-accent fill-accent shrink-0" />
+              <div className="flex-1 overflow-hidden">
+                <p className="font-bold text-sm truncate">Nozze Senza Stress</p>
+                {weddingInfo && (
+                  <p className="text-xs text-muted-foreground truncate">
+                    {weddingInfo.partner1} & {weddingInfo.partner2}
+                  </p>
+                )}
+              </div>
+            </div>
+          </SidebarHeader>
 
-        <nav className="flex-1 p-4 space-y-2">
-          {navigation.map((item) => {
-            const Icon = item.icon;
-            const isActive = location.pathname === item.href;
-            return (
-              <Link
-                key={item.name}
-                to={item.href}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                  isActive
-                    ? "bg-accent/20 text-foreground font-medium"
-                    : "text-muted-foreground hover:bg-accent/10 hover:text-foreground"
-                }`}
-              >
-                <Icon className="w-5 h-5" />
-                {item.name}
-              </Link>
-            );
-          })}
-        </nav>
+          <SidebarContent>
+            <SidebarGroup>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {navigation.map((item) => {
+                    const Icon = item.icon;
+                    const active = isActive(item.href);
+                    
+                    return (
+                      <SidebarMenuItem key={item.name}>
+                        <SidebarMenuButton asChild isActive={active}>
+                          <NavLink
+                            to={item.href}
+                            className={active ? "bg-accent/20 text-foreground font-medium" : ""}
+                          >
+                            <Icon className="w-5 h-5" />
+                            <span>{item.name}</span>
+                          </NavLink>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </SidebarContent>
 
-        <div className="p-4 border-t border-border">
-          <Button
-            variant="ghost"
-            className="w-full justify-start"
-            onClick={handleLogout}
-          >
-            <LogOut className="w-5 h-5 mr-3" />
-            Esci
-          </Button>
-        </div>
-      </aside>
-
-      {/* Mobile Header */}
-      <div className="lg:hidden bg-card border-b border-border">
-        <div className="flex items-center justify-between p-4">
-          <Link to="/" className="flex items-center gap-2">
-            <Heart className="w-6 h-6 text-accent fill-accent" />
-            <span className="font-bold">Nozze Senza Stress</span>
-          </Link>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          >
-            {mobileMenuOpen ? <X /> : <Menu />}
-          </Button>
-        </div>
-
-        {/* Mobile Menu */}
-        {mobileMenuOpen && (
-          <div className="border-t border-border p-4 space-y-2">
-            {navigation.map((item) => {
-              const Icon = item.icon;
-              const isActive = location.pathname === item.href;
-              return (
-                <Link
-                  key={item.name}
-                  to={item.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                    isActive
-                      ? "bg-accent/20 text-foreground font-medium"
-                      : "text-muted-foreground hover:bg-accent/10 hover:text-foreground"
-                  }`}
-                >
-                  <Icon className="w-5 h-5" />
-                  {item.name}
-                </Link>
-              );
-            })}
+          <SidebarFooter className="border-t border-border p-4">
+            {weddingInfo && (
+              <div className="mb-3 p-3 bg-gradient-hero rounded-lg text-center">
+                <div className="text-3xl font-bold text-accent">{weddingInfo.daysUntil}</div>
+                <div className="text-xs text-muted-foreground">giorni al matrimonio</div>
+              </div>
+            )}
             <Button
               variant="ghost"
               className="w-full justify-start"
@@ -161,15 +182,33 @@ const AppLayout = () => {
               <LogOut className="w-5 h-5 mr-3" />
               Esci
             </Button>
-          </div>
-        )}
-      </div>
+          </SidebarFooter>
+        </Sidebar>
 
-      {/* Main Content */}
-      <main className="flex-1 overflow-auto">
-        <Outlet />
-      </main>
-    </div>
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col">
+          {/* Header with Trigger */}
+          <header className="h-14 border-b border-border bg-card flex items-center px-4 gap-4">
+            <SidebarTrigger />
+            {weddingInfo && (
+              <div className="flex-1 text-center">
+                <h2 className="text-sm font-semibold">
+                  {weddingInfo.partner1} & {weddingInfo.partner2}
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  {weddingInfo.daysUntil} giorni al matrimonio
+                </p>
+              </div>
+            )}
+          </header>
+
+          {/* Page Content */}
+          <main className="flex-1 overflow-auto">
+            <Outlet />
+          </main>
+        </div>
+      </div>
+    </SidebarProvider>
   );
 };
 

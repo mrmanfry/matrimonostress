@@ -61,6 +61,12 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        status: {
+          confirmed: "hsl(var(--status-confirmed))",
+          urgent: "hsl(var(--status-urgent))",
+          overdue: "hsl(var(--status-overdue))",
+          pending: "hsl(var(--status-pending))",
+        },
       },
       backgroundImage: {
         'gradient-hero': 'var(--gradient-hero)',
