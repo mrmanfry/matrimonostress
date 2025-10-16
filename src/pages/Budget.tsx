@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,6 +41,7 @@ interface Category {
 interface Vendor {
   id: string;
   name: string;
+  category_id?: string | null;
 }
 
 interface Expense {
@@ -79,6 +81,8 @@ const Budget = () => {
   const [selectedExpenseForPayment, setSelectedExpenseForPayment] = useState<Expense | null>(null);
   const [newBudget, setNewBudget] = useState("");
   const { toast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const vendorFilter = searchParams.get("vendor");
 
   useEffect(() => {
     loadData();
@@ -125,7 +129,7 @@ const Budget = () => {
   const loadVendors = async (weddingId: string) => {
     const { data } = await supabase
       .from("vendors")
-      .select("id, name")
+      .select("id, name, category_id")
       .eq("wedding_id", weddingId)
       .order("name", { ascending: true });
 
@@ -394,24 +398,35 @@ const Budget = () => {
     return <Badge variant="secondary">Da pagare</Badge>;
   };
 
-  // Stats
+  // Apply vendor filter first
+  const filteredExpenses = vendorFilter 
+    ? expenses.filter(e => e.vendor_id === vendorFilter)
+    : expenses;
+
+  // Stats (with vendor filter applied)
   const totalBudget = wedding?.total_budget || 0;
-  const totalSpent = expenses.reduce(
+  const totalSpent = filteredExpenses.reduce(
     (sum, e) => sum + (e.final_amount || e.estimated_amount),
     0
   );
-  const totalPaid = payments.filter((p) => p.status === "paid").reduce((sum, p) => sum + p.amount, 0);
-  const totalPending = payments.filter((p) => p.status === "pending").reduce((sum, p) => sum + p.amount, 0);
+  
+  // Filter payments based on filtered expenses
+  const filteredPayments = vendorFilter
+    ? payments.filter(p => filteredExpenses.some(e => e.id === p.expense_id))
+    : payments;
+  
+  const totalPaid = filteredPayments.filter((p) => p.status === "paid").reduce((sum, p) => sum + p.amount, 0);
+  const totalPending = filteredPayments.filter((p) => p.status === "pending").reduce((sum, p) => sum + p.amount, 0);
   const remaining = totalBudget - totalSpent;
   const percentageSpent = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
 
-  const urgentPayments = payments.filter(
+  const urgentPayments = filteredPayments.filter(
     (p) => p.status === "pending" && getDaysUntilDue(p.due_date) <= 7
   );
 
-  // Group by category
+  // Group by category (with vendor filter applied)
   const expensesByCategory = categories.map((cat) => {
-    const catExpenses = expenses.filter((e) => e.category_id === cat.id);
+    const catExpenses = filteredExpenses.filter((e) => e.category_id === cat.id);
     const catTotal = catExpenses.reduce(
       (sum, e) => sum + (e.final_amount || e.estimated_amount),
       0
@@ -422,6 +437,10 @@ const Budget = () => {
       total: catTotal,
     };
   });
+
+  const filteredVendor = vendorFilter 
+    ? vendors.find(v => v.id === vendorFilter)
+    : null;
 
   if (loading) {
     return (
@@ -439,9 +458,28 @@ const Budget = () => {
           <Euro className="w-8 h-8 text-gold" />
           <h1 className="text-3xl font-bold">Gestione Budget</h1>
         </div>
-        <p className="text-muted-foreground">
-          Controlla le spese e i pagamenti per il tuo matrimonio
-        </p>
+        <div className="flex items-center justify-between">
+          <p className="text-muted-foreground">
+            Controlla le spese e i pagamenti per il tuo matrimonio
+          </p>
+          {filteredVendor && (
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className="text-sm">
+                Filtro: {filteredVendor.name}
+              </Badge>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  searchParams.delete("vendor");
+                  setSearchParams(searchParams);
+                }}
+              >
+                Rimuovi filtro
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Budget Overview */}
@@ -498,9 +536,9 @@ const Budget = () => {
         <Card className="p-4">
           <div className="flex items-center gap-2 mb-2">
             <TrendingUp className="w-5 h-5 text-blue-600" />
-            <span className="text-sm text-muted-foreground">Spese</span>
+            <span className="text-sm text-muted-foreground">Spese{vendorFilter ? " (Filtrate)" : ""}</span>
           </div>
-          <div className="text-2xl font-bold">{expenses.length}</div>
+          <div className="text-2xl font-bold">{filteredExpenses.length}</div>
         </Card>
 
         <Card className="p-4">

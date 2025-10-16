@@ -29,6 +29,7 @@ interface Vendor {
   notes: string | null;
   category_id: string | null;
   category_name?: string;
+  expenses_total?: number;
 }
 
 interface Category {
@@ -95,7 +96,8 @@ const Vendors = () => {
       .from("vendors")
       .select(`
         *,
-        category:expense_categories(name)
+        category:expense_categories(name),
+        expenses!vendor_id(estimated_amount, final_amount)
       `)
       .eq("wedding_id", weddingId)
       .order("created_at", { ascending: false });
@@ -106,10 +108,18 @@ const Vendors = () => {
     }
 
     setVendors(
-      data.map((v: any) => ({
-        ...v,
-        category_name: v.category?.name || null,
-      }))
+      data.map((v: any) => {
+        const expensesTotal = v.expenses?.reduce(
+          (sum: number, e: any) => sum + (e.final_amount || e.estimated_amount),
+          0
+        ) || 0;
+        
+        return {
+          ...v,
+          category_name: v.category?.name || null,
+          expenses_total: expensesTotal,
+        };
+      })
     );
   };
 
@@ -395,6 +405,29 @@ const Vendors = () => {
                     </a>
                   </div>
                 )}
+                
+                {/* Total Expenses for Vendor */}
+                {vendor.expenses_total !== undefined && vendor.expenses_total > 0 && (
+                  <div className="border-t pt-3 mt-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Spese totali:</span>
+                      <a 
+                        href={`/app/budget?vendor=${vendor.id}`}
+                        className="text-lg font-bold text-primary hover:underline"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          window.location.href = `/app/budget?vendor=${vendor.id}`;
+                        }}
+                      >
+                        €{vendor.expenses_total.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                      </a>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Click per vedere le spese nel budget
+                    </p>
+                  </div>
+                )}
+                
                 {vendor.notes && (
                   <p className="text-sm text-muted-foreground border-t pt-3 mt-3">
                     {vendor.notes}

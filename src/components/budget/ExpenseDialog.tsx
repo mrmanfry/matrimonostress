@@ -34,7 +34,7 @@ interface ExpenseDialogProps {
   onOpenChange: (open: boolean) => void;
   expense: Expense | null;
   categories: Array<{ id: string; name: string }>;
-  vendors: Array<{ id: string; name: string }>;
+  vendors: Array<{ id: string; name: string; category_id?: string | null }>;
   onSave: (expense: Expense) => Promise<void>;
 }
 
@@ -151,13 +151,24 @@ export function ExpenseDialog({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">Nessun fornitore</SelectItem>
-                {vendors.map((vendor) => (
-                  <SelectItem key={vendor.id} value={vendor.id}>
-                    {vendor.name}
-                  </SelectItem>
-                ))}
+                {vendors
+                  .filter((vendor) => {
+                    // Filtra vendor per categoria se la spesa ha una categoria
+                    if (!categoryId) return true;
+                    return !vendor.category_id || vendor.category_id === categoryId;
+                  })
+                  .map((vendor) => (
+                    <SelectItem key={vendor.id} value={vendor.id}>
+                      {vendor.name}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
+            {categoryId && vendors.filter(v => !v.category_id || v.category_id === categoryId).length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                Nessun fornitore disponibile per questa categoria
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
