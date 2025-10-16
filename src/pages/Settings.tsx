@@ -5,178 +5,141 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { UserPlus, X, Loader2, Users as UsersIcon, Shield } from "lucide-react";
+import { UserPlus, Trash2, Users, Shield } from "lucide-react";
 import { z } from "zod";
+
+const emailSchema = z.string().trim().email("Email non valida").max(255);
 
 interface UserRole {
   id: string;
   user_id: string;
   role: string;
-  profiles: {
-    first_name: string;
-    last_name: string;
-  };
-}
-
-interface Invitation {
-  id: string;
-  email: string;
-  role: string;
-  status: string;
   created_at: string;
 }
 
+interface PendingInvite {
+  id: string;
+  email: string;
+  role: string;
+  created_at: string;
+  status: string;
+}
+
 const Settings = () => {
-  const [weddingId, setWeddingId] = useState<string | null>(null);
-  const [currentRole, setCurrentRole] = useState<string | null>(null);
-  const [collaborators, setCollaborators] = useState<UserRole[]>([]);
-  const [invitations, setInvitations] = useState<Invitation[]>([]);
+  const [wedding, setWedding] = useState<any>(null);
+  const [roles, setRoles] = useState<UserRole[]>([]);
+  const [invites, setInvites] = useState<PendingInvite[]>([]);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<"co_planner" | "manager">("manager");
-  const [loading, setLoading] = useState(true);
-  const [inviting, setInviting] = useState(false);
+  const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
-    loadSettings();
+    loadData();
   }, []);
 
-  const loadSettings = async () => {
+  const loadData = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Get wedding
-      const { data: weddings } = await supabase
+      // Load wedding with role check
+      const { data: weddingData } = await supabase
         .from("weddings")
-        .select("id")
+        .select("*")
         .limit(1)
-        .single();
+        .maybeSingle();
 
-      if (!weddings) return;
-      setWeddingId(weddings.id);
+      if (!weddingData) return;
+      setWedding(weddingData);
 
-      // Get current user role
-      const { data: roleData } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("wedding_id", weddings.id)
-        .eq("user_id", user.id)
-        .single();
-
-      setCurrentRole(roleData?.role || null);
-
-      // Get collaborators
+      // Load roles
       const { data: rolesData } = await supabase
         .from("user_roles")
-        .select(`
-          id,
-          user_id,
-          role
-        `)
-        .eq("wedding_id", weddings.id);
+        .select("*")
+        .eq("wedding_id", weddingData.id);
 
-      // Fetch profiles separately
-      if (rolesData) {
-        const userIds = rolesData.map(r => r.user_id);
-        const { data: profilesData } = await supabase
-          .from("profiles")
-          .select("id, first_name, last_name")
-          .in("id", userIds);
+      setRoles(rolesData || []);
 
-        const enrichedRoles = rolesData.map(role => ({
-          ...role,
-          profiles: profilesData?.find(p => p.id === role.user_id) || { first_name: "", last_name: "" }
-        }));
-
-        setCollaborators(enrichedRoles as UserRole[]);
-      }
-
-      // Get pending invitations
+      // Load pending invites
       const { data: invitesData } = await supabase
         .from("wedding_invitations")
         .select("*")
-        .eq("wedding_id", weddings.id)
+        .eq("wedding_id", weddingData.id)
         .eq("status", "pending");
 
-      setInvitations(invitesData || []);
+      setInvites(invitesData || []);
     } catch (error) {
-      console.error("Error loading settings:", error);
-    } finally {
-      setLoading(false);
+      console.error("Error loading data:", error);
     }
   };
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!weddingId) return;
+    setLoading(true);
 
-    setInviting(true);
     try {
-      // Validate email
-      z.string().email().parse(inviteEmail);
+      emailSchema.parse(inviteEmail);
 
-      // Check if already invited or has access
-      const existingRole = collaborators.find(c => 
-        c.profiles?.first_name && inviteEmail.toLowerCase().includes(c.user_id)
-      );
-      if (existingRole) {
-        throw new Error("Questo utente ha già accesso");
-      }
+      if (!wedding) throw new Error("Wedding not found");
 
-      const existingInvite = invitations.find(i => 
-        i.email.toLowerCase() === inviteEmail.toLowerCase()
-      );
-      if (existingInvite) {
-        throw new Error("Invito già inviato a questa email");
-      }
-
-      // Check co_planner limit (max 2)
+      // Check max co-planners
       if (inviteRole === "co_planner") {
-        const coPlannersCount = collaborators.filter(c => c.role === "co_planner").length;
+        const coPlannersCount = roles.filter((r) => r.role === "co_planner").length;
         if (coPlannersCount >= 2) {
           throw new Error("Puoi avere massimo 2 Co-Planner");
         }
       }
 
-      // Check manager limit (max 2)
+      // Check max managers
       if (inviteRole === "manager") {
-        const managersCount = collaborators.filter(c => c.role === "manager").length;
+        const managersCount = roles.filter((r) => r.role === "manager").length;
         if (managersCount >= 2) {
           throw new Error("Puoi avere massimo 2 Manager");
         }
       }
 
-      const token = crypto.randomUUID();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const inviteToken = crypto.randomUUID();
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 7);
 
       const { error } = await supabase.from("wedding_invitations").insert({
-        wedding_id: weddingId,
-        invited_by: (await supabase.auth.getUser()).data.user?.id,
+        wedding_id: wedding.id,
+        invited_by: user.id,
         email: inviteEmail,
         role: inviteRole,
-        token,
+        token: inviteToken,
         expires_at: expiresAt.toISOString(),
       });
 
       if (error) throw error;
 
       toast({
-        title: "Invito inviato!",
-        description: `Un'email è stata inviata a ${inviteEmail}`,
+        title: "Invito creato!",
+        description: `Condividi l'invito con ${inviteEmail}`,
       });
 
       setInviteEmail("");
-      loadSettings();
+      loadData();
     } catch (error: any) {
+      let errorMessage = "Si è verificato un errore";
+      
+      if (error instanceof z.ZodError) {
+        errorMessage = error.errors[0].message;
+      } else {
+        errorMessage = error.message;
+      }
+
       toast({
         title: "Errore",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
-      setInviting(false);
+      setLoading(false);
     }
   };
 
@@ -191,10 +154,10 @@ const Settings = () => {
 
       toast({
         title: "Invito revocato",
-        description: "L'invito è stato annullato",
+        description: "L'invito è stato eliminato",
       });
 
-      loadSettings();
+      loadData();
     } catch (error: any) {
       toast({
         title: "Errore",
@@ -204,44 +167,65 @@ const Settings = () => {
     }
   };
 
-  if (loading) {
+  const getRoleLabel = (role: string) => {
+    switch (role) {
+      case "co_planner":
+        return "Co-Planner";
+      case "manager":
+        return "Manager";
+      case "guest":
+        return "Ospite";
+      default:
+        return role;
+    }
+  };
+
+  const getRoleIcon = (role: string) => {
+    switch (role) {
+      case "co_planner":
+        return <Shield className="w-4 h-4 text-accent" />;
+      case "manager":
+        return <Users className="w-4 h-4 text-gold" />;
+      default:
+        return <Users className="w-4 h-4" />;
+    }
+  };
+
+  if (!wedding) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="w-8 h-8 animate-spin text-accent" />
+      <div className="p-4 lg:p-8">
+        <p className="text-muted-foreground">Caricamento...</p>
       </div>
     );
   }
 
-  const isCoPlanner = currentRole === "co_planner";
-
   return (
     <div className="p-4 lg:p-8 max-w-4xl mx-auto space-y-8">
       <div>
-        <h1 className="text-3xl font-bold mb-2">Impostazioni</h1>
-        <p className="text-muted-foreground">Gestisci collaboratori e permessi</p>
+        <h1 className="text-3xl font-bold mb-2">Collaboratori</h1>
+        <p className="text-muted-foreground">
+          Gestisci chi ha accesso al tuo matrimonio
+        </p>
       </div>
 
       {/* Current Collaborators */}
       <Card className="p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <UsersIcon className="w-5 h-5 text-accent" />
-          <h2 className="text-xl font-semibold">Collaboratori Attivi</h2>
-        </div>
-
+        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+          <Users className="w-5 h-5" />
+          Collaboratori Attivi ({roles.length})
+        </h2>
         <div className="space-y-3">
-          {collaborators.map((collab) => (
+          {roles.map((role) => (
             <div
-              key={collab.id}
-              className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+              key={role.id}
+              className="flex items-center justify-between p-4 rounded-lg bg-muted/30"
             >
               <div className="flex items-center gap-3">
-                <Shield className="w-4 h-4 text-muted-foreground" />
+                {getRoleIcon(role.role)}
                 <div>
-                  <p className="font-medium">
-                    {collab.profiles?.first_name} {collab.profiles?.last_name}
-                  </p>
-                  <p className="text-sm text-muted-foreground capitalize">
-                    {collab.role === "co_planner" ? "Co-Planner" : "Manager"}
+                  <p className="font-medium">Utente ID: {role.user_id.slice(0, 8)}...</p>
+                  <p className="text-sm text-muted-foreground">
+                    {getRoleLabel(role.role)}
                   </p>
                 </div>
               </div>
@@ -250,101 +234,90 @@ const Settings = () => {
         </div>
       </Card>
 
-      {/* Invite New Collaborator - Only for Co-Planners */}
-      {isCoPlanner && (
+      {/* Pending Invites */}
+      {invites.length > 0 && (
         <Card className="p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <UserPlus className="w-5 h-5 text-accent" />
-            <h2 className="text-xl font-semibold">Invita Collaboratore</h2>
+          <h2 className="text-xl font-semibold mb-4">Inviti in Sospeso</h2>
+          <div className="space-y-3">
+            {invites.map((invite) => (
+              <div
+                key={invite.id}
+                className="flex items-center justify-between p-4 rounded-lg bg-muted/30"
+              >
+                <div>
+                  <p className="font-medium">{invite.email}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {getRoleLabel(invite.role)} • Invitato il{" "}
+                    {new Date(invite.created_at).toLocaleDateString("it-IT")}
+                  </p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleRevokeInvite(invite.id)}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* Invite New Collaborator */}
+      <Card className="p-6">
+        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+          <UserPlus className="w-5 h-5" />
+          Invita Collaboratore
+        </h2>
+        <form onSubmit={handleInvite} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              placeholder="collaboratore@email.com"
+              required
+              disabled={loading}
+              maxLength={255}
+            />
           </div>
 
-          <form onSubmit={handleInvite} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                placeholder="collaboratore@email.com"
-                required
-                disabled={inviting}
-                maxLength={255}
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="role">Ruolo</Label>
+            <select
+              id="role"
+              value={inviteRole}
+              onChange={(e) => setInviteRole(e.target.value as any)}
+              className="w-full p-2 rounded-md border border-input bg-background"
+              disabled={loading}
+            >
+              <option value="manager">Manager (Gestione Operativa)</option>
+            </select>
+            <p className="text-sm text-muted-foreground">
+              Il Manager può gestire invitati, budget e fornitori, ma non può eliminare lo spazio matrimonio.
+            </p>
+          </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="role">Ruolo</Label>
-              <select
-                id="role"
-                value={inviteRole}
-                onChange={(e) => setInviteRole(e.target.value as "co_planner" | "manager")}
-                className="w-full px-3 py-2 rounded-md border border-input bg-background"
-                disabled={inviting}
-              >
-                <option value="co_planner">Co-Planner (Controllo totale)</option>
-                <option value="manager">Manager (Gestione operativa)</option>
-              </select>
-              <p className="text-sm text-muted-foreground">
-                {inviteRole === "co_planner" 
-                  ? "Co-Planner: accesso completo a tutte le funzionalità"
-                  : "Manager: può gestire invitati, budget e checklist ma non eliminare lo spazio"}
-              </p>
-            </div>
+          <Button type="submit" disabled={loading}>
+            {loading ? "Invio..." : "Crea Invito"}
+          </Button>
+        </form>
+      </Card>
 
-            <Button type="submit" disabled={inviting} className="w-full">
-              {inviting ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  Invio...
-                </>
-              ) : (
-                <>
-                  <UserPlus className="w-4 h-4 mr-2" />
-                  Invia Invito
-                </>
-              )}
-            </Button>
-          </form>
-
-          {/* Pending Invitations */}
-          {invitations.length > 0 && (
-            <div className="mt-6 pt-6 border-t border-border">
-              <h3 className="font-semibold mb-3">Inviti in Sospeso</h3>
-              <div className="space-y-2">
-                {invitations.map((invite) => (
-                  <div
-                    key={invite.id}
-                    className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
-                  >
-                    <div>
-                      <p className="font-medium">{invite.email}</p>
-                      <p className="text-sm text-muted-foreground capitalize">
-                        {invite.role === "co_planner" ? "Co-Planner" : "Manager"}
-                      </p>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleRevokeInvite(invite.id)}
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </Card>
-      )}
-
-      {!isCoPlanner && (
-        <Card className="p-6 bg-muted/30">
-          <p className="text-center text-muted-foreground">
-            Solo i Co-Planner possono invitare nuovi collaboratori
-          </p>
-        </Card>
-      )}
+      <div className="p-4 rounded-lg bg-muted/30">
+        <h3 className="font-semibold mb-2 flex items-center gap-2">
+          <Shield className="w-5 h-5 text-accent" />
+          Sistema di Ruoli Sicuro
+        </h3>
+        <ul className="text-sm text-muted-foreground space-y-1">
+          <li>• <strong>Co-Planner</strong>: Controllo totale (massimo 2)</li>
+          <li>• <strong>Manager</strong>: Gestione operativa senza permessi distruttivi (massimo 2)</li>
+          <li>• Tutti i dati sono protetti con Row Level Security</li>
+        </ul>
+      </div>
     </div>
   );
 };

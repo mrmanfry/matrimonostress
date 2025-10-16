@@ -12,6 +12,7 @@ import { z } from "zod";
 const weddingSchema = z.object({
   partner1_name: z.string().trim().min(2, "Il nome deve avere almeno 2 caratteri").max(100),
   partner2_name: z.string().trim().min(2, "Il nome deve avere almeno 2 caratteri").max(100),
+  partner2_email: z.string().trim().email("Email non valida").max(255).optional().or(z.literal("")),
   wedding_date: z.string().min(1, "La data è obbligatoria"),
   total_budget: z.number().min(0).optional(),
 });
@@ -37,19 +38,15 @@ const Onboarding = () => {
       weddingSchema.parse({
         partner1_name: partner1Name,
         partner2_name: partner2Name,
+        partner2_email: partner2Email || "",
         wedding_date: weddingDate,
         total_budget: budgetValue || undefined,
       });
 
-      // Validate partner email
-      if (partner2Email) {
-        z.string().email().parse(partner2Email);
-      }
-
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
 
-      const { data: wedding, error: weddingError } = await supabase
+      const { data: weddingData, error: weddingError } = await supabase
         .from("weddings")
         .insert({
           partner1_name: partner1Name,
@@ -64,7 +61,7 @@ const Onboarding = () => {
       if (weddingError) throw weddingError;
 
       // If partner email provided, create invitation
-      if (partner2Email && wedding) {
+      if (partner2Email && weddingData) {
         const token = crypto.randomUUID();
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + 7); // 7 days to accept
@@ -72,7 +69,7 @@ const Onboarding = () => {
         const { error: inviteError } = await supabase
           .from("wedding_invitations")
           .insert({
-            wedding_id: wedding.id,
+            wedding_id: weddingData.id,
             invited_by: user.id,
             email: partner2Email,
             role: 'co_planner',
