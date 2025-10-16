@@ -419,6 +419,66 @@ export type Database = {
         }
         Relationships: []
       }
+      timeline_events: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          location: string | null
+          order_index: number
+          time: string
+          title: string
+          updated_at: string
+          wedding_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          location?: string | null
+          order_index?: number
+          time: string
+          title: string
+          updated_at?: string
+          wedding_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          location?: string | null
+          order_index?: number
+          time?: string
+          title?: string
+          updated_at?: string
+          wedding_id?: string
+        }
+        Relationships: []
+      }
+      timeline_tokens: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          token: string
+          wedding_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          token: string
+          wedding_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          token?: string
+          wedding_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string

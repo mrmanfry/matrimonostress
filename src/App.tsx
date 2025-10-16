@@ -14,6 +14,8 @@ import Vendors from "./pages/Vendors";
 import Checklist from "./pages/Checklist";
 import Settings from "./pages/Settings";
 import Tables from "./pages/Tables";
+import Timeline from "./pages/Timeline";
+import TimelinePublic from "./pages/TimelinePublic";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,6 +30,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/onboarding" element={<Onboarding />} />
+          <Route path="/timeline/:token" element={<TimelinePublic />} />
           <Route path="/app" element={<AppLayout />}>
             <Route index element={<Navigate to="/app/dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
@@ -36,6 +39,7 @@ const App = () => (
             <Route path="vendors" element={<Vendors />} />
             <Route path="checklist" element={<Checklist />} />
             <Route path="tables" element={<Tables />} />
+            <Route path="timeline" element={<Timeline />} />
             <Route path="settings" element={<Settings />} />
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

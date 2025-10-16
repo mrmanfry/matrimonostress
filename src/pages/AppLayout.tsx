@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Outlet, useNavigate, Link, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Heart, LayoutDashboard, Users, Euro, CheckSquare, LogOut, Menu, X, Settings, Package, UtensilsCrossed } from "lucide-react";
+import { Heart, LayoutDashboard, Users, Euro, CheckSquare, LogOut, Menu, X, Settings, Package, UtensilsCrossed, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { User } from "@supabase/supabase-js";
 
@@ -21,6 +21,7 @@ const AppLayout = () => {
     { name: "Fornitori", href: "/app/vendors", icon: Package },
     { name: "Checklist", href: "/app/checklist", icon: CheckSquare },
     { name: "Tavoli", href: "/app/tables", icon: UtensilsCrossed },
+    { name: "Timeline", href: "/app/timeline", icon: Calendar },
     { name: "Impostazioni", href: "/app/settings", icon: Settings },
   ];
 
