@@ -32,6 +32,7 @@ interface ExpenseDialogProps {
   onOpenChange: (open: boolean) => void;
   expense: Expense | null;
   categories: Array<{ id: string; name: string }>;
+  vendors: Array<{ id: string; name: string }>;
   onSave: (expense: Expense) => Promise<void>;
 }
 
@@ -48,6 +49,7 @@ export function ExpenseDialog({
   onOpenChange,
   expense,
   categories,
+  vendors,
   onSave,
 }: ExpenseDialogProps) {
   const [formData, setFormData] = useState<Expense>(emptyExpense);
@@ -115,6 +117,28 @@ export function ExpenseDialog({
                 {categories.map((cat) => (
                   <SelectItem key={cat.id} value={cat.id}>
                     {cat.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="vendor_id">Fornitore</Label>
+            <Select
+              value={formData.vendor_id || "none"}
+              onValueChange={(value) =>
+                setFormData({ ...formData, vendor_id: value === "none" ? null : value })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Seleziona fornitore (opzionale)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Nessun fornitore</SelectItem>
+                {vendors.map((vendor) => (
+                  <SelectItem key={vendor.id} value={vendor.id}>
+                    {vendor.name}
                   </SelectItem>
                 ))}
               </SelectContent>

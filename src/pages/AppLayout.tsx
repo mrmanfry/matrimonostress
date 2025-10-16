@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Outlet, useNavigate, Link, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Heart, LayoutDashboard, Users, Euro, CheckSquare, LogOut, Menu, X, Settings } from "lucide-react";
+import { Heart, LayoutDashboard, Users, Euro, CheckSquare, LogOut, Menu, X, Settings, Package } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { User } from "@supabase/supabase-js";
 
@@ -18,6 +18,7 @@ const AppLayout = () => {
     { name: "Dashboard", href: "/app/dashboard", icon: LayoutDashboard },
     { name: "Invitati", href: "/app/guests", icon: Users },
     { name: "Budget", href: "/app/budget", icon: Euro },
+    { name: "Fornitori", href: "/app/vendors", icon: Package },
     { name: "Checklist", href: "/app/checklist", icon: CheckSquare },
     { name: "Impostazioni", href: "/app/settings", icon: Settings },
   ];

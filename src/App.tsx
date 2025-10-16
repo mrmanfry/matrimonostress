@@ -10,6 +10,7 @@ import AppLayout from "./pages/AppLayout";
 import Dashboard from "./pages/Dashboard";
 import Guests from "./pages/Guests";
 import Budget from "./pages/Budget";
+import Vendors from "./pages/Vendors";
 import Checklist from "./pages/Checklist";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
@@ -31,6 +32,7 @@ const App = () => (
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="guests" element={<Guests />} />
             <Route path="budget" element={<Budget />} />
+            <Route path="vendors" element={<Vendors />} />
             <Route path="checklist" element={<Checklist />} />
             <Route path="settings" element={<Settings />} />
           </Route>

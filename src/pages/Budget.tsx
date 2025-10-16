@@ -37,6 +37,11 @@ interface Category {
   name: string;
 }
 
+interface Vendor {
+  id: string;
+  name: string;
+}
+
 interface Expense {
   id: string;
   description: string;
@@ -45,6 +50,7 @@ interface Expense {
   estimated_amount: number;
   final_amount: number | null;
   vendor_id: string | null;
+  vendor_name?: string;
 }
 
 interface Payment {
@@ -61,6 +67,7 @@ interface Payment {
 const Budget = () => {
   const [wedding, setWedding] = useState<Wedding | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -94,6 +101,7 @@ const Budget = () => {
 
       await Promise.all([
         loadCategories(weddingData.id),
+        loadVendors(weddingData.id),
         loadExpenses(weddingData.id),
         loadPayments(),
       ]);
@@ -114,12 +122,23 @@ const Budget = () => {
     setCategories(data || []);
   };
 
+  const loadVendors = async (weddingId: string) => {
+    const { data } = await supabase
+      .from("vendors")
+      .select("id, name")
+      .eq("wedding_id", weddingId)
+      .order("name", { ascending: true });
+
+    setVendors(data || []);
+  };
+
   const loadExpenses = async (weddingId: string) => {
     const { data } = await supabase
       .from("expenses")
       .select(`
         *,
-        expense_categories(name)
+        expense_categories(name),
+        vendors(name)
       `)
       .eq("wedding_id", weddingId)
       .order("created_at", { ascending: false });
@@ -128,6 +147,7 @@ const Budget = () => {
       const formatted = data.map((e: any) => ({
         ...e,
         category_name: e.expense_categories?.name || "Senza categoria",
+        vendor_name: e.vendors?.name || null,
       }));
       setExpenses(formatted);
     }
@@ -591,6 +611,11 @@ const Budget = () => {
                           <div className="flex items-start justify-between">
                             <div>
                               <h4 className="font-medium">{expense.description}</h4>
+                              {expense.vendor_name && (
+                                <p className="text-sm text-muted-foreground">
+                                  Fornitore: {expense.vendor_name}
+                                </p>
+                              )}
                               <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
                                 <span>
                                   Stimato: €{expense.estimated_amount.toLocaleString("it-IT")}
@@ -713,6 +738,7 @@ const Budget = () => {
         onOpenChange={setExpenseDialogOpen}
         expense={selectedExpense}
         categories={categories}
+        vendors={vendors}
         onSave={handleSaveExpense}
       />
 
