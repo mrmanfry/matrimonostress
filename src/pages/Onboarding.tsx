@@ -68,6 +68,12 @@ const Onboarding = () => {
       const { data: { session } } = await supabase.auth.getSession();
       const user = session?.user;
       
+      console.log("=== WEDDING CREATION DEBUG ===");
+      console.log("Session exists:", !!session);
+      console.log("User exists:", !!user);
+      console.log("User ID:", user?.id);
+      console.log("Session access_token:", session?.access_token ? "present" : "missing");
+      
       if (!user) {
         toast({
           title: "Sessione scaduta",
@@ -78,21 +84,37 @@ const Onboarding = () => {
         return;
       }
 
-      console.log("Creating wedding for user:", user.id);
+      // Verifica che l'utente sia veramente autenticato facendo una query di test
+      const { data: testData, error: testError } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("id", user.id)
+        .maybeSingle();
+      
+      console.log("Profile check - Data:", testData, "Error:", testError);
+
+      const weddingPayload = {
+        partner1_name: partner1Name,
+        partner2_name: partner2Name,
+        wedding_date: weddingDate,
+        total_budget: budgetValue,
+        created_by: user.id,
+      };
+      
+      console.log("Wedding payload:", weddingPayload);
 
       const { data: weddingData, error: weddingError } = await supabase
         .from("weddings")
-        .insert({
-          partner1_name: partner1Name,
-          partner2_name: partner2Name,
-          wedding_date: weddingDate,
-          total_budget: budgetValue,
-          created_by: user.id,
-        })
+        .insert(weddingPayload)
         .select()
         .single();
 
-      if (weddingError) throw weddingError;
+      console.log("Wedding creation result - Data:", weddingData, "Error:", weddingError);
+
+      if (weddingError) {
+        console.error("Wedding creation failed:", weddingError);
+        throw weddingError;
+      }
 
       // Generate pre-populated checklist tasks
       if (weddingData) {

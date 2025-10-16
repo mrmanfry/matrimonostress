@@ -65,8 +65,16 @@ const Auth = () => {
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("Auth state changed:", event, "Session:", !!session);
+      
       if (session) {
-        navigate("/app");
+        // Verifica se siamo in fase di registrazione
+        if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+          // Aspetta un momento per assicurarsi che la sessione sia completamente attiva
+          setTimeout(() => {
+            navigate("/app");
+          }, 500);
+        }
       }
     });
 
@@ -145,7 +153,7 @@ const Auth = () => {
           throw new Error(Object.values(errors)[0]);
         }
 
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -158,6 +166,17 @@ const Auth = () => {
         });
 
         if (error) throw error;
+
+        // CRITICAL: Aspetta che la sessione sia attiva prima di procedere
+        if (!data.session) {
+          toast({
+            title: "Registrazione in corso",
+            description: "Attendi mentre configuriamo il tuo account...",
+          });
+          
+          // Aspetta che onAuthStateChange notifichi la sessione
+          return;
+        }
 
         toast({
           title: "Registrazione completata!",
