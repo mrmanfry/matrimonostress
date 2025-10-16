@@ -93,7 +93,8 @@ const AcceptInvite = () => {
         });
 
       if (roleError) {
-        throw roleError;
+        console.error("Role insert error:", roleError);
+        throw new Error(`Errore inserimento ruolo: ${roleError.message}`);
       }
 
       // Aggiorna lo status dell'invito
@@ -103,7 +104,8 @@ const AcceptInvite = () => {
         .eq("id", invitation.id);
 
       if (updateError) {
-        throw updateError;
+        console.error("Invitation update error:", updateError);
+        throw new Error(`Errore aggiornamento invito: ${updateError.message}`);
       }
 
       toast({
@@ -119,7 +121,7 @@ const AcceptInvite = () => {
       console.error("Error accepting invitation:", err);
       toast({
         title: "Errore",
-        description: "Impossibile accettare l'invito. Riprova più tardi.",
+        description: err.message || "Impossibile accettare l'invito. Riprova più tardi.",
         variant: "destructive",
       });
     } finally {
