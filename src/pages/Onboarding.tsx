@@ -60,6 +60,21 @@ const Onboarding = () => {
 
       if (weddingError) throw weddingError;
 
+      // Generate pre-populated checklist tasks
+      if (weddingData) {
+        const { generateTasksForWedding } = await import("@/utils/checklistTemplates");
+        const tasks = generateTasksForWedding(weddingDate, weddingData.id);
+        
+        const { error: tasksError } = await supabase
+          .from("checklist_tasks")
+          .insert(tasks);
+        
+        if (tasksError) {
+          console.error("Error creating checklist tasks:", tasksError);
+          // Non blocchiamo l'onboarding se i task falliscono
+        }
+      }
+
       // If partner email provided, create invitation
       if (partner2Email && weddingData) {
         const token = crypto.randomUUID();
