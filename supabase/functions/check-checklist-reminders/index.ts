@@ -184,7 +184,7 @@ serve(async (req: Request): Promise<Response> => {
 
       try {
         await resend.emails.send({
-          from: "Matrimonio Senza Stress <info@matrimonostress.com>",
+          from: "Matrimonio Senza Stress <info@stenders.cloud>",
           to: recipients,
           subject: `⏰ Promemoria: ${weddingTasks.length} attività in scadenza domani`,
           html: emailHtml,
