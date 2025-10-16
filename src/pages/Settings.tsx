@@ -30,7 +30,7 @@ const Settings = () => {
   const [roles, setRoles] = useState<UserRole[]>([]);
   const [invites, setInvites] = useState<PendingInvite[]>([]);
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState<"co_planner" | "manager">("manager");
+  const [inviteRole, setInviteRole] = useState<"co_planner" | "manager" | "guest">("manager");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
@@ -106,24 +106,75 @@ const Settings = () => {
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 7);
 
-      const { error } = await supabase.from("wedding_invitations").insert({
+    const { error: inviteError } = await supabase
+      .from('wedding_invitations')
+      .insert({
         wedding_id: wedding.id,
-        invited_by: user.id,
         email: inviteEmail,
         role: inviteRole,
         token: inviteToken,
         expires_at: expiresAt.toISOString(),
+        invited_by: user.id,
       });
 
-      if (error) throw error;
-
+    if (inviteError) {
+      console.error('Error creating invitation:', inviteError);
       toast({
-        title: "Invito creato!",
-        description: `Condividi l'invito con ${inviteEmail}`,
+        title: "Errore",
+        description: "Impossibile creare l'invito",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Send invitation email via edge function
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('first_name, last_name')
+        .eq('id', user.id)
+        .single();
+
+      const inviterName = profile 
+        ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Il team'
+        : 'Il team';
+
+      const { error: emailError } = await supabase.functions.invoke('send-wedding-invitation', {
+        body: {
+          email: inviteEmail,
+          weddingNames: `${wedding.partner1_name} & ${wedding.partner2_name}`,
+          weddingDate: wedding.wedding_date,
+          role: inviteRole,
+          token: inviteToken,
+          inviterName: inviterName,
+        },
       });
 
-      setInviteEmail("");
-      loadData();
+      if (emailError) {
+        console.error('Error sending invitation email:', emailError);
+        toast({
+          title: "Invito creato",
+          description: "L'invito è stato creato ma l'email non è stata inviata. Condividi il link manualmente.",
+          variant: "default",
+        });
+      } else {
+        toast({
+          title: "Invito inviato",
+          description: `Un'email è stata inviata a ${inviteEmail}`,
+        });
+      }
+    } catch (emailErr) {
+      console.error('Error calling email function:', emailErr);
+      toast({
+        title: "Invito creato",
+        description: "L'invito è stato creato ma l'email non è stata inviata.",
+        variant: "default",
+      });
+    }
+
+    setInviteEmail('');
+    setInviteRole('manager');
+    loadData();
     } catch (error: any) {
       let errorMessage = "Si è verificato un errore";
       

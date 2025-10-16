@@ -8,6 +8,7 @@ import Auth from "./pages/Auth";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import Onboarding from "./pages/Onboarding";
+import AcceptInvite from "./pages/AcceptInvite";
 import AppLayout from "./pages/AppLayout";
 import Dashboard from "./pages/Dashboard";
 import Guests from "./pages/Guests";
@@ -34,6 +35,7 @@ const App = () => (
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/onboarding" element={<Onboarding />} />
+          <Route path="/accept-invite" element={<AcceptInvite />} />
           <Route path="/timeline/:token" element={<TimelinePublic />} />
           <Route path="/app" element={<AppLayout />}>
             <Route index element={<Navigate to="/app/dashboard" replace />} />

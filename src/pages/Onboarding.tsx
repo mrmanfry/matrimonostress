@@ -131,29 +131,66 @@ const Onboarding = () => {
         }
       }
 
-      // If partner email provided, create invitation
-      if (partner2Email && weddingData) {
+      // Create invitation if partner2Email is provided
+      if (partner2Email) {
         const token = crypto.randomUUID();
         const expiresAt = new Date();
-        expiresAt.setDate(expiresAt.getDate() + 7); // 7 days to accept
+        expiresAt.setDate(expiresAt.getDate() + 7);
 
         const { error: inviteError } = await supabase
-          .from("wedding_invitations")
+          .from('wedding_invitations')
           .insert({
             wedding_id: weddingData.id,
-            invited_by: user.id,
             email: partner2Email,
             role: 'co_planner',
-            token,
+            token: token,
             expires_at: expiresAt.toISOString(),
+            invited_by: session.user.id,
           });
 
-        if (inviteError) throw inviteError;
+        if (inviteError) {
+          console.error('Error creating invitation:', inviteError);
+          toast({
+            title: "Errore",
+            description: "Impossibile creare l'invito per il partner 2",
+            variant: "destructive",
+          });
+        } else {
+          // Send invitation email via edge function
+          try {
+            const { error: emailError } = await supabase.functions.invoke('send-wedding-invitation', {
+              body: {
+                email: partner2Email,
+                weddingNames: `${partner1Name} & ${partner2Name}`,
+                weddingDate: weddingDate,
+                role: 'co_planner',
+                token: token,
+                inviterName: partner1Name,
+              },
+            });
 
-        toast({
-          title: "Invito inviato!",
-          description: `Un'email è stata inviata a ${partner2Email}`,
-        });
+            if (emailError) {
+              console.error('Error sending invitation email:', emailError);
+              toast({
+                title: "Invito creato",
+                description: "L'invito è stato creato ma l'email non è stata inviata. Condividi il link manualmente.",
+                variant: "default",
+              });
+            } else {
+              toast({
+                title: "Invito inviato",
+                description: `Un'email è stata inviata a ${partner2Email}`,
+              });
+            }
+          } catch (emailErr) {
+            console.error('Error calling email function:', emailErr);
+            toast({
+              title: "Invito creato",
+              description: "L'invito è stato creato ma l'email non è stata inviata.",
+              variant: "default",
+            });
+          }
+        }
       }
 
       toast({
