@@ -32,6 +32,8 @@ import {
   exportGuestsToCSV,
   downloadCSV,
 } from "@/utils/csvHelpers";
+import { generateCateringReport } from "@/utils/pdfHelpers";
+import { FileText } from "lucide-react";
 
 interface Guest {
   id: string;
@@ -296,6 +298,25 @@ const Guests = () => {
     });
   };
 
+  const handleExportCateringPDF = () => {
+    const confirmedGuests = guests.filter(g => g.rsvp_status === 'confirmed');
+    
+    if (confirmedGuests.length === 0) {
+      toast({
+        title: "Attenzione",
+        description: "Non ci sono invitati confermati da esportare",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    generateCateringReport(confirmedGuests);
+    toast({
+      title: "Report generato!",
+      description: "Report catering scaricato in formato PDF",
+    });
+  };
+
   const handleImportCSV = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !wedding) return;
@@ -480,6 +501,16 @@ const Guests = () => {
           <Button variant="outline" onClick={handleExportCSV} disabled={guests.length === 0}>
             <Download className="w-4 h-4 mr-2" />
             Esporta CSV
+          </Button>
+
+          <Button 
+            variant="outline" 
+            onClick={handleExportCateringPDF} 
+            disabled={guests.filter(g => g.rsvp_status === 'confirmed').length === 0}
+            className="border-accent text-accent hover:bg-accent/10"
+          >
+            <FileText className="w-4 h-4 mr-2" />
+            Report Catering
           </Button>
         </div>
       </Card>

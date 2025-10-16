@@ -8,7 +8,7 @@ import { DndContext, DragEndEvent, DragOverlay, DragStartEvent } from "@dnd-kit/
 import { GuestPool } from "@/components/tables/GuestPool";
 import { TableCanvas } from "@/components/tables/TableCanvas";
 import { ConflictManager } from "@/components/tables/ConflictManager";
-import jsPDF from "jspdf";
+import { generateTableReport } from "@/utils/pdfHelpers";
 
 type Guest = {
   id: string;
@@ -16,6 +16,7 @@ type Guest = {
   last_name: string;
   rsvp_status: string;
   dietary_restrictions: string | null;
+  menu_choice: string | null;
   notes: string | null;
   adults_count: number;
   children_count: number;
@@ -191,38 +192,38 @@ const Tables = () => {
   };
 
   const exportToPDF = () => {
-    const doc = new jsPDF();
-    doc.setFontSize(18);
-    doc.text("Disposizione Tavoli", 20, 20);
+    if (tables.length === 0) {
+      toast({ 
+        title: "Attenzione",
+        description: "Non ci sono tavoli da esportare", 
+        variant: "destructive" 
+      });
+      return;
+    }
 
-    let y = 40;
-    tables.forEach(table => {
+    // Prepara i dati nel formato richiesto
+    const tableData = tables.map(table => {
       const tableGuests = assignments
         .filter(a => a.table_id === table.id)
         .map(a => guests.find(g => g.id === a.guest_id))
-        .filter(Boolean);
+        .filter((g): g is Guest => g !== undefined)
+        .map(g => ({
+          first_name: g.first_name,
+          last_name: g.last_name,
+          menu_choice: g.menu_choice,
+          dietary_restrictions: g.dietary_restrictions,
+          notes: g.notes,
+        }));
 
-      doc.setFontSize(14);
-      doc.text(`${table.name} (${tableGuests.length}/${table.capacity})`, 20, y);
-      y += 10;
-
-      tableGuests.forEach(guest => {
-        if (guest) {
-          doc.setFontSize(10);
-          doc.text(`- ${guest.first_name} ${guest.last_name}`, 30, y);
-          y += 7;
-        }
-      });
-
-      y += 5;
-      if (y > 270) {
-        doc.addPage();
-        y = 20;
-      }
+      return {
+        name: table.name,
+        capacity: table.capacity,
+        guests: tableGuests,
+      };
     });
 
-    doc.save("disposizione-tavoli.pdf");
-    toast({ title: "PDF esportato con successo!" });
+    generateTableReport(tableData);
+    toast({ title: "Report tavoli generato!" });
   };
 
   const unassignedGuests = guests.filter(
