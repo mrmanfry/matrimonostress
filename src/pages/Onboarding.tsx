@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -24,8 +24,30 @@ const Onboarding = () => {
   const [weddingDate, setWeddingDate] = useState("");
   const [totalBudget, setTotalBudget] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Verifica autenticazione all'ingresso
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        toast({
+          title: "Non autenticato",
+          description: "Devi effettuare l'accesso prima di continuare",
+          variant: "destructive",
+        });
+        navigate("/auth");
+        return;
+      }
+      
+      setCheckingAuth(false);
+    };
+
+    checkAuth();
+  }, [navigate, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,8 +65,20 @@ const Onboarding = () => {
         total_budget: budgetValue || undefined,
       });
 
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not authenticated");
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
+      
+      if (!user) {
+        toast({
+          title: "Sessione scaduta",
+          description: "Effettua nuovamente l'accesso",
+          variant: "destructive",
+        });
+        navigate("/auth");
+        return;
+      }
+
+      console.log("Creating wedding for user:", user.id);
 
       const { data: weddingData, error: weddingError } = await supabase
         .from("weddings")
@@ -124,6 +158,19 @@ const Onboarding = () => {
       setLoading(false);
     }
   };
+
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-hero">
+        <Card className="w-full max-w-lg p-8">
+          <div className="text-center space-y-4">
+            <Heart className="w-12 h-12 text-accent fill-accent animate-pulse mx-auto" />
+            <p className="text-muted-foreground">Verifica autenticazione...</p>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-hero">

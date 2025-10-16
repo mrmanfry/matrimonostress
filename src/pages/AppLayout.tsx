@@ -75,24 +75,35 @@ const AppLayout = () => {
   }, [navigate]);
 
   const loadWeddingInfo = async (userId: string) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("weddings")
       .select("partner1_name, partner2_name, wedding_date")
       .eq("created_by", userId)
-      .single();
+      .maybeSingle();
 
-    if (data) {
-      const weddingDate = new Date(data.wedding_date);
-      const today = new Date();
-      const diffTime = weddingDate.getTime() - today.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-      setWeddingInfo({
-        partner1: data.partner1_name,
-        partner2: data.partner2_name,
-        daysUntil: diffDays > 0 ? diffDays : 0,
-      });
+    if (error) {
+      console.error("Error loading wedding:", error);
+      return;
     }
+
+    if (!data) {
+      // Nuovo utente senza wedding - reindirizza a onboarding
+      if (location.pathname !== '/onboarding') {
+        navigate("/onboarding");
+      }
+      return;
+    }
+
+    const weddingDate = new Date(data.wedding_date);
+    const today = new Date();
+    const diffTime = weddingDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    setWeddingInfo({
+      partner1: data.partner1_name,
+      partner2: data.partner2_name,
+      daysUntil: diffDays > 0 ? diffDays : 0,
+    });
   };
 
   const handleLogout = async () => {
