@@ -148,6 +148,45 @@ export type Database = {
           },
         ]
       }
+      guest_conflicts: {
+        Row: {
+          created_at: string
+          guest_id_1: string
+          guest_id_2: string
+          id: string
+          wedding_id: string
+        }
+        Insert: {
+          created_at?: string
+          guest_id_1: string
+          guest_id_2: string
+          id?: string
+          wedding_id: string
+        }
+        Update: {
+          created_at?: string
+          guest_id_1?: string
+          guest_id_2?: string
+          id?: string
+          wedding_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guest_conflicts_guest_id_1_fkey"
+            columns: ["guest_id_1"]
+            isOneToOne: false
+            referencedRelation: "guests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_conflicts_guest_id_2_fkey"
+            columns: ["guest_id_2"]
+            isOneToOne: false
+            referencedRelation: "guests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       guest_groups: {
         Row: {
           created_at: string
@@ -308,6 +347,75 @@ export type Database = {
           id?: string
           last_name?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      table_assignments: {
+        Row: {
+          created_at: string
+          guest_id: string
+          id: string
+          table_id: string
+        }
+        Insert: {
+          created_at?: string
+          guest_id: string
+          id?: string
+          table_id: string
+        }
+        Update: {
+          created_at?: string
+          guest_id?: string
+          id?: string
+          table_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "table_assignments_guest_id_fkey"
+            columns: ["guest_id"]
+            isOneToOne: true
+            referencedRelation: "guests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "table_assignments_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "tables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tables: {
+        Row: {
+          capacity: number
+          created_at: string
+          id: string
+          name: string
+          position_x: number
+          position_y: number
+          updated_at: string
+          wedding_id: string
+        }
+        Insert: {
+          capacity?: number
+          created_at?: string
+          id?: string
+          name: string
+          position_x?: number
+          position_y?: number
+          updated_at?: string
+          wedding_id: string
+        }
+        Update: {
+          capacity?: number
+          created_at?: string
+          id?: string
+          name?: string
+          position_x?: number
+          position_y?: number
+          updated_at?: string
+          wedding_id?: string
         }
         Relationships: []
       }
