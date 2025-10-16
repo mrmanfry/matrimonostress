@@ -28,7 +28,7 @@ const handler = async (req: Request): Promise<Response> => {
     
     console.log("Sending wedding invitation to:", email);
 
-    const acceptUrl = `${Deno.env.get("APP_URL")}/accept-invite?token=${token}`;
+    const acceptUrl = `https://matrimonostress.lovable.app/accept-invite?token=${token}`;
     
     const roleLabel = role === 'co_planner' ? 'Co-Planner' : role === 'manager' ? 'Manager' : 'Guest';
 
