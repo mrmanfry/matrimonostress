@@ -75,11 +75,25 @@ const AppLayout = () => {
   }, [navigate]);
 
   const loadWeddingInfo = async (userId: string) => {
-    const { data, error } = await supabase
+    // Prima controlla se l'utente ha creato un wedding
+    let { data, error } = await supabase
       .from("weddings")
       .select("partner1_name, partner2_name, wedding_date")
       .eq("created_by", userId)
       .maybeSingle();
+
+    // Se non ha creato un wedding, controlla se è stato invitato
+    if (!data && !error) {
+      const { data: roleData } = await supabase
+        .from("user_roles")
+        .select("wedding_id, weddings(partner1_name, partner2_name, wedding_date)")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (roleData?.weddings) {
+        data = roleData.weddings as any;
+      }
+    }
 
     if (error) {
       console.error("Error loading wedding:", error);

@@ -111,7 +111,7 @@ const AcceptInvite = () => {
         description: "Benvenuto nel team di pianificazione del matrimonio!",
       });
 
-      navigate("/dashboard");
+      navigate("/app/dashboard");
     } catch (err: any) {
       console.error("Error accepting invitation:", err);
       toast({
