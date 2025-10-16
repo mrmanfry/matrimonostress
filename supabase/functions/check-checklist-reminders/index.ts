@@ -132,7 +132,7 @@ serve(async (req: Request): Promise<Response> => {
 
       // Costruisci l'HTML dell'email
       const weddingName = `${wedding.partner1_name} & ${wedding.partner2_name}`;
-      const appUrl = "https://matrimonostress.lovable.app";
+      const appUrl = "https://stenders.cloud";
       
       let tasksHtml = weddingTasks.map(task => `
         <li style="margin-bottom: 15px;">
