@@ -163,6 +163,23 @@ const AppLayout = () => {
     loadWeddingInfo();
   }, [user?.id]);
 
+  // Effetto separato per gestire il reindirizzamento
+  useEffect(() => {
+    // Aspetta che sia l'utente che i dati wedding siano stati caricati
+    if (loading || loadingWedding) {
+      return; // Non fare nulla, stiamo ancora caricando
+    }
+
+    // Se il caricamento è finito e NON ci sono dati...
+    if (!weddingInfo) {
+      // ...e NON siamo già su onboarding (per evitare loop)
+      if (location.pathname !== "/onboarding") {
+        console.log("[AppLayout] Redirecting to onboarding - no wedding found");
+        navigate("/onboarding");
+      }
+    }
+  }, [loading, loadingWedding, weddingInfo, location.pathname, navigate]);
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     toast({
@@ -184,13 +201,6 @@ const AppLayout = () => {
   }
 
   if (!user) {
-    return null;
-  }
-
-  // Se il caricamento è finito e non c'è wedding, redirect a onboarding
-  if (!loadingWedding && !weddingInfo) {
-    console.log("[AppLayout] Redirecting to onboarding - no wedding found");
-    navigate("/onboarding");
     return null;
   }
 
