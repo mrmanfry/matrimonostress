@@ -52,14 +52,21 @@ const AppLayout = () => {
   ];
 
   useEffect(() => {
+    console.log("╔════════════════════════════════════════════════╗");
+    console.log("║ [APPLAYOUT] COMPONENT MOUNTED                  ║");
+    console.log("╚════════════════════════════════════════════════╝");
+    console.log("📍 location.pathname:", location.pathname);
+    
     let mounted = true;
     
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      console.log("🔔 [APPLAYOUT] Auth state changed:", _event);
       if (!mounted) return;
       setUser(session?.user ?? null);
       setLoading(false);
       
       if (!session) {
+        console.log("🚀 [APPLAYOUT] No session - navigate to /auth");
         navigate("/auth");
       }
     });
@@ -68,21 +75,24 @@ const AppLayout = () => {
       if (!mounted) return;
       
       if (!user) {
+        console.log("🚀 [APPLAYOUT] No user - navigate to /auth");
         setLoading(false);
         setLoadingWedding(false);
         navigate("/auth");
         return;
       }
       
+      console.log("✅ [APPLAYOUT] User found:", user.id);
       setUser(user);
       setLoading(false);
     });
 
     return () => {
+      console.log("🧹 [APPLAYOUT] Component unmounting");
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [navigate]);
+  }, [navigate, location.pathname]);
 
   // Effetto separato per caricare i dati del wedding
   useEffect(() => {
