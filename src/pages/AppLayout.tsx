@@ -91,9 +91,12 @@ const AppLayout = () => {
     console.log("   location.pathname:", location.pathname);
     
     if (!user?.id) {
+      console.log("⏭️  [APPLAYOUT] No user, skipping wedding load");
       setLoadingWedding(false);
       return;
     }
+
+    let hasNavigated = false;
 
     const loadWeddingInfo = async () => {
       console.log("📥 [APPLAYOUT] START loading wedding for user:", user.id);
@@ -145,9 +148,10 @@ const AppLayout = () => {
           });
           
           // SE siamo su onboarding ma abbiamo trovato un wedding, vai alla dashboard
-          if (location.pathname === "/onboarding") {
-            console.log("🚀 [APPLAYOUT] Navigating: /onboarding → /app/dashboard");
-            navigate("/app/dashboard");
+          if (location.pathname === "/onboarding" && !hasNavigated) {
+            console.log("🚀 [APPLAYOUT] Navigating: /onboarding → /app/dashboard WITH REPLACE");
+            hasNavigated = true;
+            navigate("/app/dashboard", { replace: true });
           } else {
             console.log("✅ [APPLAYOUT] Already on correct route:", location.pathname);
           }
@@ -156,9 +160,10 @@ const AppLayout = () => {
           console.log("   Current location:", location.pathname);
           
           // Wedding NON trovato - redirect SOLO se non siamo già su onboarding
-          if (location.pathname !== "/onboarding") {
-            console.log("🚀 [APPLAYOUT] Navigating: " + location.pathname + " → /onboarding");
-            navigate("/onboarding");
+          if (location.pathname !== "/onboarding" && !hasNavigated) {
+            console.log("🚀 [APPLAYOUT] Navigating: " + location.pathname + " → /onboarding WITH REPLACE");
+            hasNavigated = true;
+            navigate("/onboarding", { replace: true });
           } else {
             console.log("✅ [APPLAYOUT] Already on /onboarding");
           }

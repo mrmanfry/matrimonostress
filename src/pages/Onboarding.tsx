@@ -32,6 +32,8 @@ const Onboarding = () => {
   useEffect(() => {
     console.log("🎬 [ONBOARDING] Component mounted, checking auth & wedding...");
     
+    let hasNavigated = false;
+    
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       
@@ -39,12 +41,15 @@ const Onboarding = () => {
       
       if (!session) {
         console.log("❌ No session, redirect to /auth");
-        toast({
-          title: "Non autenticato",
-          description: "Devi effettuare l'accesso prima di continuare",
-          variant: "destructive",
-        });
-        navigate("/auth");
+        if (!hasNavigated) {
+          hasNavigated = true;
+          toast({
+            title: "Non autenticato",
+            description: "Devi effettuare l'accesso prima di continuare",
+            variant: "destructive",
+          });
+          navigate("/auth", { replace: true });
+        }
         return;
       }
 
@@ -72,8 +77,11 @@ const Onboarding = () => {
       console.log("💒 Existing wedding:", !!existingWedding);
       
       if (existingWedding) {
-        console.log("🚀 [ONBOARDING] Wedding exists, navigate to /app/dashboard");
-        navigate("/app/dashboard");
+        console.log("🚀 [ONBOARDING] Wedding exists, navigate to /app/dashboard WITH REPLACE");
+        if (!hasNavigated) {
+          hasNavigated = true;
+          navigate("/app/dashboard", { replace: true });
+        }
         return;
       }
       
