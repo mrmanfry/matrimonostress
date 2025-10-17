@@ -76,6 +76,7 @@ const AppLayout = () => {
       
       setUser(user);
       setLoading(false);
+      loadWeddingInfo(user.id);
     });
 
     return () => {
@@ -83,13 +84,6 @@ const AppLayout = () => {
       subscription.unsubscribe();
     };
   }, [navigate]);
-
-  // Effetto separato per caricare i dati del wedding
-  useEffect(() => {
-    if (user && !weddingInfo && !loadingWedding) {
-      loadWeddingInfo(user.id);
-    }
-  }, [user?.id]); // Solo quando cambia l'ID utente
 
 
   const loadWeddingInfo = async (userId: string) => {
