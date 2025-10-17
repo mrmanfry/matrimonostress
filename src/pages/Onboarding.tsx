@@ -28,20 +28,12 @@ const Onboarding = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Verifica autenticazione all'ingresso
+  // Verifica solo l'autenticazione, non il wedding
   useEffect(() => {
-    console.log("🎬 [ONBOARDING] Component mounted, checking auth & wedding...");
-    
-    let navigationDone = false;
-    
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       
-      console.log("🔐 Session:", !!session, "User:", session?.user?.id);
-      
-      if (!session && !navigationDone) {
-        console.log("❌ No session, redirect to /auth");
-        navigationDone = true;
+      if (!session) {
         toast({
           title: "Non autenticato",
           description: "Devi effettuare l'accesso prima di continuare",
@@ -50,40 +42,7 @@ const Onboarding = () => {
         navigate("/auth", { replace: true });
         return;
       }
-
-      if (!session) return;
-
-      console.log("🔍 Checking for existing wedding...");
       
-      // Controlla se l'utente ha già un wedding
-      const { data: roleData } = await supabase
-        .from("user_roles")
-        .select("wedding_id")
-        .eq("user_id", session.user.id)
-        .maybeSingle();
-      
-      console.log("👥 Role data:", roleData);
-      
-      let weddingQuery = supabase.from("weddings").select("id");
-      
-      if (roleData?.wedding_id) {
-        weddingQuery = weddingQuery.eq("id", roleData.wedding_id);
-      } else {
-        weddingQuery = weddingQuery.eq("created_by", session.user.id);
-      }
-      
-      const { data: existingWedding } = await weddingQuery.maybeSingle();
-      
-      console.log("💒 Existing wedding:", !!existingWedding);
-      
-      if (existingWedding && !navigationDone) {
-        console.log("🚀 [ONBOARDING] Wedding exists, navigate to /app/dashboard WITH REPLACE");
-        navigationDone = true;
-        navigate("/app/dashboard", { replace: true });
-        return;
-      }
-      
-      console.log("✅ No wedding, staying on onboarding");
       setCheckingAuth(false);
     };
 
