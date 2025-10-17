@@ -85,6 +85,8 @@ const AppLayout = () => {
 
 
   const loadWeddingInfo = async (userId: string) => {
+    console.log("[AppLayout] Loading wedding info for user:", userId);
+    
     // Prima controlla se l'utente ha creato un wedding
     let { data, error } = await supabase
       .from("weddings")
@@ -92,8 +94,12 @@ const AppLayout = () => {
       .eq("created_by", userId)
       .maybeSingle();
 
+    console.log("[AppLayout] Wedding query result:", { data, error });
+
     // Se non ha creato un wedding, controlla se è stato invitato
     if (!data && !error) {
+      console.log("[AppLayout] No wedding found, checking user_roles");
+      
       // Prima ottieni il wedding_id dal ruolo
       const { data: roleData, error: roleError } = await supabase
         .from("user_roles")
@@ -101,28 +107,36 @@ const AppLayout = () => {
         .eq("user_id", userId)
         .maybeSingle();
 
+      console.log("[AppLayout] Role query result:", { roleData, roleError });
+
       // Poi ottieni i dati del wedding
       if (roleData?.wedding_id) {
+        console.log("[AppLayout] Found role, fetching wedding data for ID:", roleData.wedding_id);
+        
         const { data: weddingData, error: weddingError } = await supabase
           .from("weddings")
           .select("partner1_name, partner2_name, wedding_date")
           .eq("id", roleData.wedding_id)
           .single();
         
+        console.log("[AppLayout] Wedding data from role:", { weddingData, weddingError });
         data = weddingData;
       }
     }
 
     if (error) {
-      console.error("Error loading wedding:", error);
+      console.error("[AppLayout] Error loading wedding:", error);
       return;
     }
 
     // Se dopo aver controllato entrambe le tabelle non c'è wedding, reindirizza
     if (!data) {
+      console.log("[AppLayout] No wedding found after checking both tables, redirecting to onboarding");
       navigate("/onboarding");
       return;
     }
+
+    console.log("[AppLayout] Wedding found, setting wedding info");
 
     const weddingDate = new Date(data.wedding_date);
     const today = new Date();
