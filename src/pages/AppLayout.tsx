@@ -142,6 +142,12 @@ const AppLayout = () => {
           });
           
           console.log("[AppLayout] Wedding info loaded successfully");
+          
+          // SE siamo su onboarding ma abbiamo trovato un wedding, vai alla dashboard
+          if (location.pathname === "/onboarding") {
+            console.log("[AppLayout] Wedding found while on onboarding - redirecting to dashboard");
+            navigate("/app/dashboard");
+          }
         } else {
           // Wedding NON trovato - redirect SOLO se non siamo già su onboarding
           console.log("[AppLayout] No wedding found");
