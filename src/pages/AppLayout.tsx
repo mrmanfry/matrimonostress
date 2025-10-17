@@ -92,7 +92,12 @@ const AppLayout = () => {
     }
 
     const loadWeddingInfo = async () => {
-      console.log("[AppLayout] Loading wedding info for user:", user.id);
+      console.log("╔════════════════════════════════════════════════╗");
+      console.log("║ [AppLayout] START WEDDING INFO LOAD           ║");
+      console.log("╚════════════════════════════════════════════════╝");
+      console.log("🔍 User ID:", user.id);
+      console.log("📍 Current location.pathname:", location.pathname);
+      console.log("⏰ Timestamp:", new Date().toISOString());
       setLoadingWedding(true);
       
       try {
@@ -130,6 +135,14 @@ const AppLayout = () => {
         }
 
         if (weddingData) {
+          console.log("╔════════════════════════════════════════════════╗");
+          console.log("║ ✅ WEDDING FOUND                              ║");
+          console.log("╚════════════════════════════════════════════════╝");
+          console.log("👰 Partners:", weddingData.partner1_name, "&", weddingData.partner2_name);
+          console.log("📅 Wedding date:", weddingData.wedding_date);
+          console.log("📍 Current pathname:", location.pathname);
+          console.log("🔍 Is on /onboarding?", location.pathname === "/onboarding");
+          
           const weddingDate = new Date(weddingData.wedding_date);
           const today = new Date();
           const diffTime = weddingDate.getTime() - today.getTime();
@@ -141,19 +154,32 @@ const AppLayout = () => {
             daysUntil: diffDays > 0 ? diffDays : 0,
           });
           
-          console.log("[AppLayout] Wedding info loaded successfully");
+          console.log("✅ WeddingInfo state SET");
           
           // SE siamo su onboarding ma abbiamo trovato un wedding, vai alla dashboard
           if (location.pathname === "/onboarding") {
-            console.log("[AppLayout] Wedding found while on onboarding - redirecting to dashboard");
+            console.log("╔════════════════════════════════════════════════╗");
+            console.log("║ 🚀 REDIRECT: /onboarding → /app/dashboard    ║");
+            console.log("╚════════════════════════════════════════════════╝");
             navigate("/app/dashboard");
+          } else {
+            console.log("⏭️  NO REDIRECT NEEDED - Already on:", location.pathname);
           }
         } else {
+          console.log("╔════════════════════════════════════════════════╗");
+          console.log("║ ❌ NO WEDDING FOUND                           ║");
+          console.log("╚════════════════════════════════════════════════╝");
+          console.log("📍 Current pathname:", location.pathname);
+          console.log("🔍 Should redirect?", location.pathname !== "/onboarding");
+          
           // Wedding NON trovato - redirect SOLO se non siamo già su onboarding
-          console.log("[AppLayout] No wedding found");
           if (location.pathname !== "/onboarding") {
-            console.log("[AppLayout] Redirecting to onboarding");
+            console.log("╔════════════════════════════════════════════════╗");
+            console.log("║ 🚀 REDIRECT: → /onboarding                   ║");
+            console.log("╚════════════════════════════════════════════════╝");
             navigate("/onboarding");
+          } else {
+            console.log("⏭️  NO REDIRECT NEEDED - Already on /onboarding");
           }
         }
       } catch (err) {
