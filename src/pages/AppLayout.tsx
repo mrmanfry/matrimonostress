@@ -92,7 +92,7 @@ const AppLayout = () => {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [navigate, location.pathname]);
+  }, [navigate]);
 
   // Effetto separato per caricare i dati del wedding
   useEffect(() => {
