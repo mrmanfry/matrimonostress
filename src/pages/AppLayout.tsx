@@ -136,6 +136,7 @@ const AppLayout = () => {
         if (error) {
           console.error("[AppLayout] Error loading wedding:", error);
           setLoadingWedding(false);
+          setWeddingChecked(true);
           return;
         }
 
@@ -152,12 +153,13 @@ const AppLayout = () => {
             partner2: data.partner2_name,
             daysUntil: diffDays > 0 ? diffDays : 0,
           });
+          setWeddingChecked(true);
         } else {
           console.log("[AppLayout] No wedding found after checking both tables");
+          setWeddingChecked(true);
         }
       } finally {
         setLoadingWedding(false);
-        setWeddingChecked(true);
       }
     };
 
