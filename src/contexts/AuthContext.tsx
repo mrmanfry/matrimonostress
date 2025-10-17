@@ -60,14 +60,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loadWeddingId = async (userId: string): Promise<string | null> => {
     console.log('[AuthContext] Loading weddingId for user:', userId);
     try {
+      // Add timeout to prevent hanging
+      const queryTimeout = new Promise<null>((resolve) => {
+        setTimeout(() => {
+          console.log('[AuthContext] Query timeout reached');
+          resolve(null);
+        }, 5000);
+      });
+
       // First check if user is a collaborator
-      const { data: roleData } = await supabase
+      const roleQuery = supabase
         .from("user_roles")
         .select("wedding_id")
         .eq("user_id", userId)
-        .maybeSingle();
+        .maybeSingle()
+        .then(result => {
+          console.log('[AuthContext] User role data:', result.data);
+          return result;
+        });
 
-      console.log('[AuthContext] User role data:', roleData);
+      const { data: roleData } = await Promise.race([roleQuery, queryTimeout]) as any;
 
       if (roleData?.wedding_id) {
         console.log('[AuthContext] Found weddingId from role:', roleData.wedding_id);
@@ -75,13 +87,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // Then check if user created a wedding
-      const { data: weddingData } = await supabase
+      const weddingQuery = supabase
         .from("weddings")
         .select("id")
         .eq("created_by", userId)
-        .maybeSingle();
+        .maybeSingle()
+        .then(result => {
+          console.log('[AuthContext] Wedding created by user:', result.data);
+          return result;
+        });
 
-      console.log('[AuthContext] Wedding created by user:', weddingData);
+      const { data: weddingData } = await Promise.race([weddingQuery, queryTimeout]) as any;
 
       return weddingData?.id || null;
     } catch (error) {

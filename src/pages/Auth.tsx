@@ -57,25 +57,17 @@ const Auth = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    let navigated = false;
-    
-    // Check if user is already logged in
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session && !navigated) {
-        navigated = true;
-        // Delay navigation to allow AuthContext to update
-        setTimeout(() => navigate("/app/dashboard"), 300);
-      }
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      // SOLO naviga se siamo ANCORA sulla pagina /auth
-      if (session && !navigated && window.location.pathname === "/auth") {
-        if (event === 'SIGNED_IN') {
-          navigated = true;
-          // Delay navigation to allow AuthContext to update weddingId
-          setTimeout(() => navigate("/app/dashboard"), 300);
-        }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      // Se l'utente è autenticato, ProtectedRoute gestirà la navigazione automaticamente
+      // Non navighiamo manualmente per evitare race conditions
+      if (session && window.location.pathname === "/auth") {
+        // Solo redirect se siamo ancora sulla pagina auth
+        // Aspettiamo che AuthContext si aggiorni completamente
+        setTimeout(() => {
+          if (window.location.pathname === "/auth") {
+            navigate("/app/dashboard");
+          }
+        }, 500);
       }
     });
 
