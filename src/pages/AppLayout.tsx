@@ -34,6 +34,7 @@ import { NavLink } from "react-router-dom";
 const AppLayout = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingWedding, setLoadingWedding] = useState(true);
   const [weddingInfo, setWeddingInfo] = useState<{ partner1: string; partner2: string; daysUntil: number } | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
@@ -68,86 +69,94 @@ const AppLayout = () => {
       
       if (!user) {
         setLoading(false);
+        setLoadingWedding(false);
         navigate("/auth");
         return;
       }
       
       setUser(user);
-      loadWeddingInfo(user.id);
       setLoading(false);
+      
+      // Carica le info del wedding solo se non le abbiamo già
+      if (!weddingInfo) {
+        loadWeddingInfo(user.id);
+      }
     });
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [navigate]);
+  }, [navigate]); // Non includere weddingInfo per evitare loop
 
 
   const loadWeddingInfo = async (userId: string) => {
     console.log("[AppLayout] Loading wedding info for user:", userId);
+    setLoadingWedding(true);
     
-    // Prima controlla se l'utente ha creato un wedding
-    let { data, error } = await supabase
-      .from("weddings")
-      .select("partner1_name, partner2_name, wedding_date")
-      .eq("created_by", userId)
-      .maybeSingle();
-
-    console.log("[AppLayout] Wedding query result:", { data, error });
-
-    // Se non ha creato un wedding, controlla se è stato invitato
-    if (!data && !error) {
-      console.log("[AppLayout] No wedding found, checking user_roles");
-      
-      // Prima ottieni il wedding_id dal ruolo
-      const { data: roleData, error: roleError } = await supabase
-        .from("user_roles")
-        .select("wedding_id")
-        .eq("user_id", userId)
+    try {
+      // Prima controlla se l'utente ha creato un wedding
+      let { data, error } = await supabase
+        .from("weddings")
+        .select("partner1_name, partner2_name, wedding_date")
+        .eq("created_by", userId)
         .maybeSingle();
 
-      console.log("[AppLayout] Role query result:", { roleData, roleError });
+      console.log("[AppLayout] Wedding query result:", { data, error });
 
-      // Poi ottieni i dati del wedding
-      if (roleData?.wedding_id) {
-        console.log("[AppLayout] Found role, fetching wedding data for ID:", roleData.wedding_id);
+      // Se non ha creato un wedding, controlla se è stato invitato
+      if (!data && !error) {
+        console.log("[AppLayout] No wedding found, checking user_roles");
         
-        const { data: weddingData, error: weddingError } = await supabase
-          .from("weddings")
-          .select("partner1_name, partner2_name, wedding_date")
-          .eq("id", roleData.wedding_id)
-          .single();
-        
-        console.log("[AppLayout] Wedding data from role:", { weddingData, weddingError });
-        data = weddingData;
+        // Prima ottieni il wedding_id dal ruolo
+        const { data: roleData, error: roleError } = await supabase
+          .from("user_roles")
+          .select("wedding_id")
+          .eq("user_id", userId)
+          .maybeSingle();
+
+        console.log("[AppLayout] Role query result:", { roleData, roleError });
+
+        // Poi ottieni i dati del wedding
+        if (roleData?.wedding_id) {
+          console.log("[AppLayout] Found role, fetching wedding data for ID:", roleData.wedding_id);
+          
+          const { data: weddingData, error: weddingError } = await supabase
+            .from("weddings")
+            .select("partner1_name, partner2_name, wedding_date")
+            .eq("id", roleData.wedding_id)
+            .single();
+          
+          console.log("[AppLayout] Wedding data from role:", { weddingData, weddingError });
+          data = weddingData;
+        }
       }
+
+      if (error) {
+        console.error("[AppLayout] Error loading wedding:", error);
+        setLoadingWedding(false);
+        return;
+      }
+
+      if (data) {
+        console.log("[AppLayout] Wedding found, setting wedding info");
+        
+        const weddingDate = new Date(data.wedding_date);
+        const today = new Date();
+        const diffTime = weddingDate.getTime() - today.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        setWeddingInfo({
+          partner1: data.partner1_name,
+          partner2: data.partner2_name,
+          daysUntil: diffDays > 0 ? diffDays : 0,
+        });
+      } else {
+        console.log("[AppLayout] No wedding found after checking both tables");
+      }
+    } finally {
+      setLoadingWedding(false);
     }
-
-    if (error) {
-      console.error("[AppLayout] Error loading wedding:", error);
-      return;
-    }
-
-    // Se dopo aver controllato entrambe le tabelle non c'è wedding, reindirizza
-    if (!data) {
-      console.log("[AppLayout] No wedding found after checking both tables, redirecting to onboarding");
-      navigate("/onboarding");
-      return;
-    }
-
-    console.log("[AppLayout] Wedding found, setting wedding info");
-
-    const weddingDate = new Date(data.wedding_date);
-    const today = new Date();
-    const diffTime = weddingDate.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    setWeddingInfo({
-      partner1: data.partner1_name,
-      partner2: data.partner2_name,
-      daysUntil: diffDays > 0 ? diffDays : 0,
-    });
   };
 
   const handleLogout = async () => {
@@ -159,7 +168,7 @@ const AppLayout = () => {
     navigate("/");
   };
 
-  if (loading) {
+  if (loading || loadingWedding) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -171,6 +180,13 @@ const AppLayout = () => {
   }
 
   if (!user) {
+    return null;
+  }
+
+  // Se il caricamento è finito e non c'è wedding, redirect a onboarding
+  if (!loadingWedding && !weddingInfo) {
+    console.log("[AppLayout] Redirecting to onboarding - no wedding found");
+    navigate("/onboarding");
     return null;
   }
 
