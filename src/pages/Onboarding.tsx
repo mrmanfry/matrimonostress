@@ -1,13 +1,14 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Heart, Loader2 } from "lucide-react";
+import { Heart, Loader2, LogIn } from "lucide-react";
 import { z } from "zod";
 
 const weddingSchema = z.object({
@@ -20,14 +21,49 @@ const weddingSchema = z.object({
 
 const Onboarding = () => {
   const { authState, refreshAuth } = useAuth();
+  const [mode, setMode] = useState<"create" | "join">("create");
   const [partner1Name, setPartner1Name] = useState("");
   const [partner2Name, setPartner2Name] = useState("");
   const [partner2Email, setPartner2Email] = useState("");
   const [weddingDate, setWeddingDate] = useState("");
   const [totalBudget, setTotalBudget] = useState("");
+  const [accessCode, setAccessCode] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
+
+  // Detect query parameter or pending invitation
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const codeParam = params.get('code');
+    
+    if (codeParam) {
+      setMode('join');
+      setAccessCode(codeParam.toUpperCase());
+      return;
+    }
+
+    // Check for pending invitation
+    if (authState.status === "authenticated") {
+      supabase
+        .from('wedding_invitations')
+        .select('wedding_id, role, weddings(partner1_name, partner2_name, access_code)')
+        .eq('email', authState.user.email)
+        .eq('status', 'pending')
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data && data.weddings) {
+            setMode('join');
+            setAccessCode(data.weddings.access_code || '');
+            toast({
+              title: "Invito trovato!",
+              description: `Hai un invito per il matrimonio di ${data.weddings.partner1_name} & ${data.weddings.partner2_name}`,
+            });
+          }
+        });
+    }
+  }, [location, authState]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -110,18 +146,12 @@ const Onboarding = () => {
 
       // Create invitation if partner2Email is provided
       if (partner2Email) {
-        const token = crypto.randomUUID();
-        const expiresAt = new Date();
-        expiresAt.setDate(expiresAt.getDate() + 7);
-
         const { error: inviteError } = await supabase
           .from('wedding_invitations')
           .insert({
             wedding_id: weddingData.id,
             email: partner2Email,
             role: 'co_planner',
-            token: token,
-            expires_at: expiresAt.toISOString(),
             invited_by: user.id,
           });
 
@@ -141,7 +171,7 @@ const Onboarding = () => {
                 weddingNames: `${partner1Name} & ${partner2Name}`,
                 weddingDate: weddingDate,
                 role: 'co_planner',
-                token: token,
+                accessCode: weddingData.access_code,
                 inviterName: partner1Name,
               },
             });
@@ -150,13 +180,13 @@ const Onboarding = () => {
               console.error('Error sending invitation email:', emailError);
               toast({
                 title: "Invito creato",
-                description: "L'invito è stato creato ma l'email non è stata inviata. Condividi il link manualmente.",
+                description: "L'invito è stato creato ma l'email non è stata inviata. Condividi il codice manualmente.",
                 variant: "default",
               });
             } else {
               toast({
                 title: "Invito inviato",
-                description: `Un'email è stata inviata a ${partner2Email}`,
+                description: `Un'email con il codice è stata inviata a ${partner2Email}`,
               });
             }
           } catch (emailErr) {
@@ -198,6 +228,102 @@ const Onboarding = () => {
     }
   };
 
+  const handleJoinWithCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      if (authState.status !== "authenticated") {
+        toast({
+          title: "Sessione scaduta",
+          description: "Effettua nuovamente l'accesso",
+          variant: "destructive",
+        });
+        navigate("/auth");
+        return;
+      }
+
+      const user = authState.user;
+      const code = accessCode.trim().toUpperCase();
+
+      if (!code) {
+        throw new Error("Inserisci un codice valido");
+      }
+
+      // Find wedding with this code
+      const { data: wedding, error: weddingError } = await supabase
+        .from('weddings')
+        .select('id, partner1_name, partner2_name')
+        .eq('access_code', code)
+        .maybeSingle();
+
+      if (weddingError || !wedding) {
+        throw new Error("Codice non valido o matrimonio non trovato");
+      }
+
+      // Check if user already has a role for this wedding
+      const { data: existingRole } = await supabase
+        .from('user_roles')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('wedding_id', wedding.id)
+        .maybeSingle();
+
+      if (existingRole) {
+        throw new Error("Sei già un collaboratore di questo matrimonio");
+      }
+
+      // Check for pending invitation for this email
+      const { data: invitation } = await supabase
+        .from('wedding_invitations')
+        .select('role')
+        .eq('email', user.email)
+        .eq('wedding_id', wedding.id)
+        .eq('status', 'pending')
+        .maybeSingle();
+
+      const role = invitation?.role || 'manager';
+
+      // Create user role
+      const { error: roleError } = await supabase
+        .from('user_roles')
+        .insert({
+          user_id: user.id,
+          wedding_id: wedding.id,
+          role: role
+        });
+
+      if (roleError) throw roleError;
+
+      // Update invitation status if exists
+      if (invitation) {
+        await supabase
+          .from('wedding_invitations')
+          .update({ status: 'accepted' })
+          .eq('email', user.email)
+          .eq('wedding_id', wedding.id);
+      }
+
+      // Refresh auth context
+      await refreshAuth();
+
+      toast({
+        title: "Accesso effettuato!",
+        description: `Ora puoi collaborare al matrimonio di ${wedding.partner1_name} & ${wedding.partner2_name}`,
+      });
+
+      navigate("/app/dashboard");
+    } catch (error: any) {
+      toast({
+        title: "Errore",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-hero">
       <Card className="w-full max-w-lg p-8 space-y-6">
@@ -209,94 +335,152 @@ const Onboarding = () => {
           </div>
           <h1 className="text-3xl font-bold">Benvenuto!</h1>
           <p className="text-muted-foreground">
-            Iniziamo con le informazioni essenziali per il tuo matrimonio
+            Cosa vuoi fare?
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="partner1">Nome Partner 1</Label>
-            <Input
-              id="partner1"
-              value={partner1Name}
-              onChange={(e) => setPartner1Name(e.target.value)}
-              placeholder="Es. Mario"
-              required
-              disabled={loading}
-              maxLength={100}
-            />
-          </div>
+        <Tabs value={mode} onValueChange={(v) => setMode(v as "create" | "join")} className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="create">
+              <Heart className="w-4 h-4 mr-2" />
+              Crea Matrimonio
+            </TabsTrigger>
+            <TabsTrigger value="join">
+              <LogIn className="w-4 h-4 mr-2" />
+              Ho un Codice
+            </TabsTrigger>
+          </TabsList>
 
-          <div className="space-y-2">
-            <Label htmlFor="partner2">Nome Partner 2</Label>
-            <Input
-              id="partner2"
-              value={partner2Name}
-              onChange={(e) => setPartner2Name(e.target.value)}
-              placeholder="Es. Laura"
-              required
-              disabled={loading}
-              maxLength={100}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="partner2Email">Email Partner 2 (opzionale)</Label>
-            <Input
-              id="partner2Email"
-              type="email"
-              value={partner2Email}
-              onChange={(e) => setPartner2Email(e.target.value)}
-              placeholder="partner2@email.com"
-              disabled={loading}
-              maxLength={255}
-            />
-            <p className="text-sm text-muted-foreground">
-              Se fornita, il tuo partner riceverà un invito per accedere allo spazio matrimonio
+          <TabsContent value="create" className="space-y-4 mt-6">
+            <p className="text-sm text-muted-foreground text-center">
+              Iniziamo con le informazioni essenziali per il tuo matrimonio
             </p>
-          </div>
+            
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="partner1">Nome Partner 1</Label>
+                <Input
+                  id="partner1"
+                  value={partner1Name}
+                  onChange={(e) => setPartner1Name(e.target.value)}
+                  placeholder="Es. Mario"
+                  required
+                  disabled={loading}
+                  maxLength={100}
+                />
+              </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="date">Data del Matrimonio</Label>
-            <Input
-              id="date"
-              type="date"
-              value={weddingDate}
-              onChange={(e) => setWeddingDate(e.target.value)}
-              required
-              disabled={loading}
-              min={new Date().toISOString().split("T")[0]}
-            />
-          </div>
+              <div className="space-y-2">
+                <Label htmlFor="partner2">Nome Partner 2</Label>
+                <Input
+                  id="partner2"
+                  value={partner2Name}
+                  onChange={(e) => setPartner2Name(e.target.value)}
+                  placeholder="Es. Laura"
+                  required
+                  disabled={loading}
+                  maxLength={100}
+                />
+              </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="budget">Budget Totale (opzionale)</Label>
-            <Input
-              id="budget"
-              type="number"
-              value={totalBudget}
-              onChange={(e) => setTotalBudget(e.target.value)}
-              placeholder="Es. 20000"
-              disabled={loading}
-              min="0"
-              step="100"
-            />
-            <p className="text-sm text-muted-foreground">
-              Puoi sempre modificarlo in seguito
+              <div className="space-y-2">
+                <Label htmlFor="partner2Email">Email Partner 2 (opzionale)</Label>
+                <Input
+                  id="partner2Email"
+                  type="email"
+                  value={partner2Email}
+                  onChange={(e) => setPartner2Email(e.target.value)}
+                  placeholder="partner2@email.com"
+                  disabled={loading}
+                  maxLength={255}
+                />
+                <p className="text-sm text-muted-foreground">
+                  Se fornita, il tuo partner riceverà un invito con il codice di accesso
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="date">Data del Matrimonio</Label>
+                <Input
+                  id="date"
+                  type="date"
+                  value={weddingDate}
+                  onChange={(e) => setWeddingDate(e.target.value)}
+                  required
+                  disabled={loading}
+                  min={new Date().toISOString().split("T")[0]}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="budget">Budget Totale (opzionale)</Label>
+                <Input
+                  id="budget"
+                  type="number"
+                  value={totalBudget}
+                  onChange={(e) => setTotalBudget(e.target.value)}
+                  placeholder="Es. 20000"
+                  disabled={loading}
+                  min="0"
+                  step="100"
+                />
+                <p className="text-sm text-muted-foreground">
+                  Puoi sempre modificarlo in seguito
+                </p>
+              </div>
+
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Creazione...
+                  </>
+                ) : (
+                  "Inizia l'Avventura"
+                )}
+              </Button>
+            </form>
+          </TabsContent>
+
+          <TabsContent value="join" className="space-y-4 mt-6">
+            <p className="text-sm text-muted-foreground text-center">
+              Inserisci il codice che hai ricevuto via email
             </p>
-          </div>
 
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Creazione...
-              </>
-            ) : (
-              "Inizia l'Avventura"
-            )}
-          </Button>
-        </form>
+            <form onSubmit={handleJoinWithCode} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="accessCode">Codice di Accesso</Label>
+                <Input
+                  id="accessCode"
+                  value={accessCode}
+                  onChange={(e) => setAccessCode(e.target.value.toUpperCase())}
+                  placeholder="WED-XXXX"
+                  required
+                  disabled={loading}
+                  maxLength={8}
+                  className="font-mono text-center text-lg tracking-wider"
+                />
+                <p className="text-sm text-muted-foreground text-center">
+                  Il codice è nel formato <strong>WED-XXXX</strong>
+                </p>
+              </div>
+
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Accesso...
+                  </>
+                ) : (
+                  <>
+                    <LogIn className="w-4 h-4 mr-2" />
+                    Accedi al Matrimonio
+                  </>
+                )}
+              </Button>
+            </form>
+          </TabsContent>
+        </Tabs>
       </Card>
     </div>
   );
