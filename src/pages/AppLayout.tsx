@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -84,6 +84,8 @@ const AppLayout = () => {
     };
   }, [navigate]);
 
+  const hasNavigatedApp = useRef(false);
+
   // Effetto separato per caricare i dati del wedding
   useEffect(() => {
     console.log("🔄 [APPLAYOUT] Wedding load useEffect triggered");
@@ -95,8 +97,6 @@ const AppLayout = () => {
       setLoadingWedding(false);
       return;
     }
-
-    let hasNavigated = false;
 
     const loadWeddingInfo = async () => {
       console.log("📥 [APPLAYOUT] START loading wedding for user:", user.id);
@@ -148,9 +148,9 @@ const AppLayout = () => {
           });
           
           // SE siamo su onboarding ma abbiamo trovato un wedding, vai alla dashboard
-          if (location.pathname === "/onboarding" && !hasNavigated) {
+          if (location.pathname === "/onboarding" && !hasNavigatedApp.current) {
             console.log("🚀 [APPLAYOUT] Navigating: /onboarding → /app/dashboard WITH REPLACE");
-            hasNavigated = true;
+            hasNavigatedApp.current = true;
             navigate("/app/dashboard", { replace: true });
           } else {
             console.log("✅ [APPLAYOUT] Already on correct route:", location.pathname);
@@ -160,9 +160,9 @@ const AppLayout = () => {
           console.log("   Current location:", location.pathname);
           
           // Wedding NON trovato - redirect SOLO se non siamo già su onboarding
-          if (location.pathname !== "/onboarding" && !hasNavigated) {
+          if (location.pathname !== "/onboarding" && !hasNavigatedApp.current) {
             console.log("🚀 [APPLAYOUT] Navigating: " + location.pathname + " → /onboarding WITH REPLACE");
-            hasNavigated = true;
+            hasNavigatedApp.current = true;
             navigate("/onboarding", { replace: true });
           } else {
             console.log("✅ [APPLAYOUT] Already on /onboarding");
@@ -177,7 +177,7 @@ const AppLayout = () => {
     };
 
     loadWeddingInfo();
-  }, [user?.id, navigate]);
+  }, [user?.id]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();

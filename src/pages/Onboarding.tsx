@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -28,11 +28,13 @@ const Onboarding = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  const hasNavigated = useRef(false);
+
   // Verifica autenticazione all'ingresso
   useEffect(() => {
-    console.log("🎬 [ONBOARDING] Component mounted, checking auth & wedding...");
+    if (hasNavigated.current) return;
     
-    let hasNavigated = false;
+    console.log("🎬 [ONBOARDING] Component mounted, checking auth & wedding...");
     
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -41,8 +43,8 @@ const Onboarding = () => {
       
       if (!session) {
         console.log("❌ No session, redirect to /auth");
-        if (!hasNavigated) {
-          hasNavigated = true;
+        if (!hasNavigated.current) {
+          hasNavigated.current = true;
           toast({
             title: "Non autenticato",
             description: "Devi effettuare l'accesso prima di continuare",
@@ -78,8 +80,8 @@ const Onboarding = () => {
       
       if (existingWedding) {
         console.log("🚀 [ONBOARDING] Wedding exists, navigate to /app/dashboard WITH REPLACE");
-        if (!hasNavigated) {
-          hasNavigated = true;
+        if (!hasNavigated.current) {
+          hasNavigated.current = true;
           navigate("/app/dashboard", { replace: true });
         }
         return;
@@ -90,7 +92,7 @@ const Onboarding = () => {
     };
 
     checkAuth();
-  }, [navigate, toast]);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
