@@ -307,6 +307,9 @@ const Onboarding = () => {
       // Refresh auth context
       await refreshAuth();
 
+      // Wait for auth state to update before navigating
+      await new Promise(resolve => setTimeout(resolve, 200));
+
       toast({
         title: "Accesso effettuato!",
         description: `Ora puoi collaborare al matrimonio di ${wedding.partner1_name} & ${wedding.partner2_name}`,

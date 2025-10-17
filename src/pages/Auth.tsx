@@ -63,7 +63,8 @@ const Auth = () => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session && !navigated) {
         navigated = true;
-        navigate("/app/dashboard");
+        // Delay navigation to allow AuthContext to update
+        setTimeout(() => navigate("/app/dashboard"), 300);
       }
     });
 
@@ -72,7 +73,8 @@ const Auth = () => {
       if (session && !navigated && window.location.pathname === "/auth") {
         if (event === 'SIGNED_IN') {
           navigated = true;
-          navigate("/app/dashboard");
+          // Delay navigation to allow AuthContext to update weddingId
+          setTimeout(() => navigate("/app/dashboard"), 300);
         }
       }
     });

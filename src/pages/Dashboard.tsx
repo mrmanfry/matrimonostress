@@ -206,6 +206,9 @@ const Dashboard = () => {
       // Reload auth context
       await refreshAuth();
 
+      // Wait for auth state to update before reloading data
+      await new Promise(resolve => setTimeout(resolve, 200));
+
       toast({
         title: "Accesso effettuato!",
         description: "Ora puoi collaborare a questo matrimonio",

@@ -58,6 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const loadWeddingId = async (userId: string): Promise<string | null> => {
+    console.log('[AuthContext] Loading weddingId for user:', userId);
     try {
       // First check if user is a collaborator
       const { data: roleData } = await supabase
@@ -66,7 +67,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .eq("user_id", userId)
         .maybeSingle();
 
+      console.log('[AuthContext] User role data:', roleData);
+
       if (roleData?.wedding_id) {
+        console.log('[AuthContext] Found weddingId from role:', roleData.wedding_id);
         return roleData.wedding_id;
       }
 
@@ -77,9 +81,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .eq("created_by", userId)
         .maybeSingle();
 
+      console.log('[AuthContext] Wedding created by user:', weddingData);
+
       return weddingData?.id || null;
     } catch (error) {
-      console.error("Error loading wedding_id:", error);
+      console.error('[AuthContext] Error loading wedding_id:', error);
       return null;
     }
   };
