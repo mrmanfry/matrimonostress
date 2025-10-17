@@ -57,9 +57,12 @@ const Auth = () => {
   const { toast } = useToast();
 
   useEffect(() => {
+    let navigated = false;
+    
     // Check if user is already logged in
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
+      if (session && !navigated) {
+        navigated = true;
         navigate("/app/dashboard");
       }
     });
@@ -67,11 +70,11 @@ const Auth = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log("Auth state changed:", event, "Session:", !!session);
       
-      if (session) {
-        if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
-          setTimeout(() => {
-            navigate("/app/dashboard");
-          }, 500);
+      // SOLO naviga se siamo ANCORA sulla pagina /auth
+      if (session && !navigated && window.location.pathname === "/auth") {
+        if (event === 'SIGNED_IN') {
+          navigated = true;
+          navigate("/app/dashboard");
         }
       }
     });
