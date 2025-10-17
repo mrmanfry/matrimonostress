@@ -58,21 +58,21 @@ const Auth = () => {
 
   useEffect(() => {
     // Check if user is already logged in
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
-        navigate("/app");
+        const destination = await checkUserDestination(session.user.id);
+        navigate(destination);
       }
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log("Auth state changed:", event, "Session:", !!session);
       
       if (session) {
-        // Verifica se siamo in fase di registrazione
         if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
-          // Aspetta un momento per assicurarsi che la sessione sia completamente attiva
+          const destination = await checkUserDestination(session.user.id);
           setTimeout(() => {
-            navigate("/app");
+            navigate(destination);
           }, 500);
         }
       }
@@ -80,6 +80,26 @@ const Auth = () => {
 
     return () => subscription.unsubscribe();
   }, [navigate]);
+
+  const checkUserDestination = async (userId: string) => {
+    // Controlla se ha creato un wedding
+    const { data: weddingData } = await supabase
+      .from("weddings")
+      .select("id")
+      .eq("created_by", userId)
+      .maybeSingle();
+    
+    if (weddingData) return "/app/dashboard";
+    
+    // Controlla se è stato invitato
+    const { data: roleData } = await supabase
+      .from("user_roles")
+      .select("id")
+      .eq("user_id", userId)
+      .maybeSingle();
+    
+    return roleData ? "/app/dashboard" : "/onboarding";
+  };
 
   // Real-time password strength update
   const handlePasswordChange = (newPassword: string) => {
@@ -157,7 +177,7 @@ const Auth = () => {
           email,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/app`,
+            emailRedirectTo: `${window.location.origin}/onboarding`,
             data: {
               first_name: firstName,
               last_name: lastName,
