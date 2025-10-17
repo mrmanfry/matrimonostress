@@ -52,21 +52,14 @@ const AppLayout = () => {
   ];
 
   useEffect(() => {
-    console.log("╔════════════════════════════════════════════════╗");
-    console.log("║ [APPLAYOUT] COMPONENT MOUNTED                  ║");
-    console.log("╚════════════════════════════════════════════════╝");
-    console.log("📍 location.pathname:", location.pathname);
-    
     let mounted = true;
     
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      console.log("🔔 [APPLAYOUT] Auth state changed:", _event);
       if (!mounted) return;
       setUser(session?.user ?? null);
       setLoading(false);
       
       if (!session) {
-        console.log("🚀 [APPLAYOUT] No session - navigate to /auth");
         navigate("/auth");
       }
     });
@@ -75,20 +68,17 @@ const AppLayout = () => {
       if (!mounted) return;
       
       if (!user) {
-        console.log("🚀 [APPLAYOUT] No user - navigate to /auth");
         setLoading(false);
         setLoadingWedding(false);
         navigate("/auth");
         return;
       }
       
-      console.log("✅ [APPLAYOUT] User found:", user.id);
       setUser(user);
       setLoading(false);
     });
 
     return () => {
-      console.log("🧹 [APPLAYOUT] Component unmounting");
       mounted = false;
       subscription.unsubscribe();
     };
@@ -102,56 +92,33 @@ const AppLayout = () => {
     }
 
     const loadWeddingInfo = async () => {
-      console.log("╔════════════════════════════════════════════════╗");
-      console.log("║ [AppLayout] START WEDDING INFO LOAD           ║");
-      console.log("╚════════════════════════════════════════════════╝");
-      console.log("🔍 User ID:", user.id);
-      console.log("📍 Current location.pathname:", location.pathname);
-      console.log("⏰ Timestamp:", new Date().toISOString());
       setLoadingWedding(true);
       
       try {
-        // STEP 1: Controlla se l'utente ha un ruolo (è collaboratore)
         const { data: roleData } = await supabase
           .from("user_roles")
           .select("wedding_id")
           .eq("user_id", user.id)
           .maybeSingle();
 
-        console.log("[AppLayout] Role check:", roleData);
-
-        // STEP 2: Carica wedding (come collaboratore O come creator)
         let weddingQuery = supabase
           .from("weddings")
           .select("partner1_name, partner2_name, wedding_date");
 
         if (roleData?.wedding_id) {
-          // È collaboratore - carica per ID
-          console.log("[AppLayout] Loading as collaborator for wedding:", roleData.wedding_id);
           weddingQuery = weddingQuery.eq("id", roleData.wedding_id);
         } else {
-          // Non è collaboratore - carica come creator
-          console.log("[AppLayout] Loading as creator");
           weddingQuery = weddingQuery.eq("created_by", user.id);
         }
 
         const { data: weddingData, error } = await weddingQuery.maybeSingle();
 
-        console.log("[AppLayout] Wedding data:", { weddingData, error });
-
         if (error) {
-          console.error("[AppLayout] Error loading wedding:", error);
+          console.error("Error loading wedding:", error);
           return;
         }
 
         if (weddingData) {
-          console.log("╔════════════════════════════════════════════════╗");
-          console.log("║ ✅ WEDDING FOUND                              ║");
-          console.log("╚════════════════════════════════════════════════╝");
-          console.log("👰 Partners:", weddingData.partner1_name, "&", weddingData.partner2_name);
-          console.log("📅 Wedding date:", weddingData.wedding_date);
-          console.log("📍 Current pathname:", location.pathname);
-          console.log("🔍 Is on /onboarding?", location.pathname === "/onboarding");
           
           const weddingDate = new Date(weddingData.wedding_date);
           const today = new Date();
@@ -164,43 +131,25 @@ const AppLayout = () => {
             daysUntil: diffDays > 0 ? diffDays : 0,
           });
           
-          console.log("✅ WeddingInfo state SET");
-          
           // SE siamo su onboarding ma abbiamo trovato un wedding, vai alla dashboard
           if (location.pathname === "/onboarding") {
-            console.log("╔════════════════════════════════════════════════╗");
-            console.log("║ 🚀 REDIRECT: /onboarding → /app/dashboard    ║");
-            console.log("╚════════════════════════════════════════════════╝");
             navigate("/app/dashboard");
-          } else {
-            console.log("⏭️  NO REDIRECT NEEDED - Already on:", location.pathname);
           }
         } else {
-          console.log("╔════════════════════════════════════════════════╗");
-          console.log("║ ❌ NO WEDDING FOUND                           ║");
-          console.log("╚════════════════════════════════════════════════╝");
-          console.log("📍 Current pathname:", location.pathname);
-          console.log("🔍 Should redirect?", location.pathname !== "/onboarding");
-          
           // Wedding NON trovato - redirect SOLO se non siamo già su onboarding
           if (location.pathname !== "/onboarding") {
-            console.log("╔════════════════════════════════════════════════╗");
-            console.log("║ 🚀 REDIRECT: → /onboarding                   ║");
-            console.log("╚════════════════════════════════════════════════╝");
             navigate("/onboarding");
-          } else {
-            console.log("⏭️  NO REDIRECT NEEDED - Already on /onboarding");
           }
         }
       } catch (err) {
-        console.error("[AppLayout] Unexpected error:", err);
+        console.error("Unexpected error loading wedding:", err);
       } finally {
         setLoadingWedding(false);
       }
     };
 
     loadWeddingInfo();
-  }, [user?.id, location.pathname, navigate]);
+  }, [user?.id, navigate]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();

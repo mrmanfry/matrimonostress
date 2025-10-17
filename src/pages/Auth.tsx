@@ -57,47 +57,27 @@ const Auth = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    console.log("╔════════════════════════════════════════════════╗");
-    console.log("║ [AUTH] COMPONENT MOUNTED                       ║");
-    console.log("╚════════════════════════════════════════════════╝");
-    
     let navigated = false;
     
     // Check if user is already logged in
     supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log("🔐 [AUTH] getSession result:", !!session);
       if (session && !navigated) {
-        console.log("🚀 [AUTH] Navigating to /app/dashboard (from getSession)");
         navigated = true;
         navigate("/app/dashboard");
       }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log("╔════════════════════════════════════════════════╗");
-      console.log("║ [AUTH] onAuthStateChange                       ║");
-      console.log("╚════════════════════════════════════════════════╝");
-      console.log("📡 Event:", event);
-      console.log("🔐 Session:", !!session);
-      console.log("📍 window.location.pathname:", window.location.pathname);
-      console.log("🚦 navigated flag:", navigated);
-      
       // SOLO naviga se siamo ANCORA sulla pagina /auth
       if (session && !navigated && window.location.pathname === "/auth") {
         if (event === 'SIGNED_IN') {
-          console.log("🚀 [AUTH] Navigating to /app/dashboard (from onAuthStateChange)");
           navigated = true;
           navigate("/app/dashboard");
         }
-      } else {
-        console.log("⏭️  [AUTH] Skip navigation - condition not met");
       }
     });
 
-    return () => {
-      console.log("🧹 [AUTH] Component unmounting - unsubscribe");
-      subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, [navigate]);
 
   // Real-time password strength update

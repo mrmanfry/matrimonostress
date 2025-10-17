@@ -30,19 +30,10 @@ const Onboarding = () => {
 
   // Verifica autenticazione all'ingresso
   useEffect(() => {
-    console.log("╔════════════════════════════════════════════════╗");
-    console.log("║ [ONBOARDING] COMPONENT MOUNTED                 ║");
-    console.log("╚════════════════════════════════════════════════╝");
-    console.log("⏰ Timestamp:", new Date().toISOString());
-    console.log("📍 window.location.pathname:", window.location.pathname);
-    
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      console.log("🔐 Session check:", !!session);
-      console.log("👤 User ID:", session?.user?.id);
       
       if (!session) {
-        console.log("❌ NO SESSION - Redirecting to /auth");
         toast({
           title: "Non autenticato",
           description: "Devi effettuare l'accesso prima di continuare",
@@ -52,19 +43,13 @@ const Onboarding = () => {
         return;
       }
 
-      console.log("✅ Session valid - Checking for existing wedding...");
-      
-      // CRITICAL: Controlla se l'utente ha già un wedding
-      // Prima controlla se è collaboratore
+      // Controlla se l'utente ha già un wedding
       const { data: roleData } = await supabase
         .from("user_roles")
         .select("wedding_id")
         .eq("user_id", session.user.id)
         .maybeSingle();
       
-      console.log("🔍 Role data:", roleData);
-      
-      // Poi controlla se ha un wedding (come creator o collaborator)
       let weddingQuery = supabase.from("weddings").select("id");
       
       if (roleData?.wedding_id) {
@@ -75,17 +60,11 @@ const Onboarding = () => {
       
       const { data: existingWedding } = await weddingQuery.maybeSingle();
       
-      console.log("💍 Existing wedding:", !!existingWedding);
-      
       if (existingWedding) {
-        console.log("╔════════════════════════════════════════════════╗");
-        console.log("║ 🚀 WEDDING EXISTS - Redirect to dashboard    ║");
-        console.log("╚════════════════════════════════════════════════╝");
         navigate("/app/dashboard");
         return;
       }
       
-      console.log("✅ No wedding found - Onboarding ready");
       setCheckingAuth(false);
     };
 
