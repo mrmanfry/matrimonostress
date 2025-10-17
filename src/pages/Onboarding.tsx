@@ -31,9 +31,11 @@ const Onboarding = () => {
   // Verifica autenticazione all'ingresso
   useEffect(() => {
     const checkAuth = async () => {
+      console.log("[Onboarding] Checking auth...");
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
+        console.log("[Onboarding] No session, redirecting to auth");
         toast({
           title: "Non autenticato",
           description: "Devi effettuare l'accesso prima di continuare",
@@ -43,6 +45,8 @@ const Onboarding = () => {
         return;
       }
 
+      console.log("[Onboarding] Session found, checking for wedding...");
+
       // Controlla se l'utente ha già un matrimonio (creato o invitato)
       const { data: weddingData } = await supabase
         .from("weddings")
@@ -50,7 +54,10 @@ const Onboarding = () => {
         .eq("created_by", session.user.id)
         .maybeSingle();
 
+      console.log("[Onboarding] Wedding created by user:", weddingData);
+
       if (weddingData) {
+        console.log("[Onboarding] User has wedding, redirecting to dashboard");
         // Ha già creato un matrimonio
         navigate("/app/dashboard");
         return;
@@ -63,12 +70,16 @@ const Onboarding = () => {
         .eq("user_id", session.user.id)
         .maybeSingle();
 
+      console.log("[Onboarding] User role data:", roleData);
+
       if (roleData) {
+        console.log("[Onboarding] User has role, redirecting to dashboard");
         // È stato invitato a un matrimonio
         navigate("/app/dashboard");
         return;
       }
       
+      console.log("[Onboarding] No wedding or role found, showing onboarding form");
       setCheckingAuth(false);
     };
 
