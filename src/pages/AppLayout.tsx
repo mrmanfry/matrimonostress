@@ -53,27 +53,20 @@ const AppLayout = () => {
       return;
     }
 
+    if (!authState.weddingId) {
+      setLoadingWedding(false);
+      return;
+    }
+
     const loadWeddingInfo = async () => {
       setLoadingWedding(true);
       
       try {
-        const { data: roleData } = await supabase
-          .from("user_roles")
-          .select("wedding_id")
-          .eq("user_id", authState.user.id)
-          .maybeSingle();
-
-        let weddingQuery = supabase
+        const { data: weddingData } = await supabase
           .from("weddings")
-          .select("partner1_name, partner2_name, wedding_date");
-
-        if (roleData?.wedding_id) {
-          weddingQuery = weddingQuery.eq("id", roleData.wedding_id);
-        } else {
-          weddingQuery = weddingQuery.eq("created_by", authState.user.id);
-        }
-
-        const { data: weddingData } = await weddingQuery.maybeSingle();
+          .select("partner1_name, partner2_name, wedding_date")
+          .eq("id", authState.weddingId)
+          .maybeSingle();
 
         if (weddingData) {
           const weddingDate = new Date(weddingData.wedding_date);
@@ -96,7 +89,7 @@ const AppLayout = () => {
     };
 
     loadWeddingInfo();
-  }, [authState.status]);
+  }, [authState]);
 
   if (loadingWedding) {
     return (

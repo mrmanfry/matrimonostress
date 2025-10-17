@@ -19,7 +19,7 @@ const weddingSchema = z.object({
 });
 
 const Onboarding = () => {
-  const { authState } = useAuth();
+  const { authState, refreshAuth } = useAuth();
   const [partner1Name, setPartner1Name] = useState("");
   const [partner2Name, setPartner2Name] = useState("");
   const [partner2Email, setPartner2Email] = useState("");
@@ -175,6 +175,9 @@ const Onboarding = () => {
         description: "Il tuo matrimonio è stato creato. Iniziamo!",
       });
 
+      // Refresh auth to load the new wedding_id
+      await refreshAuth();
+      
       navigate("/app/dashboard");
     } catch (error: any) {
       let errorMessage = "Si è verificato un errore";

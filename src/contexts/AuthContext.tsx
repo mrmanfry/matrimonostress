@@ -6,7 +6,7 @@ import { retryWithBackoff } from "@/utils/retryWithBackoff";
 type AuthState = 
   | { status: "loading" }
   | { status: "unauthenticated" }
-  | { status: "authenticated"; user: User; session: Session }
+  | { status: "authenticated"; user: User; session: Session; weddingId: string | null }
   | { status: "error"; error: Error };
 
 interface AuthContextType {
@@ -36,10 +36,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) throw error;
 
       if (data.session) {
+        // Load wedding_id for the user
+        const weddingId = await loadWeddingId(data.session.user.id);
+        
         setAuthState({
           status: "authenticated",
           user: data.session.user,
           session: data.session,
+          weddingId,
         });
       } else {
         setAuthState({ status: "unauthenticated" });
@@ -53,6 +57,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const loadWeddingId = async (userId: string): Promise<string | null> => {
+    try {
+      // First check if user is a collaborator
+      const { data: roleData } = await supabase
+        .from("user_roles")
+        .select("wedding_id")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (roleData?.wedding_id) {
+        return roleData.wedding_id;
+      }
+
+      // Then check if user created a wedding
+      const { data: weddingData } = await supabase
+        .from("weddings")
+        .select("id")
+        .eq("created_by", userId)
+        .maybeSingle();
+
+      return weddingData?.id || null;
+    } catch (error) {
+      console.error("Error loading wedding_id:", error);
+      return null;
+    }
+  };
+
   useEffect(() => {
     // Initial load
     loadSession();
@@ -61,11 +92,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         if (session) {
-          setAuthState({
-            status: "authenticated",
-            user: session.user,
-            session,
-          });
+          // Defer wedding_id loading to avoid blocking auth state change
+          setTimeout(async () => {
+            const weddingId = await loadWeddingId(session.user.id);
+            setAuthState({
+              status: "authenticated",
+              user: session.user,
+              session,
+              weddingId,
+            });
+          }, 0);
         } else {
           setAuthState({ status: "unauthenticated" });
         }
