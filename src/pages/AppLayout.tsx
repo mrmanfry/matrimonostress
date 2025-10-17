@@ -63,7 +63,7 @@ const AppLayout = () => {
       }
     });
 
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
       if (!mounted) return;
       
       if (!user) {
@@ -73,18 +73,7 @@ const AppLayout = () => {
       }
       
       setUser(user);
-      
-      // Controlla se l'utente ha un wedding prima di procedere
-      const hasWedding = await checkUserHasWedding(user.id);
-      
-      if (!hasWedding) {
-        // Se non ha wedding, reindirizza a onboarding
-        navigate("/onboarding");
-        return;
-      }
-      
-      // Se ha un wedding, carica i dati
-      await loadWeddingInfo(user.id);
+      loadWeddingInfo(user.id);
       setLoading(false);
     });
 
@@ -93,26 +82,6 @@ const AppLayout = () => {
       subscription.unsubscribe();
     };
   }, [navigate]);
-
-  const checkUserHasWedding = async (userId: string) => {
-    // Controlla se ha creato un wedding
-    const { data: weddingData } = await supabase
-      .from("weddings")
-      .select("id")
-      .eq("created_by", userId)
-      .maybeSingle();
-    
-    if (weddingData) return true;
-    
-    // Controlla se è stato invitato
-    const { data: roleData } = await supabase
-      .from("user_roles")
-      .select("id")
-      .eq("user_id", userId)
-      .maybeSingle();
-    
-    return !!roleData;
-  };
 
 
   const loadWeddingInfo = async (userId: string) => {
@@ -149,7 +118,9 @@ const AppLayout = () => {
       return;
     }
 
+    // Se dopo aver controllato entrambe le tabelle non c'è wedding, reindirizza
     if (!data) {
+      navigate("/onboarding");
       return;
     }
 
