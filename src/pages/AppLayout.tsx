@@ -75,8 +75,6 @@ const AppLayout = () => {
   }, [navigate]);
 
   const loadWeddingInfo = async (userId: string) => {
-    console.log("[AppLayout] Loading wedding info for user:", userId);
-    
     // Prima controlla se l'utente ha creato un wedding
     let { data, error } = await supabase
       .from("weddings")
@@ -84,11 +82,8 @@ const AppLayout = () => {
       .eq("created_by", userId)
       .maybeSingle();
 
-    console.log("[AppLayout] Wedding created by user:", data);
-
     // Se non ha creato un wedding, controlla se è stato invitato
     if (!data && !error) {
-      console.log("[AppLayout] Checking for user_roles...");
       // Prima ottieni il wedding_id dal ruolo
       const { data: roleData, error: roleError } = await supabase
         .from("user_roles")
@@ -96,35 +91,25 @@ const AppLayout = () => {
         .eq("user_id", userId)
         .maybeSingle();
 
-      console.log("[AppLayout] User role data:", roleData, "Error:", roleError);
-
       // Poi ottieni i dati del wedding
       if (roleData?.wedding_id) {
-        console.log("[AppLayout] Fetching wedding data for ID:", roleData.wedding_id);
         const { data: weddingData, error: weddingError } = await supabase
           .from("weddings")
           .select("partner1_name, partner2_name, wedding_date")
           .eq("id", roleData.wedding_id)
           .single();
         
-        console.log("[AppLayout] Wedding data from role:", weddingData, "Error:", weddingError);
         data = weddingData;
       }
     }
 
     if (error) {
-      console.error("[AppLayout] Error loading wedding:", error);
+      console.error("Error loading wedding:", error);
       return;
     }
 
-    console.log("[AppLayout] Final wedding data:", data);
-
     if (!data) {
-      console.log("[AppLayout] No wedding found, redirecting to onboarding");
-      // Nuovo utente senza wedding - reindirizza a onboarding
-      if (location.pathname !== '/onboarding') {
-        navigate("/onboarding");
-      }
+      // Non reindirizzare - lascia che Onboarding gestisca questo caso
       return;
     }
 
