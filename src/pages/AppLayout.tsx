@@ -86,12 +86,17 @@ const AppLayout = () => {
 
   // Effetto separato per caricare i dati del wedding
   useEffect(() => {
+    console.log("🔄 [APPLAYOUT] Wedding load useEffect triggered");
+    console.log("   user?.id:", user?.id);
+    console.log("   location.pathname:", location.pathname);
+    
     if (!user?.id) {
       setLoadingWedding(false);
       return;
     }
 
     const loadWeddingInfo = async () => {
+      console.log("📥 [APPLAYOUT] START loading wedding for user:", user.id);
       setLoadingWedding(true);
       
       try {
@@ -101,24 +106,32 @@ const AppLayout = () => {
           .eq("user_id", user.id)
           .maybeSingle();
 
+        console.log("👥 Role data:", roleData);
+
         let weddingQuery = supabase
           .from("weddings")
           .select("partner1_name, partner2_name, wedding_date");
 
         if (roleData?.wedding_id) {
+          console.log("✅ User is collaborator for wedding:", roleData.wedding_id);
           weddingQuery = weddingQuery.eq("id", roleData.wedding_id);
         } else {
+          console.log("✅ User is creator, loading their wedding");
           weddingQuery = weddingQuery.eq("created_by", user.id);
         }
 
         const { data: weddingData, error } = await weddingQuery.maybeSingle();
 
+        console.log("💒 Wedding query result:", { found: !!weddingData, error });
+
         if (error) {
-          console.error("Error loading wedding:", error);
+          console.error("❌ Error loading wedding:", error);
           return;
         }
 
         if (weddingData) {
+          console.log("✅ Wedding found:", weddingData.partner1_name, "&", weddingData.partner2_name);
+          console.log("   Current location:", location.pathname);
           
           const weddingDate = new Date(weddingData.wedding_date);
           const today = new Date();
@@ -133,17 +146,27 @@ const AppLayout = () => {
           
           // SE siamo su onboarding ma abbiamo trovato un wedding, vai alla dashboard
           if (location.pathname === "/onboarding") {
+            console.log("🚀 [APPLAYOUT] Navigating: /onboarding → /app/dashboard");
             navigate("/app/dashboard");
+          } else {
+            console.log("✅ [APPLAYOUT] Already on correct route:", location.pathname);
           }
         } else {
+          console.log("❌ No wedding found");
+          console.log("   Current location:", location.pathname);
+          
           // Wedding NON trovato - redirect SOLO se non siamo già su onboarding
           if (location.pathname !== "/onboarding") {
+            console.log("🚀 [APPLAYOUT] Navigating: " + location.pathname + " → /onboarding");
             navigate("/onboarding");
+          } else {
+            console.log("✅ [APPLAYOUT] Already on /onboarding");
           }
         }
       } catch (err) {
-        console.error("Unexpected error loading wedding:", err);
+        console.error("❌ Unexpected error loading wedding:", err);
       } finally {
+        console.log("✅ [APPLAYOUT] Wedding load complete, setLoadingWedding(false)");
         setLoadingWedding(false);
       }
     };

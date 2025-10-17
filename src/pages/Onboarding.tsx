@@ -30,10 +30,15 @@ const Onboarding = () => {
 
   // Verifica autenticazione all'ingresso
   useEffect(() => {
+    console.log("🎬 [ONBOARDING] Component mounted, checking auth & wedding...");
+    
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       
+      console.log("🔐 Session:", !!session, "User:", session?.user?.id);
+      
       if (!session) {
+        console.log("❌ No session, redirect to /auth");
         toast({
           title: "Non autenticato",
           description: "Devi effettuare l'accesso prima di continuare",
@@ -43,12 +48,16 @@ const Onboarding = () => {
         return;
       }
 
+      console.log("🔍 Checking for existing wedding...");
+      
       // Controlla se l'utente ha già un wedding
       const { data: roleData } = await supabase
         .from("user_roles")
         .select("wedding_id")
         .eq("user_id", session.user.id)
         .maybeSingle();
+      
+      console.log("👥 Role data:", roleData);
       
       let weddingQuery = supabase.from("weddings").select("id");
       
@@ -60,11 +69,15 @@ const Onboarding = () => {
       
       const { data: existingWedding } = await weddingQuery.maybeSingle();
       
+      console.log("💒 Existing wedding:", !!existingWedding);
+      
       if (existingWedding) {
+        console.log("🚀 [ONBOARDING] Wedding exists, navigate to /app/dashboard");
         navigate("/app/dashboard");
         return;
       }
       
+      console.log("✅ No wedding, staying on onboarding");
       setCheckingAuth(false);
     };
 
