@@ -52,9 +52,40 @@ const Onboarding = () => {
         return;
       }
 
-      console.log("✅ Session valid - Onboarding ready");
-      // BASTA - non controllare wedding qui
-      // AppLayout gestisce tutta la logica di verifica wedding
+      console.log("✅ Session valid - Checking for existing wedding...");
+      
+      // CRITICAL: Controlla se l'utente ha già un wedding
+      // Prima controlla se è collaboratore
+      const { data: roleData } = await supabase
+        .from("user_roles")
+        .select("wedding_id")
+        .eq("user_id", session.user.id)
+        .maybeSingle();
+      
+      console.log("🔍 Role data:", roleData);
+      
+      // Poi controlla se ha un wedding (come creator o collaborator)
+      let weddingQuery = supabase.from("weddings").select("id");
+      
+      if (roleData?.wedding_id) {
+        weddingQuery = weddingQuery.eq("id", roleData.wedding_id);
+      } else {
+        weddingQuery = weddingQuery.eq("created_by", session.user.id);
+      }
+      
+      const { data: existingWedding } = await weddingQuery.maybeSingle();
+      
+      console.log("💍 Existing wedding:", !!existingWedding);
+      
+      if (existingWedding) {
+        console.log("╔════════════════════════════════════════════════╗");
+        console.log("║ 🚀 WEDDING EXISTS - Redirect to dashboard    ║");
+        console.log("╚════════════════════════════════════════════════╝");
+        navigate("/app/dashboard");
+        return;
+      }
+      
+      console.log("✅ No wedding found - Onboarding ready");
       setCheckingAuth(false);
     };
 
