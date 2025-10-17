@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -84,23 +84,24 @@ const AppLayout = () => {
     };
   }, [navigate]);
 
+  // Ref per tracciare se abbiamo già caricato i dati per questo user
+  const loadedUserIdRef = useRef<string | null>(null);
+
   // Effetto separato per caricare i dati del wedding
   useEffect(() => {
-    console.log("🔄 [APPLAYOUT] Wedding load useEffect triggered");
-    console.log("   user?.id:", user?.id);
-    console.log("   location.pathname:", location.pathname);
-    
     if (!user?.id) {
-      console.log("⏭️  [APPLAYOUT] No user, skipping wedding load");
       setLoadingWedding(false);
       return;
     }
 
-    let navigationDone = false;
+    // Se abbiamo già caricato i dati per questo user, non ricaricare
+    if (loadedUserIdRef.current === user.id) {
+      return;
+    }
 
     const loadWeddingInfo = async () => {
-      console.log("📥 [APPLAYOUT] START loading wedding for user:", user.id);
       setLoadingWedding(true);
+      loadedUserIdRef.current = user.id;
       
       try {
         const { data: roleData } = await supabase
@@ -109,33 +110,24 @@ const AppLayout = () => {
           .eq("user_id", user.id)
           .maybeSingle();
 
-        console.log("👥 Role data:", roleData);
-
         let weddingQuery = supabase
           .from("weddings")
           .select("partner1_name, partner2_name, wedding_date");
 
         if (roleData?.wedding_id) {
-          console.log("✅ User is collaborator for wedding:", roleData.wedding_id);
           weddingQuery = weddingQuery.eq("id", roleData.wedding_id);
         } else {
-          console.log("✅ User is creator, loading their wedding");
           weddingQuery = weddingQuery.eq("created_by", user.id);
         }
 
         const { data: weddingData, error } = await weddingQuery.maybeSingle();
 
-        console.log("💒 Wedding query result:", { found: !!weddingData, error });
-
         if (error) {
-          console.error("❌ Error loading wedding:", error);
+          console.error("Error loading wedding:", error);
           return;
         }
 
         if (weddingData) {
-          console.log("✅ Wedding found:", weddingData.partner1_name, "&", weddingData.partner2_name);
-          console.log("   Current location:", location.pathname);
-          
           const weddingDate = new Date(weddingData.wedding_date);
           const today = new Date();
           const diffTime = weddingDate.getTime() - today.getTime();
@@ -147,37 +139,25 @@ const AppLayout = () => {
             daysUntil: diffDays > 0 ? diffDays : 0,
           });
           
-          // SE siamo su onboarding ma abbiamo trovato un wedding, vai alla dashboard
-          if (location.pathname === "/onboarding" && !navigationDone) {
-            console.log("🚀 [APPLAYOUT] Navigating: /onboarding → /app/dashboard WITH REPLACE");
-            navigationDone = true;
+          // Se siamo su onboarding, vai alla dashboard
+          if (location.pathname === "/onboarding") {
             navigate("/app/dashboard", { replace: true });
-          } else {
-            console.log("✅ [APPLAYOUT] Already on correct route:", location.pathname);
           }
         } else {
-          console.log("❌ No wedding found");
-          console.log("   Current location:", location.pathname);
-          
-          // Wedding NON trovato - redirect SOLO se non siamo già su onboarding
-          if (location.pathname !== "/onboarding" && !navigationDone) {
-            console.log("🚀 [APPLAYOUT] Navigating: " + location.pathname + " → /onboarding WITH REPLACE");
-            navigationDone = true;
+          // Wedding NON trovato - redirect a onboarding
+          if (location.pathname !== "/onboarding") {
             navigate("/onboarding", { replace: true });
-          } else {
-            console.log("✅ [APPLAYOUT] Already on /onboarding");
           }
         }
       } catch (err) {
-        console.error("❌ Unexpected error loading wedding:", err);
+        console.error("Unexpected error loading wedding:", err);
       } finally {
-        console.log("✅ [APPLAYOUT] Wedding load complete, setLoadingWedding(false)");
         setLoadingWedding(false);
       }
     };
 
     loadWeddingInfo();
-  }, [user?.id, location.pathname, navigate]);
+  }, [user?.id]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
