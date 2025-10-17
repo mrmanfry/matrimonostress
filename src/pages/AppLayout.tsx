@@ -124,6 +124,7 @@ const AppLayout = () => {
 
         if (error) {
           console.error("Error loading wedding:", error);
+          setLoadingWedding(false);
           return;
         }
 
@@ -138,20 +139,11 @@ const AppLayout = () => {
             partner2: weddingData.partner2_name,
             daysUntil: diffDays > 0 ? diffDays : 0,
           });
-          
-          // Se siamo su onboarding, vai alla dashboard
-          if (location.pathname === "/onboarding") {
-            navigate("/app/dashboard", { replace: true });
-          }
-        } else {
-          // Wedding NON trovato - redirect a onboarding
-          if (location.pathname !== "/onboarding") {
-            navigate("/onboarding", { replace: true });
-          }
         }
+        
+        setLoadingWedding(false);
       } catch (err) {
         console.error("Unexpected error loading wedding:", err);
-      } finally {
         setLoadingWedding(false);
       }
     };
