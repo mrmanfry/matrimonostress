@@ -72,13 +72,6 @@ const AcceptInvite = () => {
     setAccepting(true);
 
     try {
-      console.log("Starting invitation acceptance...");
-      console.log("User ID:", session.user.id);
-      console.log("Wedding ID:", invitation.wedding_id);
-      console.log("Role:", invitation.role);
-      console.log("Invitation email:", invitation.email);
-      console.log("User email:", session.user.email);
-
       // Verifica che l'email dell'utente corrisponda all'email dell'invito
       if (session.user.email !== invitation.email) {
         toast({
@@ -90,36 +83,39 @@ const AcceptInvite = () => {
         return;
       }
 
-      console.log("Inserting user role...");
-      // Inserisci il ruolo nella tabella user_roles
-      const { data: roleData, error: roleError } = await supabase
+      // Controlla se il ruolo esiste già
+      const { data: existingRole } = await supabase
         .from("user_roles")
-        .insert({
-          user_id: session.user.id,
-          wedding_id: invitation.wedding_id,
-          role: invitation.role,
-        })
-        .select();
+        .select("id")
+        .eq("user_id", session.user.id)
+        .eq("wedding_id", invitation.wedding_id)
+        .eq("role", invitation.role)
+        .maybeSingle();
 
-      if (roleError) {
-        console.error("Role insert error:", roleError);
-        throw new Error(`Errore inserimento ruolo: ${roleError.message} (Code: ${roleError.code})`);
+      // Se il ruolo non esiste, inseriscilo
+      if (!existingRole) {
+        const { error: roleError } = await supabase
+          .from("user_roles")
+          .insert({
+            user_id: session.user.id,
+            wedding_id: invitation.wedding_id,
+            role: invitation.role,
+          });
+
+        if (roleError) {
+          throw new Error("Impossibile assegnare il ruolo. Riprova più tardi.");
+        }
       }
-      console.log("Role inserted successfully:", roleData);
 
-      console.log("Updating invitation status...");
-      // Aggiorna lo status dell'invito
-      const { data: updateData, error: updateError } = await supabase
+      // Aggiorna lo status dell'invito a "accepted"
+      const { error: updateError } = await supabase
         .from("wedding_invitations")
         .update({ status: "accepted" })
-        .eq("id", invitation.id)
-        .select();
+        .eq("id", invitation.id);
 
       if (updateError) {
-        console.error("Invitation update error:", updateError);
-        throw new Error(`Errore aggiornamento invito: ${updateError.message} (Code: ${updateError.code})`);
+        throw new Error("Impossibile aggiornare lo stato dell'invito.");
       }
-      console.log("Invitation updated successfully:", updateData);
 
       toast({
         title: "Invito accettato!",
