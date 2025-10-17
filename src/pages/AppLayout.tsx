@@ -64,19 +64,28 @@ const AppLayout = () => {
       }
     });
 
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!mounted) return;
-      
-      if (!user) {
+    supabase.auth.getUser()
+      .then(({ data: { user } }) => {
+        if (!mounted) return;
+        
+        if (!user) {
+          setLoading(false);
+          setLoadingWedding(false);
+          navigate("/auth");
+          return;
+        }
+        
+        setUser(user);
+        setLoading(false);
+      })
+      .catch((error) => {
+        console.error("Error getting user:", error);
+        if (!mounted) return;
+        setUser(null);
         setLoading(false);
         setLoadingWedding(false);
-        navigate("/auth");
-        return;
-      }
-      
-      setUser(user);
-      setLoading(false);
-    });
+        // Don't navigate on network errors, let user retry
+      });
 
     return () => {
       mounted = false;
