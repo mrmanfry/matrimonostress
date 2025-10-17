@@ -26,25 +26,62 @@ export function ProtectedRoute({ children, requireWedding = false }: ProtectedRo
     if (authState.status !== "authenticated") return;
 
     try {
-      const { data: roleData } = await supabase
+      console.log("[ProtectedRoute] Checking wedding access for user:", authState.user.id);
+      
+      // Prima controlla se l'utente ha un ruolo associato a un matrimonio
+      const { data: roleData, error: roleError } = await supabase
         .from("user_roles")
-        .select("wedding_id")
+        .select("wedding_id, role")
         .eq("user_id", authState.user.id)
         .maybeSingle();
 
-      let weddingQuery = supabase.from("weddings").select("id");
-      
-      if (roleData?.wedding_id) {
-        weddingQuery = weddingQuery.eq("id", roleData.wedding_id);
-      } else {
-        weddingQuery = weddingQuery.eq("created_by", authState.user.id);
+      if (roleError) {
+        console.error("[ProtectedRoute] Error fetching user role:", roleError);
+        setWeddingCheck("error");
+        return;
       }
-      
-      const { data: existingWedding } = await weddingQuery.maybeSingle();
-      
-      setWeddingCheck(existingWedding ? "exists" : "missing");
+
+      console.log("[ProtectedRoute] User role data:", roleData);
+
+      if (roleData?.wedding_id) {
+        // L'utente è un collaboratore - verifica che il matrimonio esista
+        console.log("[ProtectedRoute] User is collaborator for wedding:", roleData.wedding_id);
+        
+        const { data: wedding, error: weddingError } = await supabase
+          .from("weddings")
+          .select("id")
+          .eq("id", roleData.wedding_id)
+          .maybeSingle();
+        
+        if (weddingError) {
+          console.error("[ProtectedRoute] Error fetching wedding for collaborator:", weddingError);
+          setWeddingCheck("error");
+          return;
+        }
+        
+        console.log("[ProtectedRoute] Wedding found:", wedding);
+        setWeddingCheck(wedding ? "exists" : "missing");
+      } else {
+        // L'utente non è un collaboratore - cerca un matrimonio creato da lui
+        console.log("[ProtectedRoute] User is not a collaborator, checking created weddings");
+        
+        const { data: wedding, error: weddingError } = await supabase
+          .from("weddings")
+          .select("id")
+          .eq("created_by", authState.user.id)
+          .maybeSingle();
+        
+        if (weddingError) {
+          console.error("[ProtectedRoute] Error fetching created wedding:", weddingError);
+          setWeddingCheck("error");
+          return;
+        }
+        
+        console.log("[ProtectedRoute] Created wedding found:", wedding);
+        setWeddingCheck(wedding ? "exists" : "missing");
+      }
     } catch (error) {
-      console.error("Error checking wedding:", error);
+      console.error("[ProtectedRoute] Unexpected error checking wedding:", error);
       setWeddingCheck("error");
     }
   };
