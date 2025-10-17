@@ -151,11 +151,7 @@ const AppLayout = () => {
             daysUntil: diffDays > 0 ? diffDays : 0,
           });
         } else {
-          console.log("[AppLayout] No wedding found, redirecting to onboarding");
-          // Redirect solo se non siamo già su onboarding
-          if (location.pathname !== "/onboarding") {
-            navigate("/onboarding");
-          }
+          console.log("[AppLayout] No wedding found after checking both tables");
         }
       } finally {
         setLoadingWedding(false);
@@ -163,7 +159,23 @@ const AppLayout = () => {
     };
 
     loadWeddingInfo();
-  }, [user?.id, navigate, location.pathname]);
+  }, [user?.id]);
+
+  // Effetto separato per gestire il reindirizzamento a onboarding
+  useEffect(() => {
+    // Aspetta che TUTTO sia finito di caricare
+    if (loading || loadingWedding) {
+      return;
+    }
+
+    // Se c'è un utente ma non ci sono dati wedding, vai su onboarding
+    if (user && !weddingInfo) {
+      if (location.pathname !== "/onboarding") {
+        console.log("[AppLayout] Redirecting to onboarding - no wedding found");
+        navigate("/onboarding");
+      }
+    }
+  }, [loading, loadingWedding, user, weddingInfo, location.pathname, navigate]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
