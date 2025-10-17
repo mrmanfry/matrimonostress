@@ -9,18 +9,19 @@ import { Button } from "@/components/ui/button";
 interface ProtectedRouteProps {
   children: ReactNode;
   requireWedding?: boolean;
+  redirectIfHasWedding?: boolean;
 }
 
-export function ProtectedRoute({ children, requireWedding = false }: ProtectedRouteProps) {
+export function ProtectedRoute({ children, requireWedding = false, redirectIfHasWedding = false }: ProtectedRouteProps) {
   const { authState, refreshAuth } = useAuth();
   const location = useLocation();
   const [weddingCheck, setWeddingCheck] = useState<"loading" | "exists" | "missing" | "error">("loading");
 
   useEffect(() => {
-    if (authState.status === "authenticated" && requireWedding) {
+    if (authState.status === "authenticated" && (requireWedding || redirectIfHasWedding)) {
       checkWedding();
     }
-  }, [authState.status, requireWedding]);
+  }, [authState.status, requireWedding, redirectIfHasWedding]);
 
   const checkWedding = async () => {
     if (authState.status !== "authenticated") return;
@@ -126,7 +127,7 @@ export function ProtectedRoute({ children, requireWedding = false }: ProtectedRo
   }
 
   // Wedding check for protected routes
-  if (requireWedding) {
+  if (requireWedding || redirectIfHasWedding) {
     if (weddingCheck === "loading") {
       return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-hero">
@@ -140,7 +141,11 @@ export function ProtectedRoute({ children, requireWedding = false }: ProtectedRo
       );
     }
 
-    if (weddingCheck === "missing") {
+    if (redirectIfHasWedding && weddingCheck === "exists") {
+      return <Navigate to="/app/dashboard" replace />;
+    }
+
+    if (requireWedding && weddingCheck === "missing") {
       return <Navigate to="/onboarding" replace />;
     }
 

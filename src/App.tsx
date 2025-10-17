@@ -40,7 +40,7 @@ const App = () => (
             <Route 
               path="/onboarding" 
               element={
-                <ProtectedRoute>
+                <ProtectedRoute redirectIfHasWedding>
                   <Onboarding />
                 </ProtectedRoute>
               } 
