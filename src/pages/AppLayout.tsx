@@ -36,7 +36,6 @@ const AppLayout = () => {
   const [loading, setLoading] = useState(true);
   const [loadingWedding, setLoadingWedding] = useState(true);
   const [weddingInfo, setWeddingInfo] = useState<{ partner1: string; partner2: string; daysUntil: number } | null>(null);
-  const [weddingChecked, setWeddingChecked] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -95,7 +94,6 @@ const AppLayout = () => {
     const loadWeddingInfo = async () => {
       console.log("[AppLayout] Loading wedding info for user:", user.id);
       setLoadingWedding(true);
-      setWeddingChecked(false);
       
       try {
         // Prima controlla se l'utente ha creato un wedding
@@ -136,7 +134,6 @@ const AppLayout = () => {
         if (error) {
           console.error("[AppLayout] Error loading wedding:", error);
           setLoadingWedding(false);
-          setWeddingChecked(true);
           return;
         }
 
@@ -153,10 +150,8 @@ const AppLayout = () => {
             partner2: data.partner2_name,
             daysUntil: diffDays > 0 ? diffDays : 0,
           });
-          setWeddingChecked(true);
         } else {
           console.log("[AppLayout] No wedding found after checking both tables");
-          setWeddingChecked(true);
         }
       } finally {
         setLoadingWedding(false);
@@ -169,7 +164,7 @@ const AppLayout = () => {
   // Effetto separato per gestire il reindirizzamento a onboarding
   useEffect(() => {
     // Aspetta che TUTTO sia finito di caricare
-    if (loading || !weddingChecked) {
+    if (loading || loadingWedding) {
       return;
     }
 
@@ -180,7 +175,7 @@ const AppLayout = () => {
         navigate("/onboarding");
       }
     }
-  }, [loading, weddingChecked, user, weddingInfo, location.pathname, navigate]);
+  }, [loading, loadingWedding, user, weddingInfo, location.pathname, navigate]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
