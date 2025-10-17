@@ -56,6 +56,26 @@ const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  const checkUserDestination = async (userId: string) => {
+    // Controlla se ha creato un wedding
+    const { data: weddingData } = await supabase
+      .from("weddings")
+      .select("id")
+      .eq("created_by", userId)
+      .maybeSingle();
+    
+    if (weddingData) return "/app/dashboard";
+    
+    // Controlla se è stato invitato
+    const { data: roleData } = await supabase
+      .from("user_roles")
+      .select("id")
+      .eq("user_id", userId)
+      .maybeSingle();
+    
+    return roleData ? "/app/dashboard" : "/onboarding";
+  };
+
   useEffect(() => {
     // Check if user is already logged in
     supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -80,26 +100,6 @@ const Auth = () => {
 
     return () => subscription.unsubscribe();
   }, [navigate]);
-
-  const checkUserDestination = async (userId: string) => {
-    // Controlla se ha creato un wedding
-    const { data: weddingData } = await supabase
-      .from("weddings")
-      .select("id")
-      .eq("created_by", userId)
-      .maybeSingle();
-    
-    if (weddingData) return "/app/dashboard";
-    
-    // Controlla se è stato invitato
-    const { data: roleData } = await supabase
-      .from("user_roles")
-      .select("id")
-      .eq("user_id", userId)
-      .maybeSingle();
-    
-    return roleData ? "/app/dashboard" : "/onboarding";
-  };
 
   // Real-time password strength update
   const handlePasswordChange = (newPassword: string) => {
