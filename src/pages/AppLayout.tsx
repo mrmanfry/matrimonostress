@@ -163,6 +163,11 @@ const AppLayout = () => {
 
   // Effetto separato per gestire il reindirizzamento a onboarding
   useEffect(() => {
+    // IMPORTANTE: Non redirigere se siamo già su onboarding per evitare loop
+    if (location.pathname === "/onboarding") {
+      return;
+    }
+    
     // Aspetta che TUTTO sia finito di caricare
     if (loading || loadingWedding) {
       return;
@@ -170,10 +175,8 @@ const AppLayout = () => {
 
     // Se c'è un utente ma non ci sono dati wedding, vai su onboarding
     if (user && !weddingInfo) {
-      if (location.pathname !== "/onboarding") {
-        console.log("[AppLayout] Redirecting to onboarding - no wedding found");
-        navigate("/onboarding");
-      }
+      console.log("[AppLayout] Redirecting to onboarding - no wedding found");
+      navigate("/onboarding");
     }
   }, [loading, loadingWedding, user, weddingInfo, location.pathname, navigate]);
 
