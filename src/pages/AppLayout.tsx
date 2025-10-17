@@ -96,42 +96,54 @@ const AppLayout = () => {
       setLoadingWedding(true);
       
       try {
-        // Query unificata con JOIN: trova wedding sia come creator che come collaboratore
-        const { data, error } = await supabase
-          .from("weddings")
-          .select(`
-            id,
-            partner1_name,
-            partner2_name,
-            wedding_date,
-            created_by,
-            user_roles!left(user_id)
-          `)
-          .or(`created_by.eq.${user.id},user_roles.user_id.eq.${user.id}`)
-          .limit(1)
-          .single();
+        // STEP 1: Controlla se l'utente ha un ruolo (è collaboratore)
+        const { data: roleData } = await supabase
+          .from("user_roles")
+          .select("wedding_id")
+          .eq("user_id", user.id)
+          .maybeSingle();
 
-        console.log("[AppLayout] Unified query result:", { data, error });
+        console.log("[AppLayout] Role check:", roleData);
+
+        // STEP 2: Carica wedding (come collaboratore O come creator)
+        let weddingQuery = supabase
+          .from("weddings")
+          .select("partner1_name, partner2_name, wedding_date");
+
+        if (roleData?.wedding_id) {
+          // È collaboratore - carica per ID
+          console.log("[AppLayout] Loading as collaborator for wedding:", roleData.wedding_id);
+          weddingQuery = weddingQuery.eq("id", roleData.wedding_id);
+        } else {
+          // Non è collaboratore - carica come creator
+          console.log("[AppLayout] Loading as creator");
+          weddingQuery = weddingQuery.eq("created_by", user.id);
+        }
+
+        const { data: weddingData, error } = await weddingQuery.maybeSingle();
+
+        console.log("[AppLayout] Wedding data:", { weddingData, error });
 
         if (error) {
           console.error("[AppLayout] Error loading wedding:", error);
-          setLoadingWedding(false);
           return;
         }
 
-        if (data) {
-          console.log("[AppLayout] Wedding found, setting wedding info");
-          
-          const weddingDate = new Date(data.wedding_date);
+        if (weddingData) {
+          const weddingDate = new Date(weddingData.wedding_date);
           const today = new Date();
           const diffTime = weddingDate.getTime() - today.getTime();
           const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
           setWeddingInfo({
-            partner1: data.partner1_name,
-            partner2: data.partner2_name,
+            partner1: weddingData.partner1_name,
+            partner2: weddingData.partner2_name,
             daysUntil: diffDays > 0 ? diffDays : 0,
           });
+          
+          console.log("[AppLayout] Wedding info loaded successfully");
+        } else {
+          console.log("[AppLayout] No wedding found - will redirect to onboarding");
         }
       } catch (err) {
         console.error("[AppLayout] Unexpected error:", err);

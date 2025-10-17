@@ -43,32 +43,8 @@ const Onboarding = () => {
         return;
       }
 
-      // Controlla se l'utente ha già un matrimonio (creato o invitato)
-      const { data: weddingData } = await supabase
-        .from("weddings")
-        .select("id")
-        .eq("created_by", session.user.id)
-        .maybeSingle();
-
-      if (weddingData) {
-        // Ha già creato un matrimonio
-        navigate("/app/dashboard");
-        return;
-      }
-
-      // Controlla se è stato invitato
-      const { data: roleData } = await supabase
-        .from("user_roles")
-        .select("id")
-        .eq("user_id", session.user.id)
-        .maybeSingle();
-
-      if (roleData) {
-        // È stato invitato a un matrimonio
-        navigate("/app/dashboard");
-        return;
-      }
-      
+      // BASTA - non controllare wedding qui
+      // AppLayout gestisce tutta la logica di verifica wedding
       setCheckingAuth(false);
     };
 
