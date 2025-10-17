@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -84,8 +84,6 @@ const AppLayout = () => {
     };
   }, [navigate]);
 
-  const hasNavigatedApp = useRef(false);
-
   // Effetto separato per caricare i dati del wedding
   useEffect(() => {
     console.log("🔄 [APPLAYOUT] Wedding load useEffect triggered");
@@ -94,6 +92,13 @@ const AppLayout = () => {
     
     if (!user?.id) {
       console.log("⏭️  [APPLAYOUT] No user, skipping wedding load");
+      setLoadingWedding(false);
+      return;
+    }
+
+    const hasNavigatedKey = 'applayout_navigated';
+    if (sessionStorage.getItem(hasNavigatedKey)) {
+      console.log("⏭️  [APPLAYOUT] Already navigated, skipping");
       setLoadingWedding(false);
       return;
     }
@@ -148,21 +153,22 @@ const AppLayout = () => {
           });
           
           // SE siamo su onboarding ma abbiamo trovato un wedding, vai alla dashboard
-          if (location.pathname === "/onboarding" && !hasNavigatedApp.current) {
+          if (location.pathname === "/onboarding") {
             console.log("🚀 [APPLAYOUT] Navigating: /onboarding → /app/dashboard WITH REPLACE");
-            hasNavigatedApp.current = true;
+            sessionStorage.setItem(hasNavigatedKey, 'true');
             navigate("/app/dashboard", { replace: true });
           } else {
             console.log("✅ [APPLAYOUT] Already on correct route:", location.pathname);
+            sessionStorage.setItem(hasNavigatedKey, 'true');
           }
         } else {
           console.log("❌ No wedding found");
           console.log("   Current location:", location.pathname);
           
           // Wedding NON trovato - redirect SOLO se non siamo già su onboarding
-          if (location.pathname !== "/onboarding" && !hasNavigatedApp.current) {
+          if (location.pathname !== "/onboarding") {
             console.log("🚀 [APPLAYOUT] Navigating: " + location.pathname + " → /onboarding WITH REPLACE");
-            hasNavigatedApp.current = true;
+            sessionStorage.setItem(hasNavigatedKey, 'true');
             navigate("/onboarding", { replace: true });
           } else {
             console.log("✅ [APPLAYOUT] Already on /onboarding");

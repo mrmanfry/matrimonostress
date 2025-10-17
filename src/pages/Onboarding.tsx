@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -28,11 +28,12 @@ const Onboarding = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const hasNavigated = useRef(false);
-
   // Verifica autenticazione all'ingresso
   useEffect(() => {
-    if (hasNavigated.current) return;
+    const hasNavigatedKey = 'onboarding_navigated';
+    if (sessionStorage.getItem(hasNavigatedKey)) {
+      return;
+    }
     
     console.log("🎬 [ONBOARDING] Component mounted, checking auth & wedding...");
     
@@ -43,15 +44,13 @@ const Onboarding = () => {
       
       if (!session) {
         console.log("❌ No session, redirect to /auth");
-        if (!hasNavigated.current) {
-          hasNavigated.current = true;
-          toast({
-            title: "Non autenticato",
-            description: "Devi effettuare l'accesso prima di continuare",
-            variant: "destructive",
-          });
-          navigate("/auth", { replace: true });
-        }
+        sessionStorage.setItem(hasNavigatedKey, 'true');
+        toast({
+          title: "Non autenticato",
+          description: "Devi effettuare l'accesso prima di continuare",
+          variant: "destructive",
+        });
+        navigate("/auth", { replace: true });
         return;
       }
 
@@ -80,14 +79,13 @@ const Onboarding = () => {
       
       if (existingWedding) {
         console.log("🚀 [ONBOARDING] Wedding exists, navigate to /app/dashboard WITH REPLACE");
-        if (!hasNavigated.current) {
-          hasNavigated.current = true;
-          navigate("/app/dashboard", { replace: true });
-        }
+        sessionStorage.setItem(hasNavigatedKey, 'true');
+        navigate("/app/dashboard", { replace: true });
         return;
       }
       
       console.log("✅ No wedding, staying on onboarding");
+      sessionStorage.removeItem(hasNavigatedKey);
       setCheckingAuth(false);
     };
 
