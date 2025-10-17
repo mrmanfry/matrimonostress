@@ -56,43 +56,21 @@ const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const checkUserDestination = async (userId: string) => {
-    // Controlla se ha creato un wedding
-    const { data: weddingData } = await supabase
-      .from("weddings")
-      .select("id")
-      .eq("created_by", userId)
-      .maybeSingle();
-    
-    if (weddingData) return "/app/dashboard";
-    
-    // Controlla se è stato invitato
-    const { data: roleData } = await supabase
-      .from("user_roles")
-      .select("id")
-      .eq("user_id", userId)
-      .maybeSingle();
-    
-    return roleData ? "/app/dashboard" : "/onboarding";
-  };
-
   useEffect(() => {
     // Check if user is already logged in
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
-        const destination = await checkUserDestination(session.user.id);
-        navigate(destination);
+        navigate("/app/dashboard");
       }
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log("Auth state changed:", event, "Session:", !!session);
       
       if (session) {
         if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
-          const destination = await checkUserDestination(session.user.id);
           setTimeout(() => {
-            navigate(destination);
+            navigate("/app/dashboard");
           }, 500);
         }
       }
@@ -177,7 +155,7 @@ const Auth = () => {
           email,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/onboarding`,
+            emailRedirectTo: `${window.location.origin}/app/dashboard`,
             data: {
               first_name: firstName,
               last_name: lastName,
