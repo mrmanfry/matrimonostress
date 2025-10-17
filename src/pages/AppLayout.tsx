@@ -1,5 +1,5 @@
-import { useEffect, useState, useRef } from "react";
-import { Outlet, useNavigate, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Outlet, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { 
@@ -14,8 +14,7 @@ import {
   UtensilsCrossed, 
   Calendar 
 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import type { User } from "@supabase/supabase-js";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Sidebar,
   SidebarContent,
@@ -32,13 +31,10 @@ import {
 import { NavLink } from "react-router-dom";
 
 const AppLayout = () => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { authState, signOut } = useAuth();
   const [loadingWedding, setLoadingWedding] = useState(true);
   const [weddingInfo, setWeddingInfo] = useState<{ partner1: string; partner2: string; daysUntil: number } | null>(null);
-  const navigate = useNavigate();
   const location = useLocation();
-  const { toast } = useToast();
 
   const navigation = [
     { name: "Dashboard", href: "/app/dashboard", icon: LayoutDashboard },
@@ -52,71 +48,19 @@ const AppLayout = () => {
   ];
 
   useEffect(() => {
-    let mounted = true;
-    
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!mounted) return;
-      setUser(session?.user ?? null);
-      setLoading(false);
-      
-      if (!session) {
-        navigate("/auth");
-      }
-    });
-
-    supabase.auth.getUser()
-      .then(({ data: { user } }) => {
-        if (!mounted) return;
-        
-        if (!user) {
-          setLoading(false);
-          setLoadingWedding(false);
-          navigate("/auth");
-          return;
-        }
-        
-        setUser(user);
-        setLoading(false);
-      })
-      .catch((error) => {
-        console.error("Error getting user:", error);
-        if (!mounted) return;
-        setUser(null);
-        setLoading(false);
-        setLoadingWedding(false);
-        // Don't navigate on network errors, let user retry
-      });
-
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-    };
-  }, [navigate]);
-
-  // Ref per tracciare se abbiamo già caricato i dati per questo user
-  const loadedUserIdRef = useRef<string | null>(null);
-
-  // Effetto separato per caricare i dati del wedding
-  useEffect(() => {
-    if (!user?.id) {
+    if (authState.status !== "authenticated") {
       setLoadingWedding(false);
-      return;
-    }
-
-    // Se abbiamo già caricato i dati per questo user, non ricaricare
-    if (loadedUserIdRef.current === user.id) {
       return;
     }
 
     const loadWeddingInfo = async () => {
       setLoadingWedding(true);
-      loadedUserIdRef.current = user.id;
       
       try {
         const { data: roleData } = await supabase
           .from("user_roles")
           .select("wedding_id")
-          .eq("user_id", user.id)
+          .eq("user_id", authState.user.id)
           .maybeSingle();
 
         let weddingQuery = supabase
@@ -126,16 +70,10 @@ const AppLayout = () => {
         if (roleData?.wedding_id) {
           weddingQuery = weddingQuery.eq("id", roleData.wedding_id);
         } else {
-          weddingQuery = weddingQuery.eq("created_by", user.id);
+          weddingQuery = weddingQuery.eq("created_by", authState.user.id);
         }
 
-        const { data: weddingData, error } = await weddingQuery.maybeSingle();
-
-        if (error) {
-          console.error("Error loading wedding:", error);
-          setLoadingWedding(false);
-          return;
-        }
+        const { data: weddingData } = await weddingQuery.maybeSingle();
 
         if (weddingData) {
           const weddingDate = new Date(weddingData.wedding_date);
@@ -152,36 +90,23 @@ const AppLayout = () => {
         
         setLoadingWedding(false);
       } catch (err) {
-        console.error("Unexpected error loading wedding:", err);
+        console.error("Error loading wedding:", err);
         setLoadingWedding(false);
       }
     };
 
     loadWeddingInfo();
-  }, [user?.id]);
+  }, [authState.status]);
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    toast({
-      title: "Disconnesso",
-      description: "A presto!",
-    });
-    navigate("/");
-  };
-
-  if (loading || loadingWedding) {
+  if (loadingWedding) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <Heart className="w-12 h-12 text-accent fill-accent animate-pulse mx-auto mb-4" />
-          <p className="text-muted-foreground">Caricamento...</p>
+          <p className="text-muted-foreground">Caricamento dati matrimonio...</p>
         </div>
       </div>
     );
-  }
-
-  if (!user) {
-    return null;
   }
 
   const isActive = (path: string) => location.pathname === path;
@@ -242,7 +167,7 @@ const AppLayout = () => {
             <Button
               variant="ghost"
               className="w-full justify-start"
-              onClick={handleLogout}
+              onClick={signOut}
             >
               <LogOut className="w-5 h-5 mr-3" />
               Esci

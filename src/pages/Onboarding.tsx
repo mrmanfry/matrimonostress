@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,59 +19,15 @@ const weddingSchema = z.object({
 });
 
 const Onboarding = () => {
+  const { authState } = useAuth();
   const [partner1Name, setPartner1Name] = useState("");
   const [partner2Name, setPartner2Name] = useState("");
   const [partner2Email, setPartner2Email] = useState("");
   const [weddingDate, setWeddingDate] = useState("");
   const [totalBudget, setTotalBudget] = useState("");
   const [loading, setLoading] = useState(false);
-  const [checkingAuth, setCheckingAuth] = useState(true);
   const navigate = useNavigate();
   const { toast } = useToast();
-
-  // Verifica autenticazione e wedding esistente
-  useEffect(() => {
-    const checkAuthAndWedding = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        toast({
-          title: "Non autenticato",
-          description: "Devi effettuare l'accesso prima di continuare",
-          variant: "destructive",
-        });
-        navigate("/auth", { replace: true });
-        return;
-      }
-
-      // Controlla se esiste già un wedding
-      const { data: roleData } = await supabase
-        .from("user_roles")
-        .select("wedding_id")
-        .eq("user_id", session.user.id)
-        .maybeSingle();
-
-      let weddingQuery = supabase.from("weddings").select("id");
-      
-      if (roleData?.wedding_id) {
-        weddingQuery = weddingQuery.eq("id", roleData.wedding_id);
-      } else {
-        weddingQuery = weddingQuery.eq("created_by", session.user.id);
-      }
-      
-      const { data: existingWedding } = await weddingQuery.maybeSingle();
-      
-      if (existingWedding) {
-        // Wedding già esistente, vai alla dashboard
-        navigate("/app/dashboard", { replace: true });
-        return;
-      }
-      
-      setCheckingAuth(false);
-    };
-
-    checkAuthAndWedding();
-  }, [navigate, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,16 +45,7 @@ const Onboarding = () => {
         total_budget: budgetValue || undefined,
       });
 
-      const { data: { session } } = await supabase.auth.getSession();
-      const user = session?.user;
-      
-      console.log("=== WEDDING CREATION DEBUG ===");
-      console.log("Session exists:", !!session);
-      console.log("User exists:", !!user);
-      console.log("User ID:", user?.id);
-      console.log("Session access_token:", session?.access_token ? "present" : "missing");
-      
-      if (!user) {
+      if (authState.status !== "authenticated") {
         toast({
           title: "Sessione scaduta",
           description: "Effettua nuovamente l'accesso",
@@ -106,6 +54,12 @@ const Onboarding = () => {
         navigate("/auth");
         return;
       }
+
+      const user = authState.user;
+      
+      console.log("=== WEDDING CREATION DEBUG ===");
+      console.log("User exists:", !!user);
+      console.log("User ID:", user.id);
 
       // Verifica che l'utente sia veramente autenticato facendo una query di test
       const { data: testData, error: testError } = await supabase
@@ -168,7 +122,7 @@ const Onboarding = () => {
             role: 'co_planner',
             token: token,
             expires_at: expiresAt.toISOString(),
-            invited_by: session.user.id,
+            invited_by: user.id,
           });
 
         if (inviteError) {
@@ -240,19 +194,6 @@ const Onboarding = () => {
       setLoading(false);
     }
   };
-
-  if (checkingAuth) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-hero">
-        <Card className="w-full max-w-lg p-8">
-          <div className="text-center space-y-4">
-            <Heart className="w-12 h-12 text-accent fill-accent animate-pulse mx-auto" />
-            <p className="text-muted-foreground">Verifica autenticazione...</p>
-          </div>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-hero">
