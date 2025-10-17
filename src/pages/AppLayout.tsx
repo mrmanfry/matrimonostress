@@ -86,12 +86,12 @@ const AppLayout = () => {
 
   // Effetto separato per caricare i dati del wedding
   useEffect(() => {
-    const loadWeddingInfo = async () => {
-      if (!user?.id) {
-        setLoadingWedding(false);
-        return;
-      }
+    if (!user?.id) {
+      setLoadingWedding(false);
+      return;
+    }
 
+    const loadWeddingInfo = async () => {
       console.log("[AppLayout] Loading wedding info for user:", user.id);
       setLoadingWedding(true);
       
@@ -109,7 +109,6 @@ const AppLayout = () => {
         if (!data && !error) {
           console.log("[AppLayout] No wedding found, checking user_roles");
           
-          // Prima ottieni il wedding_id dal ruolo
           const { data: roleData, error: roleError } = await supabase
             .from("user_roles")
             .select("wedding_id")
@@ -118,7 +117,6 @@ const AppLayout = () => {
 
           console.log("[AppLayout] Role query result:", { roleData, roleError });
 
-          // Poi ottieni i dati del wedding
           if (roleData?.wedding_id) {
             console.log("[AppLayout] Found role, fetching wedding data for ID:", roleData.wedding_id);
             
@@ -153,7 +151,11 @@ const AppLayout = () => {
             daysUntil: diffDays > 0 ? diffDays : 0,
           });
         } else {
-          console.log("[AppLayout] No wedding found after checking both tables");
+          console.log("[AppLayout] No wedding found, redirecting to onboarding");
+          // Redirect solo se non siamo già su onboarding
+          if (location.pathname !== "/onboarding") {
+            navigate("/onboarding");
+          }
         }
       } finally {
         setLoadingWedding(false);
@@ -161,24 +163,7 @@ const AppLayout = () => {
     };
 
     loadWeddingInfo();
-  }, [user?.id]);
-
-  // Effetto separato per gestire il reindirizzamento
-  useEffect(() => {
-    // Aspetta che sia l'utente che i dati wedding siano stati caricati
-    if (loading || loadingWedding) {
-      return; // Non fare nulla, stiamo ancora caricando
-    }
-
-    // Se il caricamento è finito e NON ci sono dati...
-    if (!weddingInfo) {
-      // ...e NON siamo già su onboarding (per evitare loop)
-      if (location.pathname !== "/onboarding") {
-        console.log("[AppLayout] Redirecting to onboarding - no wedding found");
-        navigate("/onboarding");
-      }
-    }
-  }, [loading, loadingWedding, weddingInfo, location.pathname, navigate]);
+  }, [user?.id, navigate, location.pathname]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
