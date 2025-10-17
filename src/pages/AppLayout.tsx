@@ -84,14 +84,22 @@ const AppLayout = () => {
 
     // Se non ha creato un wedding, controlla se è stato invitato
     if (!data && !error) {
+      // Prima ottieni il wedding_id dal ruolo
       const { data: roleData } = await supabase
         .from("user_roles")
-        .select("wedding_id, weddings(partner1_name, partner2_name, wedding_date)")
+        .select("wedding_id")
         .eq("user_id", userId)
         .maybeSingle();
 
-      if (roleData?.weddings) {
-        data = roleData.weddings as any;
+      // Poi ottieni i dati del wedding
+      if (roleData?.wedding_id) {
+        const { data: weddingData } = await supabase
+          .from("weddings")
+          .select("partner1_name, partner2_name, wedding_date")
+          .eq("id", roleData.wedding_id)
+          .single();
+        
+        data = weddingData;
       }
     }
 
