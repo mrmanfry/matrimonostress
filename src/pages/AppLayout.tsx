@@ -86,80 +86,82 @@ const AppLayout = () => {
 
   // Effetto separato per caricare i dati del wedding
   useEffect(() => {
-    if (user?.id && !weddingInfo && !loadingWedding) {
-      loadWeddingInfo(user.id);
-    }
-  }, [user?.id]);
-
-
-  const loadWeddingInfo = async (userId: string) => {
-    console.log("[AppLayout] Loading wedding info for user:", userId);
-    setLoadingWedding(true);
-    
-    try {
-      // Prima controlla se l'utente ha creato un wedding
-      let { data, error } = await supabase
-        .from("weddings")
-        .select("partner1_name, partner2_name, wedding_date")
-        .eq("created_by", userId)
-        .maybeSingle();
-
-      console.log("[AppLayout] Wedding query result:", { data, error });
-
-      // Se non ha creato un wedding, controlla se è stato invitato
-      if (!data && !error) {
-        console.log("[AppLayout] No wedding found, checking user_roles");
-        
-        // Prima ottieni il wedding_id dal ruolo
-        const { data: roleData, error: roleError } = await supabase
-          .from("user_roles")
-          .select("wedding_id")
-          .eq("user_id", userId)
-          .maybeSingle();
-
-        console.log("[AppLayout] Role query result:", { roleData, roleError });
-
-        // Poi ottieni i dati del wedding
-        if (roleData?.wedding_id) {
-          console.log("[AppLayout] Found role, fetching wedding data for ID:", roleData.wedding_id);
-          
-          const { data: weddingData, error: weddingError } = await supabase
-            .from("weddings")
-            .select("partner1_name, partner2_name, wedding_date")
-            .eq("id", roleData.wedding_id)
-            .single();
-          
-          console.log("[AppLayout] Wedding data from role:", { weddingData, weddingError });
-          data = weddingData;
-        }
-      }
-
-      if (error) {
-        console.error("[AppLayout] Error loading wedding:", error);
+    const loadWeddingInfo = async () => {
+      if (!user?.id) {
         setLoadingWedding(false);
         return;
       }
 
-      if (data) {
-        console.log("[AppLayout] Wedding found, setting wedding info");
-        
-        const weddingDate = new Date(data.wedding_date);
-        const today = new Date();
-        const diffTime = weddingDate.getTime() - today.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      console.log("[AppLayout] Loading wedding info for user:", user.id);
+      setLoadingWedding(true);
+      
+      try {
+        // Prima controlla se l'utente ha creato un wedding
+        let { data, error } = await supabase
+          .from("weddings")
+          .select("partner1_name, partner2_name, wedding_date")
+          .eq("created_by", user.id)
+          .maybeSingle();
 
-        setWeddingInfo({
-          partner1: data.partner1_name,
-          partner2: data.partner2_name,
-          daysUntil: diffDays > 0 ? diffDays : 0,
-        });
-      } else {
-        console.log("[AppLayout] No wedding found after checking both tables");
+        console.log("[AppLayout] Wedding query result:", { data, error });
+
+        // Se non ha creato un wedding, controlla se è stato invitato
+        if (!data && !error) {
+          console.log("[AppLayout] No wedding found, checking user_roles");
+          
+          // Prima ottieni il wedding_id dal ruolo
+          const { data: roleData, error: roleError } = await supabase
+            .from("user_roles")
+            .select("wedding_id")
+            .eq("user_id", user.id)
+            .maybeSingle();
+
+          console.log("[AppLayout] Role query result:", { roleData, roleError });
+
+          // Poi ottieni i dati del wedding
+          if (roleData?.wedding_id) {
+            console.log("[AppLayout] Found role, fetching wedding data for ID:", roleData.wedding_id);
+            
+            const { data: weddingData, error: weddingError } = await supabase
+              .from("weddings")
+              .select("partner1_name, partner2_name, wedding_date")
+              .eq("id", roleData.wedding_id)
+              .single();
+            
+            console.log("[AppLayout] Wedding data from role:", { weddingData, weddingError });
+            data = weddingData;
+          }
+        }
+
+        if (error) {
+          console.error("[AppLayout] Error loading wedding:", error);
+          setLoadingWedding(false);
+          return;
+        }
+
+        if (data) {
+          console.log("[AppLayout] Wedding found, setting wedding info");
+          
+          const weddingDate = new Date(data.wedding_date);
+          const today = new Date();
+          const diffTime = weddingDate.getTime() - today.getTime();
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+          setWeddingInfo({
+            partner1: data.partner1_name,
+            partner2: data.partner2_name,
+            daysUntil: diffDays > 0 ? diffDays : 0,
+          });
+        } else {
+          console.log("[AppLayout] No wedding found after checking both tables");
+        }
+      } finally {
+        setLoadingWedding(false);
       }
-    } finally {
-      setLoadingWedding(false);
-    }
-  };
+    };
+
+    loadWeddingInfo();
+  }, [user?.id]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
