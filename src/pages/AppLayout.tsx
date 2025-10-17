@@ -51,7 +51,10 @@ const AppLayout = () => {
   ];
 
   useEffect(() => {
+    let mounted = true;
+    
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return;
       setUser(session?.user ?? null);
       setLoading(false);
       
@@ -60,19 +63,56 @@ const AppLayout = () => {
       }
     });
 
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setUser(user);
-      setLoading(false);
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!mounted) return;
       
       if (!user) {
+        setLoading(false);
         navigate("/auth");
-      } else {
-        loadWeddingInfo(user.id);
+        return;
       }
+      
+      setUser(user);
+      
+      // Controlla se l'utente ha un wedding prima di procedere
+      const hasWedding = await checkUserHasWedding(user.id);
+      
+      if (!hasWedding) {
+        // Se non ha wedding, reindirizza a onboarding
+        navigate("/onboarding");
+        return;
+      }
+      
+      // Se ha un wedding, carica i dati
+      await loadWeddingInfo(user.id);
+      setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, [navigate]);
+
+  const checkUserHasWedding = async (userId: string) => {
+    // Controlla se ha creato un wedding
+    const { data: weddingData } = await supabase
+      .from("weddings")
+      .select("id")
+      .eq("created_by", userId)
+      .maybeSingle();
+    
+    if (weddingData) return true;
+    
+    // Controlla se è stato invitato
+    const { data: roleData } = await supabase
+      .from("user_roles")
+      .select("id")
+      .eq("user_id", userId)
+      .maybeSingle();
+    
+    return !!roleData;
+  };
 
   const loadWeddingInfo = async (userId: string) => {
     // Prima controlla se l'utente ha creato un wedding
