@@ -28,9 +28,9 @@ const Onboarding = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Verifica solo l'autenticazione, non il wedding
+  // Verifica autenticazione e wedding esistente
   useEffect(() => {
-    const checkAuth = async () => {
+    const checkAuthAndWedding = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
@@ -42,11 +42,34 @@ const Onboarding = () => {
         navigate("/auth", { replace: true });
         return;
       }
+
+      // Controlla se esiste già un wedding
+      const { data: roleData } = await supabase
+        .from("user_roles")
+        .select("wedding_id")
+        .eq("user_id", session.user.id)
+        .maybeSingle();
+
+      let weddingQuery = supabase.from("weddings").select("id");
+      
+      if (roleData?.wedding_id) {
+        weddingQuery = weddingQuery.eq("id", roleData.wedding_id);
+      } else {
+        weddingQuery = weddingQuery.eq("created_by", session.user.id);
+      }
+      
+      const { data: existingWedding } = await weddingQuery.maybeSingle();
+      
+      if (existingWedding) {
+        // Wedding già esistente, vai alla dashboard
+        navigate("/app/dashboard", { replace: true });
+        return;
+      }
       
       setCheckingAuth(false);
     };
 
-    checkAuth();
+    checkAuthAndWedding();
   }, [navigate, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
