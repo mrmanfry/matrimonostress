@@ -76,18 +76,20 @@ const AppLayout = () => {
       
       setUser(user);
       setLoading(false);
-      
-      // Carica le info del wedding solo se non le abbiamo già
-      if (!weddingInfo) {
-        loadWeddingInfo(user.id);
-      }
     });
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [navigate]); // Non includere weddingInfo per evitare loop
+  }, [navigate]);
+
+  // Effetto separato per caricare i dati del wedding
+  useEffect(() => {
+    if (user && !weddingInfo && !loadingWedding) {
+      loadWeddingInfo(user.id);
+    }
+  }, [user?.id]); // Solo quando cambia l'ID utente
 
 
   const loadWeddingInfo = async (userId: string) => {
