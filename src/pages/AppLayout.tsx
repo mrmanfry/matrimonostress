@@ -106,7 +106,7 @@ const AppLayout = () => {
         console.log("[AppLayout] Wedding query result:", { data, error });
 
         // Se non ha creato un wedding, controlla se è stato invitato
-        if ((data === null || data === undefined || !data.partner1_name) && !error) {
+        if ((!data || (Array.isArray(data) && data.length === 0) || (typeof data === 'object' && !data.partner1_name)) && !error) {
           console.log("[AppLayout] No wedding found, checking user_roles");
           
           const { data: roleData, error: roleError } = await supabase
