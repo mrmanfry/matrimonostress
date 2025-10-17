@@ -90,10 +90,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      async (event, session) => {
         if (session) {
-          // Defer wedding_id loading to avoid blocking auth state change
-          setTimeout(async () => {
+          // Solo per eventi di login, ricarica il wedding_id
+          if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
             const weddingId = await loadWeddingId(session.user.id);
             setAuthState({
               status: "authenticated",
@@ -101,7 +101,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               session,
               weddingId,
             });
-          }, 0);
+          } else {
+            // Per altri eventi, mantieni lo stato esistente se è lo stesso utente
+            setAuthState(prevState => {
+              if (prevState.status === 'authenticated' && prevState.user.id === session.user.id) {
+                return prevState; // Nessun cambiamento, evita loop
+              }
+              return {
+                status: "authenticated",
+                user: session.user,
+                session,
+                weddingId: prevState.status === 'authenticated' ? prevState.weddingId : null,
+              };
+            });
+          }
         } else {
           setAuthState({ status: "unauthenticated" });
         }
