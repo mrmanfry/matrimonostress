@@ -96,40 +96,22 @@ const AppLayout = () => {
       setLoadingWedding(true);
       
       try {
-        // Prima controlla se l'utente ha creato un wedding
-        let { data, error } = await supabase
+        // Query unificata con JOIN: trova wedding sia come creator che come collaboratore
+        const { data, error } = await supabase
           .from("weddings")
-          .select("partner1_name, partner2_name, wedding_date")
-          .eq("created_by", user.id)
-          .maybeSingle();
+          .select(`
+            id,
+            partner1_name,
+            partner2_name,
+            wedding_date,
+            created_by,
+            user_roles!left(user_id)
+          `)
+          .or(`created_by.eq.${user.id},user_roles.user_id.eq.${user.id}`)
+          .limit(1)
+          .single();
 
-        console.log("[AppLayout] Wedding query result:", { data, error });
-
-        // Se non ha creato un wedding, controlla se è stato invitato
-        if ((!data || (Array.isArray(data) && data.length === 0) || (typeof data === 'object' && !data.partner1_name)) && !error) {
-          console.log("[AppLayout] No wedding found, checking user_roles");
-          
-          const { data: roleData, error: roleError } = await supabase
-            .from("user_roles")
-            .select("wedding_id")
-            .eq("user_id", user.id)
-            .maybeSingle();
-
-          console.log("[AppLayout] Role query result:", { roleData, roleError });
-
-          if (roleData?.wedding_id) {
-            console.log("[AppLayout] Found role, fetching wedding data for ID:", roleData.wedding_id);
-            
-            const { data: weddingData, error: weddingError } = await supabase
-              .from("weddings")
-              .select("partner1_name, partner2_name, wedding_date")
-              .eq("id", roleData.wedding_id)
-              .single();
-            
-            console.log("[AppLayout] Wedding data from role:", { weddingData, weddingError });
-            data = weddingData;
-          }
-        }
+        console.log("[AppLayout] Unified query result:", { data, error });
 
         if (error) {
           console.error("[AppLayout] Error loading wedding:", error);
@@ -150,9 +132,9 @@ const AppLayout = () => {
             partner2: data.partner2_name,
             daysUntil: diffDays > 0 ? diffDays : 0,
           });
-        } else {
-          console.log("[AppLayout] No wedding found after checking both tables");
         }
+      } catch (err) {
+        console.error("[AppLayout] Unexpected error:", err);
       } finally {
         setLoadingWedding(false);
       }
