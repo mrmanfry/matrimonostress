@@ -3,8 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Heart, Users, Euro, Calendar, CheckSquare, AlertCircle, TrendingUp } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from "recharts";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "@/hooks/use-toast";
 
 interface Wedding {
   id: string;
@@ -37,7 +42,10 @@ const Dashboard = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [daysUntilWedding, setDaysUntilWedding] = useState<number | null>(null);
+  const [accessCode, setAccessCode] = useState("");
+  const [joiningWedding, setJoiningWedding] = useState(false);
   const navigate = useNavigate();
+  const { authState, refreshAuth } = useAuth();
 
   useEffect(() => {
     loadDashboardData();
@@ -52,16 +60,42 @@ const Dashboard = () => {
       }
 
       // Load wedding
-      const { data: weddingData, error: weddingError } = await supabase
+      // Try to get wedding from created_by or user_roles
+      let weddingData = null;
+      
+      // First check if user created a wedding
+      const { data: createdWedding } = await supabase
         .from("weddings")
         .select("*")
         .eq("created_by", user.id)
         .maybeSingle();
 
-      if (weddingError) throw weddingError;
+      if (createdWedding) {
+        weddingData = createdWedding;
+      } else {
+        // Check if user has a role in any wedding
+        const { data: roleData } = await supabase
+          .from("user_roles")
+          .select("wedding_id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (roleData?.wedding_id) {
+          const { data: roleWedding } = await supabase
+            .from("weddings")
+            .select("*")
+            .eq("id", roleData.wedding_id)
+            .single();
+          
+          if (roleWedding) {
+            weddingData = roleWedding;
+          }
+        }
+      }
 
       if (!weddingData) {
-        navigate("/onboarding");
+        // User has no wedding - stay on dashboard to show join form
+        setLoading(false);
         return;
       }
 
@@ -127,10 +161,137 @@ const Dashboard = () => {
     }
   };
 
+  const handleJoinWithCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setJoiningWedding(true);
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      // Find wedding with this code
+      const { data: weddingData, error: weddingError } = await supabase
+        .from('weddings')
+        .select('id')
+        .eq('access_code', accessCode.toUpperCase().trim())
+        .single();
+
+      if (weddingError || !weddingData) {
+        throw new Error("Codice non valido");
+      }
+
+      // Check if user already has a role for this wedding
+      const { data: existingRole } = await supabase
+        .from('user_roles')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('wedding_id', weddingData.id)
+        .maybeSingle();
+
+      if (existingRole) {
+        throw new Error("Sei già un collaboratore di questo matrimonio");
+      }
+
+      // Create the role
+      const { error: roleError } = await supabase
+        .from('user_roles')
+        .insert({
+          user_id: user.id,
+          wedding_id: weddingData.id,
+          role: 'manager'
+        });
+
+      if (roleError) throw roleError;
+
+      // Reload auth context
+      await refreshAuth();
+
+      toast({
+        title: "Accesso effettuato!",
+        description: "Ora puoi collaborare a questo matrimonio",
+      });
+
+      // Reload dashboard data
+      await loadDashboardData();
+    } catch (error: any) {
+      console.error("Error joining wedding:", error);
+      toast({
+        title: "Errore",
+        description: error.message || "Impossibile accedere al matrimonio",
+        variant: "destructive",
+      });
+    } finally {
+      setJoiningWedding(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Heart className="w-12 h-12 text-accent fill-accent animate-pulse" />
+      </div>
+    );
+  }
+
+  // Show join form if user has no wedding
+  if (!wedding && !loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[80vh] p-4">
+        <Card className="p-8 max-w-md w-full">
+          <div className="text-center mb-6">
+            <Heart className="w-16 h-16 text-accent fill-accent mx-auto mb-4" />
+            <h2 className="text-2xl font-bold mb-2">👋 Benvenuto!</h2>
+            <p className="text-muted-foreground">
+              Non hai ancora un matrimonio. Cosa vuoi fare?
+            </p>
+          </div>
+          
+          <Button 
+            className="w-full mb-6" 
+            onClick={() => navigate('/onboarding')}
+            size="lg"
+          >
+            Crea un Nuovo Matrimonio
+          </Button>
+          
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-2 text-muted-foreground">oppure</span>
+            </div>
+          </div>
+          
+          <form onSubmit={handleJoinWithCode} className="space-y-4">
+            <div>
+              <Label htmlFor="accessCode" className="text-base">
+                Ho un Codice di Accesso
+              </Label>
+              <p className="text-sm text-muted-foreground mb-2">
+                Inserisci il codice che ti è stato inviato via email
+              </p>
+              <Input
+                id="accessCode"
+                value={accessCode}
+                onChange={(e) => setAccessCode(e.target.value.toUpperCase())}
+                placeholder="WED-XXXX"
+                className="font-mono uppercase text-center text-lg"
+                maxLength={8}
+                required
+                disabled={joiningWedding}
+              />
+            </div>
+            <Button 
+              type="submit" 
+              className="w-full" 
+              size="lg"
+              disabled={joiningWedding || accessCode.length < 8}
+            >
+              {joiningWedding ? "Accesso in corso..." : "Accedi al Matrimonio"}
+            </Button>
+          </form>
+        </Card>
       </div>
     );
   }

@@ -10,7 +10,6 @@ import Auth from "./pages/Auth";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import Onboarding from "./pages/Onboarding";
-import AcceptInvite from "./pages/AcceptInvite";
 import AppLayout from "./pages/AppLayout";
 import Dashboard from "./pages/Dashboard";
 import Guests from "./pages/Guests";
@@ -45,7 +44,6 @@ const App = () => (
                 </ProtectedRoute>
               } 
             />
-            <Route path="/accept-invite" element={<AcceptInvite />} />
             <Route path="/timeline/:token" element={<TimelinePublic />} />
             <Route 
               path="/app" 

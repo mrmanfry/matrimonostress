@@ -572,34 +572,28 @@ export type Database = {
         Row: {
           created_at: string
           email: string
-          expires_at: string
           id: string
           invited_by: string
           role: Database["public"]["Enums"]["app_role"]
           status: string | null
-          token: string
           wedding_id: string
         }
         Insert: {
           created_at?: string
           email: string
-          expires_at: string
           id?: string
           invited_by: string
           role: Database["public"]["Enums"]["app_role"]
           status?: string | null
-          token: string
           wedding_id: string
         }
         Update: {
           created_at?: string
           email?: string
-          expires_at?: string
           id?: string
           invited_by?: string
           role?: Database["public"]["Enums"]["app_role"]
           status?: string | null
-          token?: string
           wedding_id?: string
         }
         Relationships: [
@@ -614,6 +608,7 @@ export type Database = {
       }
       weddings: {
         Row: {
+          access_code: string | null
           created_at: string
           created_by: string
           id: string
@@ -624,6 +619,7 @@ export type Database = {
           wedding_date: string
         }
         Insert: {
+          access_code?: string | null
           created_at?: string
           created_by: string
           id?: string
@@ -634,6 +630,7 @@ export type Database = {
           wedding_date: string
         }
         Update: {
+          access_code?: string | null
           created_at?: string
           created_by?: string
           id?: string

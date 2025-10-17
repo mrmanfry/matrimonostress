@@ -14,7 +14,7 @@ interface InvitationEmailRequest {
   weddingNames: string;
   weddingDate: string;
   role: string;
-  token: string;
+  accessCode: string;
   inviterName: string;
 }
 
@@ -24,11 +24,9 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { email, weddingNames, weddingDate, role, token, inviterName }: InvitationEmailRequest = await req.json();
+    const { email, weddingNames, weddingDate, role, accessCode, inviterName }: InvitationEmailRequest = await req.json();
     
     console.log("Sending wedding invitation to:", email);
-
-    const acceptUrl = `https://stenders.cloud/accept-invite?token=${token}`;
     
     const roleLabel = role === 'co_planner' ? 'Co-Planner' : role === 'manager' ? 'Manager' : 'Guest';
 
@@ -66,20 +64,29 @@ const handler = async (req: Request): Promise<Response> => {
 
                 <p><strong>Il tuo ruolo:</strong> Come ${roleLabel}, avrai accesso a tutte le funzionalità dell'app per aiutare a pianificare questo evento speciale!</p>
 
-                <div style="text-align: center;">
-                  <a href="${acceptUrl}" class="button">
-                    ✨ Accetta l'Invito
-                  </a>
+                <div class="info-box" style="background: #f0f9ff; border-color: #3b82f6;">
+                  <h2 style="margin-top: 0; color: #667eea;">🔐 Codice di Accesso</h2>
+                  <p style="font-size: 28px; font-weight: bold; text-align: center; color: #667eea; letter-spacing: 3px; font-family: 'Courier New', monospace; margin: 20px 0;">
+                    ${accessCode}
+                  </p>
+                </div>
+
+                <div style="background: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                  <p style="margin: 0 0 10px 0;"><strong>Come accedere:</strong></p>
+                  <ol style="margin: 0; padding-left: 20px;">
+                    <li>Vai su <a href="https://stenders.cloud" style="color: #667eea;">stenders.cloud</a></li>
+                    <li>Fai login o registrati</li>
+                    <li>Inserisci il codice quando richiesto</li>
+                  </ol>
                 </div>
 
                 <p style="font-size: 14px; color: #6b7280; margin-top: 30px;">
-                  ⏰ Questo invito scadrà tra 7 giorni.<br>
-                  Se non hai richiesto questo invito, puoi ignorare questa email.
+                  💡 <strong>Suggerimento:</strong> Salva questo codice! Potrai usarlo in qualsiasi momento per accedere.<br>
+                  Il codice non scade mai e può essere condiviso con altri collaboratori.
                 </p>
 
                 <p style="font-size: 14px; color: #6b7280;">
-                  Se il pulsante non funziona, copia e incolla questo link nel tuo browser:<br>
-                  <span style="color: #667eea; word-break: break-all;">${acceptUrl}</span>
+                  Se non hai richiesto questo invito, puoi ignorare questa email.
                 </p>
               </div>
               <div class="footer">

@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { UserPlus, Trash2, Users, Shield } from "lucide-react";
 import { z } from "zod";
@@ -81,17 +81,18 @@ const Settings = () => {
     try {
       emailSchema.parse(inviteEmail);
 
-      if (!wedding) throw new Error("Wedding not found");
+      if (!wedding) {
+        throw new Error("Wedding not found");
+      }
 
-      // Check max co-planners
+      // Check role limits
       if (inviteRole === "co_planner") {
         const coPlannersCount = roles.filter((r) => r.role === "co_planner").length;
         if (coPlannersCount >= 2) {
-          throw new Error("Puoi avere massimo 2 Co-Planner");
+          throw new Error("Puoi avere massimo 2 Co-Planner (incluso te stesso)");
         }
       }
 
-      // Check max managers
       if (inviteRole === "manager") {
         const managersCount = roles.filter((r) => r.role === "manager").length;
         if (managersCount >= 2) {
@@ -100,35 +101,23 @@ const Settings = () => {
       }
 
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
+      if (!user) {
+        throw new Error("Not authenticated");
+      }
 
-      const inviteToken = crypto.randomUUID();
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 7);
+      // Insert invitation for tracking (no token needed)
+      const { error: inviteError } = await supabase
+        .from("wedding_invitations")
+        .insert({
+          wedding_id: wedding.id,
+          email: inviteEmail,
+          role: inviteRole,
+          invited_by: user.id,
+        });
 
-    const { error: inviteError } = await supabase
-      .from('wedding_invitations')
-      .insert({
-        wedding_id: wedding.id,
-        email: inviteEmail,
-        role: inviteRole,
-        token: inviteToken,
-        expires_at: expiresAt.toISOString(),
-        invited_by: user.id,
-      });
+      if (inviteError) throw inviteError;
 
-    if (inviteError) {
-      console.error('Error creating invitation:', inviteError);
-      toast({
-        title: "Errore",
-        description: "Impossibile creare l'invito",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Send invitation email via edge function
-    try {
+      // Get inviter profile
       const { data: profile } = await supabase
         .from('profiles')
         .select('first_name, last_name')
@@ -139,54 +128,37 @@ const Settings = () => {
         ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Il team'
         : 'Il team';
 
+      // Send invitation email with access code
       const { error: emailError } = await supabase.functions.invoke('send-wedding-invitation', {
         body: {
           email: inviteEmail,
           weddingNames: `${wedding.partner1_name} & ${wedding.partner2_name}`,
           weddingDate: wedding.wedding_date,
           role: inviteRole,
-          token: inviteToken,
+          accessCode: wedding.access_code,
           inviterName: inviterName,
         },
       });
 
-      if (emailError) {
-        console.error('Error sending invitation email:', emailError);
-        toast({
-          title: "Invito creato",
-          description: "L'invito è stato creato ma l'email non è stata inviata. Condividi il link manualmente.",
-          variant: "default",
-        });
-      } else {
-        toast({
-          title: "Invito inviato",
-          description: `Un'email è stata inviata a ${inviteEmail}`,
-        });
-      }
-    } catch (emailErr) {
-      console.error('Error calling email function:', emailErr);
+      if (emailError) throw emailError;
+
       toast({
-        title: "Invito creato",
-        description: "L'invito è stato creato ma l'email non è stata inviata.",
-        variant: "default",
+        title: "Invito inviato",
+        description: `Un'email con il codice di accesso è stata inviata a ${inviteEmail}`,
       });
-    }
 
-    setInviteEmail('');
-    setInviteRole('manager');
-    loadData();
+      setInviteEmail('');
+      setInviteRole('manager');
+      await loadData();
     } catch (error: any) {
-      let errorMessage = "Si è verificato un errore";
-      
-      if (error instanceof z.ZodError) {
-        errorMessage = error.errors[0].message;
-      } else {
-        errorMessage = error.message;
-      }
-
+      console.error("Error sending invite:", error);
       toast({
         title: "Errore",
-        description: errorMessage,
+        description: error.message === "Wedding not found"
+          ? "Matrimonio non trovato"
+          : error.message.includes("massimo")
+          ? error.message
+          : "Impossibile inviare l'invito. Riprova.",
         variant: "destructive",
       });
     } finally {
@@ -258,6 +230,44 @@ const Settings = () => {
           Gestisci chi ha accesso al tuo matrimonio
         </p>
       </div>
+
+      {/* Codice di Accesso */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            🔐 Codice di Accesso
+          </CardTitle>
+          <CardDescription>
+            Condividi questo codice con chi vuoi che collabori al matrimonio
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-2">
+            <Input 
+              value={wedding?.access_code || ''} 
+              readOnly 
+              className="font-mono text-lg font-bold text-center tracking-wider"
+            />
+            <Button 
+              variant="outline"
+              onClick={() => {
+                if (wedding?.access_code) {
+                  navigator.clipboard.writeText(wedding.access_code);
+                  toast({
+                    title: "Codice copiato!",
+                    description: "Il codice è stato copiato negli appunti",
+                  });
+                }
+              }}
+            >
+              Copia
+            </Button>
+          </div>
+          <p className="text-sm text-muted-foreground mt-4">
+            💡 Il codice non scade mai e può essere usato più volte. I collaboratori possono inserirlo dopo aver effettuato il login.
+          </p>
+        </CardContent>
+      </Card>
 
       {/* Current Collaborators */}
       <Card className="p-6">
