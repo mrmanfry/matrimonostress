@@ -30,21 +30,18 @@ const Onboarding = () => {
 
   // Verifica autenticazione all'ingresso
   useEffect(() => {
-    const hasNavigatedKey = 'onboarding_navigated';
-    if (sessionStorage.getItem(hasNavigatedKey)) {
-      return;
-    }
-    
     console.log("🎬 [ONBOARDING] Component mounted, checking auth & wedding...");
+    
+    let navigationDone = false;
     
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       
       console.log("🔐 Session:", !!session, "User:", session?.user?.id);
       
-      if (!session) {
+      if (!session && !navigationDone) {
         console.log("❌ No session, redirect to /auth");
-        sessionStorage.setItem(hasNavigatedKey, 'true');
+        navigationDone = true;
         toast({
           title: "Non autenticato",
           description: "Devi effettuare l'accesso prima di continuare",
@@ -53,6 +50,8 @@ const Onboarding = () => {
         navigate("/auth", { replace: true });
         return;
       }
+
+      if (!session) return;
 
       console.log("🔍 Checking for existing wedding...");
       
@@ -77,20 +76,19 @@ const Onboarding = () => {
       
       console.log("💒 Existing wedding:", !!existingWedding);
       
-      if (existingWedding) {
+      if (existingWedding && !navigationDone) {
         console.log("🚀 [ONBOARDING] Wedding exists, navigate to /app/dashboard WITH REPLACE");
-        sessionStorage.setItem(hasNavigatedKey, 'true');
+        navigationDone = true;
         navigate("/app/dashboard", { replace: true });
         return;
       }
       
       console.log("✅ No wedding, staying on onboarding");
-      sessionStorage.removeItem(hasNavigatedKey);
       setCheckingAuth(false);
     };
 
     checkAuth();
-  }, []);
+  }, [navigate, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

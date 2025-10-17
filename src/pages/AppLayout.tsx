@@ -96,12 +96,7 @@ const AppLayout = () => {
       return;
     }
 
-    const hasNavigatedKey = 'applayout_navigated';
-    if (sessionStorage.getItem(hasNavigatedKey)) {
-      console.log("⏭️  [APPLAYOUT] Already navigated, skipping");
-      setLoadingWedding(false);
-      return;
-    }
+    let navigationDone = false;
 
     const loadWeddingInfo = async () => {
       console.log("📥 [APPLAYOUT] START loading wedding for user:", user.id);
@@ -153,22 +148,21 @@ const AppLayout = () => {
           });
           
           // SE siamo su onboarding ma abbiamo trovato un wedding, vai alla dashboard
-          if (location.pathname === "/onboarding") {
+          if (location.pathname === "/onboarding" && !navigationDone) {
             console.log("🚀 [APPLAYOUT] Navigating: /onboarding → /app/dashboard WITH REPLACE");
-            sessionStorage.setItem(hasNavigatedKey, 'true');
+            navigationDone = true;
             navigate("/app/dashboard", { replace: true });
           } else {
             console.log("✅ [APPLAYOUT] Already on correct route:", location.pathname);
-            sessionStorage.setItem(hasNavigatedKey, 'true');
           }
         } else {
           console.log("❌ No wedding found");
           console.log("   Current location:", location.pathname);
           
           // Wedding NON trovato - redirect SOLO se non siamo già su onboarding
-          if (location.pathname !== "/onboarding") {
+          if (location.pathname !== "/onboarding" && !navigationDone) {
             console.log("🚀 [APPLAYOUT] Navigating: " + location.pathname + " → /onboarding WITH REPLACE");
-            sessionStorage.setItem(hasNavigatedKey, 'true');
+            navigationDone = true;
             navigate("/onboarding", { replace: true });
           } else {
             console.log("✅ [APPLAYOUT] Already on /onboarding");
@@ -183,7 +177,7 @@ const AppLayout = () => {
     };
 
     loadWeddingInfo();
-  }, [user?.id]);
+  }, [user?.id, location.pathname, navigate]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
