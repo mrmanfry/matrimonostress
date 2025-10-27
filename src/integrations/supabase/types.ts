@@ -61,6 +61,53 @@ export type Database = {
           },
         ]
       }
+      contact_matches_temp: {
+        Row: {
+          confidence_score: number | null
+          contact_name: string | null
+          contact_phone: string | null
+          created_at: string
+          expires_at: string
+          guest_id: string
+          id: string
+          status: string
+          user_id: string
+          wedding_id: string
+        }
+        Insert: {
+          confidence_score?: number | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          expires_at?: string
+          guest_id: string
+          id?: string
+          status?: string
+          user_id: string
+          wedding_id: string
+        }
+        Update: {
+          confidence_score?: number | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          expires_at?: string
+          guest_id?: string
+          id?: string
+          status?: string
+          user_id?: string
+          wedding_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_matches_temp_guest_id_fkey"
+            columns: ["guest_id"]
+            isOneToOne: false
+            referencedRelation: "guests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       expense_categories: {
         Row: {
           created_at: string
@@ -347,6 +394,36 @@ export type Database = {
           id?: string
           last_name?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      sync_tokens: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          token: string
+          used: boolean
+          user_id: string
+          wedding_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          token: string
+          used?: boolean
+          user_id: string
+          wedding_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          token?: string
+          used?: boolean
+          user_id?: string
+          wedding_id?: string
         }
         Relationships: []
       }
@@ -647,10 +724,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      get_user_email: {
-        Args: { _user_id: string }
-        Returns: string
-      }
+      cleanup_expired_sync_tokens: { Args: never; Returns: undefined }
+      get_user_email: { Args: { _user_id: string }; Returns: string }
       get_wedding_role: {
         Args: { _user_id: string; _wedding_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
