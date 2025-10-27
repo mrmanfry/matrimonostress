@@ -97,7 +97,7 @@ const Vendors = () => {
       .select(`
         *,
         category:expense_categories(name),
-        expenses!vendor_id(estimated_amount, final_amount)
+        expense_items!vendor_id(estimated_amount, final_amount)
       `)
       .eq("wedding_id", weddingId)
       .order("created_at", { ascending: false });
@@ -109,7 +109,7 @@ const Vendors = () => {
 
     setVendors(
       data.map((v: any) => {
-        const expensesTotal = v.expenses?.reduce(
+        const expensesTotal = v.expense_items?.reduce(
           (sum: number, e: any) => sum + (e.final_amount || e.estimated_amount),
           0
         ) || 0;
