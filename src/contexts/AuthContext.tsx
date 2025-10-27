@@ -36,8 +36,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) throw error;
 
       if (data.session) {
+        // Get previous weddingId if available
+        const previousWeddingId = authState.status === 'authenticated' ? authState.weddingId : null;
+        
         // Load wedding_id for the user
-        const weddingId = await loadWeddingId(data.session.user.id);
+        const weddingId = await loadWeddingId(data.session.user.id, previousWeddingId);
         
         setAuthState({
           status: "authenticated",
@@ -57,15 +60,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const loadWeddingId = async (userId: string): Promise<string | null> => {
+  const loadWeddingId = async (userId: string, previousWeddingId?: string | null): Promise<string | null> => {
     console.log('[AuthContext] Loading weddingId for user:', userId);
     try {
-      // Add timeout to prevent hanging
-      const queryTimeout = new Promise<null>((resolve) => {
+      // Add timeout to prevent hanging - increased to 10 seconds
+      const queryTimeout = new Promise<string | null>((resolve) => {
         setTimeout(() => {
-          console.log('[AuthContext] Query timeout reached');
-          resolve(null);
-        }, 5000);
+          console.log('[AuthContext] Query timeout reached, using cached weddingId:', previousWeddingId || 'none');
+          // If we have a previous weddingId, return it instead of null
+          resolve(previousWeddingId || null);
+        }, 10000);
       });
 
       // First check if user is a collaborator
@@ -115,13 +119,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       async (event, session) => {
         if (session) {
           // Solo per eventi di login, ricarica il wedding_id
-          if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          if (event === 'SIGNED_IN') {
             const weddingId = await loadWeddingId(session.user.id);
             setAuthState({
               status: "authenticated",
               user: session.user,
               session,
               weddingId,
+            });
+          } else if (event === 'TOKEN_REFRESHED') {
+            // Per token refresh, mantieni il weddingId esistente se disponibile
+            setAuthState(prevState => {
+              const previousWeddingId = prevState.status === 'authenticated' ? prevState.weddingId : null;
+              return {
+                status: "authenticated",
+                user: session.user,
+                session,
+                weddingId: previousWeddingId,
+              };
             });
           } else {
             // Per altri eventi, mantieni lo stato esistente se è lo stesso utente
