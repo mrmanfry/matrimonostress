@@ -8,12 +8,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Trash2, Plus, CalendarIcon, Percent } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { format, subDays } from "date-fns";
+import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/contexts/AuthContext";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { LightbulbIcon } from "lucide-react";
 
@@ -40,33 +39,29 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId }: Payme
   const [loading, setLoading] = useState(false);
   const [weddingDate, setWeddingDate] = useState<Date | null>(null);
   const { toast } = useToast();
-  const { authState } = useAuth();
-
-  useEffect(() => {
-    loadWeddingDate();
-  }, [authState]);
 
   useEffect(() => {
     if (expenseItemId) {
       loadPayments();
+      loadWeddingDate();
     } else {
       setPayments([]);
     }
   }, [expenseItemId]);
 
   const loadWeddingDate = async () => {
-    if (authState.status !== 'authenticated' || !authState.weddingId) return;
-
     try {
-      const { data, error } = await supabase
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return;
+
+      const { data: weddingData } = await supabase
         .from("weddings")
         .select("wedding_date")
-        .eq("id", authState.weddingId)
-        .single();
+        .eq("created_by", userData.user.id)
+        .maybeSingle();
 
-      if (error) throw error;
-      if (data?.wedding_date) {
-        setWeddingDate(new Date(data.wedding_date));
+      if (weddingData?.wedding_date) {
+        setWeddingDate(new Date(weddingData.wedding_date));
       }
     } catch (error) {
       console.error("Error loading wedding date:", error);
@@ -157,8 +152,10 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId }: Payme
       return payment.due_date;
     } else if (payment.due_date_type === 'days_before' && weddingDate && payment.days_before_wedding) {
       const days = parseInt(payment.days_before_wedding);
-      if (!isNaN(days)) {
-        return subDays(weddingDate, days);
+      if (!isNaN(days) && weddingDate) {
+        const result = new Date(weddingDate);
+        result.setDate(result.getDate() - days);
+        return result;
       }
     }
     return null;
@@ -473,11 +470,19 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId }: Payme
                     value={payment.days_before_wedding}
                     onChange={(e) => updatePayment(index, "days_before_wedding", e.target.value)}
                   />
-                  {payment.days_before_wedding && weddingDate && (
-                    <p className="text-xs text-muted-foreground">
-                      Scadenza: {format(subDays(weddingDate, parseInt(payment.days_before_wedding)), "dd MMM yyyy", { locale: it })}
-                    </p>
-                  )}
+                  {payment.days_before_wedding && weddingDate && (() => {
+                    const days = parseInt(payment.days_before_wedding);
+                    if (!isNaN(days)) {
+                      const targetDate = new Date(weddingDate);
+                      targetDate.setDate(targetDate.getDate() - days);
+                      return (
+                        <p className="text-xs text-muted-foreground">
+                          Scadenza: {format(targetDate, "dd MMM yyyy", { locale: it })}
+                        </p>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
               )}
             </div>
