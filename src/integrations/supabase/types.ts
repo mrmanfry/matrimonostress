@@ -334,6 +334,7 @@ export type Database = {
           due_date_type: string | null
           expense_item_id: string
           id: string
+          paid_by: string | null
           paid_on_date: string | null
           percentage_value: number | null
           status: string
@@ -351,6 +352,7 @@ export type Database = {
           due_date_type?: string | null
           expense_item_id: string
           id?: string
+          paid_by?: string | null
           paid_on_date?: string | null
           percentage_value?: number | null
           status?: string
@@ -368,6 +370,7 @@ export type Database = {
           due_date_type?: string | null
           expense_item_id?: string
           id?: string
+          paid_by?: string | null
           paid_on_date?: string | null
           percentage_value?: number | null
           status?: string

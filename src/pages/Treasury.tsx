@@ -16,6 +16,7 @@ interface Payment {
   due_date: string;
   status: 'Da Pagare' | 'Pagato';
   paid_on_date: string | null;
+  paid_by: string | null;
   expense_item_id: string;
 }
 
@@ -281,6 +282,53 @@ export default function Treasury() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Card Riepilogo Contributi */}
+      {(() => {
+        const contributionsByPayer = payments
+          .filter(p => p.status === 'Pagato' && p.paid_by)
+          .reduce((acc, p) => {
+            const payer = p.paid_by || 'Non specificato';
+            acc[payer] = (acc[payer] || 0) + Number(p.amount || 0);
+            return acc;
+          }, {} as Record<string, number>);
+
+        const hasContributions = Object.keys(contributionsByPayer).length > 0;
+
+        if (!hasContributions) return null;
+
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Chi Ha Pagato Cosa</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {Object.entries(contributionsByPayer)
+                  .sort(([, a], [, b]) => b - a)
+                  .map(([payer, amount]) => (
+                    <div key={payer} className="flex justify-between items-center">
+                      <span className="text-sm font-medium">{payer}</span>
+                      <span className="text-lg font-semibold">
+                        {formatCurrency(amount)}
+                      </span>
+                    </div>
+                  ))}
+                <div className="pt-3 border-t">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-bold">TOTALE PAGATO</span>
+                    <span className="text-xl font-bold text-green-600 dark:text-green-400">
+                      {formatCurrency(
+                        Object.values(contributionsByPayer).reduce((sum, val) => sum + val, 0)
+                      )}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* Chart */}
       <Card>

@@ -6,7 +6,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trash2, Plus, CalendarIcon, Percent } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Trash2, Plus, CalendarIcon, Percent, CheckCircle2, LightbulbIcon } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
@@ -14,7 +15,6 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { LightbulbIcon } from "lucide-react";
 
 interface Payment {
   id?: string;
@@ -26,6 +26,10 @@ interface Payment {
   due_date_type: 'absolute' | 'days_before';
   days_before_wedding: string;
   status: 'Da Pagare' | 'Pagato';
+  tax_rate?: string;
+  tax_inclusive?: boolean;
+  paid_by?: string;
+  paid_on_date?: Date | null;
 }
 
 interface PaymentPlanWidgetProps {
@@ -92,6 +96,10 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId }: Payme
           due_date_type: (p.due_date_type || 'absolute') as 'absolute' | 'days_before',
           days_before_wedding: String(p.days_before_wedding || ''),
           status: p.status as 'Da Pagare' | 'Pagato',
+          tax_rate: String(p.tax_rate || '22'),
+          tax_inclusive: p.tax_inclusive !== false,
+          paid_by: p.paid_by || undefined,
+          paid_on_date: p.paid_on_date ? new Date(p.paid_on_date) : null,
         }))
       );
     } catch (error) {
@@ -118,6 +126,8 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId }: Payme
         due_date_type: "absolute",
         days_before_wedding: "",
         status: "Da Pagare",
+        tax_inclusive: true,
+        tax_rate: "22",
       },
     ]);
   };
@@ -173,6 +183,26 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId }: Payme
       return;
     }
 
+    // Validazione per pagamenti completati
+    if (payment.status === 'Pagato') {
+      if (!payment.paid_by || payment.paid_by.trim() === '') {
+        toast({
+          title: "Chi ha pagato?",
+          description: "Specifica chi ha effettuato il pagamento",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!payment.paid_on_date) {
+        toast({
+          title: "Data pagamento mancante",
+          description: "Specifica la data di pagamento effettivo",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     // Validazione in base al tipo di importo
     if (payment.amount_type === 'fixed' && !payment.amount) {
       toast({
@@ -224,6 +254,12 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId }: Payme
         due_date_type: payment.due_date_type,
         days_before_wedding: payment.due_date_type === 'days_before' ? parseInt(payment.days_before_wedding) : null,
         status: payment.status,
+        tax_rate: payment.tax_rate ? parseFloat(payment.tax_rate) : null,
+        tax_inclusive: payment.tax_inclusive !== false,
+        paid_by: payment.status === 'Pagato' ? payment.paid_by : null,
+        paid_on_date: payment.status === 'Pagato' && payment.paid_on_date 
+          ? format(payment.paid_on_date, "yyyy-MM-dd") 
+          : null,
       };
 
       if (payment.id) {
@@ -259,9 +295,16 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId }: Payme
   };
 
   const totalAmount = payments.reduce((sum, p) => {
-    if (p.amount_type === 'fixed') {
-      const amount = parseFloat(p.amount);
-      return sum + (isNaN(amount) ? 0 : amount);
+    if (p.amount_type === 'fixed' && p.amount) {
+      const baseAmount = parseFloat(p.amount);
+      if (isNaN(baseAmount)) return sum;
+      
+      // Se IVA non inclusa, aggiungi IVA al totale
+      if (!p.tax_inclusive && p.tax_rate) {
+        const taxRate = parseFloat(p.tax_rate) / 100;
+        return sum + baseAmount * (1 + taxRate);
+      }
+      return sum + baseAmount;
     }
     return sum;
   }, 0);
@@ -281,14 +324,16 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId }: Payme
       const categoryName = data?.name || "";
       
       const adviceMap: Record<string, string> = {
-        "Musica": "🔔 Non dimenticare la SIAE! Considera anche costi per amplificazione extra o prove.",
-        "Location": "🔔 I costi delle location spesso escludono pulizia finale, allestimento e smontaggio. L'hai verificato?",
-        "Foto & Video": "🔔 Ricorda di includere costi per trasferta, pasti del fotografo e album/USB extra.",
-        "Fiori": "🔔 Considera il costo dell'allestimento, consegna e eventuale smontaggio decorazioni.",
-        "Catering": "🔔 Verifica se il servizio include coperto, tovagliato, personale extra e pulizia finale.",
-        "Wedding Planner": "🔔 Chiarisci se include coordinamento giorno del matrimonio e gestione emergenze.",
-        "Abiti": "🔔 Considera costi per ritocchi, pulizia post-evento e accessori (velo, scarpe, gioielli).",
-        "Inviti": "🔔 Aggiungi costi per buste, francobolli, coordinati (menu, tableau, segnaposto).",
+        "Musica": "🔔 Non dimenticare la SIAE! Considera anche amplificazione extra o prove.",
+        "Location": "🔔 Verifica costi di pulizia finale, allestimento e extra time.",
+        "Foto & Video": "🔔 Includi trasferta, pasti, album/USB extra.",
+        "Fiori": "🔔 Aggiungi allestimento, consegna e smontaggio.",
+        "Catering": "🔔 Verifica coperto, tovagliato, personale extra e pulizia.",
+        "Trasporti": "🔔 Considera pedaggi, parcheggi, e tempi di attesa.",
+        "Abiti": "🔔 Includi modifiche sartoriali, accessori e pulizia post-evento.",
+        "Partecipazioni": "🔔 Aggiungi costi di spedizione, buste e segnaposto.",
+        "Bomboniere": "🔔 Considera scatoline, nastri e confetti.",
+        "Animazione": "🔔 Verifica costi attrezzatura, prove e eventuale amplificazione.",
       };
       
       return adviceMap[categoryName] || "Verifica sempre che i costi siano inclusivi di IVA e che non ci siano costi nascosti.";
@@ -401,12 +446,129 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId }: Payme
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Da Pagare">Da Pagare</SelectItem>
-                      <SelectItem value="Pagato">Pagato</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <SelectContent>
+                    <SelectItem value="Da Pagare">Da Pagare</SelectItem>
+                    <SelectItem value="Pagato">Pagato</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Sezione IVA */}
+              <div className="space-y-2 p-3 bg-muted/50 rounded-lg">
+                <Label className="text-sm font-medium">Gestione IVA</Label>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`tax-inclusive-${index}`}
+                    checked={payment.tax_inclusive !== false}
+                    onCheckedChange={(checked) => 
+                      updatePayment(index, 'tax_inclusive', checked === true)
+                    }
+                  />
+                  <label 
+                    htmlFor={`tax-inclusive-${index}`}
+                    className="text-sm cursor-pointer"
+                  >
+                    IVA inclusa nel prezzo
+                  </label>
                 </div>
+                
+                {payment.tax_inclusive === false && (
+                  <div>
+                    <Label htmlFor={`tax-rate-${index}`} className="text-xs">
+                      Aliquota IVA (%)
+                    </Label>
+                    <Input
+                      id={`tax-rate-${index}`}
+                      type="number"
+                      value={payment.tax_rate || '22'}
+                      onChange={(e) => updatePayment(index, 'tax_rate', e.target.value)}
+                      placeholder="22"
+                      className="mt-1"
+                    />
+                    {payment.amount && payment.amount_type === 'fixed' && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        IVA: €{((parseFloat(payment.amount) * (parseFloat(payment.tax_rate || '22') / 100))).toFixed(2)} → 
+                        Totale: €{(parseFloat(payment.amount) * (1 + (parseFloat(payment.tax_rate || '22') / 100))).toFixed(2)}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Campi per "Chi ha pagato" - mostrati solo se status = "Pagato" */}
+              {payment.status === 'Pagato' && (
+                <div className="space-y-3 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-900">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    <Label className="text-sm font-medium text-green-700 dark:text-green-400">
+                      Pagamento Completato
+                    </Label>
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor={`paid-by-${index}`} className="text-sm">
+                      Pagato da *
+                    </Label>
+                    <Select
+                      value={payment.paid_by || ''}
+                      onValueChange={(value) => updatePayment(index, 'paid_by', value)}
+                    >
+                      <SelectTrigger id={`paid-by-${index}`} className="mt-1">
+                        <SelectValue placeholder="Seleziona chi ha pagato" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Noi Sposi">Noi Sposi</SelectItem>
+                        <SelectItem value="Genitori Sposa">Genitori Sposa</SelectItem>
+                        <SelectItem value="Genitori Sposo">Genitori Sposo</SelectItem>
+                        <SelectItem value="Altro">Altro</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    
+                    {payment.paid_by === 'Altro' && (
+                      <Input
+                        type="text"
+                        placeholder="Specifica chi ha pagato"
+                        className="mt-2"
+                        onChange={(e) => updatePayment(index, 'paid_by', e.target.value)}
+                      />
+                    )}
+                  </div>
+
+                  <div>
+                    <Label htmlFor={`paid-on-date-${index}`} className="text-sm">
+                      Data pagamento effettivo *
+                    </Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          id={`paid-on-date-${index}`}
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal mt-1",
+                            !payment.paid_on_date && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {payment.paid_on_date ? (
+                            format(payment.paid_on_date, "dd/MM/yyyy")
+                          ) : (
+                            <span>Seleziona data</span>
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={payment.paid_on_date}
+                          onSelect={(date) => updatePayment(index, 'paid_on_date', date)}
+                          initialFocus
+                          className="pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+              )}
               </div>
 
               {/* Tipo Scadenza */}
