@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { vendorSchema, type VendorFormData } from "@/lib/validationSchemas";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import { Upload, FileText, X } from "lucide-react";
 import {
   Dialog,
@@ -18,22 +18,13 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { PaymentPlanWidget } from "./PaymentPlanWidget";
 
 interface Vendor {
   id?: string;
@@ -74,11 +65,9 @@ export function VendorDialog({
   const [uploadedFiles, setUploadedFiles] = useState<Array<{ name: string; path: string }>>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [showExpenseDialog, setShowExpenseDialog] = useState(false);
-  const [savedVendorData, setSavedVendorData] = useState<{name: string, category_id: string | null} | null>(null);
-  const [previousStatus, setPreviousStatus] = useState<string | null>(null);
+  const [expenseItemId, setExpenseItemId] = useState<string | null>(null);
   const { toast } = useToast();
-  const navigate = useNavigate();
+  const { authState } = useAuth();
 
   const {
     register,
@@ -106,14 +95,14 @@ export function VendorDialog({
         notes: vendor.notes || "",
         category_id: vendor.category_id || "",
       });
-      setPreviousStatus(vendor.status);
       if (vendor.id) {
         loadExistingFiles(vendor.id);
+        loadExpenseItem(vendor.id);
       }
     } else {
       reset(emptyVendor);
       setUploadedFiles([]);
-      setPreviousStatus(null);
+      setExpenseItemId(null);
     }
   }, [vendor, open, reset]);
 
@@ -138,6 +127,21 @@ export function VendorDialog({
       }
     } catch (error) {
       console.error("Error loading files:", error);
+    }
+  };
+
+  const loadExpenseItem = async (vendorId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("expense_items")
+        .select("id")
+        .eq("vendor_id", vendorId)
+        .maybeSingle();
+
+      if (error) throw error;
+      setExpenseItemId(data?.id || null);
+    } catch (error) {
+      console.error("Error loading expense item:", error);
     }
   };
 
@@ -322,6 +326,8 @@ export function VendorDialog({
   };
 
   const onSubmit = async (data: VendorFormData) => {
+    if (authState.status !== "authenticated" || !authState.weddingId) return;
+
     try {
       const vendorData = {
         ...data,
@@ -335,16 +341,19 @@ export function VendorDialog({
       
       await onSave(vendorData);
       
-      // Workflow: Fornitore confermato -> suggerisci creazione spesa
-      const isStatusChangedToBooked = vendor && previousStatus !== 'booked' && data.status === 'booked';
+      // Crea o aggiorna expense_item associato
+      const savedVendorId = vendor?.id || vendorData.id;
+      if (savedVendorId) {
+        await ensureExpenseItem(savedVendorId, data.name, data.category_id, authState.weddingId);
+      }
+
+      toast({
+        title: "Fornitore salvato",
+        description: "Il fornitore è stato salvato. Puoi ora gestire il piano di pagamento.",
+      });
       
-      if (isStatusChangedToBooked) {
-        setSavedVendorData({
-          name: data.name,
-          category_id: data.category_id || null
-        });
-        setShowExpenseDialog(true);
-      } else {
+      // Non chiudere il dialog se è un update, per permettere di gestire i payments
+      if (!vendor) {
         onOpenChange(false);
       }
     } catch (error) {
@@ -352,16 +361,50 @@ export function VendorDialog({
     }
   };
 
-  const handleCreateExpense = () => {
-    setShowExpenseDialog(false);
-    onOpenChange(false);
-    // Naviga alla pagina budget con il fornitore pre-selezionato
-    navigate(`/app/budget?createExpense=true&vendorName=${encodeURIComponent(savedVendorData?.name || '')}&categoryId=${savedVendorData?.category_id || ''}`);
-  };
+  const ensureExpenseItem = async (
+    vendorId: string,
+    vendorName: string,
+    categoryId: string | null,
+    weddingId: string
+  ) => {
+    try {
+      // Check if expense_item exists
+      const { data: existing } = await supabase
+        .from("expense_items")
+        .select("id")
+        .eq("vendor_id", vendorId)
+        .maybeSingle();
 
-  const handleSkipExpense = () => {
-    setShowExpenseDialog(false);
-    onOpenChange(false);
+      if (existing) {
+        // Update existing
+        await supabase
+          .from("expense_items")
+          .update({
+            description: vendorName,
+            category_id: categoryId,
+          })
+          .eq("id", existing.id);
+        
+        setExpenseItemId(existing.id);
+      } else {
+        // Create new
+        const { data: newItem, error } = await supabase
+          .from("expense_items")
+          .insert({
+            wedding_id: weddingId,
+            vendor_id: vendorId,
+            description: vendorName,
+            category_id: categoryId,
+          })
+          .select("id")
+          .single();
+
+        if (error) throw error;
+        setExpenseItemId(newItem.id);
+      }
+    } catch (error) {
+      console.error("Error ensuring expense item:", error);
+    }
   };
 
   return (
@@ -490,6 +533,15 @@ export function VendorDialog({
             </p>
           </div>
 
+          {/* Payment Plan Widget - mostra sempre se il vendor è salvato */}
+          {vendor?.id && expenseItemId && (
+            <PaymentPlanWidget
+              vendorId={vendor.id}
+              expenseItemId={expenseItemId}
+              categoryId={categoryId}
+            />
+          )}
+
           {vendor?.id && (
             <div className="space-y-2">
               <Label>Documenti</Label>
@@ -594,27 +646,6 @@ export function VendorDialog({
         </form>
       </DialogContent>
     </Dialog>
-    
-    <AlertDialog open={showExpenseDialog} onOpenChange={setShowExpenseDialog}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Crea Spesa nel Budget</AlertDialogTitle>
-          <AlertDialogDescription>
-            Hai confermato il fornitore <strong>{savedVendorData?.name}</strong>.
-            <br /><br />
-            Vuoi creare la relativa voce di spesa nel budget?
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel onClick={handleSkipExpense}>
-            No, più tardi
-          </AlertDialogCancel>
-          <AlertDialogAction onClick={handleCreateExpense}>
-            Sì, crea ora
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
     </>
   );
 }
