@@ -79,11 +79,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return result;
         });
 
-      const { data: roleData } = await Promise.race([roleQuery, queryTimeout]) as any;
+      const roleResult = await Promise.race([roleQuery, queryTimeout]) as any;
 
-      if (roleData?.wedding_id) {
-        console.log('[AuthContext] Found weddingId from role:', roleData.wedding_id);
-        return roleData.wedding_id;
+      if (roleResult?.data?.wedding_id) {
+        console.log('[AuthContext] Found weddingId from role:', roleResult.data.wedding_id);
+        return roleResult.data.wedding_id;
       }
 
       // Then check if user created a wedding
@@ -97,9 +97,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return result;
         });
 
-      const { data: weddingData } = await Promise.race([weddingQuery, queryTimeout]) as any;
+      const weddingResult = await Promise.race([weddingQuery, queryTimeout]) as any;
 
-      return weddingData?.id || null;
+      return weddingResult?.data?.id || null;
     } catch (error) {
       console.error('[AuthContext] Error loading wedding_id:', error);
       return null;
