@@ -594,34 +594,39 @@ const Settings = () => {
               </div>
 
               {/* Account collegato info */}
-              <div className="flex items-center justify-between">
+              <div className="space-y-2">
                 {contributor.user_id ? (
                   <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
                     <Link2 className="w-4 h-4" />
                     <span>Account collegato: {contributor.user?.email || 'Utente'}</span>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">Nessun account collegato</span>
-                    {roles.length > 1 && (
-                      <Select
-                        onValueChange={(userId) => handleLinkContributor(contributor.id, userId)}
-                      >
-                        <SelectTrigger className="w-[200px] h-8">
-                          <SelectValue placeholder="Collega account..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {roles
-                            .filter(r => !contributors.some(c => c.user_id === r.user_id))
-                            .map((role) => (
+                  <>
+                    <p className="text-sm text-muted-foreground">Nessun account collegato</p>
+                    {(() => {
+                      const availableRoles = roles.filter(r => !contributors.some(c => c.user_id === r.user_id));
+                      return availableRoles.length > 0 ? (
+                        <Select
+                          onValueChange={(userId) => handleLinkContributor(contributor.id, userId)}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Seleziona collaboratore da collegare..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableRoles.map((role) => (
                               <SelectItem key={role.user_id} value={role.user_id}>
-                                {role.profiles?.first_name} {role.profiles?.last_name}
+                                {role.profiles?.first_name} {role.profiles?.last_name} ({getRoleLabel(role.role)})
                               </SelectItem>
                             ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  </div>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <p className="text-xs text-muted-foreground italic">
+                          💡 Invita un collaboratore qui sopra per poterlo collegare come contributor
+                        </p>
+                      );
+                    })()}
+                  </>
                 )}
               </div>
             </div>
