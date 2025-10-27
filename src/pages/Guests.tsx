@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/select";
 import { GuestDialog } from "@/components/guests/GuestDialog";
 import { GroupsDialog } from "@/components/guests/GroupsDialog";
+import { SmartImportDialog } from "@/components/guests/SmartImportDialog";
 import {
   generateCSVTemplate,
   parseCSV,
@@ -70,6 +71,7 @@ const Guests = () => {
   const [filterGroup, setFilterGroup] = useState<string>("all");
   const [guestDialogOpen, setGuestDialogOpen] = useState(false);
   const [groupsDialogOpen, setGroupsDialogOpen] = useState(false);
+  const [smartImportDialogOpen, setSmartImportDialogOpen] = useState(false);
   const [selectedGuest, setSelectedGuest] = useState<Guest | null>(null);
   const { toast } = useToast();
 
@@ -478,6 +480,11 @@ const Guests = () => {
 
           <div className="flex-1" />
 
+          <Button variant="outline" onClick={() => setSmartImportDialogOpen(true)} className="bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
+            <Upload className="w-4 h-4 mr-2" />
+            ✨ Importa da Testo
+          </Button>
+
           <Button variant="outline" onClick={handleDownloadTemplate}>
             <Download className="w-4 h-4 mr-2" />
             Template CSV
@@ -657,6 +664,14 @@ const Guests = () => {
         groups={groups}
         onCreateGroup={handleCreateGroup}
         onDeleteGroup={handleDeleteGroup}
+      />
+
+      <SmartImportDialog
+        open={smartImportDialogOpen}
+        onOpenChange={setSmartImportDialogOpen}
+        weddingId={wedding?.id || ""}
+        onSuccess={loadData}
+        groups={groups}
       />
     </div>
   );
