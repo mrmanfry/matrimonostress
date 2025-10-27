@@ -109,15 +109,15 @@ const Dashboard = () => {
       setDaysUntilWedding(diffDays);
 
       // Load stats with payments
-      const [guestsResponse, expensesResponse, tasksResponse, paymentsResponse] = await Promise.all([
+      const [guestsResponse, expenseItemsResponse, tasksResponse, paymentsResponse] = await Promise.all([
         supabase.from("guests").select("*").eq("wedding_id", weddingData.id),
-        supabase.from("expenses").select("*").eq("wedding_id", weddingData.id),
+        supabase.from("expense_items").select("id").eq("wedding_id", weddingData.id),
         supabase.from("checklist_tasks").select("*").eq("wedding_id", weddingData.id),
-        supabase.from("payments").select("*, expenses!inner(wedding_id)").eq("expenses.wedding_id", weddingData.id),
+        supabase.from("payments").select("*, expense_items!inner(wedding_id)").eq("expense_items.wedding_id", weddingData.id),
       ]);
 
       const guests = guestsResponse.data || [];
-      const expenses = expensesResponse.data || [];
+      const expenseItems = expenseItemsResponse.data || [];
       const tasks = tasksResponse.data || [];
       const payments = paymentsResponse.data || [];
 
@@ -125,9 +125,9 @@ const Dashboard = () => {
       const totalAdultsConfirmed = guestsConfirmed.reduce((sum, g) => sum + (g.adults_count || 0), 0);
       const totalChildrenConfirmed = guestsConfirmed.reduce((sum, g) => sum + (g.children_count || 0), 0);
 
-      const totalSpent = expenses.reduce((sum, e) => sum + Number(e.final_amount || e.estimated_amount || 0), 0);
-      const totalPaid = payments.filter(p => p.status === 'paid').reduce((sum, p) => sum + Number(p.amount), 0);
-      const totalToBePaid = payments.filter(p => p.status === 'pending').reduce((sum, p) => sum + Number(p.amount), 0);
+      const totalCommitment = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+      const totalPaid = payments.filter(p => p.status === 'Pagato').reduce((sum, p) => sum + Number(p.amount), 0);
+      const totalToBePaid = payments.filter(p => p.status === 'Da Pagare').reduce((sum, p) => sum + Number(p.amount), 0);
 
       setStats({
         guestsTotal: guests.reduce((sum, g) => sum + (g.adults_count || 0) + (g.children_count || 0), 0),
@@ -137,10 +137,10 @@ const Dashboard = () => {
         guestsPending: guests.filter(g => g.rsvp_status === 'pending').reduce((sum, g) => sum + (g.adults_count || 0) + (g.children_count || 0), 0),
         guestsDeclined: guests.filter(g => g.rsvp_status === 'declined').reduce((sum, g) => sum + (g.adults_count || 0) + (g.children_count || 0), 0),
         budgetTotal: weddingData.total_budget || 0,
-        budgetSpent: totalSpent,
+        budgetSpent: totalCommitment,
         budgetPaid: totalPaid,
         budgetToBePaid: totalToBePaid,
-        budgetRemaining: (weddingData.total_budget || 0) - totalSpent,
+        budgetRemaining: (weddingData.total_budget || 0) - totalCommitment,
         tasksTotal: tasks.length,
         tasksCompleted: tasks.filter(t => t.status === 'completed').length,
         urgentPayments: payments.filter(p => {

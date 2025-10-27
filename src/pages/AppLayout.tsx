@@ -12,7 +12,8 @@ import {
   Settings, 
   Package, 
   UtensilsCrossed, 
-  Calendar 
+  Calendar,
+  TrendingUp 
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -40,6 +41,7 @@ const AppLayout = () => {
     { name: "Dashboard", href: "/app/dashboard", icon: LayoutDashboard },
     { name: "Invitati", href: "/app/guests", icon: Users },
     { name: "Budget", href: "/app/budget", icon: Euro },
+    { name: "Tesoreria", href: "/app/treasury", icon: TrendingUp },
     { name: "Fornitori", href: "/app/vendors", icon: Package },
     { name: "Checklist", href: "/app/checklist", icon: CheckSquare },
     { name: "Tavoli", href: "/app/tables", icon: UtensilsCrossed },

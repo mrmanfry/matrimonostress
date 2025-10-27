@@ -49,21 +49,18 @@ interface Expense {
   description: string;
   category_id: string;
   category_name: string;
-  estimated_amount: number;
-  final_amount: number | null;
   vendor_id: string | null;
   vendor_name?: string;
 }
 
 interface Payment {
   id: string;
-  expense_id: string;
+  expense_item_id: string;
   description: string;
   amount: number;
   due_date: string;
-  paid_at: string | null;
+  paid_on_date: string | null;
   status: string;
-  paid_by: string;
 }
 
 const Budget = () => {
@@ -158,7 +155,7 @@ const Budget = () => {
 
   const loadExpenses = async (weddingId: string) => {
     const { data } = await supabase
-      .from("expenses")
+      .from("expense_items")
       .select(`
         *,
         expense_categories(name),

@@ -137,35 +137,29 @@ export type Database = {
           },
         ]
       }
-      expenses: {
+      expense_items: {
         Row: {
-          category_id: string
+          category_id: string | null
           created_at: string
           description: string
-          estimated_amount: number
-          final_amount: number | null
           id: string
           updated_at: string
           vendor_id: string | null
           wedding_id: string
         }
         Insert: {
-          category_id: string
+          category_id?: string | null
           created_at?: string
           description: string
-          estimated_amount: number
-          final_amount?: number | null
           id?: string
           updated_at?: string
           vendor_id?: string | null
           wedding_id: string
         }
         Update: {
-          category_id?: string
+          category_id?: string | null
           created_at?: string
           description?: string
-          estimated_amount?: number
-          final_amount?: number | null
           id?: string
           updated_at?: string
           vendor_id?: string | null
@@ -173,21 +167,21 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "expenses_category_id_fkey"
+            foreignKeyName: "expense_items_category_id_fkey"
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "expense_categories"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "expenses_vendor_id_fkey"
+            foreignKeyName: "expense_items_vendor_id_fkey"
             columns: ["vendor_id"]
             isOneToOne: false
             referencedRelation: "vendors"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "expenses_wedding_id_fkey"
+            foreignKeyName: "expense_items_wedding_id_fkey"
             columns: ["wedding_id"]
             isOneToOne: false
             referencedRelation: "weddings"
@@ -335,11 +329,12 @@ export type Database = {
           created_at: string
           description: string
           due_date: string
-          expense_id: string
+          expense_item_id: string
           id: string
-          paid_at: string | null
-          paid_by: string | null
-          status: string | null
+          paid_on_date: string | null
+          status: string
+          tax_inclusive: boolean
+          tax_rate: number | null
           updated_at: string
         }
         Insert: {
@@ -347,11 +342,12 @@ export type Database = {
           created_at?: string
           description: string
           due_date: string
-          expense_id: string
+          expense_item_id: string
           id?: string
-          paid_at?: string | null
-          paid_by?: string | null
-          status?: string | null
+          paid_on_date?: string | null
+          status?: string
+          tax_inclusive?: boolean
+          tax_rate?: number | null
           updated_at?: string
         }
         Update: {
@@ -359,19 +355,20 @@ export type Database = {
           created_at?: string
           description?: string
           due_date?: string
-          expense_id?: string
+          expense_item_id?: string
           id?: string
-          paid_at?: string | null
-          paid_by?: string | null
-          status?: string | null
+          paid_on_date?: string | null
+          status?: string
+          tax_inclusive?: boolean
+          tax_rate?: number | null
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "payments_expense_id_fkey"
-            columns: ["expense_id"]
+            foreignKeyName: "payments_expense_item_id_fkey"
+            columns: ["expense_item_id"]
             isOneToOne: false
-            referencedRelation: "expenses"
+            referencedRelation: "expense_items"
             referencedColumns: ["id"]
           },
         ]

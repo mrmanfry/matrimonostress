@@ -13,7 +13,8 @@ import Onboarding from "./pages/Onboarding";
 import AppLayout from "./pages/AppLayout";
 import Dashboard from "./pages/Dashboard";
 import Guests from "./pages/Guests";
-import Budget from "./pages/Budget";
+import BudgetLegacy from "./pages/BudgetLegacy";
+import Treasury from "./pages/Treasury";
 import Vendors from "./pages/Vendors";
 import Checklist from "./pages/Checklist";
 import Settings from "./pages/Settings";
@@ -58,7 +59,8 @@ const App = () => (
               <Route index element={<Navigate to="/app/dashboard" replace />} />
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="guests" element={<Guests />} />
-              <Route path="budget" element={<Budget />} />
+              <Route path="budget" element={<BudgetLegacy />} />
+              <Route path="treasury" element={<Treasury />} />
               <Route path="vendors" element={<Vendors />} />
               <Route path="checklist" element={<Checklist />} />
               <Route path="tables" element={<Tables />} />
