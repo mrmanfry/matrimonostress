@@ -326,12 +326,16 @@ export type Database = {
       payments: {
         Row: {
           amount: number
+          amount_type: string | null
           created_at: string
+          days_before_wedding: number | null
           description: string
           due_date: string
+          due_date_type: string | null
           expense_item_id: string
           id: string
           paid_on_date: string | null
+          percentage_value: number | null
           status: string
           tax_inclusive: boolean
           tax_rate: number | null
@@ -339,12 +343,16 @@ export type Database = {
         }
         Insert: {
           amount: number
+          amount_type?: string | null
           created_at?: string
+          days_before_wedding?: number | null
           description: string
           due_date: string
+          due_date_type?: string | null
           expense_item_id: string
           id?: string
           paid_on_date?: string | null
+          percentage_value?: number | null
           status?: string
           tax_inclusive?: boolean
           tax_rate?: number | null
@@ -352,12 +360,16 @@ export type Database = {
         }
         Update: {
           amount?: number
+          amount_type?: string | null
           created_at?: string
+          days_before_wedding?: number | null
           description?: string
           due_date?: string
+          due_date_type?: string | null
           expense_item_id?: string
           id?: string
           paid_on_date?: string | null
+          percentage_value?: number | null
           status?: string
           tax_inclusive?: boolean
           tax_rate?: number | null
