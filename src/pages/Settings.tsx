@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { UserPlus, Trash2, Users, Shield, Plus } from "lucide-react";
+import { UserPlus, Trash2, Users, Shield, Plus, Link2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { z } from "zod";
 
 const emailSchema = z.string().trim().email("Email non valida").max(255);
@@ -15,6 +16,10 @@ interface UserRole {
   user_id: string;
   role: string;
   created_at: string;
+  profiles?: {
+    first_name: string | null;
+    last_name: string | null;
+  };
 }
 
 interface PendingInvite {
@@ -61,7 +66,23 @@ const Settings = () => {
         .select("*")
         .eq("wedding_id", weddingData.id);
 
-      setRoles(rolesData || []);
+      // Load profiles for users with roles
+      if (rolesData && rolesData.length > 0) {
+        const userIds = rolesData.map(r => r.user_id);
+        const { data: profilesData } = await supabase
+          .from("profiles")
+          .select("*")
+          .in("id", userIds);
+
+        // Combine roles with profiles
+        const rolesWithProfiles = rolesData.map(role => ({
+          ...role,
+          profiles: profilesData?.find(p => p.id === role.user_id) || undefined
+        }));
+        setRoles(rolesWithProfiles);
+      } else {
+        setRoles(rolesData || []);
+      }
 
       // Load pending invites
       const { data: invitesData } = await supabase
@@ -79,7 +100,36 @@ const Settings = () => {
         .eq("wedding_id", weddingData.id)
         .order("is_default", { ascending: false });
 
-      setContributors(contributorsData || []);
+      // Load profiles for contributors with user_id
+      if (contributorsData) {
+        const contributorUserIds = contributorsData
+          .filter(c => c.user_id)
+          .map(c => c.user_id);
+        
+        if (contributorUserIds.length > 0) {
+          const { data: userProfilesData } = await supabase
+            .from("profiles")
+            .select("id, first_name, last_name")
+            .in("id", contributorUserIds);
+
+          const contributorsWithUsers = contributorsData.map(contributor => {
+            if (contributor.user_id) {
+              const userProfile = userProfilesData?.find(p => p.id === contributor.user_id);
+              return {
+                ...contributor,
+                user: userProfile ? {
+                  id: userProfile.id,
+                  email: `${userProfile.first_name || ''} ${userProfile.last_name || ''}`.trim() || 'Utente'
+                } : null
+              };
+            }
+            return contributor;
+          });
+          setContributors(contributorsWithUsers);
+        } else {
+          setContributors(contributorsData);
+        }
+      }
     } catch (error) {
       console.error("Error loading data:", error);
     }
@@ -155,7 +205,7 @@ const Settings = () => {
 
       toast({
         title: "Invito inviato",
-        description: `Un'email con il codice di accesso è stata inviata a ${inviteEmail}`,
+        description: `Un'email con il codice di accesso è stata inviata a ${inviteEmail}. Quando accetta, potrai collegarlo come contributor.`,
       });
 
       setInviteEmail('');
@@ -310,6 +360,30 @@ const Settings = () => {
       toast({
         title: "Contributor aggiornato",
         description: "Il nome è stato aggiornato con successo",
+      });
+
+      loadData();
+    } catch (error: any) {
+      toast({
+        title: "Errore",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleLinkContributor = async (contributorId: string, userId: string) => {
+    try {
+      const { error } = await supabase
+        .from("financial_contributors")
+        .update({ user_id: userId })
+        .eq("id", contributorId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Account collegato",
+        description: "Il contributor è stato collegato all'utente",
       });
 
       loadData();
@@ -492,30 +566,64 @@ const Settings = () => {
           {contributors.map((contributor) => (
             <div
               key={contributor.id}
-              className="flex items-center justify-between p-3 rounded-lg bg-muted/30"
+              className="p-3 rounded-lg bg-muted/30 space-y-2"
             >
-              <div className="flex-1">
-                <Input
-                  value={contributor.name}
-                  onChange={(e) => handleUpdateContributor(contributor.id, e.target.value)}
-                  className="font-medium"
-                  disabled={contributor.is_default}
-                />
-                {contributor.is_default && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Contributor predefinito (non eliminabile)
-                  </p>
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <Input
+                    value={contributor.name}
+                    onChange={(e) => handleUpdateContributor(contributor.id, e.target.value)}
+                    className="font-medium"
+                    disabled={contributor.is_default}
+                  />
+                  {contributor.is_default && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Contributor predefinito (non eliminabile)
+                    </p>
+                  )}
+                </div>
+                {!contributor.is_default && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleDeleteContributor(contributor.id, contributor.is_default)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
                 )}
               </div>
-              {!contributor.is_default && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => handleDeleteContributor(contributor.id, contributor.is_default)}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              )}
+
+              {/* Account collegato info */}
+              <div className="flex items-center justify-between">
+                {contributor.user_id ? (
+                  <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+                    <Link2 className="w-4 h-4" />
+                    <span>Account collegato: {contributor.user?.email || 'Utente'}</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Nessun account collegato</span>
+                    {roles.length > 1 && (
+                      <Select
+                        onValueChange={(userId) => handleLinkContributor(contributor.id, userId)}
+                      >
+                        <SelectTrigger className="w-[200px] h-8">
+                          <SelectValue placeholder="Collega account..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {roles
+                            .filter(r => !contributors.some(c => c.user_id === r.user_id))
+                            .map((role) => (
+                              <SelectItem key={role.user_id} value={role.user_id}>
+                                {role.profiles?.first_name} {role.profiles?.last_name}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           ))}
         </div>

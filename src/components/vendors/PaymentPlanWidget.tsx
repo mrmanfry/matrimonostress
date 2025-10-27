@@ -549,6 +549,7 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId }: Payme
                         {contributors.map((contributor) => (
                           <SelectItem key={contributor.id} value={contributor.name}>
                             {contributor.name}
+                            {contributor.user_id && " 👤"}
                           </SelectItem>
                         ))}
                         {contributors.length === 0 && (
