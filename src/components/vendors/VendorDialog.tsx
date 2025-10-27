@@ -24,9 +24,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { PaymentPlanWidget } from "./PaymentPlanWidget";
+import { ExpenseItemsManager } from "./ExpenseItemsManager";
 import { CategoryManager } from "@/components/budget/CategoryManager";
 import { FolderPlus } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
 
 interface Vendor {
   id?: string;
@@ -71,7 +72,6 @@ export function VendorDialog({
   const [uploadedFiles, setUploadedFiles] = useState<Array<{ name: string; path: string }>>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [expenseItemId, setExpenseItemId] = useState<string | null>(null);
   const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
   const { toast } = useToast();
   const { authState } = useAuth();
@@ -91,11 +91,8 @@ export function VendorDialog({
   const categoryId = watch("category_id");
   const status = watch("status");
 
-  const [savedVendorId, setSavedVendorId] = useState<string | null>(null);
-
   useEffect(() => {
     if (vendor) {
-      setSavedVendorId(vendor.id || null);
       reset({
         name: vendor.name,
         contact_name: vendor.contact_name || "",
@@ -107,13 +104,10 @@ export function VendorDialog({
       });
       if (vendor.id) {
         loadExistingFiles(vendor.id);
-        loadExpenseItem(vendor.id);
       }
     } else {
-      setSavedVendorId(null);
       reset(emptyVendor);
       setUploadedFiles([]);
-      setExpenseItemId(null);
     }
   }, [vendor, open, reset]);
 
@@ -141,20 +135,6 @@ export function VendorDialog({
     }
   };
 
-  const loadExpenseItem = async (vendorId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from("expense_items")
-        .select("id")
-        .eq("vendor_id", vendorId)
-        .maybeSingle();
-
-      if (error) throw error;
-      setExpenseItemId(data?.id || null);
-    } catch (error) {
-      console.error("Error loading expense item:", error);
-    }
-  };
 
   const validateFile = (file: File): { valid: boolean; error?: string } => {
     const maxSize = 10 * 1024 * 1024; // 10MB in bytes
@@ -351,43 +331,16 @@ export function VendorDialog({
       };
       
       await onSave(vendorData);
-      
-      // Ricarica il vendor appena salvato per ottenere l'ID
-      if (!vendor) {
-        // Nuovo vendor - ricarica per ottenere l'ID e mostrare il piano di pagamento
-        const { data: newVendor, error } = await supabase
-          .from("vendors")
-          .select("*")
-          .eq("name", data.name)
-          .eq("wedding_id", authState.weddingId)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        
-        if (error) throw error;
-        
-        if (newVendor) {
-          const newExpenseItemId = await ensureExpenseItem(newVendor.id, data.name, data.category_id, authState.weddingId);
-          setExpenseItemId(newExpenseItemId);
-          setSavedVendorId(newVendor.id);
-          
-          // Aggiorna il form con il vendor appena creato per mostrare il widget
-          reset({
-            ...data,
-          });
-          
-          // Carica i file esistenti per il nuovo vendor
-          loadExistingFiles(newVendor.id);
-        }
-      } else {
-        // Vendor esistente
-        await ensureExpenseItem(vendor.id, data.name, data.category_id, authState.weddingId);
-      }
 
       toast({
         title: "Fornitore salvato",
-        description: vendor ? "Le modifiche sono state salvate." : "Puoi ora gestire il piano di pagamento qui sotto.",
+        description: vendor ? "Le modifiche sono state salvate." : "Il fornitore è stato creato con successo.",
       });
+
+      // Se è un nuovo vendor, chiudi il dialog
+      if (!vendor) {
+        onOpenChange(false);
+      }
     } catch (error) {
       console.error("Error saving vendor:", error);
       toast({
@@ -398,52 +351,6 @@ export function VendorDialog({
     }
   };
 
-  const ensureExpenseItem = async (
-    vendorId: string,
-    vendorName: string,
-    categoryId: string | null,
-    weddingId: string
-  ): Promise<string | null> => {
-    try {
-      // Check if expense_item exists
-      const { data: existing } = await supabase
-        .from("expense_items")
-        .select("id")
-        .eq("vendor_id", vendorId)
-        .maybeSingle();
-
-      if (existing) {
-        // Update existing
-        await supabase
-          .from("expense_items")
-          .update({
-            description: vendorName,
-            category_id: categoryId,
-          })
-          .eq("id", existing.id);
-        
-        return existing.id;
-      } else {
-        // Create new
-        const { data: newItem, error } = await supabase
-          .from("expense_items")
-          .insert({
-            wedding_id: weddingId,
-            vendor_id: vendorId,
-            description: vendorName,
-            category_id: categoryId,
-          })
-          .select("id")
-          .single();
-
-        if (error) throw error;
-        return newItem.id;
-      }
-    } catch (error) {
-      console.error("Error ensuring expense item:", error);
-      return null;
-    }
-  };
 
   return (
     <>
@@ -583,16 +490,15 @@ export function VendorDialog({
             </p>
           </div>
 
-          {/* Payment Plan Widget - mostra se vendor è salvato o se abbiamo un savedVendorId */}
-          {(vendor?.id || savedVendorId) && expenseItemId && (
-            <PaymentPlanWidget
-              vendorId={vendor?.id || savedVendorId}
-              expenseItemId={expenseItemId}
-              categoryId={categoryId}
-            />
+          {/* Gestione spese - mostra solo se vendor è salvato */}
+          {vendor?.id && (
+            <>
+              <Separator />
+              <ExpenseItemsManager vendorId={vendor.id} categoryId={categoryId} />
+            </>
           )}
 
-          {(vendor?.id || savedVendorId) && (
+          {vendor?.id && (
             <div className="space-y-2">
               <Label>Documenti</Label>
               <div className="border rounded-lg p-4 space-y-3">
