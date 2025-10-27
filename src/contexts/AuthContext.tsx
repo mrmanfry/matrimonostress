@@ -173,8 +173,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 session, // Only update session
               };
             }
-            // If somehow no weddingId, load it
-            debouncedLoadWeddingId(session.user.id);
             return prev;
           });
           return;
@@ -192,10 +190,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
         
-        // Other events: keep existing state if same user
+        // INITIAL_SESSION and other events: keep existing state if same user
         setAuthState(prev => {
           if (prev.status === 'authenticated' && prev.user.id === session.user.id) {
-            return prev; // No change
+            return prev; // No change, avoid duplicate loads
           }
           return {
             status: "authenticated",
