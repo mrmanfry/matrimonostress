@@ -426,8 +426,8 @@ const Vendors = () => {
                       </p>
                     )}
                   </div>
-                  <Badge className={statusConfig[vendor.status as keyof typeof statusConfig].color}>
-                    {statusConfig[vendor.status as keyof typeof statusConfig].label}
+                  <Badge className={statusConfig[vendor.status as keyof typeof statusConfig]?.color || "bg-gray-600"}>
+                    {statusConfig[vendor.status as keyof typeof statusConfig]?.label || vendor.status}
                   </Badge>
                 </div>
               </CardHeader>
