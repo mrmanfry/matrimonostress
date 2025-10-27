@@ -369,6 +369,7 @@ export function VendorDialog({
         if (newVendor) {
           const newExpenseItemId = await ensureExpenseItem(newVendor.id, data.name, data.category_id, authState.weddingId);
           setExpenseItemId(newExpenseItemId);
+          setSavedVendorId(newVendor.id);
           
           // Aggiorna il form con il vendor appena creato per mostrare il widget
           reset({
