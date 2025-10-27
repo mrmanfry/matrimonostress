@@ -15,7 +15,9 @@ import {
   Edit,
   Trash2,
   FolderOpen,
+  Trash,
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -73,6 +75,7 @@ const Guests = () => {
   const [groupsDialogOpen, setGroupsDialogOpen] = useState(false);
   const [smartImportDialogOpen, setSmartImportDialogOpen] = useState(false);
   const [selectedGuest, setSelectedGuest] = useState<Guest | null>(null);
+  const [selectedGuestIds, setSelectedGuestIds] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
   useEffect(() => {
@@ -231,6 +234,53 @@ const Guests = () => {
     });
 
     if (wedding) await loadGuests(wedding.id);
+  };
+
+  const handleDeleteSelectedGuests = async () => {
+    const count = selectedGuestIds.size;
+    if (!confirm(`Eliminare ${count} invitati selezionati?`)) return;
+
+    const { error } = await supabase
+      .from("guests")
+      .delete()
+      .in("id", Array.from(selectedGuestIds));
+
+    if (error) {
+      toast({
+        title: "Errore",
+        description: error.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    toast({
+      title: "Eliminati",
+      description: `${count} invitati rimossi dalla lista`,
+    });
+
+    setSelectedGuestIds(new Set());
+    if (wedding) await loadGuests(wedding.id);
+  };
+
+  const toggleGuestSelection = (guestId: string) => {
+    setSelectedGuestIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(guestId)) {
+        newSet.delete(guestId);
+      } else {
+        newSet.add(guestId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedGuestIds.size === filteredGuests.length) {
+      setSelectedGuestIds(new Set());
+    } else {
+      setSelectedGuestIds(new Set(filteredGuests.map(g => g.id)));
+    }
   };
 
   const handleCreateGroup = async (name: string) => {
@@ -468,6 +518,16 @@ const Guests = () => {
       {/* Actions */}
       <Card className="p-4">
         <div className="flex flex-col lg:flex-row gap-3">
+          {selectedGuestIds.size > 0 && (
+            <Button 
+              variant="destructive" 
+              onClick={handleDeleteSelectedGuests}
+            >
+              <Trash className="w-4 h-4 mr-2" />
+              Elimina Selezionati ({selectedGuestIds.size})
+            </Button>
+          )}
+          
           <Button onClick={() => { setSelectedGuest(null); setGuestDialogOpen(true); }}>
             <Plus className="w-4 h-4 mr-2" />
             Nuovo Invitato
@@ -583,6 +643,12 @@ const Guests = () => {
             <table className="w-full">
               <thead className="bg-muted/50">
                 <tr>
+                  <th className="p-4 w-12">
+                    <Checkbox
+                      checked={filteredGuests.length > 0 && selectedGuestIds.size === filteredGuests.length}
+                      onCheckedChange={toggleSelectAll}
+                    />
+                  </th>
                   <th className="text-left p-4 font-semibold">Nome</th>
                   <th className="text-left p-4 font-semibold">Stato</th>
                   <th className="text-left p-4 font-semibold">Gruppo</th>
@@ -595,6 +661,12 @@ const Guests = () => {
               <tbody>
                 {filteredGuests.map((guest) => (
                   <tr key={guest.id} className="border-t hover:bg-muted/30 transition-colors">
+                    <td className="p-4">
+                      <Checkbox
+                        checked={selectedGuestIds.has(guest.id)}
+                        onCheckedChange={() => toggleGuestSelection(guest.id)}
+                      />
+                    </td>
                     <td className="p-4">
                       <div>
                         <p className="font-medium">
