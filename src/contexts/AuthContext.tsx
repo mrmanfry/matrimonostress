@@ -1,7 +1,9 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, ReactNode, useRef, useCallback } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { retryWithBackoff } from "@/utils/retryWithBackoff";
+import { fetchWithTimeout } from "@/utils/fetchWithTimeout";
+import { weddingStorage } from "@/utils/weddingStorage";
 
 type AuthState = 
   | { status: "loading" }
@@ -19,6 +21,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [authState, setAuthState] = useState<AuthState>({ status: "loading" });
+  const loadWeddingIdTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const DEBOUNCE_MS = 500;
 
   const loadSession = async () => {
     try {
@@ -62,53 +66,86 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loadWeddingId = async (userId: string, previousWeddingId?: string | null): Promise<string | null> => {
     console.log('[AuthContext] Loading weddingId for user:', userId);
+    
+    // Multi-layer fallback: previousWeddingId OR localStorage
+    const cachedWeddingId = previousWeddingId || weddingStorage.get();
+    console.log('[AuthContext] Cached weddingId:', cachedWeddingId || 'none');
+    
     try {
-      // Add timeout to prevent hanging - increased to 10 seconds
-      const queryTimeout = new Promise<string | null>((resolve) => {
-        setTimeout(() => {
-          console.log('[AuthContext] Query timeout reached, using cached weddingId:', previousWeddingId || 'none');
-          // If we have a previous weddingId, return it instead of null
-          resolve(previousWeddingId || null);
-        }, 10000);
-      });
-
-      // First check if user is a collaborator
-      const roleQuery = supabase
-        .from("user_roles")
-        .select("wedding_id")
-        .eq("user_id", userId)
-        .maybeSingle()
-        .then(result => {
-          console.log('[AuthContext] User role data:', result.data);
-          return result;
-        });
-
-      const roleResult = await Promise.race([roleQuery, queryTimeout]) as any;
-
+      // Query 1: Check user_roles with INDEPENDENT timeout
+      const roleQuery = async () => {
+        const result = await supabase
+          .from("user_roles")
+          .select("wedding_id")
+          .eq("user_id", userId)
+          .maybeSingle();
+        console.log('[AuthContext] User role data:', result.data);
+        return result;
+      };
+      
+      const roleResult = await fetchWithTimeout(
+        roleQuery,
+        10000,
+        null
+      );
+      
       if (roleResult?.data?.wedding_id) {
         console.log('[AuthContext] Found weddingId from role:', roleResult.data.wedding_id);
+        weddingStorage.set(roleResult.data.wedding_id);
         return roleResult.data.wedding_id;
       }
-
-      // Then check if user created a wedding
-      const weddingQuery = supabase
-        .from("weddings")
-        .select("id")
-        .eq("created_by", userId)
-        .maybeSingle()
-        .then(result => {
-          console.log('[AuthContext] Wedding created by user:', result.data);
-          return result;
-        });
-
-      const weddingResult = await Promise.race([weddingQuery, queryTimeout]) as any;
-
-      return weddingResult?.data?.id || null;
+      
+      // Query 2: Check weddings with NEW INDEPENDENT timeout
+      const weddingQuery = async () => {
+        const result = await supabase
+          .from("weddings")
+          .select("id")
+          .eq("created_by", userId)
+          .maybeSingle();
+        console.log('[AuthContext] Wedding created by user:', result.data);
+        return result;
+      };
+      
+      const weddingResult = await fetchWithTimeout(
+        weddingQuery,
+        10000,
+        null
+      );
+      
+      if (weddingResult?.data?.id) {
+        console.log('[AuthContext] Found weddingId from weddings:', weddingResult.data.id);
+        weddingStorage.set(weddingResult.data.id);
+        return weddingResult.data.id;
+      }
+      
+      // Final fallback to localStorage/cache
+      console.log('[AuthContext] No weddingId found in DB, using cached:', cachedWeddingId || 'none');
+      return cachedWeddingId || null;
+      
     } catch (error) {
       console.error('[AuthContext] Error loading wedding_id:', error);
-      return null;
+      return cachedWeddingId || null;
     }
   };
+
+  const debouncedLoadWeddingId = useCallback(async (userId: string) => {
+    if (loadWeddingIdTimeoutRef.current) {
+      clearTimeout(loadWeddingIdTimeoutRef.current);
+    }
+    
+    loadWeddingIdTimeoutRef.current = setTimeout(async () => {
+      const weddingId = await loadWeddingId(userId);
+      setAuthState(prev => {
+        if (prev.status === 'authenticated') {
+          return {
+            ...prev,
+            weddingId
+          };
+        }
+        return prev;
+      });
+    }, DEBOUNCE_MS);
+  }, []);
 
   useEffect(() => {
     // Initial load
@@ -117,54 +154,69 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (session) {
-          // Solo per eventi di login, ricarica il wedding_id
-          if (event === 'SIGNED_IN') {
-            const weddingId = await loadWeddingId(session.user.id);
-            setAuthState({
-              status: "authenticated",
-              user: session.user,
-              session,
-              weddingId,
-            });
-          } else if (event === 'TOKEN_REFRESHED') {
-            // Per token refresh, mantieni il weddingId esistente se disponibile
-            setAuthState(prevState => {
-              const previousWeddingId = prevState.status === 'authenticated' ? prevState.weddingId : null;
-              return {
-                status: "authenticated",
-                user: session.user,
-                session,
-                weddingId: previousWeddingId,
-              };
-            });
-          } else {
-            // Per altri eventi, mantieni lo stato esistente se è lo stesso utente
-            setAuthState(prevState => {
-              if (prevState.status === 'authenticated' && prevState.user.id === session.user.id) {
-                return prevState; // Nessun cambiamento, evita loop
-              }
-              return {
-                status: "authenticated",
-                user: session.user,
-                session,
-                weddingId: prevState.status === 'authenticated' ? prevState.weddingId : null,
-              };
-            });
-          }
-        } else {
+        console.log('[AuthContext] Auth event:', event);
+        
+        if (!session) {
+          weddingStorage.clear();
           setAuthState({ status: "unauthenticated" });
+          return;
         }
+        
+        if (event === 'TOKEN_REFRESHED') {
+          // CRITICAL: Preserve existing weddingId during token refresh
+          setAuthState(prev => {
+            if (prev.status === 'authenticated') {
+              console.log('[AuthContext] Token refreshed, keeping weddingId:', prev.weddingId);
+              return {
+                ...prev,
+                session, // Only update session
+              };
+            }
+            // If somehow no weddingId, load it
+            debouncedLoadWeddingId(session.user.id);
+            return prev;
+          });
+          return;
+        }
+        
+        if (event === 'SIGNED_IN') {
+          // Only on initial login, load weddingId
+          const weddingId = await loadWeddingId(session.user.id);
+          setAuthState({
+            status: "authenticated",
+            user: session.user,
+            session,
+            weddingId,
+          });
+          return;
+        }
+        
+        // Other events: keep existing state if same user
+        setAuthState(prev => {
+          if (prev.status === 'authenticated' && prev.user.id === session.user.id) {
+            return prev; // No change
+          }
+          return {
+            status: "authenticated",
+            user: session.user,
+            session,
+            weddingId: prev.status === 'authenticated' ? prev.weddingId : null,
+          };
+        });
       }
     );
 
     return () => {
       subscription.unsubscribe();
+      if (loadWeddingIdTimeoutRef.current) {
+        clearTimeout(loadWeddingIdTimeoutRef.current);
+      }
     };
-  }, []);
+  }, [debouncedLoadWeddingId]);
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    weddingStorage.clear();
     setAuthState({ status: "unauthenticated" });
   };
 
