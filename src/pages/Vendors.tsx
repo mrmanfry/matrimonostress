@@ -96,8 +96,7 @@ const Vendors = () => {
       .from("vendors")
       .select(`
         *,
-        category:expense_categories(name),
-        expense_items!vendor_id(estimated_amount, final_amount)
+        category:expense_categories(name)
       `)
       .eq("wedding_id", weddingId)
       .order("created_at", { ascending: false });
@@ -108,18 +107,11 @@ const Vendors = () => {
     }
 
     setVendors(
-      data.map((v: any) => {
-        const expensesTotal = v.expense_items?.reduce(
-          (sum: number, e: any) => sum + (e.final_amount || e.estimated_amount),
-          0
-        ) || 0;
-        
-        return {
-          ...v,
-          category_name: v.category?.name || null,
-          expenses_total: expensesTotal,
-        };
-      })
+      data.map((v: any) => ({
+        ...v,
+        category_name: v.category?.name || null,
+        expenses_total: 0,
+      }))
     );
   };
 
