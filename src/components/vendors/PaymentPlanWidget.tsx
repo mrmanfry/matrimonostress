@@ -42,12 +42,14 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId }: Payme
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(false);
   const [weddingDate, setWeddingDate] = useState<Date | null>(null);
+  const [contributors, setContributors] = useState<any[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
     if (expenseItemId) {
       loadPayments();
       loadWeddingDate();
+      loadContributors();
     } else {
       setPayments([]);
     }
@@ -69,6 +71,33 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId }: Payme
       }
     } catch (error) {
       console.error("Error loading wedding date:", error);
+    }
+  };
+
+  const loadContributors = async () => {
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return;
+
+      const { data: weddingData } = await supabase
+        .from("weddings")
+        .select("id")
+        .eq("created_by", userData.user.id)
+        .maybeSingle();
+
+      if (!weddingData) return;
+
+      const { data, error } = await supabase
+        .from("financial_contributors")
+        .select("*")
+        .eq("wedding_id", weddingData.id)
+        .order("is_default", { ascending: false });
+
+      if (error) throw error;
+
+      setContributors(data || []);
+    } catch (error) {
+      console.error("Error loading contributors:", error);
     }
   };
 
@@ -517,21 +546,16 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId }: Payme
                         <SelectValue placeholder="Seleziona chi ha pagato" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Noi Sposi">Noi Sposi</SelectItem>
-                        <SelectItem value="Genitori Sposa">Genitori Sposa</SelectItem>
-                        <SelectItem value="Genitori Sposo">Genitori Sposo</SelectItem>
-                        <SelectItem value="Altro">Altro</SelectItem>
+                        {contributors.map((contributor) => (
+                          <SelectItem key={contributor.id} value={contributor.name}>
+                            {contributor.name}
+                          </SelectItem>
+                        ))}
+                        {contributors.length === 0 && (
+                          <SelectItem value="Io">Io</SelectItem>
+                        )}
                       </SelectContent>
                     </Select>
-                    
-                    {payment.paid_by === 'Altro' && (
-                      <Input
-                        type="text"
-                        placeholder="Specifica chi ha pagato"
-                        className="mt-2"
-                        onChange={(e) => updatePayment(index, 'paid_by', e.target.value)}
-                      />
-                    )}
                   </div>
 
                   <div>

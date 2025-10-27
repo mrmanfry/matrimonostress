@@ -189,6 +189,33 @@ export type Database = {
           },
         ]
       }
+      financial_contributors: {
+        Row: {
+          created_at: string
+          id: string
+          is_default: boolean
+          name: string
+          type: string
+          wedding_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          name: string
+          type: string
+          wedding_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          name?: string
+          type?: string
+          wedding_id?: string
+        }
+        Relationships: []
+      }
       guest_conflicts: {
         Row: {
           created_at: string

@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { UserPlus, Trash2, Users, Shield } from "lucide-react";
+import { UserPlus, Trash2, Users, Shield, Plus } from "lucide-react";
 import { z } from "zod";
 
 const emailSchema = z.string().trim().email("Email non valida").max(255);
@@ -32,6 +32,8 @@ const Settings = () => {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<"co_planner" | "manager" | "guest">("manager");
   const [loading, setLoading] = useState(false);
+  const [contributors, setContributors] = useState<any[]>([]);
+  const [newContributorName, setNewContributorName] = useState("");
   const { toast } = useToast();
 
   useEffect(() => {
@@ -69,6 +71,15 @@ const Settings = () => {
         .eq("status", "pending");
 
       setInvites(invitesData || []);
+
+      // Load financial contributors
+      const { data: contributorsData } = await supabase
+        .from("financial_contributors")
+        .select("*")
+        .eq("wedding_id", weddingData.id)
+        .order("is_default", { ascending: false });
+
+      setContributors(contributorsData || []);
     } catch (error) {
       console.error("Error loading data:", error);
     }
@@ -211,6 +222,103 @@ const Settings = () => {
         return <Users className="w-4 h-4 text-gold" />;
       default:
         return <Users className="w-4 h-4" />;
+    }
+  };
+
+  const handleAddContributor = async () => {
+    if (!newContributorName.trim()) {
+      toast({
+        title: "Nome mancante",
+        description: "Inserisci il nome del contributor",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("financial_contributors")
+        .insert({
+          wedding_id: wedding.id,
+          name: newContributorName,
+          type: "other",
+          is_default: false,
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Contributor aggiunto",
+        description: "Il contributor è stato aggiunto con successo",
+      });
+
+      setNewContributorName("");
+      loadData();
+    } catch (error: any) {
+      toast({
+        title: "Errore",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteContributor = async (contributorId: string, isDefault: boolean) => {
+    if (isDefault) {
+      toast({
+        title: "Non eliminabile",
+        description: "Non puoi eliminare i contributor predefiniti",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("financial_contributors")
+        .delete()
+        .eq("id", contributorId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Contributor eliminato",
+        description: "Il contributor è stato rimosso con successo",
+      });
+
+      loadData();
+    } catch (error: any) {
+      toast({
+        title: "Errore",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleUpdateContributor = async (contributorId: string, newName: string) => {
+    if (!newName.trim()) return;
+
+    try {
+      const { error } = await supabase
+        .from("financial_contributors")
+        .update({ name: newName })
+        .eq("id", contributorId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Contributor aggiornato",
+        description: "Il nome è stato aggiornato con successo",
+      });
+
+      loadData();
+    } catch (error: any) {
+      toast({
+        title: "Errore",
+        description: error.message,
+        variant: "destructive",
+      });
     }
   };
 
@@ -369,6 +477,61 @@ const Settings = () => {
             {loading ? "Invio..." : "Crea Invito"}
           </Button>
         </form>
+      </Card>
+
+      {/* Financial Contributors Section */}
+      <Card className="p-6">
+        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+          💰 Gestione Contributi Finanziari
+        </h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Gestisci chi può pagare le spese. Questi nomi appariranno nei piani di pagamento.
+        </p>
+
+        <div className="space-y-3 mb-4">
+          {contributors.map((contributor) => (
+            <div
+              key={contributor.id}
+              className="flex items-center justify-between p-3 rounded-lg bg-muted/30"
+            >
+              <div className="flex-1">
+                <Input
+                  value={contributor.name}
+                  onChange={(e) => handleUpdateContributor(contributor.id, e.target.value)}
+                  className="font-medium"
+                  disabled={contributor.is_default}
+                />
+                {contributor.is_default && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Contributor predefinito (non eliminabile)
+                  </p>
+                )}
+              </div>
+              {!contributor.is_default && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleDeleteContributor(contributor.id, contributor.is_default)}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div className="flex gap-2">
+          <Input
+            value={newContributorName}
+            onChange={(e) => setNewContributorName(e.target.value)}
+            placeholder="Aggiungi nuovo contributor (es: Genitori, Amico...)"
+            onKeyDown={(e) => e.key === 'Enter' && handleAddContributor()}
+          />
+          <Button onClick={handleAddContributor}>
+            <Plus className="w-4 h-4 mr-2" />
+            Aggiungi
+          </Button>
+        </div>
       </Card>
 
       <div className="p-4 rounded-lg bg-muted/30">
