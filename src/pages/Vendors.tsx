@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { VendorDialog } from "@/components/vendors/VendorDialog";
+import { VendorExpensesDialog } from "@/components/vendors/VendorExpensesDialog";
 import { Plus, Phone, Mail, User, Trash2, Edit, Heart, Wallet } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -49,6 +50,7 @@ const Vendors = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [expensesDialogOpen, setExpensesDialogOpen] = useState(false);
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [vendorToDelete, setVendorToDelete] = useState<string | null>(null);
@@ -493,7 +495,7 @@ const Vendors = () => {
                     className="w-full"
                     onClick={() => {
                       setSelectedVendor(vendor);
-                      setDialogOpen(true);
+                      setExpensesDialogOpen(true);
                     }}
                   >
                     <Wallet className="w-4 h-4 mr-2" />
@@ -542,6 +544,15 @@ const Vendors = () => {
         onSave={handleSaveVendor}
         onCreateCategory={handleCreateCategory}
         onDeleteCategory={handleDeleteCategory}
+      />
+
+      <VendorExpensesDialog
+        open={expensesDialogOpen}
+        onOpenChange={(open) => {
+          setExpensesDialogOpen(open);
+          if (!open) setSelectedVendor(null);
+        }}
+        vendor={selectedVendor}
       />
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

@@ -24,10 +24,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ExpenseItemsManager } from "./ExpenseItemsManager";
 import { CategoryManager } from "@/components/budget/CategoryManager";
 import { FolderPlus } from "lucide-react";
-import { Separator } from "@/components/ui/separator";
 
 interface Vendor {
   id?: string;
@@ -491,13 +489,6 @@ export function VendorDialog({
           </div>
 
           {/* Gestione spese - mostra solo se vendor è salvato */}
-          {vendor?.id && (
-            <>
-              <Separator />
-              <ExpenseItemsManager vendorId={vendor.id} categoryId={categoryId} />
-            </>
-          )}
-
           {vendor?.id && (
             <div className="space-y-2">
               <Label>Documenti</Label>
