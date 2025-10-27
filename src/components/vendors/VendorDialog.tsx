@@ -91,8 +91,11 @@ export function VendorDialog({
   const categoryId = watch("category_id");
   const status = watch("status");
 
+  const [savedVendorId, setSavedVendorId] = useState<string | null>(null);
+
   useEffect(() => {
     if (vendor) {
+      setSavedVendorId(vendor.id || null);
       reset({
         name: vendor.name,
         contact_name: vendor.contact_name || "",
@@ -107,6 +110,7 @@ export function VendorDialog({
         loadExpenseItem(vendor.id);
       }
     } else {
+      setSavedVendorId(null);
       reset(emptyVendor);
       setUploadedFiles([]);
       setExpenseItemId(null);
@@ -348,23 +352,48 @@ export function VendorDialog({
       
       await onSave(vendorData);
       
-      // Crea o aggiorna expense_item associato
-      const savedVendorId = vendor?.id || vendorData.id;
-      if (savedVendorId) {
-        await ensureExpenseItem(savedVendorId, data.name, data.category_id, authState.weddingId);
+      // Ricarica il vendor appena salvato per ottenere l'ID
+      if (!vendor) {
+        // Nuovo vendor - ricarica per ottenere l'ID e mostrare il piano di pagamento
+        const { data: newVendor, error } = await supabase
+          .from("vendors")
+          .select("*")
+          .eq("name", data.name)
+          .eq("wedding_id", authState.weddingId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        
+        if (error) throw error;
+        
+        if (newVendor) {
+          const newExpenseItemId = await ensureExpenseItem(newVendor.id, data.name, data.category_id, authState.weddingId);
+          setExpenseItemId(newExpenseItemId);
+          
+          // Aggiorna il form con il vendor appena creato per mostrare il widget
+          reset({
+            ...data,
+          });
+          
+          // Carica i file esistenti per il nuovo vendor
+          loadExistingFiles(newVendor.id);
+        }
+      } else {
+        // Vendor esistente
+        await ensureExpenseItem(vendor.id, data.name, data.category_id, authState.weddingId);
       }
 
       toast({
         title: "Fornitore salvato",
-        description: "Il fornitore è stato salvato. Puoi ora gestire il piano di pagamento.",
+        description: vendor ? "Le modifiche sono state salvate." : "Puoi ora gestire il piano di pagamento qui sotto.",
       });
-      
-      // Non chiudere il dialog se è un update, per permettere di gestire i payments
-      if (!vendor) {
-        onOpenChange(false);
-      }
     } catch (error) {
       console.error("Error saving vendor:", error);
+      toast({
+        title: "Errore",
+        description: "Impossibile salvare il fornitore",
+        variant: "destructive",
+      });
     }
   };
 
@@ -373,7 +402,7 @@ export function VendorDialog({
     vendorName: string,
     categoryId: string | null,
     weddingId: string
-  ) => {
+  ): Promise<string | null> => {
     try {
       // Check if expense_item exists
       const { data: existing } = await supabase
@@ -392,7 +421,7 @@ export function VendorDialog({
           })
           .eq("id", existing.id);
         
-        setExpenseItemId(existing.id);
+        return existing.id;
       } else {
         // Create new
         const { data: newItem, error } = await supabase
@@ -407,10 +436,11 @@ export function VendorDialog({
           .single();
 
         if (error) throw error;
-        setExpenseItemId(newItem.id);
+        return newItem.id;
       }
     } catch (error) {
       console.error("Error ensuring expense item:", error);
+      return null;
     }
   };
 
@@ -552,16 +582,16 @@ export function VendorDialog({
             </p>
           </div>
 
-          {/* Payment Plan Widget - mostra sempre se il vendor è salvato */}
-          {vendor?.id && expenseItemId && (
+          {/* Payment Plan Widget - mostra se vendor è salvato o se abbiamo un savedVendorId */}
+          {(vendor?.id || savedVendorId) && expenseItemId && (
             <PaymentPlanWidget
-              vendorId={vendor.id}
+              vendorId={vendor?.id || savedVendorId}
               expenseItemId={expenseItemId}
               categoryId={categoryId}
             />
           )}
 
-          {vendor?.id && (
+          {(vendor?.id || savedVendorId) && (
             <div className="space-y-2">
               <Label>Documenti</Label>
               <div className="border rounded-lg p-4 space-y-3">

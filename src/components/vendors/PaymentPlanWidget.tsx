@@ -175,15 +175,48 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId }: Payme
     return sum + (isNaN(amount) ? 0 : amount);
   }, 0);
 
-  const getCategoryAdvice = (categoryId: string | null) => {
-    // Simplified advice based on category
-    const advices: Record<string, string> = {
-      // Questi ID vanno mappati ai category_id reali nel tuo DB
-      default: "Verifica sempre che i costi siano inclusivi di IVA e che non ci siano costi nascosti.",
-    };
+  const getCategoryAdvice = async (categoryId: string | null) => {
+    if (!categoryId) {
+      return "Verifica sempre che i costi siano inclusivi di IVA e che non ci siano costi nascosti.";
+    }
 
-    return advices[categoryId || ""] || advices.default;
+    // Carica il nome della categoria dal DB
+    try {
+      const { data } = await supabase
+        .from("expense_categories")
+        .select("name")
+        .eq("id", categoryId)
+        .single();
+      
+      const categoryName = data?.name || "";
+      
+      // Suggerimenti specifici per categoria
+      const adviceMap: Record<string, string> = {
+        "Musica": "🔔 Non dimenticare la SIAE! Considera anche costi per amplificazione extra o prove.",
+        "Location": "🔔 I costi delle location spesso escludono pulizia finale, allestimento e smontaggio. L'hai verificato?",
+        "Foto & Video": "🔔 Ricorda di includere costi per trasferta, pasti del fotografo e album/USB extra.",
+        "Fiori": "🔔 Considera il costo dell'allestimento, consegna e eventuale smontaggio decorazioni.",
+        "Catering": "🔔 Verifica se il servizio include coperto, tovagliato, personale extra e pulizia finale.",
+        "Wedding Planner": "🔔 Chiarisci se include coordinamento giorno del matrimonio e gestione emergenze.",
+        "Abiti": "🔔 Considera costi per ritocchi, pulizia post-evento e accessori (velo, scarpe, gioielli).",
+        "Inviti": "🔔 Aggiungi costi per buste, francobolli, coordinati (menu, tableau, segnaposto).",
+      };
+      
+      return adviceMap[categoryName] || "Verifica sempre che i costi siano inclusivi di IVA e che non ci siano costi nascosti.";
+    } catch (error) {
+      return "Verifica sempre che i costi siano inclusivi di IVA e che non ci siano costi nascosti.";
+    }
   };
+
+  const [categoryAdvice, setCategoryAdvice] = useState<string>("");
+
+  useEffect(() => {
+    const loadAdvice = async () => {
+      const advice = await getCategoryAdvice(categoryId);
+      setCategoryAdvice(advice);
+    };
+    loadAdvice();
+  }, [categoryId]);
 
   if (!expenseItemId) {
     return (
@@ -317,12 +350,14 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId }: Payme
           </div>
         )}
 
-        <Alert className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
-          <LightbulbIcon className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-          <AlertDescription className="text-sm text-blue-800 dark:text-blue-200">
-            💡 <strong>Consiglio:</strong> {getCategoryAdvice(categoryId)}
-          </AlertDescription>
-        </Alert>
+        {categoryAdvice && (
+          <Alert className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
+            <LightbulbIcon className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            <AlertDescription className="text-sm text-blue-800 dark:text-blue-200">
+              {categoryAdvice}
+            </AlertDescription>
+          </Alert>
+        )}
       </CardContent>
     </Card>
   );
