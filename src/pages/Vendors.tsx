@@ -229,6 +229,66 @@ const Vendors = () => {
     }
   };
 
+  const handleCreateCategory = async (name: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: weddingData } = await supabase
+        .from("weddings")
+        .select("id")
+        .eq("created_by", user.id)
+        .single();
+
+      if (!weddingData) return;
+
+      const { error } = await supabase
+        .from("expense_categories")
+        .insert([{ wedding_id: weddingData.id, name }]);
+
+      if (error) throw error;
+
+      await loadCategories(weddingData.id);
+
+      toast({
+        title: "Categoria creata",
+        description: `La categoria "${name}" è stata aggiunta`,
+      });
+    } catch (error) {
+      console.error("Error creating category:", error);
+      toast({
+        title: "Errore",
+        description: "Impossibile creare la categoria",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteCategory = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from("expense_categories")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+
+      setCategories(categories.filter((c) => c.id !== id));
+
+      toast({
+        title: "Categoria eliminata",
+        description: "La categoria è stata rimossa",
+      });
+    } catch (error) {
+      console.error("Error deleting category:", error);
+      toast({
+        title: "Errore",
+        description: "Impossibile eliminare la categoria",
+        variant: "destructive",
+      });
+    }
+  };
+
   const filteredVendors = vendors.filter((vendor) => {
     const matchesSearch =
       searchQuery === "" ||
@@ -474,6 +534,8 @@ const Vendors = () => {
         vendor={selectedVendor}
         categories={categories}
         onSave={handleSaveVendor}
+        onCreateCategory={handleCreateCategory}
+        onDeleteCategory={handleDeleteCategory}
       />
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

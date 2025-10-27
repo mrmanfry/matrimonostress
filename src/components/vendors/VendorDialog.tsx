@@ -25,6 +25,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PaymentPlanWidget } from "./PaymentPlanWidget";
+import { CategoryManager } from "@/components/budget/CategoryManager";
+import { FolderPlus } from "lucide-react";
 
 interface Vendor {
   id?: string;
@@ -43,6 +45,8 @@ interface VendorDialogProps {
   vendor: Vendor | null;
   categories: Array<{ id: string; name: string }>;
   onSave: (vendor: Partial<Vendor>) => Promise<void>;
+  onCreateCategory: (name: string) => Promise<void>;
+  onDeleteCategory: (id: string) => Promise<void>;
 }
 
 const emptyVendor: VendorFormData = {
@@ -61,11 +65,14 @@ export function VendorDialog({
   vendor,
   categories,
   onSave,
+  onCreateCategory,
+  onDeleteCategory,
 }: VendorDialogProps) {
   const [uploadedFiles, setUploadedFiles] = useState<Array<{ name: string; path: string }>>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [expenseItemId, setExpenseItemId] = useState<string | null>(null);
+  const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
   const { toast } = useToast();
   const { authState } = useAuth();
 
@@ -433,7 +440,19 @@ export function VendorDialog({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="category_id">Categoria *</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="category_id">Categoria</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setCategoryManagerOpen(true)}
+                  className="h-auto py-1 px-2 text-xs"
+                >
+                  <FolderPlus className="w-3 h-3 mr-1" />
+                  Gestisci
+                </Button>
+              </div>
               <Select
                 value={categoryId}
                 onValueChange={(value) => setValue("category_id", value, { shouldValidate: true })}
@@ -646,6 +665,14 @@ export function VendorDialog({
         </form>
       </DialogContent>
     </Dialog>
+
+    <CategoryManager
+      open={categoryManagerOpen}
+      onOpenChange={setCategoryManagerOpen}
+      categories={categories}
+      onCreateCategory={onCreateCategory}
+      onDeleteCategory={onDeleteCategory}
+    />
     </>
   );
 }

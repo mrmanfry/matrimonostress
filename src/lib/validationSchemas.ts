@@ -7,7 +7,7 @@ export const vendorSchema = z.object({
     .trim()
     .min(1, "Il nome del fornitore è obbligatorio")
     .max(200, "Il nome deve essere inferiore a 200 caratteri"),
-  category_id: z.string().min(1, "La categoria è obbligatoria"),
+  category_id: z.string().optional().or(z.literal("")),
   contact_name: z
     .string()
     .trim()
