@@ -71,56 +71,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const cachedWeddingId = previousWeddingId || weddingStorage.get();
     console.log('[AuthContext] Cached weddingId:', cachedWeddingId || 'none');
     
+    // If we have cached weddingId, return immediately (no DB queries needed)
+    if (cachedWeddingId) {
+      console.log('[AuthContext] Using cached weddingId immediately:', cachedWeddingId);
+      return cachedWeddingId;
+    }
+    
     try {
-      // Query 1: Check user_roles with INDEPENDENT timeout
+      // Execute BOTH queries in PARALLEL for faster loading
       const roleQuery = async () => {
         const result = await supabase
           .from("user_roles")
           .select("wedding_id")
           .eq("user_id", userId)
           .maybeSingle();
-        console.log('[AuthContext] User role data:', result.data);
+        console.log('[AuthContext] User role query completed:', result.data);
         return result;
       };
       
-      const roleResult = await fetchWithTimeout(
-        roleQuery,
-        10000,
-        null
-      );
-      
-      if (roleResult?.data?.wedding_id) {
-        console.log('[AuthContext] Found weddingId from role:', roleResult.data.wedding_id);
-        weddingStorage.set(roleResult.data.wedding_id);
-        return roleResult.data.wedding_id;
-      }
-      
-      // Query 2: Check weddings with NEW INDEPENDENT timeout
       const weddingQuery = async () => {
         const result = await supabase
           .from("weddings")
           .select("id")
           .eq("created_by", userId)
           .maybeSingle();
-        console.log('[AuthContext] Wedding created by user:', result.data);
+        console.log('[AuthContext] Wedding query completed:', result.data);
         return result;
       };
       
-      const weddingResult = await fetchWithTimeout(
-        weddingQuery,
-        10000,
-        null
-      );
+      // Run both queries in parallel with 5s timeout each
+      const [roleResult, weddingResult] = await Promise.all([
+        fetchWithTimeout(roleQuery, 5000, null),
+        fetchWithTimeout(weddingQuery, 5000, null)
+      ]);
       
+      // Check role result first (more specific)
+      if (roleResult?.data?.wedding_id) {
+        console.log('[AuthContext] Found weddingId from role:', roleResult.data.wedding_id);
+        weddingStorage.set(roleResult.data.wedding_id);
+        return roleResult.data.wedding_id;
+      }
+      
+      // Then check wedding result
       if (weddingResult?.data?.id) {
         console.log('[AuthContext] Found weddingId from weddings:', weddingResult.data.id);
         weddingStorage.set(weddingResult.data.id);
         return weddingResult.data.id;
       }
       
-      // Final fallback to localStorage/cache
-      console.log('[AuthContext] No weddingId found in DB, using cached:', cachedWeddingId || 'none');
-      return cachedWeddingId || null;
+      // No weddingId found in either query
+      console.log('[AuthContext] No weddingId found in DB queries');
+      return null;
       
     } catch (error) {
       console.error('[AuthContext] Error loading wedding_id:', error);

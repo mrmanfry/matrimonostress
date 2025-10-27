@@ -19,7 +19,7 @@ export function ProtectedRoute({ children, requireWedding = false, redirectIfHas
     const timer = setTimeout(() => {
       setGracePeriodExpired(true);
       console.log('[ProtectedRoute] Grace period expired');
-    }, 3000); // 3 second grace period
+    }, 6000); // 6 second grace period (queries run in parallel with 5s timeout)
     
     return () => clearTimeout(timer);
   }, [authState.status === 'authenticated' ? authState.weddingId : null]);
