@@ -41,8 +41,8 @@ serve(async (req) => {
     crypto.getRandomValues(tokenBytes);
     const token = Array.from(tokenBytes, byte => byte.toString(16).padStart(2, '0')).join('');
 
-    // Token expires in 5 minutes
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+    // Token expires in 10 minutes
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
     // Insert token into database
     const { data, error } = await supabase

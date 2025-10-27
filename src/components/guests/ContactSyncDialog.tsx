@@ -60,6 +60,7 @@ export function ContactSyncDialog({
 
   const generateToken = async () => {
     setLoading(true);
+    setToken(''); // Reset token
     try {
       const { data, error } = await supabase.functions.invoke('generate-sync-token', {
         body: { weddingId }
@@ -67,6 +68,10 @@ export function ContactSyncDialog({
 
       if (error) throw error;
       setToken(data.token);
+      toast({
+        title: "Nuovo QR Code generato",
+        description: "Scansiona il nuovo codice QR con il tuo telefono.",
+      });
     } catch (error: any) {
       console.error('Error generating token:', error);
       toast({
@@ -233,14 +238,29 @@ export function ContactSyncDialog({
                     <QRCodeSVG value={syncUrl} size={256} />
                   </div>
                   
-                  <div className="text-center space-y-2">
-                    <p className="text-sm font-medium">Codice valido per 5 minuti</p>
+                  <div className="text-center space-y-4">
+                    <p className="text-sm font-medium">Codice valido per 10 minuti</p>
                     {polling && (
                       <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                         <Loader2 className="w-4 h-4 animate-spin" />
                         In attesa di sincronizzazione...
                       </div>
                     )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={generateToken}
+                      disabled={loading}
+                    >
+                      {loading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Generazione...
+                        </>
+                      ) : (
+                        "🔄 Genera Nuovo QR Code"
+                      )}
+                    </Button>
                   </div>
 
                   <div className="mt-6 p-4 bg-muted/50 rounded-lg max-w-md">
