@@ -275,6 +275,7 @@ export type Database = {
           last_name: string
           menu_choice: string | null
           notes: string | null
+          phone: string | null
           rsvp_status: string | null
           updated_at: string
           wedding_id: string
@@ -290,6 +291,7 @@ export type Database = {
           last_name: string
           menu_choice?: string | null
           notes?: string | null
+          phone?: string | null
           rsvp_status?: string | null
           updated_at?: string
           wedding_id: string
@@ -305,6 +307,7 @@ export type Database = {
           last_name?: string
           menu_choice?: string | null
           notes?: string | null
+          phone?: string | null
           rsvp_status?: string | null
           updated_at?: string
           wedding_id?: string

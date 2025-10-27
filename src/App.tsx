@@ -20,6 +20,7 @@ import Settings from "./pages/Settings";
 import Tables from "./pages/Tables";
 import Timeline from "./pages/Timeline";
 import TimelinePublic from "./pages/TimelinePublic";
+import ContactSync from "./pages/ContactSync";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -45,7 +46,8 @@ const App = () => (
               } 
             />
             <Route path="/timeline/:token" element={<TimelinePublic />} />
-            <Route 
+            <Route path="/sync/:token" element={<ContactSync />} />
+            <Route
               path="/app" 
               element={
                 <ProtectedRoute requireWedding>

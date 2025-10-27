@@ -139,7 +139,7 @@ export function ContactSyncDialog({
       // Update guest with phone number
       const { error: updateError } = await supabase
         .from('guests')
-        .update({ notes: `Tel: ${match.contact_phone}` })
+        .update({ phone: match.contact_phone })
         .eq('id', match.guest_id);
 
       if (updateError) throw updateError;

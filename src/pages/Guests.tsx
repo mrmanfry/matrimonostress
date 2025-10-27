@@ -28,6 +28,7 @@ import {
 import { GuestDialog } from "@/components/guests/GuestDialog";
 import { GroupsDialog } from "@/components/guests/GroupsDialog";
 import { SmartImportDialog } from "@/components/guests/SmartImportDialog";
+import { ContactSyncDialog } from "@/components/guests/ContactSyncDialog";
 import {
   generateCSVTemplate,
   parseCSV,
@@ -50,6 +51,7 @@ interface Guest {
   notes: string;
   group_id: string | null;
   group_name?: string;
+  phone?: string;
 }
 
 interface Group {
@@ -74,6 +76,7 @@ const Guests = () => {
   const [guestDialogOpen, setGuestDialogOpen] = useState(false);
   const [groupsDialogOpen, setGroupsDialogOpen] = useState(false);
   const [smartImportDialogOpen, setSmartImportDialogOpen] = useState(false);
+  const [contactSyncDialogOpen, setContactSyncDialogOpen] = useState(false);
   const [selectedGuest, setSelectedGuest] = useState<Guest | null>(null);
   const [selectedGuestIds, setSelectedGuestIds] = useState<Set<string>>(new Set());
   const { toast } = useToast();
@@ -515,6 +518,25 @@ const Guests = () => {
         </Card>
       </div>
 
+      {/* Contact Sync Banner */}
+      {guests.filter(g => !g.phone).length > 0 && (
+        <Card className="p-4 bg-gradient-to-r from-accent/5 to-primary/5 border-accent/20">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+            <div className="flex-1">
+              <h3 className="font-semibold mb-1">
+                📱 {guests.filter(g => !g.phone).length} invitati senza numero di telefono
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Sincronizza i contatti dal tuo smartphone per inviare gli inviti via WhatsApp
+              </p>
+            </div>
+            <Button onClick={() => setContactSyncDialogOpen(true)} className="shrink-0">
+              Sincronizza Ora ✨
+            </Button>
+          </div>
+        </Card>
+      )}
+
       {/* Actions */}
       <Card className="p-4">
         <div className="flex flex-col lg:flex-row gap-3">
@@ -543,6 +565,11 @@ const Guests = () => {
           <Button variant="outline" onClick={() => setSmartImportDialogOpen(true)} className="bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
             <Upload className="w-4 h-4 mr-2" />
             ✨ Importa da Testo
+          </Button>
+
+          <Button variant="outline" onClick={() => setContactSyncDialogOpen(true)} className="bg-gradient-to-r from-accent/10 to-primary/10 border-accent/20">
+            <Users className="w-4 h-4 mr-2" />
+            📱 Sincronizza Contatti
           </Button>
 
           <Button variant="outline" onClick={handleDownloadTemplate}>
@@ -744,6 +771,13 @@ const Guests = () => {
         weddingId={wedding?.id || ""}
         onSuccess={loadData}
         groups={groups}
+      />
+
+      <ContactSyncDialog
+        open={contactSyncDialogOpen}
+        onOpenChange={setContactSyncDialogOpen}
+        weddingId={wedding?.id || ""}
+        onSyncComplete={loadData}
       />
     </div>
   );
