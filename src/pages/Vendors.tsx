@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { VendorDialog } from "@/components/vendors/VendorDialog";
-import { Plus, Phone, Mail, User, Trash2, Edit, Heart } from "lucide-react";
+import { Plus, Phone, Mail, User, Trash2, Edit, Heart, Wallet } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -486,18 +486,31 @@ const Vendors = () => {
                   </p>
                 )}
 
-                <div className="flex gap-2 pt-3 border-t">
+                <div className="flex flex-col gap-2 pt-3 border-t">
                   <Button
-                    variant="outline"
+                    variant="default"
                     size="sm"
-                    className="flex-1"
+                    className="w-full"
                     onClick={() => {
                       setSelectedVendor(vendor);
                       setDialogOpen(true);
                     }}
                   >
-                    <Edit className="w-4 h-4 mr-1" />
-                    Modifica
+                    <Wallet className="w-4 h-4 mr-2" />
+                    Gestisci Spese
+                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => {
+                        setSelectedVendor(vendor);
+                        setDialogOpen(true);
+                      }}
+                    >
+                      <Edit className="w-4 h-4 mr-1" />
+                      Modifica
                   </Button>
                   <Button
                     variant="outline"
@@ -509,6 +522,7 @@ const Vendors = () => {
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
