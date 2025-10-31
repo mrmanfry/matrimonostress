@@ -189,7 +189,14 @@ export function ExpenseItemsManager({ vendorId, categoryId }: ExpenseItemsManage
   };
 
   const totalVendorAmount = expenseItems.reduce((sum, item) => {
-    return sum + (item.total_amount || calculateItemTotal(item.id));
+    let itemTotal = item.total_amount || calculateItemTotal(item.id);
+    
+    // Se IVA Esclusa, aggiungi l'IVA al totale
+    if (item.total_amount && item.amount_is_tax_inclusive === false && item.tax_rate) {
+      itemTotal = item.total_amount * (1 + item.tax_rate / 100);
+    }
+    
+    return sum + itemTotal;
   }, 0);
 
   const calculateAmountPaid = (): number => {
@@ -246,7 +253,13 @@ export function ExpenseItemsManager({ vendorId, categoryId }: ExpenseItemsManage
             <>
               {expenseItems.map((item) => {
                 const itemPayments = payments[item.id] || [];
-                const itemTotal = item.total_amount || calculateItemTotal(item.id);
+                let itemTotal = item.total_amount || calculateItemTotal(item.id);
+                
+                // Se IVA Esclusa, aggiungi l'IVA al totale visualizzato
+                if (item.total_amount && item.amount_is_tax_inclusive === false && item.tax_rate) {
+                  itemTotal = item.total_amount * (1 + item.tax_rate / 100);
+                }
+                
                 const isExpanded = expandedItems.has(item.id);
 
                 return (
