@@ -65,18 +65,24 @@ serve(async (req) => {
     const arrayBuffer = await fileData.arrayBuffer();
     const base64File = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
     
-    // Determine file type from extension
+    // Determine file type from extension - only supported formats
     const fileExtension = fileUrl.split('.').pop()?.toLowerCase() || '';
     const mimeTypes: Record<string, string> = {
       'pdf': 'application/pdf',
-      'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'doc': 'application/msword',
       'png': 'image/png',
       'jpg': 'image/jpeg',
       'jpeg': 'image/jpeg',
       'heic': 'image/heic',
     };
-    const mimeType = mimeTypes[fileExtension] || 'application/octet-stream';
+    const mimeType = mimeTypes[fileExtension];
+    
+    if (!mimeType) {
+      console.error("[analyze-contract] Unsupported file type:", fileExtension);
+      return new Response(
+        JSON.stringify({ error: `Formato file non supportato: ${fileExtension}. Usa PDF, PNG, JPG o HEIC.` }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // Construct the system prompt with vendor registry extraction
     const systemPrompt = `Sei un assistente legale e contabile specializzato in contratti per eventi e matrimoni italiani.
@@ -159,9 +165,15 @@ Restituisci SOLO l'oggetto JSON, senza alcun testo aggiuntivo.`;
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+      if (aiResponse.status === 400) {
+        return new Response(
+          JSON.stringify({ error: "L'AI non è riuscita a leggere il documento. Prova con un file PDF o un'immagine più chiara." }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
       
       return new Response(
-        JSON.stringify({ error: "AI analysis failed" }),
+        JSON.stringify({ error: "Errore durante l'analisi del contratto. Riprova o contatta il supporto." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

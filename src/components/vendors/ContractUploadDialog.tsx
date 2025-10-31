@@ -34,20 +34,21 @@ export const ContractUploadDialog = ({
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
+    // Validate file type - only formats that AI can process as images
     const allowedTypes = [
       "application/pdf",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "application/msword",
       "image/png",
       "image/jpeg",
       "image/heic",
     ];
     
-    if (!allowedTypes.includes(file.type)) {
+    const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+    const allowedExtensions = ['.pdf', '.png', '.jpg', '.jpeg', '.heic'];
+    
+    if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension)) {
       toast({
         title: "Formato non supportato",
-        description: "Carica un file PDF, DOCX o immagine (PNG, JPG, HEIC)",
+        description: "Carica un file PDF o un'immagine (PNG, JPG, HEIC). I file Word non sono supportati.",
         variant: "destructive",
       });
       return;
@@ -96,11 +97,17 @@ export const ContractUploadDialog = ({
       });
 
       if (error) {
-        throw error;
+        console.error("Edge function error:", error);
+        throw new Error(error.message || "Errore durante l'analisi");
+      }
+
+      if (data?.error) {
+        console.error("Analysis error:", data.error);
+        throw new Error(data.error);
       }
 
       if (!data?.analysis) {
-        throw new Error("Analisi fallita");
+        throw new Error("L'AI non ha restituito risultati. Riprova con un file più chiaro.");
       }
 
       toast({
@@ -141,13 +148,13 @@ export const ContractUploadDialog = ({
               <Input
                 id="contract-file"
                 type="file"
-                accept=".pdf,.docx,.doc,.png,.jpg,.jpeg,.heic"
+                accept=".pdf,.png,.jpg,.jpeg,.heic,image/*,application/pdf"
                 onChange={handleFileUpload}
                 disabled={uploading || analyzing}
               />
             </div>
             <p className="text-sm text-muted-foreground">
-              Formati supportati: PDF, DOCX, PNG, JPG, HEIC (max 20MB)
+              Formati supportati: PDF, PNG, JPG, HEIC (max 20MB)
             </p>
           </div>
 
