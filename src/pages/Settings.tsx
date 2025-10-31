@@ -7,6 +7,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { UserPlus, Trash2, Users, Shield, Plus, Link2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { z } from "zod";
 
 const emailSchema = z.string().trim().email("Email non valida").max(255);
@@ -39,6 +40,8 @@ const Settings = () => {
   const [loading, setLoading] = useState(false);
   const [contributors, setContributors] = useState<any[]>([]);
   const [newContributorName, setNewContributorName] = useState("");
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [roleToDelete, setRoleToDelete] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -49,6 +52,8 @@ const Settings = () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+      
+      setCurrentUserId(user.id);
 
       // Load wedding with role check
       const { data: weddingData } = await supabase
@@ -396,6 +401,34 @@ const Settings = () => {
     }
   };
 
+  const handleRemoveCollaborator = async () => {
+    if (!roleToDelete) return;
+
+    try {
+      const { error } = await supabase
+        .from("user_roles")
+        .delete()
+        .eq("id", roleToDelete);
+
+      if (error) throw error;
+
+      toast({
+        title: "Collaboratore rimosso",
+        description: "Il collaboratore è stato rimosso con successo",
+      });
+
+      setRoleToDelete(null);
+      loadData();
+    } catch (error: any) {
+      toast({
+        title: "Errore",
+        description: error.message,
+        variant: "destructive",
+      });
+      setRoleToDelete(null);
+    }
+  };
+
   if (!wedding) {
     return (
       <div className="p-4 lg:p-8">
@@ -458,22 +491,41 @@ const Settings = () => {
           Collaboratori Attivi ({roles.length})
         </h2>
         <div className="space-y-3">
-          {roles.map((role) => (
-            <div
-              key={role.id}
-              className="flex items-center justify-between p-4 rounded-lg bg-muted/30"
-            >
-              <div className="flex items-center gap-3">
-                {getRoleIcon(role.role)}
-                <div>
-                  <p className="font-medium">Utente ID: {role.user_id.slice(0, 8)}...</p>
-                  <p className="text-sm text-muted-foreground">
-                    {getRoleLabel(role.role)}
-                  </p>
+          {roles.map((role) => {
+            const isCurrentUser = role.user_id === currentUserId;
+            const userName = role.profiles?.first_name && role.profiles?.last_name
+              ? `${role.profiles.first_name} ${role.profiles.last_name}`
+              : `Utente ID: ${role.user_id.slice(0, 8)}...`;
+
+            return (
+              <div
+                key={role.id}
+                className="flex items-center justify-between p-4 rounded-lg bg-muted/30"
+              >
+                <div className="flex items-center gap-3">
+                  {getRoleIcon(role.role)}
+                  <div>
+                    <p className="font-medium">
+                      {userName}
+                      {isCurrentUser && <span className="text-xs text-muted-foreground ml-2">(Tu)</span>}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {getRoleLabel(role.role)}
+                    </p>
+                  </div>
                 </div>
+                {!isCurrentUser && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setRoleToDelete(role.id)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </Card>
 
@@ -658,6 +710,24 @@ const Settings = () => {
           <li>• Tutti i dati sono protetti con Row Level Security</li>
         </ul>
       </div>
+
+      {/* Confirmation Dialog */}
+      <AlertDialog open={!!roleToDelete} onOpenChange={() => setRoleToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Conferma Rimozione</AlertDialogTitle>
+            <AlertDialogDescription>
+              Sei sicuro di voler rimuovere questo collaboratore? Perderà l'accesso a tutte le funzionalità del matrimonio.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRemoveCollaborator}>
+              Rimuovi
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
