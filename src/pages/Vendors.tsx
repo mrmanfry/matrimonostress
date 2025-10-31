@@ -148,11 +148,11 @@ const Vendors = () => {
         category_name: v.category?.name || null,
         expenses_total: v.expense_items?.reduce((sum: number, item: any) => {
           const baseAmount = item.total_amount || 0;
-          const itemTaxRate = item.tax_rate || 0; // IVA specifica di questa spesa
-          const shouldIncludeTax = item.amount_is_tax_inclusive !== false;
+          const itemTaxRate = item.tax_rate || 0;
+          const isNetAmount = item.amount_is_tax_inclusive === false; // importo al NETTO dell'IVA
           
-          // Calcola il totale con l'IVA specifica della spesa
-          const totalWithTax = shouldIncludeTax && itemTaxRate > 0
+          // Se l'importo è netto, aggiungi l'IVA specifica della spesa
+          const totalWithTax = isNetAmount && itemTaxRate > 0
             ? baseAmount * (1 + itemTaxRate / 100)
             : baseAmount;
           
