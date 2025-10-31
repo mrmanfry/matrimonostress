@@ -124,6 +124,31 @@ Se una chiave non viene trovata, restituisci un valore nullo per quella chiave.
 Restituisci SOLO l'oggetto JSON, senza alcun testo aggiuntivo.`;
 
     console.log("[analyze-contract] Calling Lovable AI");
+    
+    // For PDFs, use inline_data format; for images, use image_url format
+    const userContent = mimeType === 'application/pdf' 
+      ? [
+          {
+            type: "text",
+            text: "Analizza questo documento contrattuale."
+          },
+          {
+            type: "inline_data",
+            inline_data: {
+              mime_type: mimeType,
+              data: base64File
+            }
+          }
+        ]
+      : [
+          {
+            type: "image_url",
+            image_url: {
+              url: `data:${mimeType};base64,${base64File}`,
+            },
+          },
+        ];
+
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -136,14 +161,7 @@ Restituisci SOLO l'oggetto JSON, senza alcun testo aggiuntivo.`;
           { role: "system", content: systemPrompt },
           {
             role: "user",
-            content: [
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:${mimeType};base64,${base64File}`,
-                },
-              },
-            ],
+            content: userContent,
           },
         ],
       }),
