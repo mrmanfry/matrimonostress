@@ -90,38 +90,45 @@ Analizza il seguente documento (OCR se è un'immagine).
 ${weddingDate ? `Il contesto del progetto è un matrimonio che si terrà in data: ${weddingDate}.` : ''}
 ${totalContract ? `Il costo totale del contratto è: €${totalContract}.` : ''}
 
+REGOLA CRITICA: Devi LEGGERE ATTENTAMENTE il documento e ESTRARRE SOLO i dati EFFETTIVAMENTE PRESENTI. 
+SE UN DATO NON È PRESENTE NEL DOCUMENTO, DEVI RESTITUIRE null PER QUEL CAMPO.
+NON INVENTARE O DEDURRE DATI CHE NON SONO ESPLICITAMENTE SCRITTI NEL DOCUMENTO.
+
 Il tuo output DEVE essere un singolo oggetto JSON con TRE chiavi principali: "anagrafica_fornitore", "pagamenti", e "punti_chiave".
 
 1. **Chiave "anagrafica_fornitore":**
    * Deve essere un oggetto.
-   * Estrai i seguenti dati ANAGRAFICI del fornitore (cerca nell'intestazione, nel piè di pagina, o nelle clausole di pagamento):
-       * \`ragione_sociale\`: (stringa) Il nome legale completo del fornitore.
-       * \`partita_iva_cf\`: (stringa) La Partita IVA o Codice Fiscale.
-       * \`indirizzo_sede_legale\`: (stringa) L'indirizzo completo della sede legale.
-       * \`email\`: (stringa) L'email di contatto o PEC.
-       * \`telefono\`: (stringa) Il numero di telefono.
-       * \`iban\`: (stringa) Le coordinate bancarie IBAN per il pagamento.
-       * \`intestatario_conto\`: (stringa) L'intestatario del conto bancario (se specificato).
+   * Estrai i seguenti dati ANAGRAFICI del fornitore SOLO SE PRESENTI nel documento (cerca nell'intestazione, nel piè di pagina, o nelle clausole di pagamento):
+       * \`ragione_sociale\`: (stringa o null) Il nome legale completo del fornitore.
+       * \`partita_iva_cf\`: (stringa o null) La Partita IVA o Codice Fiscale.
+       * \`indirizzo_sede_legale\`: (stringa o null) L'indirizzo completo della sede legale.
+       * \`email\`: (stringa o null) L'email di contatto o PEC.
+       * \`telefono\`: (stringa o null) Il numero di telefono.
+       * \`iban\`: (stringa o null) Le coordinate bancarie IBAN per il pagamento.
+       * \`intestatario_conto\`: (stringa o null) L'intestatario del conto bancario (se specificato).
+   * SE NON TROVI UN DATO, METTI null. NON INVENTARE.
 
 2. **Chiave "pagamenti":**
    * Deve essere un array di oggetti.
-   * Per ogni pagamento/rata trovato, estrai:
+   * Per ogni pagamento/rata EFFETTIVAMENTE MENZIONATO nel documento, estrai:
        * \`descrizione\`: La descrizione testuale (es. "Acconto", "Saldo").
        * \`importo_tipo\`: (stringa) "assoluto" o "percentuale".
        * \`importo_valore\`: (numero) L'importo in EUR o il valore percentuale.
        * \`data_tipo\`: (stringa) "assoluta" (se è una data fissa), "relativa_evento" (se è X giorni prima/dopo la data del matrimonio), "trigger_testo" (se è "alla firma", "alla consegna", etc.).
        * \`data_valore\`: (stringa/numero) Il valore della data (es. "2026-11-15", -30, "alla firma").
+   * SE NON CI SONO RATE SPECIFICATE, RESTITUISCI UN ARRAY VUOTO [].
 
 3. **Chiave "punti_chiave":**
    * Deve essere un oggetto.
-   * Cerca e riassumi in 1-2 frasi (in italiano) solo le clausole relative a:
-       * \`penali_cancellazione\`: (stringa) Politica di cancellazione.
-       * \`costi_occulti\`: (stringa) Qualsiasi costo menzionato come "extra", "non incluso", "a parte" (es. trasferta, staff extra, ore notturne).
-       * \`piano_b\`: (stringa) Menzioni a "maltempo", "pioggia", "forza maggiore", "Piano B".
-       * \`responsabilita_extra\`: (stringa) Qualsiasi responsabilità addossata al cliente (es. "SIAE", "permessi").
+   * Cerca e riassumi in 1-2 frasi (in italiano) SOLO le clausole EFFETTIVAMENTE PRESENTI relative a:
+       * \`penali_cancellazione\`: (stringa o null) Politica di cancellazione.
+       * \`costi_occulti\`: (stringa o null) Qualsiasi costo menzionato come "extra", "non incluso", "a parte" (es. trasferta, staff extra, ore notturne).
+       * \`piano_b\`: (stringa o null) Menzioni a "maltempo", "pioggia", "forza maggiore", "Piano B".
+       * \`responsabilita_extra\`: (stringa o null) Qualsiasi responsabilità addossata al cliente (es. "SIAE", "permessi").
+   * SE UNA CLAUSOLA NON È PRESENTE, METTI null.
 
-Se una chiave non viene trovata, restituisci un valore nullo per quella chiave.
-Restituisci SOLO l'oggetto JSON, senza alcun testo aggiuntivo.`;
+IMPORTANTE: Restituisci SOLO l'oggetto JSON, senza alcun testo aggiuntivo o commenti.
+VERIFICA DI AVER LETTO IL DOCUMENTO PRIMA DI RISPONDERE.`;
 
     console.log("[analyze-contract] Calling Lovable AI");
     
@@ -198,6 +205,7 @@ Restituisci SOLO l'oggetto JSON, senza alcun testo aggiuntivo.`;
 
     const aiData = await aiResponse.json();
     console.log("[analyze-contract] AI response received");
+    console.log("[analyze-contract] AI raw response:", JSON.stringify(aiData).substring(0, 500));
 
     const aiContent = aiData.choices?.[0]?.message?.content;
     if (!aiContent) {
@@ -207,6 +215,8 @@ Restituisci SOLO l'oggetto JSON, senza alcun testo aggiuntivo.`;
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    console.log("[analyze-contract] AI content length:", aiContent.length);
 
     // Extract JSON from response (remove markdown code blocks if present)
     let jsonContent = aiContent.trim();
@@ -224,6 +234,7 @@ Restituisci SOLO l'oggetto JSON, senza alcun testo aggiuntivo.`;
     let analysisResult;
     try {
       analysisResult = JSON.parse(jsonContent);
+      console.log("[analyze-contract] Parsed result:", JSON.stringify(analysisResult).substring(0, 500));
     } catch (parseError) {
       console.error("[analyze-contract] Failed to parse AI response:", parseError);
       console.error("[analyze-contract] AI content:", aiContent);
