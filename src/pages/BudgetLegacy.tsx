@@ -38,6 +38,21 @@ export default function BudgetLegacy() {
     }
   }, [authState]);
 
+  // Reload data when the page becomes visible again (e.g., when navigating back)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible" && authState.status === "authenticated") {
+        loadData();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [authState]);
+
   const loadData = async () => {
     if (authState.status !== "authenticated" || !authState.weddingId) return;
 
