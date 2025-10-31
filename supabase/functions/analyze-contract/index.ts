@@ -319,7 +319,21 @@ Restituisci SOLO JSON, nessun commento.`;
 
     let sections;
     try {
-      sections = JSON.parse(jsonContent);
+      const parsed = JSON.parse(jsonContent);
+      
+      // Normalize: AI might return array directly OR object with "sections" property
+      if (Array.isArray(parsed)) {
+        sections = parsed;
+      } else if (parsed.sections && Array.isArray(parsed.sections)) {
+        sections = parsed.sections;
+      } else {
+        console.error("[analyze-contract] AI returned invalid structure:", parsed);
+        return new Response(
+          JSON.stringify({ error: "AI returned invalid section structure" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
       console.log(`[analyze-contract] Classified ${sections.length} sections`);
     } catch (parseError) {
       console.error("[analyze-contract] Failed to parse AI response:", parseError);
