@@ -187,7 +187,7 @@ export function ExpenseItemsManager({ vendorId, categoryId }: ExpenseItemsManage
   };
 
   const totalVendorAmount = expenseItems.reduce((sum, item) => {
-    return sum + calculateItemTotal(item.id);
+    return sum + (item.total_amount || calculateItemTotal(item.id));
   }, 0);
 
   if (loading) {
@@ -227,7 +227,7 @@ export function ExpenseItemsManager({ vendorId, categoryId }: ExpenseItemsManage
             <>
               {expenseItems.map((item) => {
                 const itemPayments = payments[item.id] || [];
-                const itemTotal = calculateItemTotal(item.id);
+                const itemTotal = item.total_amount || calculateItemTotal(item.id);
                 const isExpanded = expandedItems.has(item.id);
 
                 return (
