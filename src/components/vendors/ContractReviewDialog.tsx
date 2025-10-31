@@ -147,18 +147,18 @@ export const ContractReviewDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-7xl max-h-[90vh] overflow-hidden">
+      <DialogContent className="max-w-7xl h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Rivedi il contratto analizzato - {fileInfo.fileName}</DialogTitle>
         </DialogHeader>
 
-        <div className="grid grid-cols-5 gap-4 h-[calc(90vh-180px)]">
+        <div className="grid grid-cols-5 gap-4 flex-1 min-h-0 overflow-hidden">
           {/* Left column: OCR Text Viewer (60%) */}
-          <div className="col-span-3 space-y-2">
+          <div className="col-span-3 flex flex-col min-h-0 space-y-2">
             <div className="text-sm font-medium text-muted-foreground">
               Testo estratto (OCR) - {analysis.full_text.length} righe
             </div>
-            <ScrollArea className="h-full border rounded-lg p-4 bg-background">
+            <ScrollArea className="flex-1 border rounded-lg p-4 bg-background">
               <div className="space-y-1 font-mono text-sm">
                 {analysis.full_text.map((line, index) => {
                   const highlight = getLineHighlight(index);
@@ -179,11 +179,11 @@ export const ContractReviewDialog = ({
           </div>
 
           {/* Right column: Sections Review (40%) */}
-          <div className="col-span-2 space-y-3">
+          <div className="col-span-2 flex flex-col min-h-0 space-y-3">
             <div className="text-sm font-medium text-muted-foreground">
               Sezioni identificate ({sections.length})
             </div>
-            <ScrollArea className="h-full">
+            <ScrollArea className="flex-1">
               <div className="space-y-3 pr-4">
                 {sections.map((section, index) => (
                   <div
