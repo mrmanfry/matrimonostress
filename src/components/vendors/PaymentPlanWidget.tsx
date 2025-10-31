@@ -732,22 +732,45 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId, totalIn
             </div>
 
             <div className="flex gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="default"
-                onClick={() => handleSavePayment(index)}
-              >
-                Salva Rata
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="destructive"
-                onClick={() => handleRemovePayment(index)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+              {payment.id ? (
+                <>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleSavePayment(index)}
+                  >
+                    Modifica
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => handleRemovePayment(index)}
+                  >
+                    Elimina
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="default"
+                    onClick={() => handleSavePayment(index)}
+                  >
+                    Salva Rata
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => handleRemovePayment(index)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         ))}
