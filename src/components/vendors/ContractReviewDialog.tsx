@@ -83,6 +83,9 @@ export const ContractReviewDialog = ({
   );
   const [keyPoints, setKeyPoints] = useState(analysis.punti_chiave);
   const [vendorUpdates, setVendorUpdates] = useState<Record<string, boolean>>({});
+  const [useVendorRegistry, setUseVendorRegistry] = useState(true);
+  const [usePayments, setUsePayments] = useState(true);
+  const [useKeyPoints, setUseKeyPoints] = useState(true);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
@@ -136,27 +139,29 @@ export const ContractReviewDialog = ({
     setSaving(true);
 
     try {
-      // Update vendor registry if any fields are selected
-      const selectedVendorUpdates = vendorFields.reduce((acc, field) => {
-        if (vendorUpdates[field.key] !== false && field.extracted) {
-          acc[field.key] = field.extracted;
+      // Update vendor registry ONLY if enabled and if any fields are selected
+      if (useVendorRegistry) {
+        const selectedVendorUpdates = vendorFields.reduce((acc, field) => {
+          if (vendorUpdates[field.key] !== false && field.extracted) {
+            acc[field.key] = field.extracted;
+          }
+          return acc;
+        }, {} as Record<string, any>);
+
+        if (Object.keys(selectedVendorUpdates).length > 0) {
+          // Special handling for phone field (stored as 'phone' in vendors table)
+          if (selectedVendorUpdates.telefono) {
+            selectedVendorUpdates.phone = selectedVendorUpdates.telefono;
+            delete selectedVendorUpdates.telefono;
+          }
+
+          const { error: vendorError } = await supabase
+            .from("vendors")
+            .update(selectedVendorUpdates)
+            .eq("id", vendorId);
+
+          if (vendorError) throw vendorError;
         }
-        return acc;
-      }, {} as Record<string, any>);
-
-      if (Object.keys(selectedVendorUpdates).length > 0) {
-        // Special handling for phone field (stored as 'phone' in vendors table)
-        if (selectedVendorUpdates.telefono) {
-          selectedVendorUpdates.phone = selectedVendorUpdates.telefono;
-          delete selectedVendorUpdates.telefono;
-        }
-
-        const { error: vendorError } = await supabase
-          .from("vendors")
-          .update(selectedVendorUpdates)
-          .eq("id", vendorId);
-
-        if (vendorError) throw vendorError;
       }
 
       // Save contract analysis
@@ -169,9 +174,9 @@ export const ContractReviewDialog = ({
           file_name: fileInfo.fileName,
           file_type: fileInfo.fileType,
           ai_analysis: JSON.parse(JSON.stringify({
-            anagrafica_fornitore: extractedVendor,
-            pagamenti: payments.filter((p) => p.enabled),
-            punti_chiave: keyPoints,
+            anagrafica_fornitore: useVendorRegistry ? extractedVendor : null,
+            pagamenti: usePayments ? payments.filter((p) => p.enabled) : [],
+            punti_chiave: useKeyPoints ? keyPoints : {},
           })),
         }])
         .select()
@@ -221,42 +226,73 @@ export const ContractReviewDialog = ({
             {/* Section 1: Vendor Registry Updates */}
             {vendorFields.length > 0 && (
               <div className="space-y-4 pb-6 border-b">
-                <h3 className="font-semibold text-lg">1. Aggiornamento Anagrafica Fornitore</h3>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="use-vendor-registry"
+                    checked={useVendorRegistry}
+                    onChange={(e) => setUseVendorRegistry(e.target.checked)}
+                    className="h-5 w-5"
+                  />
+                  <label htmlFor="use-vendor-registry" className="font-semibold text-lg cursor-pointer">
+                    1. Aggiornamento Anagrafica Fornitore
+                  </label>
+                </div>
                 <p className="text-sm text-muted-foreground">
-                  Conferma i dati estratti dal contratto per aggiornare la scheda fornitore
+                  {useVendorRegistry 
+                    ? "Conferma i dati estratti dal contratto per aggiornare la scheda fornitore"
+                    : "⚠️ Se i dati sono inventati o errati, disabilita questa sezione"}
                 </p>
-                <div className="space-y-3">
-                  {vendorFields.map((field) => (
-                    <div key={field.key} className="flex items-start gap-3 p-3 border rounded-lg">
-                      <input
-                        type="checkbox"
-                        checked={vendorUpdates[field.key] !== false}
-                        onChange={(e) => setVendorUpdates({ ...vendorUpdates, [field.key]: e.target.checked })}
-                        className="mt-1"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-sm">{field.label}</div>
-                        <div className="grid grid-cols-2 gap-2 mt-1 text-xs">
-                          <div>
-                            <span className="text-muted-foreground">Attuale:</span>
-                            <div className="truncate">{field.current || <span className="italic text-muted-foreground">(vuoto)</span>}</div>
-                          </div>
-                          <div>
-                            <span className="text-green-600 font-medium">Trovato:</span>
-                            <div className="truncate font-medium">{field.extracted}</div>
+                {useVendorRegistry && (
+                  <div className="space-y-3">
+                    {vendorFields.map((field) => (
+                      <div key={field.key} className="flex items-start gap-3 p-3 border rounded-lg">
+                        <input
+                          type="checkbox"
+                          checked={vendorUpdates[field.key] !== false}
+                          onChange={(e) => setVendorUpdates({ ...vendorUpdates, [field.key]: e.target.checked })}
+                          className="mt-1"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-sm">{field.label}</div>
+                          <div className="grid grid-cols-2 gap-2 mt-1 text-xs">
+                            <div>
+                              <span className="text-muted-foreground">Attuale:</span>
+                              <div className="truncate">{field.current || <span className="italic text-muted-foreground">(vuoto)</span>}</div>
+                            </div>
+                            <div>
+                              <span className="text-green-600 font-medium">Trovato:</span>
+                              <div className="truncate font-medium">{field.extracted}</div>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
             {/* Section 2: Payment Plan */}
-            <div className="space-y-4">
-              <h3 className="font-semibold text-lg">2. Piano di Pagamento Proposto</h3>
-              {payments.map((payment, index) => (
+            <div className="space-y-4 pb-6 border-b">
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="use-payments"
+                  checked={usePayments}
+                  onChange={(e) => setUsePayments(e.target.checked)}
+                  className="h-5 w-5"
+                />
+                <label htmlFor="use-payments" className="font-semibold text-lg cursor-pointer">
+                  2. Piano di Pagamento Proposto
+                </label>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {usePayments
+                  ? `${payments.length} rata/e trovate. Disabilita le rate errate o inventate.`
+                  : "⚠️ Se le rate sono inventate o incomplete, disabilita questa sezione"}
+              </p>
+              {usePayments && payments.map((payment, index) => (
                 <div
                   key={index}
                   className={`border rounded-lg p-4 space-y-3 ${
@@ -335,10 +371,28 @@ export const ContractReviewDialog = ({
             </div>
 
             {/* Section 3: Key Points */}
-            <div className="space-y-4 pt-6 border-t">
-              <h3 className="font-semibold text-lg">3. Punti Chiave e Rischi</h3>
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="use-key-points"
+                  checked={useKeyPoints}
+                  onChange={(e) => setUseKeyPoints(e.target.checked)}
+                  className="h-5 w-5"
+                />
+                <label htmlFor="use-key-points" className="font-semibold text-lg cursor-pointer">
+                  3. Punti Chiave e Rischi
+                </label>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {useKeyPoints
+                  ? "Rivedi le clausole estratte e modifica se necessario"
+                  : "⚠️ Se i punti chiave sono inventati o errati, disabilita questa sezione"}
+              </p>
               
-              {keyPoints.penali_cancellazione && (
+              {useKeyPoints && (
+                <>
+                  {keyPoints.penali_cancellazione && (
                 <div className="space-y-2">
                   <Label>Penali Cancellazione</Label>
                   <Textarea
@@ -386,6 +440,8 @@ export const ContractReviewDialog = ({
                     rows={2}
                   />
                 </div>
+              )}
+                </>
               )}
             </div>
           </div>

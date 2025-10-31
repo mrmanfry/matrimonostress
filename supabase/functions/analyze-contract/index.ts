@@ -85,86 +85,52 @@ serve(async (req) => {
     }
 
     // Construct the system prompt with vendor registry extraction
-    const systemPrompt = `Sei un assistente legale e contabile specializzato in contratti per eventi e matrimoni italiani.
-Analizza il seguente documento (OCR se è un'immagine).
-${weddingDate ? `Il contesto del progetto è un matrimonio che si terrà in data: ${weddingDate}.` : ''}
-${totalContract ? `Il costo totale del contratto è: €${totalContract}.` : ''}
+    const systemPrompt = `Sei un assistente di estrazione dati per contratti. Il tuo compito è LEGGERE il documento e COPIARE ESATTAMENTE ciò che è scritto.
 
-REGOLA CRITICA: Devi LEGGERE ATTENTAMENTE il documento e ESTRARRE SOLO i dati EFFETTIVAMENTE PRESENTI. 
-SE UN DATO NON È PRESENTE NEL DOCUMENTO, DEVI RESTITUIRE null PER QUEL CAMPO.
-NON INVENTARE O DEDURRE DATI CHE NON SONO ESPLICITAMENTE SCRITTI NEL DOCUMENTO.
+REGOLE CRITICHE:
+1. LEGGI ATTENTAMENTE il documento fornito
+2. Estrai SOLO informazioni ESPLICITAMENTE SCRITTE nel documento
+3. Se un dato NON È PRESENTE o NON È CHIARO, metti null
+4. NON DEDURRE, NON INTERPRETARE, NON INVENTARE
+5. Copia ESATTAMENTE il testo come appare nel documento
 
-Il tuo output DEVE essere un singolo oggetto JSON con TRE chiavi principali: "anagrafica_fornitore", "pagamenti", e "punti_chiave".
+${weddingDate ? `Contesto: matrimonio in data ${weddingDate}` : ''}
+${totalContract ? `Importo totale contratto: €${totalContract}` : ''}
 
-1. **Chiave "anagrafica_fornitore":**
-   * Deve essere un oggetto.
-   * Estrai i seguenti dati ANAGRAFICI del fornitore SOLO SE PRESENTI nel documento (cerca nell'intestazione, nel piè di pagina, o nelle clausole di pagamento):
-       * \`ragione_sociale\`: (stringa o null) Il nome legale completo del fornitore.
-       * \`partita_iva_cf\`: (stringa o null) La Partita IVA o Codice Fiscale.
-       * \`indirizzo_sede_legale\`: (stringa o null) L'indirizzo completo della sede legale.
-       * \`email\`: (stringa o null) L'email di contatto o PEC.
-       * \`telefono\`: (stringa o null) Il numero di telefono.
-       * \`iban\`: (stringa o null) Le coordinate bancarie IBAN per il pagamento.
-       * \`intestatario_conto\`: (stringa o null) L'intestatario del conto bancario (se specificato).
-   * SE NON TROVI UN DATO, METTI null. NON INVENTARE.
+OUTPUT RICHIESTO - JSON con 3 chiavi:
 
-2. **Chiave "pagamenti":**
-   * Deve essere un array di oggetti.
-   * Per ogni pagamento/rata EFFETTIVAMENTE MENZIONATO nel documento, estrai:
-       * \`descrizione\`: La descrizione testuale (es. "Acconto", "Saldo").
-       * \`importo_tipo\`: (stringa) "assoluto" o "percentuale".
-       * \`importo_valore\`: (numero) L'importo in EUR o il valore percentuale.
-       * \`data_tipo\`: (stringa) "assoluta" (se è una data fissa), "relativa_evento" (se è X giorni prima/dopo la data del matrimonio), "trigger_testo" (se è "alla firma", "alla consegna", etc.).
-       * \`data_valore\`: (stringa/numero) Il valore della data (es. "2026-11-15", -30, "alla firma").
-   * SE NON CI SONO RATE SPECIFICATE, RESTITUISCI UN ARRAY VUOTO [].
+1. "anagrafica_fornitore" (oggetto):
+   - ragione_sociale: nome completo del fornitore (null se non presente)
+   - partita_iva_cf: P.IVA o CF (null se non presente)
+   - indirizzo_sede_legale: indirizzo completo (null se non presente)
+   - email: email o PEC (null se non presente)
+   - telefono: numero di telefono (null se non presente)
+   - iban: coordinate bancarie (null se non presente)
+   - intestatario_conto: intestatario (null se non presente)
 
-3. **Chiave "punti_chiave":**
-   * Deve essere un oggetto.
-   * Cerca e riassumi in 1-2 frasi (in italiano) SOLO le clausole EFFETTIVAMENTE PRESENTI relative a:
-       * \`penali_cancellazione\`: (stringa o null) Politica di cancellazione.
-       * \`costi_occulti\`: (stringa o null) Qualsiasi costo menzionato come "extra", "non incluso", "a parte" (es. trasferta, staff extra, ore notturne).
-       * \`piano_b\`: (stringa o null) Menzioni a "maltempo", "pioggia", "forza maggiore", "Piano B".
-       * \`responsabilita_extra\`: (stringa o null) Qualsiasi responsabilità addossata al cliente (es. "SIAE", "permessi").
-   * SE UNA CLAUSOLA NON È PRESENTE, METTI null.
+2. "pagamenti" (array di oggetti):
+   - SOLO se il documento specifica chiaramente le rate di pagamento
+   - Per ogni rata EFFETTIVAMENTE SCRITTA:
+     * descrizione: descrizione testuale della rata
+     * importo_tipo: "assoluto" o "percentuale"
+     * importo_valore: numero (importo o percentuale)
+     * data_tipo: "assoluta", "relativa_evento", o "trigger_testo"
+     * data_valore: data o testo del trigger
+   - SE NON CI SONO RATE SPECIFICATE, restituisci ARRAY VUOTO []
 
-IMPORTANTE: Restituisci SOLO l'oggetto JSON, senza alcun testo aggiuntivo o commenti.
-VERIFICA DI AVER LETTO IL DOCUMENTO PRIMA DI RISPONDERE.`;
+3. "punti_chiave" (oggetto):
+   - SOLO clausole EFFETTIVAMENTE PRESENTI nel documento
+   - penali_cancellazione: politica di cancellazione (null se non presente)
+   - costi_occulti: costi extra/non inclusi ESPLICITAMENTE MENZIONATI (null se non presente)
+   - piano_b: clausole su maltempo/forza maggiore (null se non presente)
+   - responsabilita_extra: responsabilità del cliente (null se non presente)
+
+VERIFICA FINALE: Prima di rispondere, rileggi il documento e assicurati che ogni dato provenga REALMENTE dal testo.
+
+Restituisci SOLO JSON, nessun commento.`;
 
     console.log("[analyze-contract] Calling Lovable AI");
     
-    // For PDFs, send as text prompt asking to analyze; for images use image_url
-    let messages;
-    if (mimeType === 'application/pdf') {
-      // Try treating PDF as text document
-      messages = [
-        { role: "system", content: systemPrompt },
-        { 
-          role: "user", 
-          content: `Analizza questo documento PDF in formato base64 e estrai i dati richiesti. IMPORTANTE: Leggi attentamente il documento e restituisci SOLO i dati effettivamente presenti. Se un dato non è presente, metti null.\n\nDocumento PDF (base64): ${base64File.substring(0, 100000)}` 
-        },
-      ];
-    } else {
-      // For images, use the image_url approach
-      messages = [
-        { role: "system", content: systemPrompt },
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: "Analizza attentamente questo documento contrattuale e estrai SOLO i dati effettivamente presenti. NON inventare nulla."
-            },
-            {
-              type: "image_url",
-              image_url: {
-                url: `data:${mimeType};base64,${base64File}`,
-              },
-            },
-          ],
-        },
-      ];
-    }
-
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -173,7 +139,24 @@ VERIFICA DI AVER LETTO IL DOCUMENTO PRIMA DI RISPONDERE.`;
       },
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
-        messages,
+        messages: [
+          { role: "system", content: systemPrompt },
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: "LEGGI ATTENTAMENTE questo documento. Estrai SOLO dati REALMENTE PRESENTI. Se qualcosa non c'è, metti null o array vuoto. NON INVENTARE."
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: `data:${mimeType};base64,${base64File}`,
+                },
+              },
+            ],
+          },
+        ],
       }),
     });
 
