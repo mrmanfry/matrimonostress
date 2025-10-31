@@ -251,24 +251,47 @@ const Vendors = () => {
   const handleSaveVendor = async (vendor: Partial<Vendor>) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        toast({
+          title: "Errore",
+          description: "Utente non autenticato",
+          variant: "destructive",
+        });
+        return;
+      }
 
       // Recupera il wedding_id dall'utente corrente tramite user_roles
-      const { data: userRole } = await supabase
+      const { data: userRole, error: roleError } = await supabase
         .from("user_roles")
         .select("wedding_id")
         .eq("user_id", user.id)
         .single();
 
-      if (!userRole) return;
+      if (roleError || !userRole) {
+        console.error("Error fetching user role:", roleError);
+        toast({
+          title: "Errore",
+          description: "Non sei associato a nessun matrimonio. Contatta l'organizzatore.",
+          variant: "destructive",
+        });
+        return;
+      }
 
-      const { data: weddingData } = await supabase
+      const { data: weddingData, error: weddingError } = await supabase
         .from("weddings")
         .select("id")
         .eq("id", userRole.wedding_id)
         .single();
 
-      if (!weddingData) return;
+      if (weddingError || !weddingData) {
+        console.error("Error fetching wedding:", weddingError);
+        toast({
+          title: "Errore",
+          description: "Matrimonio non trovato",
+          variant: "destructive",
+        });
+        return;
+      }
 
       if (selectedVendor) {
         const { error } = await supabase
@@ -351,24 +374,47 @@ const Vendors = () => {
   const handleCreateCategory = async (name: string) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        toast({
+          title: "Errore",
+          description: "Utente non autenticato",
+          variant: "destructive",
+        });
+        return;
+      }
 
       // Recupera il wedding_id dall'utente corrente tramite user_roles
-      const { data: userRole } = await supabase
+      const { data: userRole, error: roleError } = await supabase
         .from("user_roles")
         .select("wedding_id")
         .eq("user_id", user.id)
         .single();
 
-      if (!userRole) return;
+      if (roleError || !userRole) {
+        console.error("Error fetching user role:", roleError);
+        toast({
+          title: "Errore",
+          description: "Non sei associato a nessun matrimonio. Contatta l'organizzatore.",
+          variant: "destructive",
+        });
+        return;
+      }
 
-      const { data: weddingData } = await supabase
+      const { data: weddingData, error: weddingError } = await supabase
         .from("weddings")
         .select("id")
         .eq("id", userRole.wedding_id)
         .single();
 
-      if (!weddingData) return;
+      if (weddingError || !weddingData) {
+        console.error("Error fetching wedding:", weddingError);
+        toast({
+          title: "Errore",
+          description: "Matrimonio non trovato",
+          variant: "destructive",
+        });
+        return;
+      }
 
       const { error } = await supabase
         .from("expense_categories")
