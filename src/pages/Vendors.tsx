@@ -7,10 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { VendorDialog } from "@/components/vendors/VendorDialog";
 import { VendorExpensesDialog } from "@/components/vendors/VendorExpensesDialog";
-import { Plus, Phone, Mail, User, Trash2, Edit, Heart, Wallet, FileText, FileUp } from "lucide-react";
+import { Plus, Phone, Mail, User, Trash2, Edit, Heart, Wallet, FileText, FileUp, Eye, Sparkles } from "lucide-react";
 import { ContractUploadDialog } from "@/components/vendors/ContractUploadDialog";
 import { ContractReviewDialog } from "@/components/vendors/ContractReviewDialog";
 import ContractViewDialog from "@/components/vendors/ContractViewDialog";
+import { DocumentViewerDialog } from "@/components/vendors/DocumentViewerDialog";
+import { VendorDocumentsDialog } from "@/components/vendors/VendorDocumentsDialog";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -72,9 +74,13 @@ const Vendors = () => {
   const [contractUploadOpen, setContractUploadOpen] = useState(false);
   const [contractViewOpen, setContractViewOpen] = useState(false);
   const [contractReviewOpen, setContractReviewOpen] = useState(false);
+  const [documentViewerOpen, setDocumentViewerOpen] = useState(false);
+  const [documentsDialogOpen, setDocumentsDialogOpen] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState<{ path: string; name: string } | null>(null);
   const [analysisData, setAnalysisData] = useState<any>(null);
   const [fileInfoData, setFileInfoData] = useState<any>(null);
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
+  const [vendorDocuments, setVendorDocuments] = useState<Array<{ name: string; path: string }>>([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [vendorToDelete, setVendorToDelete] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -143,6 +149,60 @@ const Vendors = () => {
         expenses_total: v.expense_items?.reduce((sum: number, item: any) => sum + (item.total_amount || 0), 0) || 0,
       }))
     );
+  };
+
+  const loadVendorDocuments = async (vendorId: string) => {
+    try {
+      const { data: user } = await supabase.auth.getUser();
+      if (!user.user) return;
+
+      const { data, error } = await supabase.storage
+        .from("vendor-documents")
+        .list(`${user.user.id}/${vendorId}`);
+
+      if (error) throw error;
+
+      if (data) {
+        setVendorDocuments(
+          data.map((file) => ({
+            name: file.name,
+            path: `${user.user.id}/${vendorId}/${file.name}`,
+          }))
+        );
+      } else {
+        setVendorDocuments([]);
+      }
+    } catch (error) {
+      console.error("Error loading vendor documents:", error);
+      setVendorDocuments([]);
+    }
+  };
+
+  const handleDeleteDocument = async (filePath: string) => {
+    try {
+      const { error } = await supabase.storage
+        .from("vendor-documents")
+        .remove([filePath]);
+
+      if (error) throw error;
+
+      toast({
+        title: "Documento eliminato",
+        description: "Il file è stato rimosso con successo",
+      });
+
+      // Refresh documents list
+      if (selectedVendor) {
+        await loadVendorDocuments(selectedVendor.id);
+      }
+    } catch (error: any) {
+      console.error("Delete error:", error);
+      toast({
+        title: "Errore eliminazione",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   };
 
   const loadCategories = async (weddingId: string) => {
@@ -492,35 +552,44 @@ const Vendors = () => {
                     </div>
                   )}
                   
-                  {/* Contract Section */}
+                  {/* Documents Section */}
                   <div className="border-t pt-3 space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <FileText className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-sm font-medium">Contratto</span>
+                        <span className="text-sm font-medium">Documenti</span>
                       </div>
-                      {hasContract ? (
-                        <Badge variant="outline" className="bg-green-500/10 text-green-700 dark:bg-green-500/20 dark:text-green-300">
-                          Presente
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="bg-amber-500/10 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">
-                          Non caricato
-                        </Badge>
-                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 text-xs"
+                        onClick={async () => {
+                          await loadVendorDocuments(vendor.id);
+                        }}
+                      >
+                        Aggiorna
+                      </Button>
                     </div>
+                    
                     {hasContract && contract && (
-                      <div className="text-xs text-muted-foreground pl-6">
-                        Analizzato il {new Date(contract.analyzed_at).toLocaleDateString('it-IT')}
-                        <button
-                          onClick={() => {
-                            setSelectedVendor(vendor);
-                            setContractViewOpen(true);
-                          }}
-                          className="ml-2 text-primary hover:underline"
-                        >
-                          Vedi analisi AI →
-                        </button>
+                      <div className="pl-6 space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground">Contratto analizzato</span>
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 text-xs"
+                              onClick={() => {
+                                setSelectedVendor(vendor);
+                                setContractViewOpen(true);
+                              }}
+                            >
+                              <Sparkles className="w-3 h-3 mr-1" />
+                              AI
+                            </Button>
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -543,16 +612,17 @@ const Vendors = () => {
 
                   <div className="grid grid-cols-2 gap-2 pt-3 border-t">
                     <Button
-                      onClick={() => {
+                      onClick={async () => {
                         setSelectedVendor(vendor);
-                        setContractUploadOpen(true);
+                        await loadVendorDocuments(vendor.id);
+                        setDocumentsDialogOpen(true);
                       }}
                       variant="outline"
                       size="sm"
                       className="w-full"
                     >
-                      <FileUp className="w-4 h-4 mr-2" />
-                      {hasContract ? "Ricarica" : "Carica"}
+                      <Eye className="w-4 h-4 mr-2" />
+                      Documenti
                     </Button>
                     <Button
                       onClick={() => {
@@ -663,6 +733,37 @@ const Vendors = () => {
             open={contractViewOpen}
             onOpenChange={setContractViewOpen}
             vendor={selectedVendor}
+          />
+
+          {selectedDocument && (
+            <DocumentViewerDialog
+              open={documentViewerOpen}
+              onOpenChange={setDocumentViewerOpen}
+              filePath={selectedDocument.path}
+              fileName={selectedDocument.name}
+            />
+          )}
+
+          <VendorDocumentsDialog
+            open={documentsDialogOpen}
+            onOpenChange={setDocumentsDialogOpen}
+            vendorName={selectedVendor?.name || ""}
+            documents={vendorDocuments}
+            analyzedContract={selectedVendor?.vendor_contracts?.[0]}
+            onViewDocument={(doc) => {
+              setSelectedDocument(doc);
+              setDocumentViewerOpen(true);
+            }}
+            onViewAnalysis={() => {
+              setContractViewOpen(true);
+            }}
+            onAnalyzeDocument={(doc) => {
+              // For now, just open the contract upload dialog
+              // In future, we could pre-select the document
+              setContractUploadOpen(true);
+              setDocumentsDialogOpen(false);
+            }}
+            onDeleteDocument={handleDeleteDocument}
           />
         </>
       )}

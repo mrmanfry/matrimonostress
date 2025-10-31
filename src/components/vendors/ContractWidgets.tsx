@@ -1,19 +1,24 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { FileText, MessageSquare, Send, X } from "lucide-react";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
+interface Section {
+  section_type: string;
+  original_text: string;
+  user_notes?: string;
+  line_start: number;
+  line_end: number;
+  confidence: number;
+  enabled?: boolean;
+}
+
 interface ContractAnalysis {
-  pagamenti: any[];
-  punti_chiave: {
-    penali_cancellazione?: string;
-    costi_occulti?: string;
-    piano_b?: string;
-    responsabilita_extra?: string;
-  };
+  selected_sections?: Section[];
 }
 
 interface ContractWidgetsProps {
@@ -34,8 +39,18 @@ export const ContractWidgets = ({
   const [qaLoading, setQaLoading] = useState(false);
   const { toast } = useToast();
 
-  const keyPoints = analysis.punti_chiave || {};
-  const hasKeyPoints = Object.values(keyPoints).some((v) => v);
+  const sections = analysis.selected_sections || [];
+  const hasSections = sections.length > 0;
+
+  const SECTION_LABELS: Record<string, string> = {
+    VENDOR_INFO: "📋 Anagrafica Fornitore",
+    PAYMENT_PLAN: "💰 Piano di Pagamento",
+    CANCELLATION_PENALTIES: "⚠️ Penali Cancellazione",
+    EXTRA_COSTS: "💸 Costi Extra",
+    PLAN_B: "☔ Piano B",
+    EXTRA_RESPONSIBILITIES: "📝 Responsabilità Extra",
+    OTHER: "📄 Altre Informazioni",
+  };
 
   const suggestedQuestions = [
     "Qual è la penale se cancello?",
@@ -70,7 +85,7 @@ export const ContractWidgets = ({
   return (
     <div className="space-y-4">
       {/* Riepilogo AI del Contratto */}
-      {hasKeyPoints && (
+      {hasSections && (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg flex items-center gap-2">
@@ -89,49 +104,27 @@ export const ContractWidgets = ({
             )}
           </CardHeader>
           <CardContent className="space-y-3">
-            {keyPoints.penali_cancellazione && (
-              <div>
-                <div className="text-sm font-medium text-destructive mb-1">
-                  ⚠️ Penali Cancellazione
+            {sections.map((section, index) => (
+              <div key={index} className="border rounded-lg p-3 space-y-2">
+                <div className="flex items-start justify-between">
+                  <div className="text-sm font-medium">
+                    {SECTION_LABELS[section.section_type] || section.section_type}
+                  </div>
+                  <Badge variant="outline" className="text-xs">
+                    {Math.round(section.confidence * 100)}%
+                  </Badge>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  {keyPoints.penali_cancellazione}
-                </p>
-              </div>
-            )}
-
-            {keyPoints.costi_occulti && (
-              <div>
-                <div className="text-sm font-medium text-amber-600 mb-1">
-                  💰 Costi Extra
+                <div className="text-sm text-muted-foreground max-h-32 overflow-y-auto">
+                  {section.original_text}
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  {keyPoints.costi_occulti}
-                </p>
+                {section.user_notes && (
+                  <div className="border-l-2 border-primary pl-3 py-1 bg-muted/30">
+                    <div className="text-xs font-medium text-primary mb-1">Note:</div>
+                    <p className="text-xs text-muted-foreground">{section.user_notes}</p>
+                  </div>
+                )}
               </div>
-            )}
-
-            {keyPoints.piano_b && (
-              <div>
-                <div className="text-sm font-medium text-blue-600 mb-1">
-                  ☔ Piano B
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  {keyPoints.piano_b}
-                </p>
-              </div>
-            )}
-
-            {keyPoints.responsabilita_extra && (
-              <div>
-                <div className="text-sm font-medium text-purple-600 mb-1">
-                  📋 Responsabilità Extra
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  {keyPoints.responsabilita_extra}
-                </p>
-              </div>
-            )}
+            ))}
           </CardContent>
         </Card>
       )}

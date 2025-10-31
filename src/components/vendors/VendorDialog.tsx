@@ -209,16 +209,30 @@ export function VendorDialog({
     const files = e.target.files;
     if (!files || files.length === 0 || !vendor?.id) return;
 
-    const file = files[0];
+    const filesArray = Array.from(files);
+    const validFiles: File[] = [];
+    const invalidFiles: string[] = [];
 
-    // Validate file before upload
-    const validation = validateFile(file);
-    if (!validation.valid) {
+    // Validate all files first
+    filesArray.forEach(file => {
+      const validation = validateFile(file);
+      if (validation.valid) {
+        validFiles.push(file);
+      } else {
+        invalidFiles.push(validation.error || `${file.name} non valido`);
+      }
+    });
+
+    // Show errors for invalid files
+    if (invalidFiles.length > 0) {
       toast({
-        title: "File non valido",
-        description: validation.error,
+        title: "Alcuni file non sono validi",
+        description: invalidFiles.join('\n'),
         variant: "destructive",
       });
+    }
+
+    if (validFiles.length === 0) {
       e.target.value = "";
       return;
     }
@@ -230,19 +244,27 @@ export function VendorDialog({
       const { data: user } = await supabase.auth.getUser();
       if (!user.user) throw new Error("Utente non autenticato");
 
-      const filePath = `${user.user.id}/${vendor.id}/${file.name}`;
+      const uploadedCount = { current: 0 };
+      const totalFiles = validFiles.length;
 
-      // Upload with automatic retry on network errors
-      await uploadWithRetry(filePath, file);
+      // Upload all valid files
+      for (const file of validFiles) {
+        const filePath = `${user.user.id}/${vendor.id}/${file.name}`;
+        
+        await uploadWithRetry(filePath, file);
+        
+        uploadedCount.current++;
+        setUploadProgress(Math.round((uploadedCount.current / totalFiles) * 100));
 
-      setUploadedFiles((prev) => [
-        ...prev,
-        { name: file.name, path: filePath },
-      ]);
+        setUploadedFiles((prev) => [
+          ...prev,
+          { name: file.name, path: filePath },
+        ]);
+      }
 
       toast({
-        title: "File caricato",
-        description: `${file.name} è stato caricato con successo`,
+        title: "File caricati",
+        description: `${validFiles.length} file caricati con successo`,
       });
     } catch (error: any) {
       console.error("Upload error:", error);
@@ -501,6 +523,7 @@ export function VendorDialog({
                       onChange={handleFileUpload}
                       accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
                       disabled={uploading}
+                      multiple
                       className="hidden"
                     />
                     <Label
