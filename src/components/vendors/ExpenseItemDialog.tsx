@@ -160,15 +160,14 @@ export function ExpenseItemDialog({
 
         if (error) throw error;
 
-        setExpenseItemId(newItem.id);
-
         toast({
           title: "Spesa creata",
-          description: "Ora puoi aggiungere il piano di pagamento qui sotto",
+          description: "La spesa è stata salvata con successo",
         });
       }
 
       onSaved();
+      handleClose();
     } catch (error) {
       console.error("Error saving expense item:", error);
       toast({
