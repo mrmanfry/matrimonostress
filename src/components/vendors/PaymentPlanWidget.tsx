@@ -7,7 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Trash2, Plus, CalendarIcon, Percent, CheckCircle2, LightbulbIcon } from "lucide-react";
+import { Trash2, Plus, CalendarIcon, Percent, CheckCircle2, LightbulbIcon, Edit } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
@@ -44,6 +44,8 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId, totalIn
   const [loading, setLoading] = useState(false);
   const [weddingDate, setWeddingDate] = useState<Date | null>(null);
   const [contributors, setContributors] = useState<any[]>([]);
+  const [editingPaymentIndex, setEditingPaymentIndex] = useState<number | null>(null);
+  const [originalPaymentData, setOriginalPaymentData] = useState<Payment | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -145,21 +147,46 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId, totalIn
   };
 
   const handleAddPayment = () => {
-    setPayments([
-      ...payments,
-      {
-        description: "",
-        amount: "",
-        amount_type: "fixed",
-        percentage_value: "",
-        due_date: null,
-        due_date_type: "absolute",
-        days_before_wedding: "",
-        status: "Da Pagare",
-        tax_inclusive: true,
-        tax_rate: "22",
-      },
-    ]);
+    const newPayment = {
+      description: "",
+      amount: "",
+      amount_type: "fixed" as const,
+      percentage_value: "",
+      due_date: null,
+      due_date_type: "absolute" as const,
+      days_before_wedding: "",
+      status: "Da Pagare" as const,
+      tax_inclusive: true,
+      tax_rate: "22",
+    };
+    setPayments([...payments, newPayment]);
+    // Automatically enter edit mode for new payment
+    setEditingPaymentIndex(payments.length);
+    setOriginalPaymentData(newPayment);
+  };
+
+  const handleStartEdit = (index: number) => {
+    setEditingPaymentIndex(index);
+    setOriginalPaymentData({ ...payments[index] });
+  };
+
+  const handleCancelEdit = () => {
+    if (editingPaymentIndex !== null) {
+      const payment = payments[editingPaymentIndex];
+      
+      // Se è una nuova rata (senza id), rimuovila dall'array
+      if (!payment.id) {
+        setPayments(payments.filter((_, i) => i !== editingPaymentIndex));
+      } else if (originalPaymentData) {
+        // Altrimenti ripristina i dati originali
+        const updated = [...payments];
+        updated[editingPaymentIndex] = originalPaymentData;
+        setPayments(updated);
+      }
+    }
+    
+    setEditingPaymentIndex(null);
+    setOriginalPaymentData(null);
   };
 
   const handleRemovePayment = async (index: number) => {
@@ -182,6 +209,15 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId, totalIn
         });
         return;
       }
+    }
+
+    // Reset edit mode if we're deleting the payment being edited
+    if (editingPaymentIndex === index) {
+      setEditingPaymentIndex(null);
+      setOriginalPaymentData(null);
+    } else if (editingPaymentIndex !== null && editingPaymentIndex > index) {
+      // Adjust index if we're deleting a payment before the one being edited
+      setEditingPaymentIndex(editingPaymentIndex - 1);
     }
 
     setPayments(payments.filter((_, i) => i !== index));
@@ -336,6 +372,10 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId, totalIn
         title: "Rata salvata",
         description: "La rata è stata salvata con successo",
       });
+
+      // Exit edit mode
+      setEditingPaymentIndex(null);
+      setOriginalPaymentData(null);
     } catch (error) {
       console.error("Error saving payment:", error);
       toast({
@@ -444,7 +484,10 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId, totalIn
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {payments.map((payment, index) => (
+        {payments.map((payment, index) => {
+          const isEditing = editingPaymentIndex === index;
+          
+          return (
           <div key={index} className="border rounded-lg p-4 space-y-3 bg-muted/30">
             <div className="space-y-3">
               <div className="space-y-2">
@@ -453,6 +496,7 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId, totalIn
                   placeholder="Es: Acconto alla firma, Saldo finale..."
                   value={payment.description}
                   onChange={(e) => updatePayment(index, "description", e.target.value)}
+                  disabled={!isEditing}
                 />
               </div>
 
@@ -463,6 +507,7 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId, totalIn
                   value={payment.amount_type}
                   onValueChange={(value) => updatePayment(index, "amount_type", value)}
                   className="flex gap-4"
+                  disabled={!isEditing}
                 >
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="fixed" id={`fixed-${index}`} />
@@ -493,6 +538,7 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId, totalIn
                           placeholder="2000"
                           value={payment.amount}
                           onChange={(e) => updatePayment(index, "amount", e.target.value)}
+                          disabled={!isEditing}
                         />
                         {totalInvoice > 0 && payment.amount && (
                           <p className="text-xs text-muted-foreground mt-1">
@@ -512,6 +558,7 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId, totalIn
                             placeholder="50"
                             value={payment.percentage_value}
                             onChange={(e) => updatePayment(index, "percentage_value", e.target.value)}
+                            disabled={!isEditing}
                           />
                           <Percent className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground" />
                         </div>
@@ -534,6 +581,7 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId, totalIn
                       placeholder="22"
                       value={payment.tax_rate}
                       onChange={(e) => updatePayment(index, "tax_rate", e.target.value)}
+                      disabled={!isEditing}
                     />
                   </div>
                 </div>
@@ -545,6 +593,7 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId, totalIn
                     value={payment.tax_inclusive ? "inclusive" : "exclusive"}
                     onValueChange={(value) => updatePayment(index, "tax_inclusive", value === "inclusive")}
                     className="flex gap-4"
+                    disabled={!isEditing}
                   >
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="inclusive" id={`tax-inclusive-${index}`} />
@@ -567,6 +616,7 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId, totalIn
                 <Select
                   value={payment.status}
                   onValueChange={(value) => updatePayment(index, "status", value)}
+                  disabled={!isEditing}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -595,6 +645,7 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId, totalIn
                     <Select
                       value={payment.paid_by || ''}
                       onValueChange={(value) => updatePayment(index, 'paid_by', value)}
+                      disabled={!isEditing}
                     >
                       <SelectTrigger id={`paid-by-${index}`} className="mt-1">
                         <SelectValue placeholder="Seleziona chi ha pagato" />
@@ -626,6 +677,7 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId, totalIn
                             "w-full justify-start text-left font-normal mt-1",
                             !payment.paid_on_date && "text-muted-foreground"
                           )}
+                          disabled={!isEditing}
                         >
                           <CalendarIcon className="mr-2 h-4 w-4" />
                           {payment.paid_on_date ? (
@@ -658,6 +710,7 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId, totalIn
                       value={payment.due_date_type}
                       onValueChange={(value) => updatePayment(index, "due_date_type", value)}
                       className="flex gap-4"
+                      disabled={!isEditing}
                     >
                       <div className="flex items-center space-x-2">
                         <RadioGroupItem value="absolute" id={`absolute-${index}`} />
@@ -686,6 +739,7 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId, totalIn
                               "w-full justify-start text-left font-normal",
                               !payment.due_date && "text-muted-foreground"
                             )}
+                            disabled={!isEditing}
                           >
                             <CalendarIcon className="mr-2 h-4 w-4" />
                             {payment.due_date ? format(payment.due_date, "dd MMM yyyy", { locale: it }) : "Seleziona data"}
@@ -711,6 +765,7 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId, totalIn
                         placeholder="30"
                         value={payment.days_before_wedding}
                         onChange={(e) => updatePayment(index, "days_before_wedding", e.target.value)}
+                        disabled={!isEditing}
                       />
                       {payment.days_before_wedding && weddingDate && (() => {
                         const days = parseInt(payment.days_before_wedding);
@@ -731,27 +786,19 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId, totalIn
               )}
             </div>
 
-            <div className="flex gap-2">
-              {payment.id ? (
-                <>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleSavePayment(index)}
-                  >
-                    Modifica
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => handleRemovePayment(index)}
-                  >
-                    Elimina
-                  </Button>
-                </>
+            <div className="flex gap-2 justify-end">
+              {!isEditing && payment.id ? (
+                // View mode: solo icona matita
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => handleStartEdit(index)}
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
               ) : (
+                // Edit mode: Salva e Annulla
                 <>
                   <Button
                     type="button"
@@ -759,21 +806,32 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId, totalIn
                     variant="default"
                     onClick={() => handleSavePayment(index)}
                   >
-                    Salva Rata
+                    Salva
                   </Button>
                   <Button
                     type="button"
                     size="sm"
-                    variant="destructive"
-                    onClick={() => handleRemovePayment(index)}
+                    variant="outline"
+                    onClick={() => handleCancelEdit()}
                   >
-                    <Trash2 className="h-4 w-4" />
+                    Annulla
                   </Button>
+                  {payment.id && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => handleRemovePayment(index)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
                 </>
               )}
             </div>
           </div>
-        ))}
+        );
+        })}
 
         <Button
           type="button"
