@@ -286,18 +286,34 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId, totalIn
     try {
       const calculatedDate = payment.status !== 'Pagato' ? calculateDueDate(payment) : null;
       
+      // Se è pagato, usa paid_on_date come due_date (due_date è required nel DB)
+      const finalDueDate = payment.status === 'Pagato' && payment.paid_on_date
+        ? format(payment.paid_on_date, "yyyy-MM-dd")
+        : calculatedDate
+        ? format(calculatedDate, "yyyy-MM-dd")
+        : null;
+
+      if (!finalDueDate) {
+        toast({
+          title: "Data mancante",
+          description: "Non è possibile salvare la rata senza una data",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       const paymentData = {
         expense_item_id: expenseItemId,
         description: payment.description,
         amount: payment.amount_type === 'fixed' ? parseFloat(payment.amount) : 0,
         amount_type: payment.amount_type,
         percentage_value: payment.amount_type === 'percentage' ? parseFloat(payment.percentage_value) : null,
-        due_date: calculatedDate ? format(calculatedDate, "yyyy-MM-dd") : null,
+        due_date: finalDueDate,
         due_date_type: payment.due_date_type,
         days_before_wedding: payment.due_date_type === 'days_before' ? parseInt(payment.days_before_wedding) : null,
         status: payment.status,
-        tax_rate: null, // IVA gestita a livello di testata
-        tax_inclusive: true, // IVA gestita a livello di testata
+        tax_rate: payment.tax_rate ? parseFloat(payment.tax_rate) : null,
+        tax_inclusive: payment.tax_inclusive !== false,
         paid_by: payment.status === 'Pagato' ? payment.paid_by : null,
         paid_on_date: payment.status === 'Pagato' && payment.paid_on_date 
           ? format(payment.paid_on_date, "yyyy-MM-dd") 
@@ -454,64 +470,102 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId, totalIn
               </div>
 
               {/* Campo Importo o Percentuale con Conversione */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  {payment.amount_type === 'fixed' ? (
-                    <div>
-                      <Label>Importo (€) *</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        placeholder="2000"
-                        value={payment.amount}
-                        onChange={(e) => updatePayment(index, "amount", e.target.value)}
-                      />
-                      {totalInvoice > 0 && payment.amount && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          → Corrisponde al {((parseFloat(payment.amount) / totalInvoice) * 100).toFixed(1)}% del totale
-                        </p>
-                      )}
-                    </div>
-                  ) : (
-                    <div>
-                      <Label>Percentuale (%) *</Label>
-                      <div className="relative">
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    {payment.amount_type === 'fixed' ? (
+                      <div>
+                        <Label>Importo (€) *</Label>
                         <Input
                           type="number"
                           step="0.01"
                           min="0"
-                          max="100"
-                          placeholder="50"
-                          value={payment.percentage_value}
-                          onChange={(e) => updatePayment(index, "percentage_value", e.target.value)}
+                          placeholder="2000"
+                          value={payment.amount}
+                          onChange={(e) => updatePayment(index, "amount", e.target.value)}
                         />
-                        <Percent className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                        {totalInvoice > 0 && payment.amount && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            → Corrisponde al {((parseFloat(payment.amount) / totalInvoice) * 100).toFixed(1)}% del totale
+                          </p>
+                        )}
                       </div>
-                      {totalInvoice > 0 && payment.percentage_value && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          → Corrisponde a € {((parseFloat(payment.percentage_value) / 100) * totalInvoice).toFixed(2)}
-                        </p>
-                      )}
-                    </div>
-                  )}
+                    ) : (
+                      <div>
+                        <Label>Percentuale (%) *</Label>
+                        <div className="relative">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            max="100"
+                            placeholder="50"
+                            value={payment.percentage_value}
+                            onChange={(e) => updatePayment(index, "percentage_value", e.target.value)}
+                          />
+                          <Percent className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                        </div>
+                        {totalInvoice > 0 && payment.percentage_value && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            → Corrisponde a € {((parseFloat(payment.percentage_value) / 100) * totalInvoice).toFixed(2)}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Gestione IVA per ogni rata */}
+                  <div className="space-y-2">
+                    <Label>Aliquota IVA (%)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="22"
+                      value={payment.tax_rate}
+                      onChange={(e) => updatePayment(index, "tax_rate", e.target.value)}
+                    />
+                  </div>
                 </div>
 
+                {/* Radio per logica IVA */}
                 <div className="space-y-2">
-                  <Label>Stato</Label>
-                  <Select
-                    value={payment.status}
-                    onValueChange={(value) => updatePayment(index, "status", value)}
+                  <Label>Logica Importo</Label>
+                  <RadioGroup
+                    value={payment.tax_inclusive ? "inclusive" : "exclusive"}
+                    onValueChange={(value) => updatePayment(index, "tax_inclusive", value === "inclusive")}
+                    className="flex gap-4"
                   >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Da Pagare">Da Pagare</SelectItem>
-                      <SelectItem value="Pagato">Pagato</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="inclusive" id={`tax-inclusive-${index}`} />
+                      <Label htmlFor={`tax-inclusive-${index}`} className="font-normal cursor-pointer">
+                        IVA Inclusa
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="exclusive" id={`tax-exclusive-${index}`} />
+                      <Label htmlFor={`tax-exclusive-${index}`} className="font-normal cursor-pointer">
+                        IVA Esclusa
+                      </Label>
+                    </div>
+                  </RadioGroup>
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Stato</Label>
+                <Select
+                  value={payment.status}
+                  onValueChange={(value) => updatePayment(index, "status", value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Da Pagare">Da Pagare</SelectItem>
+                    <SelectItem value="Pagato">Pagato</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Campi per "Chi ha pagato" - mostrati solo se status = "Pagato" */}
