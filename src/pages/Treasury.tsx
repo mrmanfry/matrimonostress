@@ -5,9 +5,31 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, ComposedChart } from "recharts";
-import { TrendingUp, AlertCircle, Calendar, Euro } from "lucide-react";
-import { format, parseISO } from "date-fns";
+import { TrendingUp, AlertCircle, Calendar, Euro, ExternalLink, Check } from "lucide-react";
+import { format, parseISO, addDays, isBefore, isAfter } from "date-fns";
 import { it } from "date-fns/locale";
+import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
 
 interface Payment {
   id: string;
@@ -26,6 +48,10 @@ interface ExpenseItem {
   id: string;
   description: string;
   vendor_id: string | null;
+  vendors?: {
+    id: string;
+    name: string;
+  } | null;
 }
 
 interface ChartDataPoint {
@@ -37,16 +63,22 @@ interface ChartDataPoint {
 
 export default function Treasury() {
   const { authState } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [expenseItems, setExpenseItems] = useState<ExpenseItem[]>([]);
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
+  const [timeFilter, setTimeFilter] = useState<"all" | "30" | "90" | "month">("all");
+  const [paymentToMark, setPaymentToMark] = useState<Payment | null>(null);
   const [kpis, setKpis] = useState({
     totalCommitment: 0,
     alreadyPaid: 0,
     nextPaymentAmount: 0,
     nextPaymentDaysUntil: null as number | null,
     nextPaymentDescription: "",
+    next7DaysAmount: 0,
+    busiestMonth: { month: "", amount: 0 },
   });
 
   useEffect(() => {
@@ -163,16 +195,44 @@ export default function Treasury() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Total Commitment
-    const totalCommitment = allPayments.reduce((sum, p) => sum + Number(p.amount), 0);
+    // Total Commitment (Only unpaid)
+    const totalCommitment = allPayments
+      .filter((p) => p.status === "Da Pagare")
+      .reduce((sum, p) => sum + calculatePaymentTotal(p), 0);
 
     // Already Paid
     const alreadyPaid = allPayments
       .filter((p) => p.status === "Pagato")
-      .reduce((sum, p) => sum + Number(p.amount), 0);
+      .reduce((sum, p) => sum + calculatePaymentTotal(p), 0);
+
+    // Next 7 Days Amount
+    const next7Days = addDays(today, 7);
+    const next7DaysAmount = allPayments
+      .filter((p) => {
+        if (p.status !== "Da Pagare") return false;
+        const dueDate = new Date(p.due_date);
+        return dueDate >= today && dueDate <= next7Days;
+      })
+      .reduce((sum, p) => sum + calculatePaymentTotal(p), 0);
+
+    // Busiest Month
+    const futurePayments = allPayments.filter(
+      (p) => p.status === "Da Pagare" && new Date(p.due_date) >= today
+    );
+    const monthlyAmounts: Record<string, number> = {};
+    futurePayments.forEach((p) => {
+      const monthKey = format(parseISO(p.due_date), "MMMM yyyy", { locale: it });
+      monthlyAmounts[monthKey] = (monthlyAmounts[monthKey] || 0) + calculatePaymentTotal(p);
+    });
+    let busiestMonth = { month: "", amount: 0 };
+    Object.entries(monthlyAmounts).forEach(([month, amount]) => {
+      if (amount > busiestMonth.amount) {
+        busiestMonth = { month, amount };
+      }
+    });
 
     // Next Payment
-    const futurePayments = allPayments
+    const nextPayments = allPayments
       .filter((p) => p.status === "Da Pagare" && new Date(p.due_date) >= today)
       .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
 
@@ -180,9 +240,9 @@ export default function Treasury() {
     let nextPaymentDaysUntil: number | null = null;
     let nextPaymentDescription = "";
 
-    if (futurePayments.length > 0) {
-      const nextPayment = futurePayments[0];
-      nextPaymentAmount = Number(nextPayment.amount);
+    if (nextPayments.length > 0) {
+      const nextPayment = nextPayments[0];
+      nextPaymentAmount = calculatePaymentTotal(nextPayment);
       const dueDate = new Date(nextPayment.due_date);
       const diffTime = dueDate.getTime() - today.getTime();
       nextPaymentDaysUntil = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -195,6 +255,8 @@ export default function Treasury() {
       nextPaymentAmount,
       nextPaymentDaysUntil,
       nextPaymentDescription,
+      next7DaysAmount,
+      busiestMonth,
     });
   };
 
@@ -213,6 +275,67 @@ export default function Treasury() {
       currency: "EUR",
     }).format(value);
   };
+
+  const getVendorName = (expenseItemId: string) => {
+    const item = expenseItems.find((i) => i.id === expenseItemId);
+    return item?.vendors?.name || "N/A";
+  };
+
+  const getVendorId = (expenseItemId: string) => {
+    const item = expenseItems.find((i) => i.id === expenseItemId);
+    return item?.vendor_id || null;
+  };
+
+  const handleMarkAsPaid = async () => {
+    if (!paymentToMark) return;
+
+    try {
+      const { error } = await supabase
+        .from("payments")
+        .update({
+          status: "Pagato",
+          paid_on_date: format(new Date(), "yyyy-MM-dd"),
+        })
+        .eq("id", paymentToMark.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Pagamento registrato",
+        description: `€${formatCurrency(calculatePaymentTotal(paymentToMark))} a ${getVendorName(paymentToMark.expense_item_id)}`,
+      });
+
+      // Reload data
+      await loadData();
+      setPaymentToMark(null);
+    } catch (error) {
+      console.error("Error marking payment as paid:", error);
+      toast({
+        title: "Errore",
+        description: "Impossibile aggiornare il pagamento",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Filter future payments based on time filter
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const filteredFuturePayments = payments
+    .filter((p) => {
+      if (p.status !== "Da Pagare") return false;
+      const dueDate = new Date(p.due_date);
+      if (dueDate < today) return false;
+
+      if (timeFilter === "30") {
+        return dueDate <= addDays(today, 30);
+      } else if (timeFilter === "90") {
+        return dueDate <= addDays(today, 90);
+      }
+      return true;
+    })
+    .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
 
   if (loading) {
     return (
@@ -239,7 +362,7 @@ export default function Treasury() {
         </p>
       </div>
 
-      {/* KPI Cards */}
+      {/* KPI Cards - Enhanced */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -247,8 +370,8 @@ export default function Treasury() {
             <Euro className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(kpis.totalCommitment)}</div>
-            <p className="text-xs text-muted-foreground">Totale da pagare (incluso già pagato)</p>
+            <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">{formatCurrency(kpis.totalCommitment)}</div>
+            <p className="text-xs text-muted-foreground">Da pagare</p>
           </CardContent>
         </Card>
 
@@ -265,30 +388,26 @@ export default function Treasury() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Prossima Scadenza</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Prossimi 7 Giorni</CardTitle>
+            <AlertCircle className="h-4 w-4 text-yellow-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {kpis.nextPaymentAmount > 0 ? formatCurrency(kpis.nextPaymentAmount) : "—"}
+            <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
+              {formatCurrency(kpis.next7DaysAmount)}
             </div>
-            <p className="text-xs text-muted-foreground">
-              {kpis.nextPaymentDaysUntil !== null
-                ? `${kpis.nextPaymentDescription} - tra ${kpis.nextPaymentDaysUntil} giorni`
-                : "Nessuna scadenza imminente"}
-            </p>
+            <p className="text-xs text-muted-foreground">In scadenza</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Totale Rate</CardTitle>
-            <AlertCircle className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Mese Più Intenso</CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{payments.length}</div>
+            <div className="text-2xl font-bold">{formatCurrency(kpis.busiestMonth.amount)}</div>
             <p className="text-xs text-muted-foreground">
-              {payments.filter((p) => p.status === "Da Pagare").length} da pagare
+              {kpis.busiestMonth.month || "Nessun mese"}
             </p>
           </CardContent>
         </Card>
@@ -419,6 +538,131 @@ export default function Treasury() {
           )}
         </CardContent>
       </Card>
+
+      {/* Future Cash Flows List */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Dettaglio Pagamenti Futuri</CardTitle>
+          <CardDescription>
+            Lista azionabile dei pagamenti in scadenza. Clicca su un fornitore per vedere i dettagli.
+          </CardDescription>
+          <div className="flex gap-2 mt-4">
+            <Button
+              variant={timeFilter === "all" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setTimeFilter("all")}
+            >
+              Tutti
+            </Button>
+            <Button
+              variant={timeFilter === "30" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setTimeFilter("30")}
+            >
+              Prossimi 30gg
+            </Button>
+            <Button
+              variant={timeFilter === "90" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setTimeFilter("90")}
+            >
+              Prossimi 90gg
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {filteredFuturePayments.length === 0 ? (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Nessun pagamento futuro nel periodo selezionato.
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Data Scadenza</TableHead>
+                    <TableHead>Descrizione</TableHead>
+                    <TableHead>Fornitore</TableHead>
+                    <TableHead className="text-right">Importo</TableHead>
+                    <TableHead className="text-right">Azioni</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredFuturePayments.map((payment) => {
+                    const vendorId = getVendorId(payment.expense_item_id);
+                    const vendorName = getVendorName(payment.expense_item_id);
+                    return (
+                      <TableRow key={payment.id}>
+                        <TableCell>
+                          {format(parseISO(payment.due_date), "dd MMM yyyy", { locale: it })}
+                        </TableCell>
+                        <TableCell>{payment.description}</TableCell>
+                        <TableCell>
+                          {vendorId ? (
+                            <button
+                              onClick={() => navigate(`/app/vendors?vendor=${vendorId}`)}
+                              className="text-primary hover:underline flex items-center gap-1"
+                            >
+                              {vendorName}
+                              <ExternalLink className="h-3 w-3" />
+                            </button>
+                          ) : (
+                            <span className="text-muted-foreground">{vendorName}</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right font-semibold">
+                          {formatCurrency(calculatePaymentTotal(payment))}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setPaymentToMark(payment)}
+                            className="text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950"
+                          >
+                            <Check className="h-4 w-4 mr-1" />
+                            Segna Pagato
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Mark as Paid Dialog */}
+      <AlertDialog open={!!paymentToMark} onOpenChange={() => setPaymentToMark(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Conferma Pagamento</AlertDialogTitle>
+            <AlertDialogDescription>
+              Confermi di aver pagato{" "}
+              <strong className="text-foreground">
+                {paymentToMark && formatCurrency(calculatePaymentTotal(paymentToMark))}
+              </strong>{" "}
+              a{" "}
+              <strong className="text-foreground">
+                {paymentToMark && getVendorName(paymentToMark.expense_item_id)}
+              </strong>
+              ?
+              <br />
+              <br />
+              Questa azione aggiornerà automaticamente il grafico e i KPI.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction onClick={handleMarkAsPaid}>Conferma Pagamento</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Info Banner */}
       <Alert>
