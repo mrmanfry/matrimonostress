@@ -149,13 +149,12 @@ const Vendors = () => {
         expenses_total: v.expense_items?.reduce((sum: number, item: any) => {
           const baseAmount = item.total_amount || 0;
           const taxRate = item.tax_rate || 0;
-          const isTaxInclusive = item.amount_is_tax_inclusive !== false; // default true
+          const shouldIncludeTax = item.amount_is_tax_inclusive !== false; // default true
           
-          // Se l'importo già include l'IVA, usa quello
-          // Altrimenti aggiungi l'IVA
-          const totalWithTax = isTaxInclusive 
-            ? baseAmount 
-            : baseAmount * (1 + taxRate / 100);
+          // Se shouldIncludeTax è true, l'utente vuole vedere il totale con IVA
+          const totalWithTax = shouldIncludeTax && taxRate > 0
+            ? baseAmount * (1 + taxRate / 100)
+            : baseAmount;
           
           return sum + totalWithTax;
         }, 0) || 0,
