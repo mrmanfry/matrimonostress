@@ -93,10 +93,10 @@ export default function Treasury() {
 
     setLoading(true);
     try {
-      // Load expense items
+      // Load expense items with vendor info
       const { data: itemsData, error: itemsError } = await supabase
         .from("expense_items")
-        .select("*")
+        .select("*, vendors(id, name)")
         .eq("wedding_id", weddingId);
 
       if (itemsError) throw itemsError;
