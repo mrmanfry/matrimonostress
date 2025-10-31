@@ -2,20 +2,18 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   Users,
   Plus,
-  Download,
-  Upload,
   Search,
-  Filter,
   Edit,
   Trash2,
   FolderOpen,
   Trash,
+  Smartphone,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -29,6 +27,12 @@ import { GuestDialog } from "@/components/guests/GuestDialog";
 import { GroupsDialog } from "@/components/guests/GroupsDialog";
 import { SmartImportDialog } from "@/components/guests/SmartImportDialog";
 import { ContactSyncDialog } from "@/components/guests/ContactSyncDialog";
+import { GuestStatsChart } from "@/components/guests/GuestStatsChart";
+import { GuestCard } from "@/components/guests/GuestCard";
+import { ImportDropdown } from "@/components/guests/ImportDropdown";
+import { MobileFilters } from "@/components/guests/MobileFilters";
+import { GuestEmptyState } from "@/components/guests/GuestEmptyState";
+import { Card } from "@/components/ui/card";
 import {
   generateCSVTemplate,
   parseCSV,
@@ -37,7 +41,6 @@ import {
   downloadCSV,
 } from "@/utils/csvHelpers";
 import { generateCateringReport } from "@/utils/pdfHelpers";
-import { FileText } from "lucide-react";
 
 interface Guest {
   id: string;
@@ -80,6 +83,7 @@ const Guests = () => {
   const [selectedGuest, setSelectedGuest] = useState<Guest | null>(null);
   const [selectedGuestIds, setSelectedGuestIds] = useState<Set<string>>(new Set());
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     loadData();
@@ -485,12 +489,16 @@ const Guests = () => {
     );
   }
 
+  const hasNoGuests = guests.length === 0;
+  const hasNoFilteredGuests = filteredGuests.length === 0;
+  const isFiltering = searchQuery || filterStatus !== "all" || filterGroup !== "all";
+
   return (
-    <div className="p-4 lg:p-8 max-w-6xl mx-auto space-y-6">
+    <div className="p-4 lg:p-8 max-w-7xl mx-auto space-y-6 pb-24 lg:pb-8">
       {/* Header */}
       <div className="space-y-2">
         <div className="flex items-center gap-3">
-          <Users className="w-8 h-8 text-accent" />
+          <Users className="w-8 h-8 text-primary" />
           <h1 className="text-3xl font-bold">Gestione Invitati</h1>
         </div>
         <p className="text-muted-foreground">
@@ -498,255 +506,289 @@ const Guests = () => {
         </p>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="p-4">
-          <div className="text-2xl font-bold text-accent">{stats.total}</div>
-          <div className="text-sm text-muted-foreground">Totali</div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-2xl font-bold text-green-600">{stats.confirmed}</div>
-          <div className="text-sm text-muted-foreground">Confermati</div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-2xl font-bold text-blue-600">{stats.pending}</div>
-          <div className="text-sm text-muted-foreground">In Attesa</div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-2xl font-bold text-red-600">{stats.declined}</div>
-          <div className="text-sm text-muted-foreground">Rifiutati</div>
-        </Card>
-      </div>
+      {/* Stats Chart */}
+      <GuestStatsChart stats={stats} />
 
-      {/* Contact Sync Banner */}
-      {guests.filter(g => !g.phone).length > 0 && (
+      {/* Contact Sync Banner - Only show if we have guests without phone */}
+      {!hasNoGuests && guests.filter(g => !g.phone).length > 0 && (
         <Card className="p-4 bg-gradient-to-r from-accent/5 to-primary/5 border-accent/20">
-          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex-1">
-              <h3 className="font-semibold mb-1">
-                📱 {guests.filter(g => !g.phone).length} invitati senza numero di telefono
+              <h3 className="font-semibold mb-1 flex items-center gap-2">
+                <Smartphone className="w-5 h-5" />
+                {guests.filter(g => !g.phone).length} invitati senza numero di telefono
               </h3>
               <p className="text-sm text-muted-foreground">
                 Sincronizza i contatti dal tuo smartphone per inviare gli inviti via WhatsApp
               </p>
             </div>
             <Button onClick={() => setContactSyncDialogOpen(true)} className="shrink-0">
-              Sincronizza Ora ✨
+              <Smartphone className="w-4 h-4 mr-2" />
+              Sincronizza Ora
             </Button>
           </div>
         </Card>
       )}
 
-      {/* Actions */}
-      <Card className="p-4">
-        <div className="flex flex-col lg:flex-row gap-3">
-          {selectedGuestIds.size > 0 && (
-            <Button 
-              variant="destructive" 
-              onClick={handleDeleteSelectedGuests}
-            >
-              <Trash className="w-4 h-4 mr-2" />
-              Elimina Selezionati ({selectedGuestIds.size})
+      {/* Actions Bar - Desktop */}
+      {!isMobile && !hasNoGuests && (
+        <Card className="p-4">
+          <div className="flex flex-wrap items-center gap-3">
+            {selectedGuestIds.size > 0 && (
+              <Button 
+                variant="destructive" 
+                onClick={handleDeleteSelectedGuests}
+              >
+                <Trash className="w-4 h-4 mr-2" />
+                Elimina Selezionati ({selectedGuestIds.size})
+              </Button>
+            )}
+            
+            <Button onClick={() => { setSelectedGuest(null); setGuestDialogOpen(true); }}>
+              <Plus className="w-4 h-4 mr-2" />
+              Aggiungi Invitato
             </Button>
-          )}
-          
-          <Button onClick={() => { setSelectedGuest(null); setGuestDialogOpen(true); }}>
-            <Plus className="w-4 h-4 mr-2" />
-            Nuovo Invitato
-          </Button>
 
-          <Button variant="outline" onClick={() => setGroupsDialogOpen(true)}>
-            <FolderOpen className="w-4 h-4 mr-2" />
-            Gestisci Gruppi
-          </Button>
-
-          <div className="flex-1" />
-
-          <Button variant="outline" onClick={() => setSmartImportDialogOpen(true)} className="bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
-            <Upload className="w-4 h-4 mr-2" />
-            ✨ Importa da Testo
-          </Button>
-
-          <Button variant="outline" onClick={() => setContactSyncDialogOpen(true)} className="bg-gradient-to-r from-accent/10 to-primary/10 border-accent/20">
-            <Users className="w-4 h-4 mr-2" />
-            📱 Sincronizza Contatti
-          </Button>
-
-          <Button variant="outline" onClick={handleDownloadTemplate}>
-            <Download className="w-4 h-4 mr-2" />
-            Template CSV
-          </Button>
-
-          <label>
-            <Button variant="outline" asChild>
-              <span>
-                <Upload className="w-4 h-4 mr-2" />
-                Importa CSV
-              </span>
-            </Button>
-            <input
-              type="file"
-              accept=".csv"
-              className="hidden"
-              onChange={handleImportCSV}
+            <ImportDropdown
+              onSmartImport={() => setSmartImportDialogOpen(true)}
+              onDownloadTemplate={handleDownloadTemplate}
+              onImportCSV={handleImportCSV}
+              onExportCSV={handleExportCSV}
+              onExportCateringPDF={handleExportCateringPDF}
+              hasGuests={guests.length > 0}
+              hasConfirmedGuests={guests.filter(g => g.rsvp_status === 'confirmed').length > 0}
             />
-          </label>
 
-          <Button variant="outline" onClick={handleExportCSV} disabled={guests.length === 0}>
-            <Download className="w-4 h-4 mr-2" />
-            Esporta CSV
-          </Button>
+            <div className="flex-1" />
 
-          <Button 
-            variant="outline" 
-            onClick={handleExportCateringPDF} 
-            disabled={guests.filter(g => g.rsvp_status === 'confirmed').length === 0}
-            className="border-accent text-accent hover:bg-accent/10"
-          >
-            <FileText className="w-4 h-4 mr-2" />
-            Report Catering
-          </Button>
-        </div>
-      </Card>
+            <Button variant="outline" onClick={() => setContactSyncDialogOpen(true)}>
+              <Smartphone className="w-4 h-4 mr-2" />
+              Sincronizza Contatti
+            </Button>
 
-      {/* Filters */}
-      <Card className="p-4">
-        <div className="flex flex-col lg:flex-row gap-4">
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Cerca per nome..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
+            <Button variant="outline" onClick={() => setGroupsDialogOpen(true)}>
+              <FolderOpen className="w-4 h-4 mr-2" />
+              Gestisci Gruppi
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {/* Empty State */}
+      {hasNoGuests ? (
+        <GuestEmptyState
+          onAddGuest={() => { setSelectedGuest(null); setGuestDialogOpen(true); }}
+          onSmartImport={() => setSmartImportDialogOpen(true)}
+        />
+      ) : (
+        <>
+          {/* Filters */}
+          <Card className="p-4">
+            <div className="flex gap-3">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Cerca per nome..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+
+              {isMobile ? (
+                <MobileFilters
+                  filterStatus={filterStatus}
+                  filterGroup={filterGroup}
+                  groups={groups}
+                  onStatusChange={setFilterStatus}
+                  onGroupChange={setFilterGroup}
+                />
+              ) : (
+                <>
+                  <Select value={filterStatus} onValueChange={setFilterStatus}>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Stato" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tutti gli stati</SelectItem>
+                      <SelectItem value="pending">In attesa</SelectItem>
+                      <SelectItem value="confirmed">Confermati</SelectItem>
+                      <SelectItem value="declined">Rifiutati</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={filterGroup} onValueChange={setFilterGroup}>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Gruppo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tutti i gruppi</SelectItem>
+                      {groups.map((group) => (
+                        <SelectItem key={group.id} value={group.id}>
+                          {group.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </>
+              )}
             </div>
-          </div>
+          </Card>
 
-          <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="w-[180px]">
-              <Filter className="w-4 h-4 mr-2" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tutti gli stati</SelectItem>
-              <SelectItem value="pending">In attesa</SelectItem>
-              <SelectItem value="confirmed">Confermati</SelectItem>
-              <SelectItem value="declined">Rifiutati</SelectItem>
-            </SelectContent>
-          </Select>
+          {/* Bulk Actions Bar (Mobile & Desktop when items selected) */}
+          {selectedGuestIds.size > 0 && (
+            <Card className="p-4 bg-destructive/5 border-destructive/20">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">
+                  {selectedGuestIds.size} {selectedGuestIds.size === 1 ? 'invitato selezionato' : 'invitati selezionati'}
+                </span>
+                <Button 
+                  variant="destructive" 
+                  size="sm"
+                  onClick={handleDeleteSelectedGuests}
+                >
+                  <Trash className="w-4 h-4 mr-2" />
+                  Elimina
+                </Button>
+              </div>
+            </Card>
+          )}
 
-          <Select value={filterGroup} onValueChange={setFilterGroup}>
-            <SelectTrigger className="w-[180px]">
-              <Filter className="w-4 h-4 mr-2" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tutti i gruppi</SelectItem>
-              {groups.map((group) => (
-                <SelectItem key={group.id} value={group.id}>
-                  {group.name}
-                </SelectItem>
+          {/* Guests List */}
+          {hasNoFilteredGuests ? (
+            <Card className="p-12">
+              <div className="text-center">
+                <Users className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-50" />
+                <p className="text-lg font-medium mb-2">Nessun invitato trovato</p>
+                <p className="text-muted-foreground mb-4">
+                  Prova a modificare i filtri di ricerca
+                </p>
+                <Button 
+                  variant="outline"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setFilterStatus("all");
+                    setFilterGroup("all");
+                  }}
+                >
+                  Reset Filtri
+                </Button>
+              </div>
+            </Card>
+          ) : isMobile ? (
+            // Mobile: Card Layout
+            <div className="space-y-3">
+              {filteredGuests.map((guest) => (
+                <GuestCard
+                  key={guest.id}
+                  guest={guest}
+                  isSelected={selectedGuestIds.has(guest.id)}
+                  onToggleSelect={() => toggleGuestSelection(guest.id)}
+                  onEdit={() => {
+                    setSelectedGuest(guest);
+                    setGuestDialogOpen(true);
+                  }}
+                  onDelete={() => handleDeleteGuest(guest.id)}
+                />
               ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </Card>
+            </div>
+          ) : (
+            // Desktop: Table Layout
+            <Card className="overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-muted/50">
+                    <tr>
+                      <th className="p-4 w-12">
+                        <Checkbox
+                          checked={filteredGuests.length > 0 && selectedGuestIds.size === filteredGuests.length}
+                          onCheckedChange={toggleSelectAll}
+                        />
+                      </th>
+                      <th className="text-left p-4 font-semibold">Nome</th>
+                      <th className="text-left p-4 font-semibold">Stato</th>
+                      <th className="text-left p-4 font-semibold">Gruppo</th>
+                      <th className="text-center p-4 font-semibold">Adulti</th>
+                      <th className="text-center p-4 font-semibold">Bambini</th>
+                      <th className="text-left p-4 font-semibold">Menù</th>
+                      <th className="text-right p-4 font-semibold">Azioni</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredGuests.map((guest) => (
+                      <tr key={guest.id} className="border-t hover:bg-muted/30 transition-colors">
+                        <td className="p-4">
+                          <Checkbox
+                            checked={selectedGuestIds.has(guest.id)}
+                            onCheckedChange={() => toggleGuestSelection(guest.id)}
+                          />
+                        </td>
+                        <td className="p-4">
+                          <div>
+                            <p className="font-medium">
+                              {guest.first_name} {guest.last_name}
+                            </p>
+                            {guest.dietary_restrictions && (
+                              <p className="text-sm text-muted-foreground">
+                                🍽️ {guest.dietary_restrictions}
+                              </p>
+                            )}
+                          </div>
+                        </td>
+                        <td className="p-4">{getRSVPBadge(guest.rsvp_status)}</td>
+                        <td className="p-4">
+                          {guest.group_name ? (
+                            <Badge variant="outline">{guest.group_name}</Badge>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">—</span>
+                          )}
+                        </td>
+                        <td className="p-4 text-center">{guest.adults_count}</td>
+                        <td className="p-4 text-center">{guest.children_count}</td>
+                        <td className="p-4">
+                          {guest.menu_choice || <span className="text-muted-foreground">—</span>}
+                        </td>
+                        <td className="p-4">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                setSelectedGuest(guest);
+                                setGuestDialogOpen(true);
+                              }}
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDeleteGuest(guest.id)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
+        </>
+      )}
 
-      {/* Guests Table */}
-      <Card className="overflow-hidden">
-        {filteredGuests.length === 0 ? (
-          <div className="p-8 text-center">
-            <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground">
-              {searchQuery || filterStatus !== "all" || filterGroup !== "all"
-                ? "Nessun invitato trovato con questi filtri"
-                : "Nessun invitato presente. Inizia aggiungendo il primo!"}
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-muted/50">
-                <tr>
-                  <th className="p-4 w-12">
-                    <Checkbox
-                      checked={filteredGuests.length > 0 && selectedGuestIds.size === filteredGuests.length}
-                      onCheckedChange={toggleSelectAll}
-                    />
-                  </th>
-                  <th className="text-left p-4 font-semibold">Nome</th>
-                  <th className="text-left p-4 font-semibold">Stato</th>
-                  <th className="text-left p-4 font-semibold">Gruppo</th>
-                  <th className="text-center p-4 font-semibold">Adulti</th>
-                  <th className="text-center p-4 font-semibold">Bambini</th>
-                  <th className="text-left p-4 font-semibold">Menù</th>
-                  <th className="text-right p-4 font-semibold">Azioni</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredGuests.map((guest) => (
-                  <tr key={guest.id} className="border-t hover:bg-muted/30 transition-colors">
-                    <td className="p-4">
-                      <Checkbox
-                        checked={selectedGuestIds.has(guest.id)}
-                        onCheckedChange={() => toggleGuestSelection(guest.id)}
-                      />
-                    </td>
-                    <td className="p-4">
-                      <div>
-                        <p className="font-medium">
-                          {guest.first_name} {guest.last_name}
-                        </p>
-                        {guest.dietary_restrictions && (
-                          <p className="text-sm text-muted-foreground">
-                            🍽️ {guest.dietary_restrictions}
-                          </p>
-                        )}
-                      </div>
-                    </td>
-                    <td className="p-4">{getRSVPBadge(guest.rsvp_status)}</td>
-                    <td className="p-4">
-                      {guest.group_name ? (
-                        <Badge variant="outline">{guest.group_name}</Badge>
-                      ) : (
-                        <span className="text-muted-foreground text-sm">—</span>
-                      )}
-                    </td>
-                    <td className="p-4 text-center">{guest.adults_count}</td>
-                    <td className="p-4 text-center">{guest.children_count}</td>
-                    <td className="p-4">
-                      {guest.menu_choice || <span className="text-muted-foreground">—</span>}
-                    </td>
-                    <td className="p-4">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            setSelectedGuest(guest);
-                            setGuestDialogOpen(true);
-                          }}
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDeleteGuest(guest.id)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
+      {/* FAB - Mobile Only */}
+      {isMobile && !hasNoGuests && (
+        <Button
+          size="lg"
+          className="fixed bottom-20 right-6 h-14 w-14 rounded-full shadow-lg z-50"
+          onClick={() => { setSelectedGuest(null); setGuestDialogOpen(true); }}
+        >
+          <Plus className="w-6 h-6" />
+        </Button>
+      )}
 
       {/* Dialogs */}
       <GuestDialog
