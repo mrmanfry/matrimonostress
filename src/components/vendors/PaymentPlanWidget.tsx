@@ -355,8 +355,18 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId, totalIn
   // Calcola il totale allocato (somma di tutte le rate)
   const totalAllocated = payments.reduce((sum, p) => {
     if (p.amount_type === 'fixed' && p.amount) {
-      const amount = parseFloat(p.amount);
-      return isNaN(amount) ? sum : sum + amount;
+      let amount = parseFloat(p.amount);
+      if (isNaN(amount)) return sum;
+      
+      // Se IVA Esclusa, aggiungi l'IVA all'importo
+      if (p.tax_inclusive === false && p.tax_rate) {
+        const taxRate = parseFloat(p.tax_rate);
+        if (!isNaN(taxRate)) {
+          amount = amount * (1 + taxRate / 100);
+        }
+      }
+      
+      return sum + amount;
     }
     if (p.amount_type === 'percentage' && p.percentage_value) {
       const pct = parseFloat(p.percentage_value);
