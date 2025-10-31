@@ -26,6 +26,8 @@ interface Payment {
   percentage_value: number | null;
   due_date: string;
   status: 'Da Pagare' | 'Pagato';
+  tax_rate: number | null;
+  tax_inclusive: boolean;
 }
 
 interface ExpenseItemsManagerProps {
@@ -190,6 +192,23 @@ export function ExpenseItemsManager({ vendorId, categoryId }: ExpenseItemsManage
     return sum + (item.total_amount || calculateItemTotal(item.id));
   }, 0);
 
+  const calculateAmountPaid = (): number => {
+    return Object.values(payments).flat().reduce((sum, payment) => {
+      if (payment.status === 'Pagato' && payment.amount_type === 'fixed') {
+        let amount = Number(payment.amount);
+        // Se IVA Esclusa, aggiungi l'IVA all'importo
+        if (payment.tax_inclusive === false && payment.tax_rate) {
+          amount = amount * (1 + Number(payment.tax_rate) / 100);
+        }
+        return sum + amount;
+      }
+      return sum;
+    }, 0);
+  };
+
+  const amountPaid = calculateAmountPaid();
+  const amountRemaining = totalVendorAmount - amountPaid;
+
   if (loading) {
     return (
       <Card>
@@ -324,6 +343,22 @@ export function ExpenseItemsManager({ vendorId, categoryId }: ExpenseItemsManage
                     {formatCurrency(totalVendorAmount)}
                   </span>
                 </div>
+                
+                <div className="grid grid-cols-2 gap-3 mb-4 text-sm">
+                  <div className="flex items-center justify-between px-3 py-2 rounded bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900">
+                    <span className="text-green-700 dark:text-green-400">Importo Pagato:</span>
+                    <span className="font-semibold text-green-700 dark:text-green-400">
+                      {formatCurrency(amountPaid)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between px-3 py-2 rounded bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900">
+                    <span className="text-amber-700 dark:text-amber-400">Da Pagare:</span>
+                    <span className="font-semibold text-amber-700 dark:text-amber-400">
+                      {formatCurrency(amountRemaining)}
+                    </span>
+                  </div>
+                </div>
+                
                 <Button onClick={handleAddExpenseItem} className="w-full">
                   <Plus className="h-4 w-4 mr-2" />
                   Aggiungi Nuova Spesa
