@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
@@ -59,6 +59,7 @@ export function ExpenseItemDialog({
     handleSubmit,
     reset,
     watch,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<ExpenseItemFormData>({
     resolver: zodResolver(expenseItemSchema),
@@ -229,32 +230,29 @@ export function ExpenseItemDialog({
                 <>
                   <div className="space-y-3">
                     <Label>Logica Importo</Label>
-                    <RadioGroup
-                      value={watchAmountLogic ? "inclusive" : "exclusive"}
-                      onValueChange={(val) => {
-                        const form = document.querySelector('form');
-                        const input = form?.querySelector('input[name="amount_is_tax_inclusive"]') as HTMLInputElement;
-                        if (input) {
-                          const event = new Event('input', { bubbles: true });
-                          input.value = val === "inclusive" ? "true" : "false";
-                          input.dispatchEvent(event);
-                        }
-                      }}
-                    >
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="inclusive" id="inclusive" />
-                        <Label htmlFor="inclusive" className="font-normal cursor-pointer">
-                          L'importo è il TOTALE FINALE (IVA Inclusa)
-                        </Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="exclusive" id="exclusive" />
-                        <Label htmlFor="exclusive" className="font-normal cursor-pointer">
-                          L'importo è l'IMPONIBILE (IVA Esclusa)
-                        </Label>
-                      </div>
-                    </RadioGroup>
-                    <input type="hidden" {...register("amount_is_tax_inclusive")} />
+                    <Controller
+                      name="amount_is_tax_inclusive"
+                      control={control}
+                      render={({ field }) => (
+                        <RadioGroup
+                          value={field.value ? "inclusive" : "exclusive"}
+                          onValueChange={(val) => field.onChange(val === "inclusive")}
+                        >
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="inclusive" id="inclusive" />
+                            <Label htmlFor="inclusive" className="font-normal cursor-pointer">
+                              L'importo è il TOTALE FINALE (IVA Inclusa)
+                            </Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="exclusive" id="exclusive" />
+                            <Label htmlFor="exclusive" className="font-normal cursor-pointer">
+                              L'importo è l'IMPONIBILE (IVA Esclusa)
+                            </Label>
+                          </div>
+                        </RadioGroup>
+                      )}
+                    />
                   </div>
 
                   <div className="space-y-2">
