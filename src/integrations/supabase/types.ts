@@ -642,6 +642,60 @@ export type Database = {
           },
         ]
       }
+      vendor_contracts: {
+        Row: {
+          ai_analysis: Json
+          analyzed_at: string | null
+          created_at: string | null
+          file_name: string
+          file_path: string
+          file_type: string
+          id: string
+          updated_at: string | null
+          vendor_id: string
+          wedding_id: string
+        }
+        Insert: {
+          ai_analysis: Json
+          analyzed_at?: string | null
+          created_at?: string | null
+          file_name: string
+          file_path: string
+          file_type: string
+          id?: string
+          updated_at?: string | null
+          vendor_id: string
+          wedding_id: string
+        }
+        Update: {
+          ai_analysis?: Json
+          analyzed_at?: string | null
+          created_at?: string | null
+          file_name?: string
+          file_path?: string
+          file_type?: string
+          id?: string
+          updated_at?: string | null
+          vendor_id?: string
+          wedding_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_contracts_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_contracts_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vendors: {
         Row: {
           category_id: string | null

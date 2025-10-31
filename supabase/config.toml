@@ -1,1 +1,22 @@
 project_id = "evaivaudtestjzckutsd"
+
+[functions.generate-sync-token]
+verify_jwt = true
+
+[functions.match-contacts]
+verify_jwt = true
+
+[functions.parse-guest-text]
+verify_jwt = true
+
+[functions.check-checklist-reminders]
+verify_jwt = false
+
+[functions.check-payment-reminders]
+verify_jwt = false
+
+[functions.send-wedding-invitation]
+verify_jwt = false
+
+[functions.analyze-contract]
+verify_jwt = true
