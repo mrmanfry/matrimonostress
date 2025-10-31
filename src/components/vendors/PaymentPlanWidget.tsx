@@ -596,81 +596,85 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId }: Payme
               )}
               </div>
 
-              {/* Tipo Scadenza */}
-              <div className="space-y-2">
-                <Label>Tipo Scadenza</Label>
-                <RadioGroup
-                  value={payment.due_date_type}
-                  onValueChange={(value) => updatePayment(index, "due_date_type", value)}
-                  className="flex gap-4"
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="absolute" id={`absolute-${index}`} />
-                    <Label htmlFor={`absolute-${index}`} className="font-normal cursor-pointer">
-                      Data Specifica
-                    </Label>
+              {/* Tipo Scadenza - nascosto se già pagato */}
+              {payment.status !== 'Pagato' && (
+                <>
+                  <div className="space-y-2">
+                    <Label>Tipo Scadenza</Label>
+                    <RadioGroup
+                      value={payment.due_date_type}
+                      onValueChange={(value) => updatePayment(index, "due_date_type", value)}
+                      className="flex gap-4"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="absolute" id={`absolute-${index}`} />
+                        <Label htmlFor={`absolute-${index}`} className="font-normal cursor-pointer">
+                          Data Specifica
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="days_before" id={`days_before-${index}`} />
+                        <Label htmlFor={`days_before-${index}`} className="font-normal cursor-pointer">
+                          Giorni Prima Matrimonio
+                        </Label>
+                      </div>
+                    </RadioGroup>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="days_before" id={`days_before-${index}`} />
-                    <Label htmlFor={`days_before-${index}`} className="font-normal cursor-pointer">
-                      Giorni Prima Matrimonio
-                    </Label>
-                  </div>
-                </RadioGroup>
-              </div>
 
-              {/* Campo Data o Giorni Prima */}
-              {payment.due_date_type === 'absolute' ? (
-                <div className="space-y-2">
-                  <Label>Data Scadenza *</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal",
-                          !payment.due_date && "text-muted-foreground"
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {payment.due_date ? format(payment.due_date, "dd MMM yyyy", { locale: it }) : "Seleziona data"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={payment.due_date || undefined}
-                        onSelect={(date) => updatePayment(index, "due_date", date || null)}
-                        initialFocus
-                        className="pointer-events-auto"
+                  {/* Campo Data o Giorni Prima */}
+                  {payment.due_date_type === 'absolute' ? (
+                    <div className="space-y-2">
+                      <Label>Data Scadenza *</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal",
+                              !payment.due_date && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {payment.due_date ? format(payment.due_date, "dd MMM yyyy", { locale: it }) : "Seleziona data"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={payment.due_date || undefined}
+                            onSelect={(date) => updatePayment(index, "due_date", date || null)}
+                            initialFocus
+                            className="pointer-events-auto"
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Label>Giorni Prima del Matrimonio *</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        placeholder="30"
+                        value={payment.days_before_wedding}
+                        onChange={(e) => updatePayment(index, "days_before_wedding", e.target.value)}
                       />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <Label>Giorni Prima del Matrimonio *</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    placeholder="30"
-                    value={payment.days_before_wedding}
-                    onChange={(e) => updatePayment(index, "days_before_wedding", e.target.value)}
-                  />
-                  {payment.days_before_wedding && weddingDate && (() => {
-                    const days = parseInt(payment.days_before_wedding);
-                    if (!isNaN(days)) {
-                      const targetDate = new Date(weddingDate);
-                      targetDate.setDate(targetDate.getDate() - days);
-                      return (
-                        <p className="text-xs text-muted-foreground">
-                          Scadenza: {format(targetDate, "dd MMM yyyy", { locale: it })}
-                        </p>
-                      );
-                    }
-                    return null;
-                  })()}
-                </div>
+                      {payment.days_before_wedding && weddingDate && (() => {
+                        const days = parseInt(payment.days_before_wedding);
+                        if (!isNaN(days)) {
+                          const targetDate = new Date(weddingDate);
+                          targetDate.setDate(targetDate.getDate() - days);
+                          return (
+                            <p className="text-xs text-muted-foreground">
+                              Scadenza: {format(targetDate, "dd MMM yyyy", { locale: it })}
+                            </p>
+                          );
+                        }
+                        return null;
+                      })()}
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
