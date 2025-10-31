@@ -26,10 +26,21 @@ interface KeyPoints {
   responsabilita_extra?: string;
 }
 
+interface VendorRegistry {
+  ragione_sociale?: string;
+  partita_iva_cf?: string;
+  indirizzo_sede_legale?: string;
+  email?: string;
+  telefono?: string;
+  iban?: string;
+  intestatario_conto?: string;
+}
+
 interface ContractReviewDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   analysis: {
+    anagrafica_fornitore?: VendorRegistry;
     pagamenti: Payment[];
     punti_chiave: KeyPoints;
   };
@@ -42,6 +53,16 @@ interface ContractReviewDialogProps {
   weddingId: string;
   weddingDate?: string;
   totalContract?: number;
+  currentVendor?: {
+    name?: string;
+    ragione_sociale?: string;
+    partita_iva_cf?: string;
+    indirizzo_sede_legale?: string;
+    email?: string;
+    phone?: string;
+    iban?: string;
+    intestatario_conto?: string;
+  };
   onSaveComplete: () => void;
 }
 
@@ -54,14 +75,28 @@ export const ContractReviewDialog = ({
   weddingId,
   weddingDate,
   totalContract,
+  currentVendor,
   onSaveComplete,
 }: ContractReviewDialogProps) => {
   const [payments, setPayments] = useState<Payment[]>(
     analysis.pagamenti.map((p) => ({ ...p, enabled: true }))
   );
   const [keyPoints, setKeyPoints] = useState(analysis.punti_chiave);
+  const [vendorUpdates, setVendorUpdates] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
+
+  // Initialize vendor updates - all checked by default
+  const extractedVendor = analysis.anagrafica_fornitore || {};
+  const vendorFields = [
+    { key: 'ragione_sociale', label: 'Ragione Sociale', current: currentVendor?.ragione_sociale || currentVendor?.name, extracted: extractedVendor.ragione_sociale },
+    { key: 'partita_iva_cf', label: 'P.IVA / CF', current: currentVendor?.partita_iva_cf, extracted: extractedVendor.partita_iva_cf },
+    { key: 'indirizzo_sede_legale', label: 'Indirizzo Sede', current: currentVendor?.indirizzo_sede_legale, extracted: extractedVendor.indirizzo_sede_legale },
+    { key: 'email', label: 'Email', current: currentVendor?.email, extracted: extractedVendor.email },
+    { key: 'telefono', label: 'Telefono', current: currentVendor?.phone, extracted: extractedVendor.telefono },
+    { key: 'iban', label: 'IBAN', current: currentVendor?.iban, extracted: extractedVendor.iban },
+    { key: 'intestatario_conto', label: 'Intestatario Conto', current: currentVendor?.intestatario_conto, extracted: extractedVendor.intestatario_conto },
+  ].filter(field => field.extracted); // Only show fields that were extracted
 
   const calculateDate = (payment: Payment): string => {
     if (payment.data_tipo === "assoluta") {
@@ -101,6 +136,29 @@ export const ContractReviewDialog = ({
     setSaving(true);
 
     try {
+      // Update vendor registry if any fields are selected
+      const selectedVendorUpdates = vendorFields.reduce((acc, field) => {
+        if (vendorUpdates[field.key] !== false && field.extracted) {
+          acc[field.key] = field.extracted;
+        }
+        return acc;
+      }, {} as Record<string, any>);
+
+      if (Object.keys(selectedVendorUpdates).length > 0) {
+        // Special handling for phone field (stored as 'phone' in vendors table)
+        if (selectedVendorUpdates.telefono) {
+          selectedVendorUpdates.phone = selectedVendorUpdates.telefono;
+          delete selectedVendorUpdates.telefono;
+        }
+
+        const { error: vendorError } = await supabase
+          .from("vendors")
+          .update(selectedVendorUpdates)
+          .eq("id", vendorId);
+
+        if (vendorError) throw vendorError;
+      }
+
       // Save contract analysis
       const { data: contractData, error: contractError } = await supabase
         .from("vendor_contracts")
@@ -111,6 +169,7 @@ export const ContractReviewDialog = ({
           file_name: fileInfo.fileName,
           file_type: fileInfo.fileType,
           ai_analysis: JSON.parse(JSON.stringify({
+            anagrafica_fornitore: extractedVendor,
             pagamenti: payments.filter((p) => p.enabled),
             punti_chiave: keyPoints,
           })),
@@ -122,7 +181,7 @@ export const ContractReviewDialog = ({
 
       toast({
         title: "Contratto salvato",
-        description: "Il contratto è stato analizzato e salvato. Crea le spese associate per generare i pagamenti.",
+        description: "Anagrafica fornitore aggiornata e contratto analizzato con successo.",
       });
 
       onSaveComplete();
@@ -159,8 +218,44 @@ export const ContractReviewDialog = ({
 
           {/* Right column: Extracted data form */}
           <div className="lg:col-span-2 space-y-6">
+            {/* Section 1: Vendor Registry Updates */}
+            {vendorFields.length > 0 && (
+              <div className="space-y-4 pb-6 border-b">
+                <h3 className="font-semibold text-lg">1. Aggiornamento Anagrafica Fornitore</h3>
+                <p className="text-sm text-muted-foreground">
+                  Conferma i dati estratti dal contratto per aggiornare la scheda fornitore
+                </p>
+                <div className="space-y-3">
+                  {vendorFields.map((field) => (
+                    <div key={field.key} className="flex items-start gap-3 p-3 border rounded-lg">
+                      <input
+                        type="checkbox"
+                        checked={vendorUpdates[field.key] !== false}
+                        onChange={(e) => setVendorUpdates({ ...vendorUpdates, [field.key]: e.target.checked })}
+                        className="mt-1"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm">{field.label}</div>
+                        <div className="grid grid-cols-2 gap-2 mt-1 text-xs">
+                          <div>
+                            <span className="text-muted-foreground">Attuale:</span>
+                            <div className="truncate">{field.current || <span className="italic text-muted-foreground">(vuoto)</span>}</div>
+                          </div>
+                          <div>
+                            <span className="text-green-600 font-medium">Trovato:</span>
+                            <div className="truncate font-medium">{field.extracted}</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Section 2: Payment Plan */}
             <div className="space-y-4">
-              <h3 className="font-semibold">Piano di Pagamento Proposto</h3>
+              <h3 className="font-semibold text-lg">2. Piano di Pagamento Proposto</h3>
               {payments.map((payment, index) => (
                 <div
                   key={index}
@@ -239,8 +334,9 @@ export const ContractReviewDialog = ({
               ))}
             </div>
 
-            <div className="space-y-4">
-              <h3 className="font-semibold">Punti Chiave Trovati</h3>
+            {/* Section 3: Key Points */}
+            <div className="space-y-4 pt-6 border-t">
+              <h3 className="font-semibold text-lg">3. Punti Chiave e Rischi</h3>
               
               {keyPoints.penali_cancellazione && (
                 <div className="space-y-2">

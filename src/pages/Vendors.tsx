@@ -9,6 +9,7 @@ import { VendorDialog } from "@/components/vendors/VendorDialog";
 import { VendorExpensesDialog } from "@/components/vendors/VendorExpensesDialog";
 import { Plus, Phone, Mail, User, Trash2, Edit, Heart, Wallet, FileText, FileUp } from "lucide-react";
 import { ContractUploadDialog } from "@/components/vendors/ContractUploadDialog";
+import { ContractReviewDialog } from "@/components/vendors/ContractReviewDialog";
 import ContractViewDialog from "@/components/vendors/ContractViewDialog";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -34,6 +35,11 @@ interface Vendor {
   wedding_id: string;
   category_name?: string;
   expenses_total?: number;
+  ragione_sociale?: string;
+  partita_iva_cf?: string;
+  indirizzo_sede_legale?: string;
+  iban?: string;
+  intestatario_conto?: string;
   vendor_contracts?: Array<{
     id: string;
     analyzed_at: string;
@@ -65,6 +71,9 @@ const Vendors = () => {
   const [expensesDialogOpen, setExpensesDialogOpen] = useState(false);
   const [contractUploadOpen, setContractUploadOpen] = useState(false);
   const [contractViewOpen, setContractViewOpen] = useState(false);
+  const [contractReviewOpen, setContractReviewOpen] = useState(false);
+  const [analysisData, setAnalysisData] = useState<any>(null);
+  const [fileInfoData, setFileInfoData] = useState<any>(null);
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [vendorToDelete, setVendorToDelete] = useState<string | null>(null);
@@ -619,17 +628,48 @@ const Vendors = () => {
             weddingId={weddingData.id}
             weddingDate={weddingData.wedding_date}
             totalContract={selectedVendor.expenses_total || 0}
-            onAnalysisComplete={() => {
+            onAnalysisComplete={(analysis, fileInfo) => {
+              setAnalysisData(analysis);
+              setFileInfoData(fileInfo);
               setContractUploadOpen(false);
-              if (weddingData) {
-                loadVendors(weddingData.id);
-              }
-              toast({
-                title: "Contratto analizzato",
-                description: "L'AI ha estratto i dati dal contratto.",
-              });
+              setContractReviewOpen(true);
             }}
           />
+
+          {analysisData && fileInfoData && (
+            <ContractReviewDialog
+              open={contractReviewOpen}
+              onOpenChange={setContractReviewOpen}
+              analysis={analysisData}
+              fileInfo={fileInfoData}
+              vendorId={selectedVendor.id}
+              weddingId={weddingData.id}
+              weddingDate={weddingData.wedding_date}
+              totalContract={selectedVendor.expenses_total || 0}
+              currentVendor={{
+                name: selectedVendor.name,
+                ragione_sociale: selectedVendor.ragione_sociale,
+                partita_iva_cf: selectedVendor.partita_iva_cf,
+                indirizzo_sede_legale: selectedVendor.indirizzo_sede_legale,
+                email: selectedVendor.email,
+                phone: selectedVendor.phone,
+                iban: selectedVendor.iban,
+                intestatario_conto: selectedVendor.intestatario_conto,
+              }}
+              onSaveComplete={() => {
+                setContractReviewOpen(false);
+                setAnalysisData(null);
+                setFileInfoData(null);
+                if (weddingData) {
+                  loadVendors(weddingData.id);
+                }
+                toast({
+                  title: "Contratto salvato",
+                  description: "Anagrafica e contratto aggiornati con successo.",
+                });
+              }}
+            />
+          )}
 
           <ContractViewDialog
             open={contractViewOpen}

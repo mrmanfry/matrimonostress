@@ -702,10 +702,15 @@ export type Database = {
           contact_name: string | null
           created_at: string
           email: string | null
+          iban: string | null
           id: string
+          indirizzo_sede_legale: string | null
+          intestatario_conto: string | null
           name: string
           notes: string | null
+          partita_iva_cf: string | null
           phone: string | null
+          ragione_sociale: string | null
           status: string | null
           updated_at: string
           wedding_id: string
@@ -715,10 +720,15 @@ export type Database = {
           contact_name?: string | null
           created_at?: string
           email?: string | null
+          iban?: string | null
           id?: string
+          indirizzo_sede_legale?: string | null
+          intestatario_conto?: string | null
           name: string
           notes?: string | null
+          partita_iva_cf?: string | null
           phone?: string | null
+          ragione_sociale?: string | null
           status?: string | null
           updated_at?: string
           wedding_id: string
@@ -728,10 +738,15 @@ export type Database = {
           contact_name?: string | null
           created_at?: string
           email?: string | null
+          iban?: string | null
           id?: string
+          indirizzo_sede_legale?: string | null
+          intestatario_conto?: string | null
           name?: string
           notes?: string | null
+          partita_iva_cf?: string | null
           phone?: string | null
+          ragione_sociale?: string | null
           status?: string | null
           updated_at?: string
           wedding_id?: string

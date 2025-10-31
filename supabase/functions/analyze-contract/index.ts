@@ -78,15 +78,26 @@ serve(async (req) => {
     };
     const mimeType = mimeTypes[fileExtension] || 'application/octet-stream';
 
-    // Construct the system prompt
+    // Construct the system prompt with vendor registry extraction
     const systemPrompt = `Sei un assistente legale e contabile specializzato in contratti per eventi e matrimoni italiani.
 Analizza il seguente documento (OCR se è un'immagine).
 ${weddingDate ? `Il contesto del progetto è un matrimonio che si terrà in data: ${weddingDate}.` : ''}
 ${totalContract ? `Il costo totale del contratto è: €${totalContract}.` : ''}
 
-Il tuo output DEVE essere un singolo oggetto JSON con due chiavi principali: "pagamenti" e "punti_chiave".
+Il tuo output DEVE essere un singolo oggetto JSON con TRE chiavi principali: "anagrafica_fornitore", "pagamenti", e "punti_chiave".
 
-1. **Chiave "pagamenti":**
+1. **Chiave "anagrafica_fornitore":**
+   * Deve essere un oggetto.
+   * Estrai i seguenti dati ANAGRAFICI del fornitore (cerca nell'intestazione, nel piè di pagina, o nelle clausole di pagamento):
+       * \`ragione_sociale\`: (stringa) Il nome legale completo del fornitore.
+       * \`partita_iva_cf\`: (stringa) La Partita IVA o Codice Fiscale.
+       * \`indirizzo_sede_legale\`: (stringa) L'indirizzo completo della sede legale.
+       * \`email\`: (stringa) L'email di contatto o PEC.
+       * \`telefono\`: (stringa) Il numero di telefono.
+       * \`iban\`: (stringa) Le coordinate bancarie IBAN per il pagamento.
+       * \`intestatario_conto\`: (stringa) L'intestatario del conto bancario (se specificato).
+
+2. **Chiave "pagamenti":**
    * Deve essere un array di oggetti.
    * Per ogni pagamento/rata trovato, estrai:
        * \`descrizione\`: La descrizione testuale (es. "Acconto", "Saldo").
@@ -95,7 +106,7 @@ Il tuo output DEVE essere un singolo oggetto JSON con due chiavi principali: "pa
        * \`data_tipo\`: (stringa) "assoluta" (se è una data fissa), "relativa_evento" (se è X giorni prima/dopo la data del matrimonio), "trigger_testo" (se è "alla firma", "alla consegna", etc.).
        * \`data_valore\`: (stringa/numero) Il valore della data (es. "2026-11-15", -30, "alla firma").
 
-2. **Chiave "punti_chiave":**
+3. **Chiave "punti_chiave":**
    * Deve essere un oggetto.
    * Cerca e riassumi in 1-2 frasi (in italiano) solo le clausole relative a:
        * \`penali_cancellazione\`: (stringa) Politica di cancellazione.
