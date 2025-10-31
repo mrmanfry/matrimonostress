@@ -45,7 +45,7 @@ serve(async (req) => {
       );
     }
 
-    // Parse Google Cloud credentials
+    // Parse Google Cloud credentials (Service Account JSON)
     const credentials = JSON.parse(GOOGLE_CLOUD_VISION_CREDENTIALS);
 
     // Create Supabase client
@@ -69,14 +69,96 @@ serve(async (req) => {
     const arrayBuffer = await fileData.arrayBuffer();
     const base64File = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
 
+    // Generate OAuth2 access token from Service Account
+    console.log("[analyze-contract] Generating OAuth2 access token");
+    
+    // Helper function to convert base64 to base64url
+    const base64ToBase64Url = (base64: string) => {
+      return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    };
+
+    const now = Math.floor(Date.now() / 1000);
+    const jwtHeader = {
+      alg: "RS256",
+      typ: "JWT",
+    };
+    const jwtClaimSet = {
+      iss: credentials.client_email,
+      scope: "https://www.googleapis.com/auth/cloud-vision",
+      aud: "https://oauth2.googleapis.com/token",
+      exp: now + 3600,
+      iat: now,
+    };
+
+    // Encode JWT parts using base64url
+    const encodedHeader = base64ToBase64Url(btoa(JSON.stringify(jwtHeader)));
+    const encodedClaimSet = base64ToBase64Url(btoa(JSON.stringify(jwtClaimSet)));
+    const signatureInput = `${encodedHeader}.${encodedClaimSet}`;
+
+    // Import private key and sign
+    const privateKey = credentials.private_key;
+    
+    // Remove PEM header/footer and decode base64
+    const pemContents = privateKey
+      .replace('-----BEGIN PRIVATE KEY-----', '')
+      .replace('-----END PRIVATE KEY-----', '')
+      .replace(/\\n/g, '')
+      .replace(/\n/g, '')
+      .replace(/\s/g, '');
+    
+    // Convert base64 to ArrayBuffer
+    const binaryString = atob(pemContents);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    
+    const keyData = await crypto.subtle.importKey(
+      "pkcs8",
+      bytes.buffer,
+      { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+      false,
+      ["sign"]
+    );
+    
+    const signature = await crypto.subtle.sign(
+      "RSASSA-PKCS1-v1_5",
+      keyData,
+      new TextEncoder().encode(signatureInput)
+    );
+    const encodedSignature = base64ToBase64Url(btoa(String.fromCharCode(...new Uint8Array(signature))));
+    const jwt = `${signatureInput}.${encodedSignature}`;
+
+    // Exchange JWT for access token
+    const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
+    });
+
+    if (!tokenResponse.ok) {
+      const errorText = await tokenResponse.text();
+      console.error("[analyze-contract] OAuth2 token error:", tokenResponse.status, errorText);
+      return new Response(
+        JSON.stringify({ error: "Failed to authenticate with Google Cloud" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const tokenData = await tokenResponse.json();
+    const accessToken = tokenData.access_token;
+
     // Call Google Cloud Vision API for OCR
     console.log("[analyze-contract] Calling Google Cloud Vision API for OCR");
     const visionResponse = await fetch(
-      `https://vision.googleapis.com/v1/images:annotate?key=${credentials.api_key || ""}`,
+      "https://vision.googleapis.com/v1/images:annotate",
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
           requests: [
