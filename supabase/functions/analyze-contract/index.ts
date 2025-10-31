@@ -12,8 +12,8 @@ serve(async (req) => {
   }
 
   try {
-    const { fileUrl, totalContract, weddingDate } = await req.json();
-    console.log("[analyze-contract] Starting analysis for:", fileUrl);
+    const { fileUrl } = await req.json();
+    console.log("[analyze-contract] Starting OCR analysis for:", fileUrl);
 
     if (!fileUrl) {
       console.error("[analyze-contract] Missing fileUrl");
@@ -23,28 +23,32 @@ serve(async (req) => {
       );
     }
 
+    // Get required environment variables
+    const GOOGLE_CLOUD_VISION_CREDENTIALS = Deno.env.get("GOOGLE_CLOUD_VISION_CREDENTIALS");
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      console.error("[analyze-contract] LOVABLE_API_KEY not configured");
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+    if (!GOOGLE_CLOUD_VISION_CREDENTIALS) {
+      console.error("[analyze-contract] GOOGLE_CLOUD_VISION_CREDENTIALS not configured");
       return new Response(
-        JSON.stringify({ error: "API key not configured" }),
+        JSON.stringify({ error: "Google Cloud Vision API not configured" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Get the Supabase URL and service role key for downloading the file
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-      console.error("[analyze-contract] Supabase credentials not configured");
+    if (!LOVABLE_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      console.error("[analyze-contract] Missing required credentials");
       return new Response(
         JSON.stringify({ error: "Backend configuration error" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Create Supabase client with service role to access private bucket
+    // Parse Google Cloud credentials
+    const credentials = JSON.parse(GOOGLE_CLOUD_VISION_CREDENTIALS);
+
+    // Create Supabase client
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     // Download the file from Supabase Storage
@@ -61,76 +65,97 @@ serve(async (req) => {
       );
     }
 
-    // Convert blob to base64 for sending to AI
+    // Convert blob to base64 for Google Cloud Vision API
     const arrayBuffer = await fileData.arrayBuffer();
     const base64File = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
-    
-    // Determine file type from extension - only supported formats
-    const fileExtension = fileUrl.split('.').pop()?.toLowerCase() || '';
-    const mimeTypes: Record<string, string> = {
-      'pdf': 'application/pdf',
-      'png': 'image/png',
-      'jpg': 'image/jpeg',
-      'jpeg': 'image/jpeg',
-      'heic': 'image/heic',
-    };
-    const mimeType = mimeTypes[fileExtension];
-    
-    if (!mimeType) {
-      console.error("[analyze-contract] Unsupported file type:", fileExtension);
+
+    // Call Google Cloud Vision API for OCR
+    console.log("[analyze-contract] Calling Google Cloud Vision API for OCR");
+    const visionResponse = await fetch(
+      `https://vision.googleapis.com/v1/images:annotate?key=${credentials.api_key || ""}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          requests: [
+            {
+              image: {
+                content: base64File,
+              },
+              features: [
+                {
+                  type: "DOCUMENT_TEXT_DETECTION",
+                },
+              ],
+            },
+          ],
+        }),
+      }
+    );
+
+    if (!visionResponse.ok) {
+      const errorText = await visionResponse.text();
+      console.error("[analyze-contract] Google Cloud Vision API error:", visionResponse.status, errorText);
       return new Response(
-        JSON.stringify({ error: `Formato file non supportato: ${fileExtension}. Usa PDF, PNG, JPG o HEIC.` }),
+        JSON.stringify({ error: "OCR extraction failed" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const visionData = await visionResponse.json();
+    console.log("[analyze-contract] OCR completed");
+
+    // Extract full text from OCR response
+    const fullTextAnnotation = visionData.responses?.[0]?.fullTextAnnotation;
+    if (!fullTextAnnotation || !fullTextAnnotation.text) {
+      console.error("[analyze-contract] No text found in document");
+      return new Response(
+        JSON.stringify({ error: "No text found in document. Please upload a clearer file." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Construct the system prompt with vendor registry extraction
-    const systemPrompt = `Sei un assistente di estrazione dati per contratti. Il tuo compito è LEGGERE il documento e COPIARE ESATTAMENTE ciò che è scritto.
+    // Split text into lines
+    const fullText = fullTextAnnotation.text.split('\n').filter((line: string) => line.trim() !== '');
+    console.log(`[analyze-contract] Extracted ${fullText.length} lines of text`);
+
+    // Now use Lovable AI to classify sections
+    console.log("[analyze-contract] Calling Lovable AI to classify sections");
+    
+    const classifierPrompt = `Sei un classificatore di sezioni di contratti. Il tuo compito è IDENTIFICARE dove si trovano le seguenti sezioni nel testo fornito.
+
+SEZIONI DA IDENTIFICARE:
+1. vendor_info: Informazioni sul fornitore (ragione sociale, P.IVA, indirizzo, contatti, IBAN)
+2. payment_plan: Piano di pagamento con rate, importi e scadenze
+3. cancellation: Clausole di cancellazione e penali
+4. extra_costs: Costi extra o non inclusi nel contratto
+5. force_majeure: Clausole su maltempo, forza maggiore, Piano B
+6. client_responsibilities: Responsabilità del cliente
 
 REGOLE CRITICHE:
-1. LEGGI ATTENTAMENTE il documento fornito
-2. Estrai SOLO informazioni ESPLICITAMENTE SCRITTE nel documento
-3. Se un dato NON È PRESENTE o NON È CHIARO, metti null
-4. NON DEDURRE, NON INTERPRETARE, NON INVENTARE
-5. Copia ESATTAMENTE il testo come appare nel documento
+- NON ESTRARRE I DATI, SOLO IDENTIFICARE DOVE SI TROVANO
+- Per ogni sezione, indica: start_line (numero riga inizio), end_line (numero riga fine), confidence (0-1)
+- Se una sezione NON È PRESENTE, NON includerla nell'output
+- Se non sei sicuro (confidence < 0.6), NON includere la sezione
 
-${weddingDate ? `Contesto: matrimonio in data ${weddingDate}` : ''}
-${totalContract ? `Importo totale contratto: €${totalContract}` : ''}
+OUTPUT RICHIESTO - JSON con array "sections":
+[
+  {
+    "type": "vendor_info",
+    "start_line": 5,
+    "end_line": 12,
+    "confidence": 0.95
+  },
+  ...
+]
 
-OUTPUT RICHIESTO - JSON con 3 chiavi:
-
-1. "anagrafica_fornitore" (oggetto):
-   - ragione_sociale: nome completo del fornitore (null se non presente)
-   - partita_iva_cf: P.IVA o CF (null se non presente)
-   - indirizzo_sede_legale: indirizzo completo (null se non presente)
-   - email: email o PEC (null se non presente)
-   - telefono: numero di telefono (null se non presente)
-   - iban: coordinate bancarie (null se non presente)
-   - intestatario_conto: intestatario (null se non presente)
-
-2. "pagamenti" (array di oggetti):
-   - SOLO se il documento specifica chiaramente le rate di pagamento
-   - Per ogni rata EFFETTIVAMENTE SCRITTA:
-     * descrizione: descrizione testuale della rata
-     * importo_tipo: "assoluto" o "percentuale"
-     * importo_valore: numero (importo o percentuale)
-     * data_tipo: "assoluta", "relativa_evento", o "trigger_testo"
-     * data_valore: data o testo del trigger
-   - SE NON CI SONO RATE SPECIFICATE, restituisci ARRAY VUOTO []
-
-3. "punti_chiave" (oggetto):
-   - SOLO clausole EFFETTIVAMENTE PRESENTI nel documento
-   - penali_cancellazione: politica di cancellazione (null se non presente)
-   - costi_occulti: costi extra/non inclusi ESPLICITAMENTE MENZIONATI (null se non presente)
-   - piano_b: clausole su maltempo/forza maggiore (null se non presente)
-   - responsabilita_extra: responsabilità del cliente (null se non presente)
-
-VERIFICA FINALE: Prima di rispondere, rileggi il documento e assicurati che ogni dato provenga REALMENTE dal testo.
+TESTO DEL CONTRATTO (${fullText.length} righe):
+${fullText.map((line: string, i: number) => `${i + 1}: ${line}`).join('\n')}
 
 Restituisci SOLO JSON, nessun commento.`;
 
-    console.log("[analyze-contract] Calling Lovable AI");
-    
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -140,21 +165,9 @@ Restituisci SOLO JSON, nessun commento.`;
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [
-          { role: "system", content: systemPrompt },
           {
             role: "user",
-            content: [
-              {
-                type: "text",
-                text: "LEGGI ATTENTAMENTE questo documento. Estrai SOLO dati REALMENTE PRESENTI. Se qualcosa non c'è, metti null o array vuoto. NON INVENTARE."
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:${mimeType};base64,${base64File}`,
-                },
-              },
-            ],
+            content: classifierPrompt,
           },
         ],
       }),
@@ -176,22 +189,15 @@ Restituisci SOLO JSON, nessun commento.`;
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (aiResponse.status === 400) {
-        return new Response(
-          JSON.stringify({ error: "L'AI non è riuscita a leggere il documento. Riprova con un file più chiaro." }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
       
       return new Response(
-        JSON.stringify({ error: "Errore durante l'analisi del contratto. Riprova o contatta il supporto." }),
+        JSON.stringify({ error: "Errore durante la classificazione delle sezioni." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const aiData = await aiResponse.json();
-    console.log("[analyze-contract] AI response received");
-    console.log("[analyze-contract] AI raw response:", JSON.stringify(aiData).substring(0, 500));
+    console.log("[analyze-contract] AI classification completed");
 
     const aiContent = aiData.choices?.[0]?.message?.content;
     if (!aiContent) {
@@ -202,9 +208,7 @@ Restituisci SOLO JSON, nessun commento.`;
       );
     }
 
-    console.log("[analyze-contract] AI content length:", aiContent.length);
-
-    // Extract JSON from response (remove markdown code blocks if present)
+    // Extract JSON from response
     let jsonContent = aiContent.trim();
     if (jsonContent.startsWith("```json")) {
       jsonContent = jsonContent.slice(7);
@@ -217,22 +221,27 @@ Restituisci SOLO JSON, nessun commento.`;
     }
     jsonContent = jsonContent.trim();
 
-    let analysisResult;
+    let sections;
     try {
-      analysisResult = JSON.parse(jsonContent);
-      console.log("[analyze-contract] Parsed result:", JSON.stringify(analysisResult).substring(0, 500));
+      sections = JSON.parse(jsonContent);
+      console.log(`[analyze-contract] Classified ${sections.length} sections`);
     } catch (parseError) {
       console.error("[analyze-contract] Failed to parse AI response:", parseError);
-      console.error("[analyze-contract] AI content:", aiContent);
       return new Response(
-        JSON.stringify({ error: "Failed to parse AI response" }),
+        JSON.stringify({ error: "Failed to parse AI classification" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
+    // Return the result
+    const result = {
+      full_text: fullText,
+      sections: sections,
+    };
+
     console.log("[analyze-contract] Analysis successful");
     return new Response(
-      JSON.stringify({ analysis: analysisResult }),
+      JSON.stringify({ analysis: result }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {

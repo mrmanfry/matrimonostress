@@ -110,9 +110,14 @@ export const ContractUploadDialog = ({
         throw new Error("L'AI non ha restituito risultati. Riprova con un file più chiaro.");
       }
 
+      // Validate the new analysis format
+      if (!data.analysis.full_text || !data.analysis.sections) {
+        throw new Error("Formato di analisi non valido. Riprova.");
+      }
+
       toast({
         title: "Analisi completata",
-        description: "Rivedi i dati estratti prima di salvarli",
+        description: `${data.analysis.sections.length} sezioni identificate. Rivedi i dati prima di salvare.`,
       });
 
       onAnalysisComplete(data.analysis, {

@@ -644,18 +644,6 @@ const Vendors = () => {
               fileInfo={fileInfoData}
               vendorId={selectedVendor.id}
               weddingId={weddingData.id}
-              weddingDate={weddingData.wedding_date}
-              totalContract={selectedVendor.expenses_total || 0}
-              currentVendor={{
-                name: selectedVendor.name,
-                ragione_sociale: selectedVendor.ragione_sociale,
-                partita_iva_cf: selectedVendor.partita_iva_cf,
-                indirizzo_sede_legale: selectedVendor.indirizzo_sede_legale,
-                email: selectedVendor.email,
-                phone: selectedVendor.phone,
-                iban: selectedVendor.iban,
-                intestatario_conto: selectedVendor.intestatario_conto,
-              }}
               onSaveComplete={() => {
                 setContractReviewOpen(false);
                 setAnalysisData(null);
