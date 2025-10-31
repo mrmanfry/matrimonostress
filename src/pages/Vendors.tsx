@@ -132,7 +132,7 @@ const Vendors = () => {
         *,
         category:expense_categories(name),
         vendor_contracts(id, analyzed_at, ai_analysis, file_path),
-        expense_items(total_amount)
+        expense_items(total_amount, tax_rate, amount_is_tax_inclusive)
       `)
       .eq("wedding_id", weddingId)
       .order("created_at", { ascending: false });
