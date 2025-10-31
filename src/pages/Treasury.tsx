@@ -18,6 +18,8 @@ interface Payment {
   paid_on_date: string | null;
   paid_by: string | null;
   expense_item_id: string;
+  tax_inclusive: boolean;
+  tax_rate: number | null;
 }
 
 interface ExpenseItem {
@@ -196,6 +198,15 @@ export default function Treasury() {
     });
   };
 
+  const calculatePaymentTotal = (payment: Payment) => {
+    const baseAmount = Number(payment.amount || 0);
+    if (!payment.tax_inclusive && payment.tax_rate) {
+      const taxAmount = baseAmount * (Number(payment.tax_rate) / 100);
+      return baseAmount + taxAmount;
+    }
+    return baseAmount;
+  };
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("it-IT", {
       style: "currency",
@@ -289,7 +300,7 @@ export default function Treasury() {
           .filter(p => p.status === 'Pagato' && p.paid_by)
           .reduce((acc, p) => {
             const payer = p.paid_by || 'Non specificato';
-            acc[payer] = (acc[payer] || 0) + Number(p.amount || 0);
+            acc[payer] = (acc[payer] || 0) + calculatePaymentTotal(p);
             return acc;
           }, {} as Record<string, number>);
 
