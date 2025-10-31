@@ -65,9 +65,23 @@ serve(async (req) => {
       );
     }
 
+    // Helper function to convert ArrayBuffer to base64 in chunks (prevents stack overflow)
+    const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
+      const bytes = new Uint8Array(buffer);
+      let binary = '';
+      const chunkSize = 8192; // Process 8KB at a time
+      
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+        binary += String.fromCharCode(...chunk);
+      }
+      
+      return btoa(binary);
+    };
+
     // Convert blob to base64 for Google Cloud Vision API
     const arrayBuffer = await fileData.arrayBuffer();
-    const base64File = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    const base64File = arrayBufferToBase64(arrayBuffer);
 
     // Generate OAuth2 access token from Service Account
     console.log("[analyze-contract] Generating OAuth2 access token");
@@ -126,7 +140,7 @@ serve(async (req) => {
       keyData,
       new TextEncoder().encode(signatureInput)
     );
-    const encodedSignature = base64ToBase64Url(btoa(String.fromCharCode(...new Uint8Array(signature))));
+    const encodedSignature = base64ToBase64Url(arrayBufferToBase64(signature));
     const jwt = `${signatureInput}.${encodedSignature}`;
 
     // Exchange JWT for access token
