@@ -7,7 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { VendorDialog } from "@/components/vendors/VendorDialog";
 import { VendorExpensesDialog } from "@/components/vendors/VendorExpensesDialog";
-import { Plus, Phone, Mail, User, Trash2, Edit, Heart, Wallet } from "lucide-react";
+import { Plus, Phone, Mail, User, Trash2, Edit, Heart, Wallet, FileText, FileUp } from "lucide-react";
+import { ContractUploadDialog } from "@/components/vendors/ContractUploadDialog";
+import ContractViewDialog from "@/components/vendors/ContractViewDialog";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -29,8 +31,18 @@ interface Vendor {
   status: string;
   notes: string | null;
   category_id: string | null;
+  wedding_id: string;
   category_name?: string;
   expenses_total?: number;
+  vendor_contracts?: Array<{
+    id: string;
+    analyzed_at: string;
+    ai_analysis: any;
+    file_path: string;
+  }>;
+  expense_items?: Array<{
+    total_amount: number;
+  }>;
 }
 
 interface Category {
@@ -51,6 +63,8 @@ const Vendors = () => {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [expensesDialogOpen, setExpensesDialogOpen] = useState(false);
+  const [contractUploadOpen, setContractUploadOpen] = useState(false);
+  const [contractViewOpen, setContractViewOpen] = useState(false);
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [vendorToDelete, setVendorToDelete] = useState<string | null>(null);
@@ -58,6 +72,7 @@ const Vendors = () => {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const { toast } = useToast();
+  const [weddingData, setWeddingData] = useState<any>(null);
 
   useEffect(() => {
     loadData();
@@ -69,17 +84,19 @@ const Vendors = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: weddingData } = await supabase
+      const { data: wedding } = await supabase
         .from("weddings")
-        .select("id")
+        .select("id, wedding_date")
         .eq("created_by", user.id)
         .single();
 
-      if (!weddingData) return;
+      if (!wedding) return;
+      
+      setWeddingData(wedding);
 
       await Promise.all([
-        loadVendors(weddingData.id),
-        loadCategories(weddingData.id),
+        loadVendors(wedding.id),
+        loadCategories(wedding.id),
       ]);
     } catch (error) {
       console.error("Error loading data:", error);
@@ -98,7 +115,9 @@ const Vendors = () => {
       .from("vendors")
       .select(`
         *,
-        category:expense_categories(name)
+        category:expense_categories(name),
+        vendor_contracts(id, analyzed_at, ai_analysis, file_path),
+        expense_items(total_amount)
       `)
       .eq("wedding_id", weddingId)
       .order("created_at", { ascending: false });
@@ -112,7 +131,7 @@ const Vendors = () => {
       data.map((v: any) => ({
         ...v,
         category_name: v.category?.name || null,
-        expenses_total: 0,
+        expenses_total: v.expense_items?.reduce((sum: number, item: any) => sum + (item.total_amount || 0), 0) || 0,
       }))
     );
   };
@@ -416,96 +435,131 @@ const Vendors = () => {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredVendors.map((vendor) => (
-            <Card key={vendor.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1 flex-1">
-                    <CardTitle className="text-lg">{vendor.name}</CardTitle>
-                    {vendor.category_name && (
-                      <p className="text-sm text-muted-foreground">
-                        {vendor.category_name}
-                      </p>
-                    )}
+          {filteredVendors.map((vendor) => {
+            const hasContract = vendor.vendor_contracts && vendor.vendor_contracts.length > 0;
+            const contract = hasContract ? vendor.vendor_contracts[0] : null;
+            
+            return (
+              <Card key={vendor.id} className="hover:shadow-lg transition-shadow">
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1 flex-1">
+                      <CardTitle className="text-lg">{vendor.name}</CardTitle>
+                      {vendor.category_name && (
+                        <p className="text-sm text-muted-foreground">
+                          {vendor.category_name}
+                        </p>
+                      )}
+                    </div>
+                    <Badge className={statusConfig[vendor.status as keyof typeof statusConfig]?.color || "bg-gray-600"}>
+                      {statusConfig[vendor.status as keyof typeof statusConfig]?.label || vendor.status}
+                    </Badge>
                   </div>
-                  <Badge className={statusConfig[vendor.status as keyof typeof statusConfig]?.color || "bg-gray-600"}>
-                    {statusConfig[vendor.status as keyof typeof statusConfig]?.label || vendor.status}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {vendor.contact_name && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <User className="w-4 h-4 text-muted-foreground" />
-                    <span>{vendor.contact_name}</span>
-                  </div>
-                )}
-                {vendor.email && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Mail className="w-4 h-4 text-muted-foreground" />
-                    <a
-                      href={`mailto:${vendor.email}`}
-                      className="hover:underline"
-                    >
-                      {vendor.email}
-                    </a>
-                  </div>
-                )}
-                {vendor.phone && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Phone className="w-4 h-4 text-muted-foreground" />
-                    <a href={`tel:${vendor.phone}`} className="hover:underline">
-                      {vendor.phone}
-                    </a>
-                  </div>
-                )}
-                
-                {/* Total Expenses for Vendor */}
-                {vendor.expenses_total !== undefined && vendor.expenses_total > 0 && (
-                  <div className="border-t pt-3 mt-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Spese totali:</span>
-                      <a 
-                        href={`/app/budget?vendor=${vendor.id}`}
-                        className="text-lg font-bold text-primary hover:underline"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          window.location.href = `/app/budget?vendor=${vendor.id}`;
-                        }}
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {vendor.contact_name && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <User className="w-4 h-4 text-muted-foreground" />
+                      <span>{vendor.contact_name}</span>
+                    </div>
+                  )}
+                  {vendor.email && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Mail className="w-4 h-4 text-muted-foreground" />
+                      <a
+                        href={`mailto:${vendor.email}`}
+                        className="hover:underline"
                       >
-                        €{vendor.expenses_total.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                        {vendor.email}
                       </a>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Click per vedere le spese nel budget
-                    </p>
+                  )}
+                  {vendor.phone && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Phone className="w-4 h-4 text-muted-foreground" />
+                      <a href={`tel:${vendor.phone}`} className="hover:underline">
+                        {vendor.phone}
+                      </a>
+                    </div>
+                  )}
+                  
+                  {/* Contract Section */}
+                  <div className="border-t pt-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm font-medium">Contratto</span>
+                      </div>
+                      {hasContract ? (
+                        <Badge variant="outline" className="bg-green-500/10 text-green-700 dark:bg-green-500/20 dark:text-green-300">
+                          Presente
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="bg-amber-500/10 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">
+                          Non caricato
+                        </Badge>
+                      )}
+                    </div>
+                    {hasContract && contract && (
+                      <div className="text-xs text-muted-foreground pl-6">
+                        Analizzato il {new Date(contract.analyzed_at).toLocaleDateString('it-IT')}
+                        <button
+                          onClick={() => {
+                            setSelectedVendor(vendor);
+                            setContractViewOpen(true);
+                          }}
+                          className="ml-2 text-primary hover:underline"
+                        >
+                          Vedi analisi AI →
+                        </button>
+                      </div>
+                    )}
                   </div>
-                )}
-                
-                {vendor.notes && (
-                  <p className="text-sm text-muted-foreground border-t pt-3 mt-3">
-                    {vendor.notes}
-                  </p>
-                )}
+                  
+                  {/* Total Expenses for Vendor */}
+                  {vendor.expenses_total !== undefined && vendor.expenses_total > 0 && (
+                    <div className="border-t pt-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">Totale Spese</span>
+                        <span className="text-lg font-semibold">€{vendor.expenses_total.toLocaleString('it-IT', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {vendor.notes && (
+                    <p className="text-sm text-muted-foreground border-t pt-3">
+                      {vendor.notes}
+                    </p>
+                  )}
 
-                <div className="flex flex-col gap-2 pt-3 border-t">
-                  <Button
-                    variant="default"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => {
-                      setSelectedVendor(vendor);
-                      setExpensesDialogOpen(true);
-                    }}
-                  >
-                    <Wallet className="w-4 h-4 mr-2" />
-                    Gestisci Spese
-                  </Button>
-                  <div className="flex gap-2">
+                  <div className="grid grid-cols-2 gap-2 pt-3 border-t">
+                    <Button
+                      onClick={() => {
+                        setSelectedVendor(vendor);
+                        setContractUploadOpen(true);
+                      }}
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                    >
+                      <FileUp className="w-4 h-4 mr-2" />
+                      {hasContract ? "Ricarica" : "Carica"}
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        setSelectedVendor(vendor);
+                        setExpensesDialogOpen(true);
+                      }}
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                    >
+                      <Wallet className="w-4 h-4 mr-2" />
+                      Spese
+                    </Button>
                     <Button
                       variant="outline"
                       size="sm"
-                      className="flex-1"
                       onClick={() => {
                         setSelectedVendor(vendor);
                         setDialogOpen(true);
@@ -513,22 +567,23 @@ const Vendors = () => {
                     >
                       <Edit className="w-4 h-4 mr-1" />
                       Modifica
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setVendorToDelete(vendor.id);
-                      setDeleteDialogOpen(true);
-                    }}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setVendorToDelete(vendor.id);
+                        setDeleteDialogOpen(true);
+                      }}
+                    >
+                      <Trash2 className="w-4 h-4 mr-1" />
+                      Elimina
+                    </Button>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 
@@ -554,6 +609,35 @@ const Vendors = () => {
         }}
         vendor={selectedVendor}
       />
+
+      {weddingData && selectedVendor && (
+        <>
+          <ContractUploadDialog
+            open={contractUploadOpen}
+            onOpenChange={setContractUploadOpen}
+            vendorId={selectedVendor.id}
+            weddingId={weddingData.id}
+            weddingDate={weddingData.wedding_date}
+            totalContract={selectedVendor.expenses_total || 0}
+            onAnalysisComplete={() => {
+              setContractUploadOpen(false);
+              if (weddingData) {
+                loadVendors(weddingData.id);
+              }
+              toast({
+                title: "Contratto analizzato",
+                description: "L'AI ha estratto i dati dal contratto.",
+              });
+            }}
+          />
+
+          <ContractViewDialog
+            open={contractViewOpen}
+            onOpenChange={setContractViewOpen}
+            vendor={selectedVendor}
+          />
+        </>
+      )}
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
