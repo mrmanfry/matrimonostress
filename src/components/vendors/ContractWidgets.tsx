@@ -34,7 +34,7 @@ export const ContractWidgets = ({
   const [qaLoading, setQaLoading] = useState(false);
   const { toast } = useToast();
 
-  const keyPoints = analysis.punti_chiave;
+  const keyPoints = analysis.punti_chiave || {};
   const hasKeyPoints = Object.values(keyPoints).some((v) => v);
 
   const suggestedQuestions = [
