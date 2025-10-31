@@ -13,7 +13,10 @@ interface ExpenseItem {
   id: string;
   description: string;
   vendor_id: string | null;
-  vendors?: { name: string } | null;
+  vendors?: { 
+    name: string;
+    expense_categories?: { name: string } | null;
+  } | null;
   expense_categories?: { name: string } | null;
 }
 
@@ -67,10 +70,10 @@ export default function BudgetLegacy() {
 
       setTotalBudget(wedding?.total_budget || 0);
 
-      // Load expense items
+      // Load expense items with vendor categories
       const { data: items } = await supabase
         .from("expense_items")
-        .select("*, vendors(name), expense_categories(name)")
+        .select("*, vendors(name, expense_categories(name)), expense_categories(name)")
         .eq("wedding_id", authState.weddingId);
 
       setExpenseItems(items || []);
@@ -214,6 +217,11 @@ export default function BudgetLegacy() {
                           {item.vendors && (
                             <Badge variant="outline" className="text-xs">
                               {item.vendors.name}
+                              {item.vendors.expense_categories && (
+                                <span className="ml-1 opacity-70">
+                                  • {item.vendors.expense_categories.name}
+                                </span>
+                              )}
                             </Badge>
                           )}
                           {item.expense_categories && (
