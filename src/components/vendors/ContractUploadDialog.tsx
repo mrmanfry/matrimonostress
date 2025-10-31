@@ -156,9 +156,6 @@ export const ContractUploadDialog = ({
             <p className="text-sm text-muted-foreground">
               Formati supportati: PDF, PNG, JPG, HEIC (max 20MB)
             </p>
-            <p className="text-xs text-amber-600 dark:text-amber-400">
-              💡 Consiglio: Per contratti scansionati, usa foto JPG/PNG invece di PDF per risultati migliori
-            </p>
           </div>
 
           {(uploading || analyzing) && (

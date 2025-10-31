@@ -167,9 +167,7 @@ Restituisci SOLO l'oggetto JSON, senza alcun testo aggiuntivo.`;
       }
       if (aiResponse.status === 400) {
         return new Response(
-          JSON.stringify({ 
-            error: "L'AI non è riuscita a leggere il PDF. Per contratti scansionati, prova a fotografare il documento e caricarlo come JPG/PNG invece del PDF." 
-          }),
+          JSON.stringify({ error: "L'AI non è riuscita a leggere il documento. Riprova con un file più chiaro." }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
