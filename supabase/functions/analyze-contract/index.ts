@@ -131,6 +131,40 @@ IMPORTANTE: Restituisci SOLO l'oggetto JSON, senza alcun testo aggiuntivo o comm
 VERIFICA DI AVER LETTO IL DOCUMENTO PRIMA DI RISPONDERE.`;
 
     console.log("[analyze-contract] Calling Lovable AI");
+    
+    // For PDFs, send as text prompt asking to analyze; for images use image_url
+    let messages;
+    if (mimeType === 'application/pdf') {
+      // Try treating PDF as text document
+      messages = [
+        { role: "system", content: systemPrompt },
+        { 
+          role: "user", 
+          content: `Analizza questo documento PDF in formato base64 e estrai i dati richiesti. IMPORTANTE: Leggi attentamente il documento e restituisci SOLO i dati effettivamente presenti. Se un dato non è presente, metti null.\n\nDocumento PDF (base64): ${base64File.substring(0, 100000)}` 
+        },
+      ];
+    } else {
+      // For images, use the image_url approach
+      messages = [
+        { role: "system", content: systemPrompt },
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: "Analizza attentamente questo documento contrattuale e estrai SOLO i dati effettivamente presenti. NON inventare nulla."
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:${mimeType};base64,${base64File}`,
+              },
+            },
+          ],
+        },
+      ];
+    }
+
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -139,24 +173,7 @@ VERIFICA DI AVER LETTO IL DOCUMENTO PRIMA DI RISPONDERE.`;
       },
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: "Analizza attentamente questo documento contrattuale e estrai SOLO i dati effettivamente presenti. NON inventare nulla."
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:${mimeType};base64,${base64File}`,
-                },
-              },
-            ],
-          },
-        ],
+        messages,
       }),
     });
 
