@@ -59,10 +59,10 @@ interface Category {
 }
 
 const statusConfig = {
-  evaluating: { label: "Valutazione", color: "bg-blue-600" },
-  booked: { label: "Prenotato", color: "bg-amber-600" },
-  paid: { label: "Pagato", color: "bg-green-600" },
-  excluded: { label: "Escluso", color: "bg-gray-600" },
+  evaluating: { label: "In valutazione", color: "bg-yellow-600" },
+  booked: { label: "Opzionato", color: "bg-blue-600" },
+  confirmed: { label: "Confermato", color: "bg-green-600" },
+  rejected: { label: "Rifiutato", color: "bg-red-600" },
 };
 
 const Vendors = () => {
@@ -317,11 +317,19 @@ const Vendors = () => {
           category_id: vendor.category_id || null,
         };
         
-        const { error } = await supabase
+        console.log("💾 Inserting vendor:", insertData);
+        
+        const { data: insertedData, error } = await supabase
           .from("vendors")
-          .insert([insertData]);
+          .insert([insertData])
+          .select();
 
-        if (error) throw error;
+        if (error) {
+          console.error("❌ Insert failed:", error);
+          throw error;
+        }
+
+        console.log("✅ Vendor inserted successfully:", insertedData);
 
         toast({
           title: "Fornitore aggiunto",
