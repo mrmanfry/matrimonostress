@@ -166,7 +166,7 @@ export function ExpenseItemDialog({
         });
       }
 
-      onSaved();
+      await onSaved();
       handleClose();
     } catch (error) {
       console.error("Error saving expense item:", error);
