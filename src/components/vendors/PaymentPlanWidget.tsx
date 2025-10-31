@@ -36,9 +36,10 @@ interface PaymentPlanWidgetProps {
   vendorId: string | null;
   expenseItemId: string | null;
   categoryId: string | null;
+  totalInvoice: number;
 }
 
-export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId }: PaymentPlanWidgetProps) {
+export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId, totalInvoice }: PaymentPlanWidgetProps) {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(false);
   const [weddingDate, setWeddingDate] = useState<Date | null>(null);
@@ -251,27 +252,39 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId }: Payme
       return;
     }
 
-    // Validazione in base al tipo di scadenza
-    if (payment.due_date_type === 'absolute' && !payment.due_date) {
+    // Validazione allocazione solo se totalInvoice > 0
+    if (totalInvoice > 0 && isOverAllocated) {
       toast({
-        title: "Data mancante",
-        description: "Seleziona una data di scadenza",
+        title: "Eccedenza rilevata",
+        description: "La somma delle rate supera il totale fattura. Riduci gli importi.",
         variant: "destructive",
       });
       return;
     }
 
-    if (payment.due_date_type === 'days_before' && !payment.days_before_wedding) {
-      toast({
-        title: "Giorni mancanti",
-        description: "Inserisci il numero di giorni prima del matrimonio",
-        variant: "destructive",
-      });
-      return;
+    // Validazione scadenza solo se non pagato
+    if (payment.status !== 'Pagato') {
+      if (payment.due_date_type === 'absolute' && !payment.due_date) {
+        toast({
+          title: "Data mancante",
+          description: "Seleziona una data di scadenza",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (payment.due_date_type === 'days_before' && !payment.days_before_wedding) {
+        toast({
+          title: "Giorni mancanti",
+          description: "Inserisci il numero di giorni prima del matrimonio",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     try {
-      const calculatedDate = calculateDueDate(payment);
+      const calculatedDate = payment.status !== 'Pagato' ? calculateDueDate(payment) : null;
       
       const paymentData = {
         expense_item_id: expenseItemId,
@@ -283,8 +296,8 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId }: Payme
         due_date_type: payment.due_date_type,
         days_before_wedding: payment.due_date_type === 'days_before' ? parseInt(payment.days_before_wedding) : null,
         status: payment.status,
-        tax_rate: payment.tax_rate ? parseFloat(payment.tax_rate) : null,
-        tax_inclusive: payment.tax_inclusive !== false,
+        tax_rate: null, // IVA gestita a livello di testata
+        tax_inclusive: true, // IVA gestita a livello di testata
         paid_by: payment.status === 'Pagato' ? payment.paid_by : null,
         paid_on_date: payment.status === 'Pagato' && payment.paid_on_date 
           ? format(payment.paid_on_date, "yyyy-MM-dd") 
@@ -323,20 +336,23 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId }: Payme
     setPayments(updated);
   };
 
-  const totalAmount = payments.reduce((sum, p) => {
+  // Calcola il totale allocato (somma di tutte le rate)
+  const totalAllocated = payments.reduce((sum, p) => {
     if (p.amount_type === 'fixed' && p.amount) {
-      const baseAmount = parseFloat(p.amount);
-      if (isNaN(baseAmount)) return sum;
-      
-      // Se IVA non inclusa, aggiungi IVA al totale
-      if (!p.tax_inclusive && p.tax_rate) {
-        const taxRate = parseFloat(p.tax_rate) / 100;
-        return sum + baseAmount * (1 + taxRate);
-      }
-      return sum + baseAmount;
+      const amount = parseFloat(p.amount);
+      return isNaN(amount) ? sum : sum + amount;
+    }
+    if (p.amount_type === 'percentage' && p.percentage_value) {
+      const pct = parseFloat(p.percentage_value);
+      if (isNaN(pct)) return sum;
+      return sum + (totalInvoice * pct / 100);
     }
     return sum;
   }, 0);
+
+  const remainingToAllocate = totalInvoice - totalAllocated;
+  const isFullyAllocated = Math.abs(remainingToAllocate) < 0.01;
+  const isOverAllocated = remainingToAllocate < -0.01;
 
   const getCategoryAdvice = async (categoryId: string | null) => {
     if (!categoryId) {
@@ -437,34 +453,49 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId }: Payme
                 </RadioGroup>
               </div>
 
-              {/* Campo Importo o Percentuale */}
+              {/* Campo Importo o Percentuale con Conversione */}
               <div className="grid grid-cols-2 gap-3">
-                {payment.amount_type === 'fixed' ? (
-                  <div className="space-y-2">
-                    <Label>Importo (€) *</Label>
-                    <Input
-                      type="number"
-                      placeholder="2000"
-                      value={payment.amount}
-                      onChange={(e) => updatePayment(index, "amount", e.target.value)}
-                    />
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <Label>Percentuale (%) *</Label>
-                    <div className="relative">
+                <div className="space-y-2">
+                  {payment.amount_type === 'fixed' ? (
+                    <div>
+                      <Label>Importo (€) *</Label>
                       <Input
                         type="number"
+                        step="0.01"
                         min="0"
-                        max="100"
-                        placeholder="50"
-                        value={payment.percentage_value}
-                        onChange={(e) => updatePayment(index, "percentage_value", e.target.value)}
+                        placeholder="2000"
+                        value={payment.amount}
+                        onChange={(e) => updatePayment(index, "amount", e.target.value)}
                       />
-                      <Percent className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                      {totalInvoice > 0 && payment.amount && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          → Corrisponde al {((parseFloat(payment.amount) / totalInvoice) * 100).toFixed(1)}% del totale
+                        </p>
+                      )}
                     </div>
-                  </div>
-                )}
+                  ) : (
+                    <div>
+                      <Label>Percentuale (%) *</Label>
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="100"
+                          placeholder="50"
+                          value={payment.percentage_value}
+                          onChange={(e) => updatePayment(index, "percentage_value", e.target.value)}
+                        />
+                        <Percent className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                      </div>
+                      {totalInvoice > 0 && payment.percentage_value && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          → Corrisponde a € {((parseFloat(payment.percentage_value) / 100) * totalInvoice).toFixed(2)}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
 
                 <div className="space-y-2">
                   <Label>Stato</Label>
@@ -475,53 +506,12 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId }: Payme
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Da Pagare">Da Pagare</SelectItem>
-                    <SelectItem value="Pagato">Pagato</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Sezione IVA */}
-              <div className="space-y-2 p-3 bg-muted/50 rounded-lg">
-                <Label className="text-sm font-medium">Gestione IVA</Label>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id={`tax-inclusive-${index}`}
-                    checked={payment.tax_inclusive !== false}
-                    onCheckedChange={(checked) => 
-                      updatePayment(index, 'tax_inclusive', checked === true)
-                    }
-                  />
-                  <label 
-                    htmlFor={`tax-inclusive-${index}`}
-                    className="text-sm cursor-pointer"
-                  >
-                    IVA inclusa nel prezzo
-                  </label>
+                    <SelectContent>
+                      <SelectItem value="Da Pagare">Da Pagare</SelectItem>
+                      <SelectItem value="Pagato">Pagato</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-                
-                {payment.tax_inclusive === false && (
-                  <div>
-                    <Label htmlFor={`tax-rate-${index}`} className="text-xs">
-                      Aliquota IVA (%)
-                    </Label>
-                    <Input
-                      id={`tax-rate-${index}`}
-                      type="number"
-                      value={payment.tax_rate || '22'}
-                      onChange={(e) => updatePayment(index, 'tax_rate', e.target.value)}
-                      placeholder="22"
-                      className="mt-1"
-                    />
-                    {payment.amount && payment.amount_type === 'fixed' && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        IVA: €{((parseFloat(payment.amount) * (parseFloat(payment.tax_rate || '22') / 100))).toFixed(2)} → 
-                        Totale: €{(parseFloat(payment.amount) * (1 + (parseFloat(payment.tax_rate || '22') / 100))).toFixed(2)}
-                      </p>
-                    )}
-                  </div>
-                )}
               </div>
 
               {/* Campi per "Chi ha pagato" - mostrati solo se status = "Pagato" */}
@@ -594,7 +584,6 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId }: Payme
                   </div>
                 </div>
               )}
-              </div>
 
               {/* Tipo Scadenza - nascosto se già pagato */}
               {payment.status !== 'Pagato' && (
@@ -709,22 +698,57 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId }: Payme
           Aggiungi Rata
         </Button>
 
-        {payments.length > 0 && (
-          <div className="border-t pt-4">
-            <div className="flex justify-between items-center font-semibold text-lg">
-              <span>TOTALE IMPORTI FISSI:</span>
-              <span className="text-primary">
-                {new Intl.NumberFormat("it-IT", {
-                  style: "currency",
-                  currency: "EUR",
-                }).format(totalAmount)}
-              </span>
+        {payments.length > 0 && totalInvoice > 0 && (
+          <div className="border rounded-lg p-4 space-y-3">
+            {/* Indicatore di Allocazione */}
+            <div className={cn(
+              "p-3 rounded-lg border",
+              isFullyAllocated ? "bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-900" :
+              isOverAllocated ? "bg-red-50 border-red-200 dark:bg-red-950/20 dark:border-red-900" :
+              "bg-yellow-50 border-yellow-200 dark:bg-yellow-950/20 dark:border-yellow-900"
+            )}>
+              <div className="flex justify-between items-center">
+                <span className="font-medium">
+                  {isFullyAllocated ? "✓ Completamente Allocato" :
+                   isOverAllocated ? "⚠ ECCEDENZA" :
+                   "IMPORTO DA ALLOCARE"}
+                </span>
+                <span className={cn(
+                  "font-mono font-bold text-lg",
+                  isFullyAllocated ? "text-green-700 dark:text-green-400" :
+                  isOverAllocated ? "text-red-700 dark:text-red-400" :
+                  "text-yellow-700 dark:text-yellow-400"
+                )}>
+                  {isOverAllocated ? "-" : ""}€ {Math.abs(remainingToAllocate).toFixed(2)}
+                </span>
+              </div>
+              {isOverAllocated && (
+                <p className="text-xs text-red-600 dark:text-red-400 mt-2">
+                  La somma delle rate supera il totale fattura. Riduci gli importi prima di salvare.
+                </p>
+              )}
+              {!isFullyAllocated && !isOverAllocated && (
+                <p className="text-xs text-yellow-700 dark:text-yellow-400 mt-2">
+                  Aggiungi altre rate per allocare l'intero importo della fattura.
+                </p>
+              )}
             </div>
-            {payments.some(p => p.amount_type === 'percentage') && (
-              <p className="text-xs text-muted-foreground mt-2">
-                * Il totale non include le rate in percentuale. Saranno calcolate sul totale finale.
-              </p>
-            )}
+
+            {/* Riepilogo */}
+            <div className="grid grid-cols-3 gap-2 text-sm pt-2 border-t">
+              <div>
+                <p className="text-muted-foreground">Totale Fattura</p>
+                <p className="font-mono font-semibold">€ {totalInvoice.toFixed(2)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Allocato</p>
+                <p className="font-mono font-semibold">€ {totalAllocated.toFixed(2)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Rimanente</p>
+                <p className="font-mono font-semibold">€ {remainingToAllocate.toFixed(2)}</p>
+              </div>
+            </div>
           </div>
         )}
 

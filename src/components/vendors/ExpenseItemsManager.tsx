@@ -13,6 +13,9 @@ interface ExpenseItem {
   description: string;
   category_id: string | null;
   vendor_id: string;
+  total_amount: number | null;
+  amount_is_tax_inclusive: boolean;
+  tax_rate: number | null;
 }
 
 interface Payment {

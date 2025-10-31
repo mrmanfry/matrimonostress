@@ -139,28 +139,37 @@ export type Database = {
       }
       expense_items: {
         Row: {
+          amount_is_tax_inclusive: boolean | null
           category_id: string | null
           created_at: string
           description: string
           id: string
+          tax_rate: number | null
+          total_amount: number | null
           updated_at: string
           vendor_id: string | null
           wedding_id: string
         }
         Insert: {
+          amount_is_tax_inclusive?: boolean | null
           category_id?: string | null
           created_at?: string
           description: string
           id?: string
+          tax_rate?: number | null
+          total_amount?: number | null
           updated_at?: string
           vendor_id?: string | null
           wedding_id: string
         }
         Update: {
+          amount_is_tax_inclusive?: boolean | null
           category_id?: string | null
           created_at?: string
           description?: string
           id?: string
+          tax_rate?: number | null
+          total_amount?: number | null
           updated_at?: string
           vendor_id?: string | null
           wedding_id?: string
