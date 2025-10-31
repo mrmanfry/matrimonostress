@@ -99,10 +99,27 @@ const Vendors = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Recupera il wedding_id dall'utente corrente tramite user_roles
+      const { data: userRole } = await supabase
+        .from("user_roles")
+        .select("wedding_id")
+        .eq("user_id", user.id)
+        .single();
+
+      if (!userRole) {
+        toast({
+          title: "Errore",
+          description: "Non sei associato a nessun matrimonio",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Recupera i dati del matrimonio
       const { data: wedding } = await supabase
         .from("weddings")
         .select("id, wedding_date")
-        .eq("created_by", user.id)
+        .eq("id", userRole.wedding_id)
         .single();
 
       if (!wedding) return;
@@ -236,10 +253,19 @@ const Vendors = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Recupera il wedding_id dall'utente corrente tramite user_roles
+      const { data: userRole } = await supabase
+        .from("user_roles")
+        .select("wedding_id")
+        .eq("user_id", user.id)
+        .single();
+
+      if (!userRole) return;
+
       const { data: weddingData } = await supabase
         .from("weddings")
         .select("id")
-        .eq("created_by", user.id)
+        .eq("id", userRole.wedding_id)
         .single();
 
       if (!weddingData) return;
@@ -327,10 +353,19 @@ const Vendors = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Recupera il wedding_id dall'utente corrente tramite user_roles
+      const { data: userRole } = await supabase
+        .from("user_roles")
+        .select("wedding_id")
+        .eq("user_id", user.id)
+        .single();
+
+      if (!userRole) return;
+
       const { data: weddingData } = await supabase
         .from("weddings")
         .select("id")
-        .eq("created_by", user.id)
+        .eq("id", userRole.wedding_id)
         .single();
 
       if (!weddingData) return;
