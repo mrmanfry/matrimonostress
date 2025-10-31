@@ -6,8 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TrendingUp, ArrowRight, Info } from "lucide-react";
+import { TrendingUp, ArrowRight, Info, Filter } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface ExpenseItem {
   id: string;
@@ -34,6 +35,11 @@ export default function BudgetLegacy() {
   const [expenseItems, setExpenseItems] = useState<ExpenseItem[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [totalBudget, setTotalBudget] = useState(0);
+  
+  // Filters
+  const [selectedVendor, setSelectedVendor] = useState<string>("all");
+  const [selectedVendorCategory, setSelectedVendorCategory] = useState<string>("all");
+  const [selectedPaymentStatus, setSelectedPaymentStatus] = useState<string>("all");
 
   useEffect(() => {
     if (authState.status === "authenticated") {
@@ -118,6 +124,57 @@ export default function BudgetLegacy() {
     }).format(value);
   };
 
+  // Get unique vendors and vendor categories for filters
+  const uniqueVendors = Array.from(
+    new Set(
+      expenseItems
+        .filter((item) => item.vendors)
+        .map((item) => JSON.stringify({ id: item.vendor_id, name: item.vendors!.name }))
+    )
+  ).map((str) => JSON.parse(str));
+
+  const uniqueVendorCategories = Array.from(
+    new Set(
+      expenseItems
+        .filter((item) => item.vendors?.expense_categories)
+        .map((item) => item.vendors!.expense_categories!.name)
+    )
+  );
+
+  // Filter expense items
+  const filteredExpenseItems = expenseItems.filter((item) => {
+    // Filter by vendor
+    if (selectedVendor !== "all" && item.vendor_id !== selectedVendor) {
+      return false;
+    }
+
+    // Filter by vendor category
+    if (
+      selectedVendorCategory !== "all" &&
+      item.vendors?.expense_categories?.name !== selectedVendorCategory
+    ) {
+      return false;
+    }
+
+    // Filter by payment status
+    if (selectedPaymentStatus !== "all") {
+      const itemPayments = payments.filter((p) => p.expense_item_id === item.id);
+      if (selectedPaymentStatus === "paid") {
+        // All payments must be paid
+        if (itemPayments.length === 0 || !itemPayments.every((p) => p.status === "Pagato")) {
+          return false;
+        }
+      } else if (selectedPaymentStatus === "pending") {
+        // At least one payment must be pending
+        if (!itemPayments.some((p) => p.status === "Da Pagare")) {
+          return false;
+        }
+      }
+    }
+
+    return true;
+  });
+
   if (loading) {
     return (
       <div className="container mx-auto p-6 space-y-6">
@@ -185,25 +242,95 @@ export default function BudgetLegacy() {
         </Card>
       </div>
 
+      {/* Filters */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Filter className="h-5 w-5" />
+            <CardTitle>Filtri</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Fornitore</label>
+              <Select value={selectedVendor} onValueChange={setSelectedVendor}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Tutti i fornitori" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tutti i fornitori</SelectItem>
+                  {uniqueVendors.map((vendor) => (
+                    <SelectItem key={vendor.id} value={vendor.id}>
+                      {vendor.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Categoria Fornitore</label>
+              <Select value={selectedVendorCategory} onValueChange={setSelectedVendorCategory}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Tutte le categorie" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tutte le categorie</SelectItem>
+                  {uniqueVendorCategories.map((category) => (
+                    <SelectItem key={category} value={category}>
+                      {category}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Stato Pagamenti</label>
+              <Select value={selectedPaymentStatus} onValueChange={setSelectedPaymentStatus}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Tutti gli stati" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tutti gli stati</SelectItem>
+                  <SelectItem value="paid">Completamente Pagato</SelectItem>
+                  <SelectItem value="pending">Con Rate da Pagare</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Expense Items List */}
       <Card>
         <CardHeader>
-          <CardTitle>Elenco Spese</CardTitle>
+          <CardTitle>
+            Elenco Spese
+            {(selectedVendor !== "all" || selectedVendorCategory !== "all" || selectedPaymentStatus !== "all") && (
+              <span className="ml-2 text-sm font-normal text-muted-foreground">
+                ({filteredExpenseItems.length} di {expenseItems.length})
+              </span>
+            )}
+          </CardTitle>
           <CardDescription>
             Questa è una vista semplificata. Per gestire i piani di pagamento, vai su "Fornitori" o consulta "Tesoreria".
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {expenseItems.length === 0 ? (
+          {filteredExpenseItems.length === 0 ? (
             <Alert>
               <Info className="h-4 w-4" />
               <AlertDescription>
-                Nessuna spesa registrata. Vai su "Fornitori" per aggiungere fornitori e definire i loro piani di pagamento.
+                {expenseItems.length === 0
+                  ? "Nessuna spesa registrata. Vai su \"Fornitori\" per aggiungere fornitori e definire i loro piani di pagamento."
+                  : "Nessuna spesa corrisponde ai filtri selezionati."}
               </AlertDescription>
             </Alert>
           ) : (
             <div className="space-y-4">
-              {expenseItems.map((item) => {
+              {filteredExpenseItems.map((item) => {
                 const total = getExpenseTotal(item.id);
                 const paymentsForItem = payments.filter((p) => p.expense_item_id === item.id);
                 const paidCount = paymentsForItem.filter((p) => p.status === "Pagato").length;
