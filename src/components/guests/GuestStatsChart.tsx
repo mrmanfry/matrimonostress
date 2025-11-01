@@ -12,9 +12,9 @@ interface GuestStatsChartProps {
 
 export const GuestStatsChart = ({ stats }: GuestStatsChartProps) => {
   const chartData = [
-    { name: "Confermati", value: stats.confirmed, color: "hsl(var(--chart-2))" },
-    { name: "In Attesa", value: stats.pending, color: "hsl(var(--chart-3))" },
-    { name: "Rifiutati", value: stats.declined, color: "hsl(var(--chart-1))" },
+    { name: "Confermati", value: stats.confirmed, color: "hsl(142.1 76.2% 36.3%)" },
+    { name: "In Attesa", value: stats.pending, color: "hsl(24.6 95% 53.1%)" },
+    { name: "Rifiutati", value: stats.declined, color: "hsl(346.8 77.2% 49.8%)" },
   ].filter(item => item.value > 0);
 
   const hasData = stats.total > 0;
