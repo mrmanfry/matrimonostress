@@ -81,6 +81,34 @@ export default function Treasury() {
     }
   }, [authState]);
 
+  // FR-DB-4.1.B - Intercetta parametri URL per deep linking
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const paymentId = urlParams.get('payment_id');
+    const action = urlParams.get('action');
+    
+    if (paymentId && action === 'pay' && !loading && payments.length > 0) {
+      // Trova il pagamento nella lista
+      const payment = payments.find(p => p.id === paymentId);
+      if (payment) {
+        // Scrolla fino alla tabella
+        const timer = setTimeout(() => {
+          document.getElementById('payments-list')?.scrollIntoView({ 
+            behavior: 'smooth',
+            block: 'start'
+          });
+          
+          // Apri immediatamente il dialog
+          setTimeout(() => {
+            setPaymentToMark(payment);
+          }, 500);
+        }, 300);
+        
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [loading, payments]);
+
   const loadData = async () => {
     if (authState.status !== "authenticated" || !authState.weddingId) return;
     const weddingId = authState.weddingId;

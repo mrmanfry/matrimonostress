@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Heart, Users, Euro, Calendar, CheckSquare, AlertCircle, TrendingUp } from "lucide-react";
+import { Heart, Users, Euro, Calendar, CheckSquare, AlertCircle, TrendingUp, ExternalLink } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from "recharts";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
@@ -144,9 +144,14 @@ const Dashboard = () => {
         tasksTotal: tasks.length,
         tasksCompleted: tasks.filter(t => t.status === 'completed').length,
         urgentPayments: payments.filter(p => {
-          if (p.status === 'paid') return false;
-          const daysUntil = Math.ceil((new Date(p.due_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-          return daysUntil <= 7;
+          // FR-DB-2.0: Escludere pagamenti già completati
+          if (p.status === 'Pagato') return false;
+          const dueDate = new Date(p.due_date);
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const daysUntil = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+          // Solo pagamenti futuri entro 7 giorni
+          return daysUntil >= 0 && daysUntil <= 7;
         }).slice(0, 3),
         urgentTasks: tasks.filter(t => {
           if (t.status === 'completed' || !t.due_date) return false;
@@ -430,14 +435,35 @@ const Dashboard = () => {
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <div className="text-sm text-muted-foreground">Ancora da Pagare</div>
+              {/* FR-DB-3.3 - Ancora da Pagare -> Treasury */}
+              <div 
+                className="space-y-1 cursor-pointer hover:bg-muted/50 p-2 rounded transition-colors group"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate("/app/treasury");
+                }}
+              >
+                <div className="text-sm text-muted-foreground flex items-center gap-1">
+                  Ancora da Pagare
+                  <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
                 <div className="text-xl font-bold text-orange-600">
                   €{Math.round(stats.budgetToBePaid).toLocaleString("it-IT")}
                 </div>
               </div>
-              <div className="space-y-1">
-                <div className="text-sm text-muted-foreground">Liquidità Rimanente</div>
+              
+              {/* FR-DB-3.2 - Liquidità Rimanente -> Budget */}
+              <div 
+                className="space-y-1 cursor-pointer hover:bg-muted/50 p-2 rounded transition-colors group"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate("/app/budget");
+                }}
+              >
+                <div className="text-sm text-muted-foreground flex items-center gap-1">
+                  Liquidità Rimanente
+                  <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
                 <div className="text-xl font-bold text-green-600">
                   €{Math.round(stats.budgetRemaining).toLocaleString("it-IT")}
                 </div>
@@ -469,15 +495,23 @@ const Dashboard = () => {
                     return (
                       <li 
                         key={payment.id} 
-                        className="text-sm flex items-start justify-between p-2 rounded hover:bg-muted/50 cursor-pointer transition-colors"
-                        onClick={() => navigate("/app/budget")}
+                        className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer group"
+                        onClick={() => navigate(`/app/treasury?payment_id=${payment.id}&action=pay`)}
                       >
-                        <span className="flex-1">
-                          {payment.description} - €{payment.amount.toLocaleString("it-IT")}
-                        </span>
-                        <Badge variant={daysUntil < 0 ? "destructive" : "secondary"} className="ml-2">
-                          {daysUntil < 0 ? "Scaduto" : `${daysUntil}g`}
-                        </Badge>
+                        <div className="flex-1">
+                          <div className="font-medium text-sm group-hover:text-accent transition-colors">
+                            {payment.description}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            Scade tra {daysUntil} {daysUntil === 1 ? 'giorno' : 'giorni'}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="font-bold text-sm">
+                            €{Math.round(payment.amount).toLocaleString("it-IT")}
+                          </div>
+                          <ExternalLink className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
                       </li>
                     );
                   })}
@@ -495,58 +529,32 @@ const Dashboard = () => {
                 <p className="text-sm text-muted-foreground">Nessuna scadenza urgente</p>
               ) : (
                 <ul className="space-y-2">
-                  {stats.urgentTasks.map((task: any) => (
-                    <li 
-                      key={task.id}
-                      className="text-sm flex items-start justify-between p-2 rounded hover:bg-muted/50 cursor-pointer transition-colors"
-                      onClick={() => navigate("/app/checklist")}
-                    >
-                      <span className="flex-1">{task.title}</span>
-                      <span className="text-muted-foreground ml-2">
-                        {new Date(task.due_date).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" })}
-                      </span>
-                    </li>
-                  ))}
+                  {stats.urgentTasks.map((task: any) => {
+                    const daysUntil = Math.ceil((new Date(task.due_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                    return (
+                      <li 
+                        key={task.id}
+                        className="flex items-start justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer group"
+                        onClick={() => navigate(`/app/checklist?task_id=${task.id}`)}
+                      >
+                        <div className="flex-1">
+                          <div className="font-medium text-sm group-hover:text-accent transition-colors">
+                            {task.title}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            Scade tra {daysUntil} {daysUntil === 1 ? 'giorno' : 'giorni'}
+                          </div>
+                        </div>
+                        <ExternalLink className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </div>
           </div>
         </Card>
 
-        {/* Widget 4: Riepilogo Checklist */}
-        <Card 
-          className="p-6 hover:shadow-elegant transition-all cursor-pointer"
-          onClick={() => navigate("/app/checklist")}
-        >
-          <div className="flex items-center gap-2 mb-4">
-            <TrendingUp className="w-6 h-6 text-accent" />
-            <h3 className="text-xl font-semibold">Progresso Organizzazione</h3>
-          </div>
-
-          <div className="space-y-4">
-            <div className="text-center">
-              <div className="text-5xl font-bold text-accent">
-                {stats.tasksTotal > 0 
-                  ? `${Math.round((stats.tasksCompleted / stats.tasksTotal) * 100)}%`
-                  : "0%"}
-              </div>
-              <p className="text-sm text-muted-foreground mt-2">Completamento Generale</p>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex justify-between items-center p-3 rounded bg-green-50 dark:bg-green-950/20">
-                <span className="text-sm font-medium">Completati</span>
-                <span className="text-lg font-bold text-green-600">{stats.tasksCompleted}</span>
-              </div>
-              <div className="flex justify-between items-center p-3 rounded bg-blue-50 dark:bg-blue-950/20">
-                <span className="text-sm font-medium">In Sospeso</span>
-                <span className="text-lg font-bold text-blue-600">
-                  {stats.tasksTotal - stats.tasksCompleted}
-                </span>
-              </div>
-            </div>
-          </div>
-        </Card>
       </div>
     </div>
   );

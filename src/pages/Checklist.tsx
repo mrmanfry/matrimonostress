@@ -53,6 +53,35 @@ const Checklist = () => {
     loadData();
   }, []);
 
+  // FR-DB-4.2.B - Intercetta parametri URL per deep linking
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const taskId = urlParams.get('task_id');
+    
+    if (taskId && !loading && tasks.length > 0) {
+      const timer = setTimeout(() => {
+        const taskElement = document.getElementById(`task-${taskId}`);
+        if (taskElement) {
+          taskElement.scrollIntoView({ 
+            behavior: 'smooth',
+            block: 'center'
+          });
+          
+          // Highlight animato (flash giallo)
+          taskElement.classList.add('animate-pulse', 'bg-yellow-100', 'dark:bg-yellow-900/20');
+          setTimeout(() => {
+            taskElement.classList.remove('animate-pulse', 'bg-yellow-100', 'dark:bg-yellow-900/20');
+          }, 2000);
+          
+          // Espandi automaticamente
+          setExpandedTask(taskId);
+        }
+      }, 300);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [loading, tasks]);
+
   useEffect(() => {
     applyFilters();
   }, [tasks, filterStatus, searchQuery]);
@@ -292,6 +321,7 @@ const Checklist = () => {
           filteredTasks.map((task) => (
             <Card
               key={task.id}
+              id={`task-${task.id}`}
               className={`p-4 transition-all ${
                 task.status === "completed" ? "opacity-60" : ""
               }`}
