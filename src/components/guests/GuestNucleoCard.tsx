@@ -2,7 +2,9 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Users, Phone, Edit, Send, Baby } from "lucide-react";
+import { Users, Phone, Edit, Send, Baby, Edit2 } from "lucide-react";
+import { useState } from "react";
+import { GuestEditDialog } from "./GuestEditDialog";
 
 interface Guest {
   id: string;
@@ -26,6 +28,7 @@ interface GuestNucleoCardProps {
   onToggleSelect: (partyId: string) => void;
   onEdit: (party: InviteParty) => void;
   onSendRSVP: (party: InviteParty) => void;
+  onGuestUpdate?: () => void;
 }
 
 export const GuestNucleoCard = ({
@@ -34,7 +37,19 @@ export const GuestNucleoCard = ({
   onToggleSelect,
   onEdit,
   onSendRSVP,
+  onGuestUpdate,
 }: GuestNucleoCardProps) => {
+  const [editingGuest, setEditingGuest] = useState<Guest | null>(null);
+  const [guestEditDialogOpen, setGuestEditDialogOpen] = useState(false);
+
+  const handleEditGuest = (guest: Guest) => {
+    setEditingGuest(guest);
+    setGuestEditDialogOpen(true);
+  };
+
+  const handleGuestUpdateSuccess = () => {
+    onGuestUpdate?.();
+  };
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'Confermato':
@@ -118,16 +133,28 @@ export const GuestNucleoCard = ({
             <h4 className="text-xs font-medium text-muted-foreground mb-2">👥 Membri:</h4>
             <div className="space-y-1 pl-3">
               {adults.map(guest => (
-                <div key={guest.id} className="flex items-center justify-between text-sm">
+                <div key={guest.id} className="flex items-center justify-between text-sm group">
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     <span className="truncate">{guest.first_name} {guest.last_name}</span>
-                    {guest.phone && (
+                    {guest.phone ? (
                       <span className="text-muted-foreground text-xs truncate">
                         ({guest.phone})
                       </span>
+                    ) : (
+                      <span className="text-orange-600 text-xs">(nessun numero)</span>
                     )}
                   </div>
-                  {getSendStatusIcon(guest.rsvp_send_status)}
+                  <div className="flex items-center gap-1">
+                    {getSendStatusIcon(guest.rsvp_send_status)}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => handleEditGuest(guest)}
+                    >
+                      <Edit2 className="w-3 h-3" />
+                    </Button>
+                  </div>
                 </div>
               ))}
               {children.length > 0 && (
@@ -137,11 +164,21 @@ export const GuestNucleoCard = ({
                     Bambini:
                   </div>
                   {children.map(guest => (
-                    <div key={guest.id} className="flex items-center justify-between text-sm pl-2">
+                    <div key={guest.id} className="flex items-center justify-between text-sm pl-2 group">
                       <span className="text-muted-foreground truncate">
                         {guest.first_name} {guest.last_name}
                       </span>
-                      {getSendStatusIcon(guest.rsvp_send_status)}
+                      <div className="flex items-center gap-1">
+                        {getSendStatusIcon(guest.rsvp_send_status)}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => handleEditGuest(guest)}
+                        >
+                          <Edit2 className="w-3 h-3" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </>
@@ -165,6 +202,14 @@ export const GuestNucleoCard = ({
           )}
         </div>
       </div>
+
+      {/* Guest Edit Dialog */}
+      <GuestEditDialog
+        open={guestEditDialogOpen}
+        onOpenChange={setGuestEditDialogOpen}
+        guest={editingGuest}
+        onSuccess={handleGuestUpdateSuccess}
+      />
     </Card>
   );
 };

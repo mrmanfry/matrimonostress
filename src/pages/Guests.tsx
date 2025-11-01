@@ -754,6 +754,7 @@ const Guests = () => {
                       onToggleSelect={togglePartySelection}
                       onEdit={handleEditParty}
                       onSendRSVP={handleSendRSVP}
+                      onGuestUpdate={loadData}
                     />
                   );
                 } else {
