@@ -76,10 +76,26 @@ export function MarkPaymentDialog({
       const newAllocations = { ...allocations };
       delete newAllocations[contributorId];
       setAllocations(newAllocations);
+      setSelectedContributors(newSelected);
     } else {
       newSelected.add(contributorId);
+      setSelectedContributors(newSelected);
+      
+      // Auto-divide quando aggiungi un contributore
+      if (newSelected.size > 1) {
+        const amountPerContributor = totalAmount / newSelected.size;
+        const newAllocations: Record<string, number> = {};
+        
+        newSelected.forEach((id) => {
+          newAllocations[id] = parseFloat(amountPerContributor.toFixed(2));
+        });
+        
+        setAllocations(newAllocations);
+      } else {
+        // Se c'è solo 1 contributore, assegna tutto l'importo
+        setAllocations({ [contributorId]: totalAmount });
+      }
     }
-    setSelectedContributors(newSelected);
   };
 
   const handleAmountChange = (contributorId: string, value: string) => {
@@ -117,6 +133,9 @@ export function MarkPaymentDialog({
   const isValid = () => {
     if (selectedContributors.size === 0) return false;
     
+    // Se c'è solo 1 contributore, è sempre valido
+    if (selectedContributors.size === 1) return true;
+    
     const total = calculateTotal();
     const difference = Math.abs(total - totalAmount);
     
@@ -141,12 +160,15 @@ export function MarkPaymentDialog({
       if (paymentError) throw paymentError;
 
       // Create allocation records
-      const allocationRecords = Array.from(selectedContributors).map((contributorId) => ({
-        payment_id: payment.id,
-        contributor_id: contributorId,
-        amount: allocations[contributorId],
-        percentage: (allocations[contributorId] / totalAmount) * 100,
-      }));
+      const allocationRecords = Array.from(selectedContributors).map((contributorId) => {
+        const amount = selectedContributors.size === 1 ? totalAmount : (allocations[contributorId] || 0);
+        return {
+          payment_id: payment.id,
+          contributor_id: contributorId,
+          amount: amount,
+          percentage: (amount / totalAmount) * 100,
+        };
+      });
 
       const { error: allocError } = await supabase
         .from("payment_allocations")
@@ -211,8 +233,8 @@ export function MarkPaymentDialog({
             </div>
           </div>
 
-          {/* Auto-divide Button */}
-          {selectedContributors.size > 0 && (
+          {/* Auto-divide Button - mostrato solo se più di 1 contributore */}
+          {selectedContributors.size > 1 && (
             <Button
               variant="outline"
               className="w-full"
@@ -265,7 +287,7 @@ export function MarkPaymentDialog({
                             )}
                           </label>
                           
-                          {isSelected && (
+                          {isSelected && selectedContributors.size > 1 && (
                             <div className="flex items-center gap-2">
                               <Label htmlFor={`amount-${contributor.id}`} className="text-xs">
                                 Importo
@@ -293,8 +315,8 @@ export function MarkPaymentDialog({
             )}
           </div>
 
-          {/* Validation Summary */}
-          {selectedContributors.size > 0 && (
+          {/* Validation Summary - mostrato solo se più di 1 contributore */}
+          {selectedContributors.size > 1 && (
             <div className="rounded-lg border p-4 space-y-2">
               <div className="flex justify-between text-sm">
                 <span>Totale Assegnato</span>
@@ -318,7 +340,7 @@ export function MarkPaymentDialog({
             </div>
           )}
 
-          {!isValidAmount && selectedContributors.size > 0 && (
+          {!isValidAmount && selectedContributors.size > 1 && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
