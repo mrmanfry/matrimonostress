@@ -116,11 +116,12 @@ export const GuestNucleoCard = ({
             <div className="flex gap-1 flex-shrink-0">
               <Button
                 variant="ghost"
-                size="icon"
-                className="h-8 w-8"
+                size="sm"
+                className="h-8 gap-1.5"
                 onClick={() => onEdit(party)}
               >
-                <Edit className="w-4 h-4" />
+                <Edit className="w-3.5 h-3.5" />
+                <span className="text-xs">Modifica Nucleo</span>
               </Button>
             </div>
           </div>
