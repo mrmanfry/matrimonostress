@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Users } from "lucide-react";
+import { Users, Search } from "lucide-react";
 
 interface Guest {
   id: string;
@@ -39,6 +39,7 @@ export const PartyDialog = ({
   const [partyName, setPartyName] = useState("");
   const [selectedGuestIds, setSelectedGuestIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     if (open && party) {
@@ -48,6 +49,7 @@ export const PartyDialog = ({
       setPartyName("");
       setSelectedGuestIds([]);
     }
+    setSearchQuery("");
   }, [open, party]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -75,6 +77,15 @@ export const PartyDialog = ({
     );
   };
 
+  const filteredGuests = availableGuests.filter(guest => {
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      guest.first_name.toLowerCase().includes(query) ||
+      guest.last_name.toLowerCase().includes(query)
+    );
+  });
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh]">
@@ -99,16 +110,32 @@ export const PartyDialog = ({
           </div>
 
           {/* Guest Selection */}
-          <div className="space-y-2">
+          <div className="space-y-3">
             <Label>Seleziona Membri ({selectedGuestIds.length} selezionati) *</Label>
+            
+            {/* Search Field */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="🔍 Cerca invitati..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+
             <ScrollArea className="h-[300px] border rounded-md p-4">
               <div className="space-y-2">
                 {availableGuests.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-4">
                     Nessun invitato disponibile. Tutti gli invitati sono già assegnati a un nucleo.
                   </p>
+                ) : filteredGuests.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    Nessun invitato trovato con "{searchQuery}"
+                  </p>
                 ) : (
-                  availableGuests.map(guest => (
+                  filteredGuests.map(guest => (
                     <div
                       key={guest.id}
                       className="flex items-center space-x-2 p-2 hover:bg-muted rounded transition-colors"
