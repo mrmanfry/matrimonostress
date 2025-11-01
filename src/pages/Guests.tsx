@@ -774,12 +774,14 @@ const Guests = () => {
             </div>
           )}
 
-          {/* Selection Toolbar */}
-          <SelectionToolbar
-            selectedCount={selectedGuestIds.size + selectedPartyIds.size}
-            onCreateParty={handleCreatePartyFromSelection}
-            onClearSelection={clearSelection}
-          />
+          {/* Selection Toolbar - Solo per invitati singoli */}
+          {selectedGuestIds.size > 0 && (
+            <SelectionToolbar
+              selectedCount={selectedGuestIds.size}
+              onCreateParty={handleCreatePartyFromSelection}
+              onClearSelection={clearSelection}
+            />
+          )}
         </>
       )}
 
