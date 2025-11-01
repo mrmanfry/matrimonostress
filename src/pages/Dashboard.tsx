@@ -21,6 +21,8 @@ interface Wedding {
 
 interface DashboardStats {
   guestsTotal: number;
+  adultsTotal: number;
+  childrenTotal: number;
   guestsConfirmed: number;
   adultsConfirmed: number;
   childrenConfirmed: number;
@@ -124,6 +126,8 @@ const Dashboard = () => {
       const guestsConfirmed = guests.filter(g => g.rsvp_status === 'confirmed');
       const totalAdultsConfirmed = guestsConfirmed.reduce((sum, g) => sum + (g.adults_count || 0), 0);
       const totalChildrenConfirmed = guestsConfirmed.reduce((sum, g) => sum + (g.children_count || 0), 0);
+      const totalAdults = guests.reduce((sum, g) => sum + (g.adults_count || 0), 0);
+      const totalChildren = guests.reduce((sum, g) => sum + (g.children_count || 0), 0);
 
       const totalCommitment = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
       const totalPaid = payments.filter(p => p.status === 'Pagato').reduce((sum, p) => sum + Number(p.amount), 0);
@@ -131,6 +135,8 @@ const Dashboard = () => {
 
       setStats({
         guestsTotal: guests.reduce((sum, g) => sum + (g.adults_count || 0) + (g.children_count || 0), 0),
+        adultsTotal: totalAdults,
+        childrenTotal: totalChildren,
         guestsConfirmed: totalAdultsConfirmed + totalChildrenConfirmed,
         adultsConfirmed: totalAdultsConfirmed,
         childrenConfirmed: totalChildrenConfirmed,
@@ -361,44 +367,60 @@ const Dashboard = () => {
             <h3 className="text-xl font-semibold">Riepilogo Invitati</h3>
           </div>
 
-          <div className="flex flex-col lg:flex-row items-center gap-6">
-            <div className="w-full lg:w-1/2 h-[200px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={rsvpChartData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {rsvpChartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Legend verticalAlign="bottom" height={36} />
-                </PieChart>
-              </ResponsiveContainer>
+          <div className="space-y-6">
+            {/* Numeri Principali */}
+            <div className="text-center">
+              <div className="text-5xl font-bold text-accent mb-2">
+                {stats.guestsTotal}
+              </div>
+              <div className="text-sm text-muted-foreground mb-4">Invitati Totali</div>
+              
+              <div className="grid grid-cols-2 gap-3 max-w-xs mx-auto">
+                <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20">
+                  <div className="text-2xl font-bold text-blue-600">
+                    {stats.adultsTotal}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Adulti</div>
+                </div>
+                <div className="p-3 rounded-lg bg-purple-50 dark:bg-purple-950/20">
+                  <div className="text-2xl font-bold text-purple-600">
+                    {stats.childrenTotal}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Bambini</div>
+                </div>
+              </div>
             </div>
 
-            <div className="flex-1 space-y-3">
-              <div className="text-center lg:text-left">
-                <div className="text-4xl font-bold text-accent">
-                  {stats.guestsConfirmed}
-                </div>
-                <div className="text-sm text-muted-foreground">Posti Confermati</div>
-              </div>
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div className="text-center p-2 rounded bg-muted/30">
-                  <div className="font-bold">{stats.adultsConfirmed}</div>
-                  <div className="text-muted-foreground">Adulti</div>
-                </div>
-                <div className="text-center p-2 rounded bg-muted/30">
-                  <div className="font-bold">{stats.childrenConfirmed}</div>
-                  <div className="text-muted-foreground">Bambini</div>
-                </div>
+            {/* Stato RSVP - Grafico */}
+            <div>
+              <h4 className="text-sm font-semibold mb-3 text-center">Stato Conferme</h4>
+              <div className="h-[180px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={rsvpChartData}
+                      cx="50%"
+                      cy="45%"
+                      innerRadius={50}
+                      outerRadius={70}
+                      paddingAngle={3}
+                      dataKey="value"
+                    >
+                      {rsvpChartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Legend 
+                      verticalAlign="bottom" 
+                      height={40}
+                      formatter={(value, entry: any) => (
+                        <span className="text-xs">
+                          {value}: <strong>{entry.payload.value}</strong>
+                        </span>
+                      )}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
             </div>
           </div>
