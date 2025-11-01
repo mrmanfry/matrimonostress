@@ -5,12 +5,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { UserPlus, Trash2, Users, Shield, Plus, Link2 } from "lucide-react";
+import { UserPlus, Trash2, Users, Shield, Plus, Link2, Calendar, DollarSign, Heart } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { z } from "zod";
 
 const emailSchema = z.string().trim().email("Email non valida").max(255);
+
+const weddingDataSchema = z.object({
+  partner1_name: z.string().trim().min(1, "Nome obbligatorio").max(100, "Massimo 100 caratteri"),
+  partner2_name: z.string().trim().min(1, "Nome obbligatorio").max(100, "Massimo 100 caratteri"),
+  wedding_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data non valida"),
+  total_budget: z.number().min(0, "Il budget deve essere positivo").optional(),
+});
 
 interface UserRole {
   id: string;
@@ -43,6 +50,15 @@ const Settings = () => {
   const [newContributorTarget, setNewContributorTarget] = useState("");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [roleToDelete, setRoleToDelete] = useState<string | null>(null);
+  
+  // Wedding data edit states
+  const [editMode, setEditMode] = useState(false);
+  const [editedPartner1, setEditedPartner1] = useState("");
+  const [editedPartner2, setEditedPartner2] = useState("");
+  const [editedDate, setEditedDate] = useState("");
+  const [editedBudget, setEditedBudget] = useState("");
+  const [savingWeddingData, setSavingWeddingData] = useState(false);
+  
   const { toast } = useToast();
 
   useEffect(() => {
@@ -65,6 +81,12 @@ const Settings = () => {
 
       if (!weddingData) return;
       setWedding(weddingData);
+      
+      // Initialize edit states
+      setEditedPartner1(weddingData.partner1_name || "");
+      setEditedPartner2(weddingData.partner2_name || "");
+      setEditedDate(weddingData.wedding_date || "");
+      setEditedBudget(weddingData.total_budget?.toString() || "");
 
       // Load roles
       const { data: rolesData } = await supabase
@@ -445,6 +467,67 @@ const Settings = () => {
     }
   };
 
+  const handleSaveWeddingData = async () => {
+    if (!wedding) return;
+    
+    setSavingWeddingData(true);
+    try {
+      // Parse and validate
+      const budgetValue = editedBudget.trim() 
+        ? parseFloat(editedBudget.replace(/[^0-9.,]/g, '').replace(',', '.'))
+        : undefined;
+
+      const validationResult = weddingDataSchema.safeParse({
+        partner1_name: editedPartner1,
+        partner2_name: editedPartner2,
+        wedding_date: editedDate,
+        total_budget: budgetValue,
+      });
+
+      if (!validationResult.success) {
+        const firstError = validationResult.error.errors[0];
+        throw new Error(firstError.message);
+      }
+
+      // Update wedding data
+      const { error } = await supabase
+        .from("weddings")
+        .update({
+          partner1_name: editedPartner1,
+          partner2_name: editedPartner2,
+          wedding_date: editedDate,
+          total_budget: budgetValue,
+        })
+        .eq("id", wedding.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Dati aggiornati",
+        description: "I dati del matrimonio sono stati aggiornati con successo",
+      });
+
+      setEditMode(false);
+      loadData();
+    } catch (error: any) {
+      toast({
+        title: "Errore",
+        description: error.message || "Impossibile salvare le modifiche",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingWeddingData(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditMode(false);
+    setEditedPartner1(wedding?.partner1_name || "");
+    setEditedPartner2(wedding?.partner2_name || "");
+    setEditedDate(wedding?.wedding_date || "");
+    setEditedBudget(wedding?.total_budget?.toString() || "");
+  };
+
   if (!wedding) {
     return (
       <div className="p-4 lg:p-8">
@@ -456,11 +539,143 @@ const Settings = () => {
   return (
     <div className="p-4 lg:p-8 max-w-4xl mx-auto space-y-8">
       <div>
-        <h1 className="text-3xl font-bold mb-2">Collaboratori</h1>
+        <h1 className="text-3xl font-bold mb-2">Impostazioni</h1>
         <p className="text-muted-foreground">
-          Gestisci chi ha accesso al tuo matrimonio
+          Gestisci i dati del matrimonio e i collaboratori
         </p>
       </div>
+
+      {/* Wedding Data Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Heart className="w-5 h-5 text-rose-500" />
+            Dati del Matrimonio
+          </CardTitle>
+          <CardDescription>
+            Modifica i dati principali del tuo matrimonio
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {!editMode ? (
+            // View Mode
+            <>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label className="text-sm text-muted-foreground">Nome Sposo/a 1</Label>
+                  <p className="text-lg font-medium">{wedding.partner1_name}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm text-muted-foreground">Nome Sposo/a 2</Label>
+                  <p className="text-lg font-medium">{wedding.partner2_name}</p>
+                </div>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label className="text-sm text-muted-foreground flex items-center gap-2">
+                    <Calendar className="w-4 h-4" />
+                    Data del Matrimonio
+                  </Label>
+                  <p className="text-lg font-medium">
+                    {new Date(wedding.wedding_date).toLocaleDateString("it-IT", {
+                      day: "numeric",
+                      month: "long",
+                      year: "numeric",
+                    })}
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm text-muted-foreground flex items-center gap-2">
+                    <DollarSign className="w-4 h-4" />
+                    Budget Totale Prefissato
+                  </Label>
+                  <p className="text-lg font-medium">
+                    {wedding.total_budget 
+                      ? new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(wedding.total_budget)
+                      : "Non impostato"}
+                  </p>
+                </div>
+              </div>
+              <Button onClick={() => setEditMode(true)} variant="outline" className="w-full md:w-auto">
+                Modifica Dati
+              </Button>
+            </>
+          ) : (
+            // Edit Mode
+            <>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="partner1">Nome Sposo/a 1 *</Label>
+                  <Input
+                    id="partner1"
+                    value={editedPartner1}
+                    onChange={(e) => setEditedPartner1(e.target.value)}
+                    placeholder="Es: Mario"
+                    maxLength={100}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="partner2">Nome Sposo/a 2 *</Label>
+                  <Input
+                    id="partner2"
+                    value={editedPartner2}
+                    onChange={(e) => setEditedPartner2(e.target.value)}
+                    placeholder="Es: Laura"
+                    maxLength={100}
+                    required
+                  />
+                </div>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="wedding_date" className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4" />
+                    Data del Matrimonio *
+                  </Label>
+                  <Input
+                    id="wedding_date"
+                    type="date"
+                    value={editedDate}
+                    onChange={(e) => setEditedDate(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="total_budget" className="flex items-center gap-2">
+                    <DollarSign className="w-4 h-4" />
+                    Budget Totale (€)
+                  </Label>
+                  <Input
+                    id="total_budget"
+                    type="text"
+                    value={editedBudget}
+                    onChange={(e) => setEditedBudget(e.target.value)}
+                    placeholder="Es: 35000"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                <Button 
+                  onClick={handleSaveWeddingData} 
+                  disabled={savingWeddingData}
+                  className="flex-1 md:flex-initial"
+                >
+                  {savingWeddingData ? "Salvataggio..." : "Salva Modifiche"}
+                </Button>
+                <Button 
+                  onClick={handleCancelEdit} 
+                  variant="outline"
+                  disabled={savingWeddingData}
+                  className="flex-1 md:flex-initial"
+                >
+                  Annulla
+                </Button>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Codice di Accesso */}
       <Card>
