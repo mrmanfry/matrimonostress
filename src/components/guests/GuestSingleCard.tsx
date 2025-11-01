@@ -3,6 +3,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Phone, Edit, UserPlus, Baby } from "lucide-react";
+import { useState } from "react";
+import { GuestEditDialog } from "./GuestEditDialog";
 
 interface Guest {
   id: string;
@@ -19,6 +21,7 @@ interface GuestSingleCardProps {
   onToggleSelect: (guestId: string) => void;
   onEdit: (guestId: string) => void;
   onAddToParty: (guestId: string) => void;
+  onGuestUpdate?: () => void;
 }
 
 export const GuestSingleCard = ({
@@ -27,8 +30,19 @@ export const GuestSingleCard = ({
   onToggleSelect,
   onEdit,
   onAddToParty,
+  onGuestUpdate,
 }: GuestSingleCardProps) => {
+  const [guestEditDialogOpen, setGuestEditDialogOpen] = useState(false);
+  
   const displayName = `${guest.first_name} ${guest.last_name}`;
+
+  const handleEditClick = () => {
+    setGuestEditDialogOpen(true);
+  };
+
+  const handleGuestUpdateSuccess = () => {
+    onGuestUpdate?.();
+  };
 
   return (
     <Card className={`p-4 hover:shadow-md transition-all ${selected ? 'ring-2 ring-primary' : ''}`}>
@@ -66,7 +80,8 @@ export const GuestSingleCard = ({
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8"
-                onClick={() => onEdit(guest.id)}
+                onClick={handleEditClick}
+                title="Modifica dettagli invitato"
               >
                 <Edit className="w-4 h-4" />
               </Button>
@@ -75,6 +90,7 @@ export const GuestSingleCard = ({
                 size="icon"
                 className="h-8 w-8"
                 onClick={() => onAddToParty(guest.id)}
+                title="Aggiungi a nucleo"
               >
                 <UserPlus className="w-4 h-4" />
               </Button>
@@ -102,6 +118,14 @@ export const GuestSingleCard = ({
           </div>
         </div>
       </div>
+
+      {/* Guest Edit Dialog */}
+      <GuestEditDialog
+        open={guestEditDialogOpen}
+        onOpenChange={setGuestEditDialogOpen}
+        guest={guest}
+        onSuccess={handleGuestUpdateSuccess}
+      />
     </Card>
   );
 };

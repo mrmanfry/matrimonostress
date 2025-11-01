@@ -841,6 +841,7 @@ const Guests = () => {
                       onToggleSelect={toggleGuestSelection}
                       onEdit={handleEditGuest}
                       onAddToParty={handleAddGuestToParty}
+                      onGuestUpdate={loadData}
                     />
                   );
                 }
