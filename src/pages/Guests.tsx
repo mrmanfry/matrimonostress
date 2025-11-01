@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/contexts/AuthContext";
@@ -746,52 +747,64 @@ const Guests = () => {
               </Button>
             </div>
 
-            {/* Seconda riga di filtri */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              <Select value={groupingFilter} onValueChange={setGroupingFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Raggruppamento" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tutti</SelectItem>
-                  <SelectItem value="grouped">Solo Raggruppati</SelectItem>
-                  <SelectItem value="singles">Solo Singoli</SelectItem>
-                </SelectContent>
-              </Select>
+            {/* Seconda riga di filtri con label */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Tipo Gruppo</Label>
+                <Select value={groupingFilter} onValueChange={setGroupingFilter}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tutti</SelectItem>
+                    <SelectItem value="grouped">Solo Raggruppati</SelectItem>
+                    <SelectItem value="singles">Solo Singoli</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Stato RSVP" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tutti gli stati</SelectItem>
-                  <SelectItem value="In attesa">In attesa</SelectItem>
-                  <SelectItem value="Confermato">Confermato</SelectItem>
-                  <SelectItem value="Rifiutato">Rifiutato</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Stato RSVP</Label>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tutti gli stati</SelectItem>
+                    <SelectItem value="In attesa">In attesa</SelectItem>
+                    <SelectItem value="Confermato">Confermato</SelectItem>
+                    <SelectItem value="Rifiutato">Rifiutato</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-              <Select value={contactFilter} onValueChange={setContactFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Contatto" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tutti</SelectItem>
-                  <SelectItem value="with_phone">Con numero</SelectItem>
-                  <SelectItem value="without_phone">Senza numero</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Numero Telefono</Label>
+                <Select value={contactFilter} onValueChange={setContactFilter}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tutti</SelectItem>
+                    <SelectItem value="with_phone">Con numero</SelectItem>
+                    <SelectItem value="without_phone">Senza numero</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-              <Select value={ageFilter} onValueChange={setAgeFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Età" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tutti</SelectItem>
-                  <SelectItem value="adults">Solo Adulti</SelectItem>
-                  <SelectItem value="children">Solo Bambini</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Tipo Invitato</Label>
+                <Select value={ageFilter} onValueChange={setAgeFilter}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tutti</SelectItem>
+                    <SelectItem value="adults">Solo Adulti</SelectItem>
+                    <SelectItem value="children">Solo Bambini</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
 
