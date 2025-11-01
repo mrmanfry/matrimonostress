@@ -200,6 +200,7 @@ export type Database = {
       }
       financial_contributors: {
         Row: {
+          contribution_target: number | null
           created_at: string
           id: string
           is_default: boolean
@@ -209,6 +210,7 @@ export type Database = {
           wedding_id: string
         }
         Insert: {
+          contribution_target?: number | null
           created_at?: string
           id?: string
           is_default?: boolean
@@ -218,6 +220,7 @@ export type Database = {
           wedding_id: string
         }
         Update: {
+          contribution_target?: number | null
           created_at?: string
           id?: string
           is_default?: boolean
@@ -358,6 +361,48 @@ export type Database = {
             columns: ["wedding_id"]
             isOneToOne: false
             referencedRelation: "weddings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_allocations: {
+        Row: {
+          amount: number
+          contributor_id: string
+          created_at: string
+          id: string
+          payment_id: string
+          percentage: number | null
+        }
+        Insert: {
+          amount: number
+          contributor_id: string
+          created_at?: string
+          id?: string
+          payment_id: string
+          percentage?: number | null
+        }
+        Update: {
+          amount?: number
+          contributor_id?: string
+          created_at?: string
+          id?: string
+          payment_id?: string
+          percentage?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_allocations_contributor_id_fkey"
+            columns: ["contributor_id"]
+            isOneToOne: false
+            referencedRelation: "financial_contributors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_allocations_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
             referencedColumns: ["id"]
           },
         ]

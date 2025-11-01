@@ -40,6 +40,7 @@ const Settings = () => {
   const [loading, setLoading] = useState(false);
   const [contributors, setContributors] = useState<any[]>([]);
   const [newContributorName, setNewContributorName] = useState("");
+  const [newContributorTarget, setNewContributorTarget] = useState("");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [roleToDelete, setRoleToDelete] = useState<string | null>(null);
   const { toast } = useToast();
@@ -291,6 +292,10 @@ const Settings = () => {
     }
 
     try {
+      const contributionTarget = newContributorTarget.trim() 
+        ? parseFloat(newContributorTarget.replace(/[^0-9.,]/g, '').replace(',', '.'))
+        : null;
+
       const { error } = await supabase
         .from("financial_contributors")
         .insert({
@@ -298,6 +303,7 @@ const Settings = () => {
           name: newContributorName,
           type: "other",
           is_default: false,
+          contribution_target: contributionTarget,
         });
 
       if (error) throw error;
@@ -308,6 +314,7 @@ const Settings = () => {
       });
 
       setNewContributorName("");
+      setNewContributorTarget("");
       loadData();
     } catch (error: any) {
       toast({
@@ -351,20 +358,29 @@ const Settings = () => {
     }
   };
 
-  const handleUpdateContributor = async (contributorId: string, newName: string) => {
+  const handleUpdateContributor = async (contributorId: string, newName: string, newTarget?: string) => {
     if (!newName.trim()) return;
 
     try {
+      const updateData: any = { name: newName };
+      
+      if (newTarget !== undefined) {
+        const parsedTarget = newTarget.trim() 
+          ? parseFloat(newTarget.replace(/[^0-9.,]/g, '').replace(',', '.'))
+          : null;
+        updateData.contribution_target = parsedTarget;
+      }
+
       const { error } = await supabase
         .from("financial_contributors")
-        .update({ name: newName })
+        .update(updateData)
         .eq("id", contributorId);
 
       if (error) throw error;
 
       toast({
         title: "Contributor aggiornato",
-        description: "Il nome è stato aggiornato con successo",
+        description: "Le informazioni sono state aggiornate con successo",
       });
 
       loadData();
@@ -620,30 +636,44 @@ const Settings = () => {
               key={contributor.id}
               className="p-3 rounded-lg bg-muted/30 space-y-2"
             >
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex-1 space-y-2">
+                  <Label htmlFor={`name-${contributor.id}`} className="text-xs">Nome</Label>
                   <Input
+                    id={`name-${contributor.id}`}
                     value={contributor.name}
                     onChange={(e) => handleUpdateContributor(contributor.id, e.target.value)}
                     className="font-medium"
                     disabled={contributor.is_default}
                   />
-                  {contributor.is_default && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Contributor predefinito (non eliminabile)
-                    </p>
-                  )}
+                </div>
+                <div className="flex-1 space-y-2">
+                  <Label htmlFor={`target-${contributor.id}`} className="text-xs">Target di Contribuzione (€)</Label>
+                  <Input
+                    id={`target-${contributor.id}`}
+                    type="text"
+                    placeholder="es. 5000"
+                    defaultValue={contributor.contribution_target || ""}
+                    onBlur={(e) => handleUpdateContributor(contributor.id, contributor.name, e.target.value)}
+                    className="font-mono"
+                  />
                 </div>
                 {!contributor.is_default && (
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={() => handleDeleteContributor(contributor.id, contributor.is_default)}
+                    className="self-end"
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>
                 )}
               </div>
+              {contributor.is_default && (
+                <p className="text-xs text-muted-foreground">
+                  Contributor predefinito (non eliminabile)
+                </p>
+              )}
 
               {/* Account collegato info */}
               <div className="space-y-2">
@@ -685,17 +715,29 @@ const Settings = () => {
           ))}
         </div>
 
-        <div className="flex gap-2">
-          <Input
-            value={newContributorName}
-            onChange={(e) => setNewContributorName(e.target.value)}
-            placeholder="Aggiungi nuovo contributor (es: Genitori, Amico...)"
-            onKeyDown={(e) => e.key === 'Enter' && handleAddContributor()}
-          />
-          <Button onClick={handleAddContributor}>
-            <Plus className="w-4 h-4 mr-2" />
-            Aggiungi
-          </Button>
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">Aggiungi Nuovo Contributor</Label>
+          <div className="flex gap-2">
+            <Input
+              value={newContributorName}
+              onChange={(e) => setNewContributorName(e.target.value)}
+              placeholder="Nome (es: Genitori Ludo)"
+              onKeyDown={(e) => e.key === 'Enter' && handleAddContributor()}
+              className="flex-1"
+            />
+            <Input
+              value={newContributorTarget}
+              onChange={(e) => setNewContributorTarget(e.target.value)}
+              placeholder="Target € (opzionale)"
+              onKeyDown={(e) => e.key === 'Enter' && handleAddContributor()}
+              className="flex-1"
+              type="text"
+            />
+            <Button onClick={handleAddContributor}>
+              <Plus className="w-4 h-4 mr-2" />
+              Aggiungi
+            </Button>
+          </div>
         </div>
       </Card>
 
