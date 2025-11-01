@@ -23,16 +23,16 @@ export const GuestStatsChart = ({ stats }: GuestStatsChartProps) => {
     <Card className="p-6">
       <div className="grid md:grid-cols-[1fr_auto] gap-6 items-center">
         {/* Chart */}
-        <div className="h-[200px] md:h-[240px]">
+        <div className="h-[280px] md:h-[300px]">
           {hasData ? (
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={chartData}
                   cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={90}
+                  cy="45%"
+                  innerRadius={50}
+                  outerRadius={80}
                   paddingAngle={2}
                   dataKey="value"
                 >
@@ -42,7 +42,7 @@ export const GuestStatsChart = ({ stats }: GuestStatsChartProps) => {
                 </Pie>
                 <Legend 
                   verticalAlign="bottom" 
-                  height={36}
+                  height={50}
                   formatter={(value) => <span className="text-sm">{value}</span>}
                 />
               </PieChart>
