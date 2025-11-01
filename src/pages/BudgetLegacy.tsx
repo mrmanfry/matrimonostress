@@ -145,7 +145,13 @@ export default function BudgetLegacy() {
   };
 
   const generateCategoryData = (items: ExpenseItem[]) => {
-    const colors = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
+    const colors = [
+      "hsl(221.2 83.2% 53.3%)", // blue
+      "hsl(142.1 76.2% 36.3%)", // green
+      "hsl(24.6 95% 53.1%)",    // orange
+      "hsl(280.4 89.9% 61.8%)", // purple
+      "hsl(346.8 77.2% 49.8%)"  // red
+    ];
     
     // Group by category
     const categoryAmounts: Record<string, number> = {};
