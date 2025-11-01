@@ -6,13 +6,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TrendingUp, ArrowRight, Info, Filter } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { TrendingUp, ArrowRight } from "lucide-react";
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 
 interface ExpenseItem {
   id: string;
   description: string;
+  total_amount: number | null;
   vendor_id: string | null;
   vendors?: { 
     name: string;
@@ -26,6 +26,15 @@ interface Payment {
   expense_item_id: string;
   amount: number;
   status: string;
+  tax_inclusive: boolean;
+  tax_rate: number | null;
+}
+
+interface CategoryData {
+  name: string;
+  value: number;
+  color: string;
+  [key: string]: string | number; // Index signature for recharts compatibility
 }
 
 export default function BudgetLegacy() {
@@ -35,11 +44,7 @@ export default function BudgetLegacy() {
   const [expenseItems, setExpenseItems] = useState<ExpenseItem[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [totalBudget, setTotalBudget] = useState(0);
-  
-  // Filters
-  const [selectedVendor, setSelectedVendor] = useState<string>("all");
-  const [selectedVendorCategory, setSelectedVendorCategory] = useState<string>("all");
-  const [selectedPaymentStatus, setSelectedPaymentStatus] = useState<string>("all");
+  const [categoryData, setCategoryData] = useState<CategoryData[]>([]);
 
   useEffect(() => {
     if (authState.status === "authenticated") {
@@ -94,6 +99,9 @@ export default function BudgetLegacy() {
 
         setPayments(paymentsData || []);
       }
+
+      // Generate category breakdown
+      generateCategoryData(items || []);
     } catch (error) {
       console.error("Error loading budget data:", error);
     } finally {
@@ -101,20 +109,28 @@ export default function BudgetLegacy() {
     }
   };
 
-  const getExpenseTotal = (expenseItemId: string) => {
-    return payments
-      .filter((p) => p.expense_item_id === expenseItemId)
-      .reduce((sum, p) => sum + Number(p.amount), 0);
+  const calculatePaymentTotal = (payment: Payment) => {
+    const baseAmount = Number(payment.amount || 0);
+    if (!payment.tax_inclusive && payment.tax_rate) {
+      const taxAmount = baseAmount * (Number(payment.tax_rate) / 100);
+      return baseAmount + taxAmount;
+    }
+    return baseAmount;
   };
 
   const getTotalCommitment = () => {
-    return payments.reduce((sum, p) => sum + Number(p.amount), 0);
+    // Sum of all expense_items total_amount (this is the REAL commitment)
+    return expenseItems.reduce((sum, item) => sum + Number(item.total_amount || 0), 0);
   };
 
   const getTotalPaid = () => {
     return payments
       .filter((p) => p.status === "Pagato")
-      .reduce((sum, p) => sum + Number(p.amount), 0);
+      .reduce((sum, p) => sum + calculatePaymentTotal(p), 0);
+  };
+
+  const getRemainingBudget = () => {
+    return totalBudget - getTotalCommitment();
   };
 
   const formatCurrency = (value: number) => {
@@ -124,56 +140,33 @@ export default function BudgetLegacy() {
     }).format(value);
   };
 
-  // Get unique vendors and vendor categories for filters
-  const uniqueVendors = Array.from(
-    new Set(
-      expenseItems
-        .filter((item) => item.vendors)
-        .map((item) => JSON.stringify({ id: item.vendor_id, name: item.vendors!.name }))
-    )
-  ).map((str) => JSON.parse(str));
+  const generateCategoryData = (items: ExpenseItem[]) => {
+    const colors = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
+    
+    // Group by category
+    const categoryAmounts: Record<string, number> = {};
+    
+    items.forEach((item) => {
+      const categoryName = 
+        item.vendors?.expense_categories?.name || 
+        item.expense_categories?.name || 
+        "Senza Categoria";
+      
+      categoryAmounts[categoryName] = (categoryAmounts[categoryName] || 0) + Number(item.total_amount || 0);
+    });
 
-  const uniqueVendorCategories = Array.from(
-    new Set(
-      expenseItems
-        .filter((item) => item.vendors?.expense_categories)
-        .map((item) => item.vendors!.expense_categories!.name)
-    )
-  );
+    // Convert to chart data
+    const data: CategoryData[] = Object.entries(categoryAmounts)
+      .map(([name, value], index) => ({
+        name,
+        value,
+        color: colors[index % colors.length],
+      }))
+      .sort((a, b) => b.value - a.value);
 
-  // Filter expense items
-  const filteredExpenseItems = expenseItems.filter((item) => {
-    // Filter by vendor
-    if (selectedVendor !== "all" && item.vendor_id !== selectedVendor) {
-      return false;
-    }
+    setCategoryData(data);
+  };
 
-    // Filter by vendor category
-    if (
-      selectedVendorCategory !== "all" &&
-      item.vendors?.expense_categories?.name !== selectedVendorCategory
-    ) {
-      return false;
-    }
-
-    // Filter by payment status
-    if (selectedPaymentStatus !== "all") {
-      const itemPayments = payments.filter((p) => p.expense_item_id === item.id);
-      if (selectedPaymentStatus === "paid") {
-        // All payments must be paid
-        if (itemPayments.length === 0 || !itemPayments.every((p) => p.status === "Pagato")) {
-          return false;
-        }
-      } else if (selectedPaymentStatus === "pending") {
-        // At least one payment must be pending
-        if (!itemPayments.some((p) => p.status === "Da Pagare")) {
-          return false;
-        }
-      }
-    }
-
-    return true;
-  });
 
   if (loading) {
     return (
@@ -186,188 +179,126 @@ export default function BudgetLegacy() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="container mx-auto p-4 md:p-6 space-y-4 md:space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold mb-2">Budget (Legacy)</h1>
-        <p className="text-muted-foreground">Vista semplificata delle spese</p>
+        <h1 className="text-2xl md:text-3xl font-bold mb-2">Conto Economico</h1>
+        <p className="text-sm md:text-base text-muted-foreground">Vista strategica del budget e degli impegni finanziari</p>
       </div>
 
-      {/* Alert for new Treasury */}
+      {/* Alert for Treasury */}
       <Alert className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950 border-2 border-blue-200 dark:border-blue-800">
         <TrendingUp className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-        <AlertDescription className="flex items-center justify-between">
+        <AlertDescription className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
           <div>
-            <strong className="text-lg">✨ Novità: Orizzonte Liquidità</strong>
-            <p className="text-sm mt-1">
-              Passa alla nuova vista "Tesoreria" per visualizzazioni avanzate con grafico di esborso cumulativo,
-              analisi delle scadenze e molto altro!
+            <strong className="text-base md:text-lg">📊 Per il dettaglio delle scadenze</strong>
+            <p className="text-xs md:text-sm mt-1">
+              Vai alla Tesoreria per gestire i pagamenti, visualizzare il grafico di esborso e monitorare le scadenze future.
             </p>
           </div>
-          <Button onClick={() => navigate("/app/treasury")} className="ml-4 shrink-0">
+          <Button onClick={() => navigate("/app/treasury")} className="shrink-0 w-full md:w-auto">
             Vai alla Tesoreria <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         </AlertDescription>
       </Alert>
 
-      {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
+      {/* KPI Cards */}
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Budget Totale</CardTitle>
+            <CardTitle className="text-xs md:text-sm font-medium">Budget Totale Prefissato</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totalBudget)}</div>
+            <div className="text-xl md:text-2xl font-bold">{formatCurrency(totalBudget)}</div>
+            <p className="text-xs text-muted-foreground mt-1">Il tuo tetto massimo</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Impegno Totale</CardTitle>
+            <CardTitle className="text-xs md:text-sm font-medium">Impegno Totale</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{formatCurrency(getTotalCommitment())}</div>
-            <p className="text-xs text-muted-foreground mt-1">Somma di tutte le rate</p>
+            <div className="text-xl md:text-2xl font-bold text-orange-600 dark:text-orange-400">{formatCurrency(getTotalCommitment())}</div>
+            <p className="text-xs text-muted-foreground mt-1">Somma contratti</p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-xs md:text-sm font-medium">💰 Margine Rimanente</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-xl md:text-2xl font-bold text-green-600 dark:text-green-400">{formatCurrency(getRemainingBudget())}</div>
+            <p className="text-xs text-muted-foreground mt-1">Ancora da spendere</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Già Pagato</CardTitle>
+            <CardTitle className="text-xs md:text-sm font-medium">Già Pagato</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{formatCurrency(getTotalPaid())}</div>
-            <p className="text-xs text-muted-foreground mt-1">Rate completate</p>
+            <div className="text-xl md:text-2xl font-bold text-blue-600 dark:text-blue-400">{formatCurrency(getTotalPaid())}</div>
+            <p className="text-xs text-muted-foreground mt-1">Pagamenti effettuati</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Filters */}
+      {/* Category Breakdown Chart */}
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-2">
-            <Filter className="h-5 w-5" />
-            <CardTitle>Filtri</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Fornitore</label>
-              <Select value={selectedVendor} onValueChange={setSelectedVendor}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Tutti i fornitori" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tutti i fornitori</SelectItem>
-                  {uniqueVendors.map((vendor) => (
-                    <SelectItem key={vendor.id} value={vendor.id}>
-                      {vendor.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Categoria Fornitore</label>
-              <Select value={selectedVendorCategory} onValueChange={setSelectedVendorCategory}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Tutte le categorie" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tutte le categorie</SelectItem>
-                  {uniqueVendorCategories.map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Stato Pagamenti</label>
-              <Select value={selectedPaymentStatus} onValueChange={setSelectedPaymentStatus}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Tutti gli stati" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tutti gli stati</SelectItem>
-                  <SelectItem value="paid">Completamente Pagato</SelectItem>
-                  <SelectItem value="pending">Con Rate da Pagare</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Expense Items List */}
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            Elenco Spese
-            {(selectedVendor !== "all" || selectedVendorCategory !== "all" || selectedPaymentStatus !== "all") && (
-              <span className="ml-2 text-sm font-normal text-muted-foreground">
-                ({filteredExpenseItems.length} di {expenseItems.length})
-              </span>
-            )}
-          </CardTitle>
+          <CardTitle className="text-lg md:text-xl">Allocazione Budget per Categoria</CardTitle>
           <CardDescription>
-            Questa è una vista semplificata. Per gestire i piani di pagamento, vai su "Fornitori" o consulta "Tesoreria".
+            Visualizza come i tuoi impegni sono distribuiti tra le varie categorie di spesa
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {filteredExpenseItems.length === 0 ? (
+          {categoryData.length === 0 ? (
             <Alert>
-              <Info className="h-4 w-4" />
               <AlertDescription>
-                {expenseItems.length === 0
-                  ? "Nessuna spesa registrata. Vai su \"Fornitori\" per aggiungere fornitori e definire i loro piani di pagamento."
-                  : "Nessuna spesa corrisponde ai filtri selezionati."}
+                Nessuna spesa registrata. Vai su "Fornitori" per aggiungere fornitori e iniziare a tracciare i tuoi impegni.
               </AlertDescription>
             </Alert>
           ) : (
             <div className="space-y-4">
-              {filteredExpenseItems.map((item) => {
-                const total = getExpenseTotal(item.id);
-                const paymentsForItem = payments.filter((p) => p.expense_item_id === item.id);
-                const paidCount = paymentsForItem.filter((p) => p.status === "Pagato").length;
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={categoryData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => {
+                      const percentValue = typeof percent === 'number' ? percent : 0;
+                      return `${name}: ${(percentValue * 100).toFixed(0)}%`;
+                    }}
+                    outerRadius={80}
+                    dataKey="value"
+                  >
+                    {categoryData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value: any) => formatCurrency(Number(value))} />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
 
-                return (
-                  <div key={item.id} className="border rounded-lg p-4 space-y-2">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <h3 className="font-semibold">{item.description}</h3>
-                        <div className="flex gap-2 mt-1">
-                          {item.vendors && (
-                            <Badge variant="outline" className="text-xs">
-                              {item.vendors.name}
-                              {item.vendors.expense_categories && (
-                                <span className="ml-1 opacity-70">
-                                  • {item.vendors.expense_categories.name}
-                                </span>
-                              )}
-                            </Badge>
-                          )}
-                          {item.expense_categories && (
-                            <Badge variant="secondary" className="text-xs">
-                              {item.expense_categories.name}
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-lg font-bold">{formatCurrency(total)}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {paidCount} / {paymentsForItem.length} rate pagate
-                        </div>
-                      </div>
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                {categoryData.map((category, index) => (
+                  <div key={index} className="flex items-center gap-3 p-3 border rounded-lg">
+                    <div
+                      className="w-4 h-4 rounded-full shrink-0"
+                      style={{ backgroundColor: category.color }}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{category.name}</p>
+                      <p className="text-xs text-muted-foreground">{formatCurrency(category.value)}</p>
                     </div>
                   </div>
-                );
-              })}
+                ))}
+              </div>
             </div>
           )}
         </CardContent>

@@ -61,6 +61,7 @@ export default function Treasury() {
   const [expenseItems, setExpenseItems] = useState<ExpenseItem[]>([]);
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
   const [timeFilter, setTimeFilter] = useState<"all" | "30" | "90" | "7">("all");
+  const [dateFilter, setDateFilter] = useState<string | null>(null);
   const [paymentToMark, setPaymentToMark] = useState<Payment | null>(null);
   const [contributors, setContributors] = useState<any[]>([]);
   const [allocations, setAllocations] = useState<any[]>([]);
@@ -310,7 +311,7 @@ export default function Treasury() {
     setPaymentToMark(null);
   };
 
-  // Filter future payments based on time filter
+  // Filter future payments based on time filter and date filter
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -319,6 +320,11 @@ export default function Treasury() {
       if (p.status !== "Da Pagare") return false;
       const dueDate = new Date(p.due_date);
       if (dueDate < today) return false;
+
+      // If date filter is active, filter by that date
+      if (dateFilter) {
+        return p.due_date === dateFilter;
+      }
 
       if (timeFilter === "7") {
         return dueDate <= addDays(today, 7);
@@ -362,6 +368,7 @@ export default function Treasury() {
           className="cursor-pointer hover:shadow-lg transition-shadow"
           onClick={() => {
             setTimeFilter("all");
+            setDateFilter(null);
             document.getElementById("payments-list")?.scrollIntoView({ behavior: "smooth" });
           }}
         >
@@ -390,6 +397,7 @@ export default function Treasury() {
           className="cursor-pointer hover:shadow-lg transition-shadow"
           onClick={() => {
             setTimeFilter("7");
+            setDateFilter(null);
             document.getElementById("payments-list")?.scrollIntoView({ behavior: "smooth" });
           }}
         >
@@ -405,7 +413,14 @@ export default function Treasury() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card 
+          className="cursor-pointer hover:shadow-lg transition-shadow"
+          onClick={() => {
+            setTimeFilter("all");
+            setDateFilter(null);
+            document.getElementById("payments-list")?.scrollIntoView({ behavior: "smooth" });
+          }}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Mese Più Intenso</CardTitle>
             <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -516,7 +531,9 @@ export default function Treasury() {
             </Alert>
           ) : (
             <ResponsiveContainer width="100%" height={400}>
-              <ComposedChart data={chartData}>
+              <ComposedChart 
+                data={chartData}
+              >
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
                   dataKey="dateLabel"
@@ -569,7 +586,17 @@ export default function Treasury() {
                   stroke="hsl(var(--primary))"
                   strokeWidth={3}
                   dot={{ r: 4, fill: "hsl(var(--primary))" }}
-                  activeDot={{ r: 6 }}
+                  activeDot={{ 
+                    r: 6,
+                    onClick: (_e: any, payload: any) => {
+                      if (payload && payload.payload) {
+                        const clickedData = payload.payload as ChartDataPoint;
+                        setDateFilter(clickedData.date);
+                        setTimeFilter("all");
+                        document.getElementById("payments-list")?.scrollIntoView({ behavior: "smooth" });
+                      }
+                    }
+                  }}
                 />
               </ComposedChart>
             </ResponsiveContainer>
@@ -584,32 +611,53 @@ export default function Treasury() {
           <CardDescription>
             Lista azionabile dei pagamenti in scadenza. Clicca su un fornitore per vedere i dettagli.
           </CardDescription>
-          <div className="flex gap-2 mt-4">
+          <div className="flex gap-2 mt-4 flex-wrap">
+            {dateFilter && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDateFilter(null)}
+              >
+                Rimuovi filtro data ({format(parseISO(dateFilter), "dd MMM yyyy", { locale: it })})
+              </Button>
+            )}
             <Button
-              variant={timeFilter === "all" ? "default" : "outline"}
+              variant={timeFilter === "all" && !dateFilter ? "default" : "outline"}
               size="sm"
-              onClick={() => setTimeFilter("all")}
+              onClick={() => {
+                setTimeFilter("all");
+                setDateFilter(null);
+              }}
             >
               Tutti
             </Button>
             <Button
-              variant={timeFilter === "7" ? "default" : "outline"}
+              variant={timeFilter === "7" && !dateFilter ? "default" : "outline"}
               size="sm"
-              onClick={() => setTimeFilter("7")}
+              onClick={() => {
+                setTimeFilter("7");
+                setDateFilter(null);
+              }}
             >
               Prossimi 7gg
             </Button>
             <Button
-              variant={timeFilter === "30" ? "default" : "outline"}
+              variant={timeFilter === "30" && !dateFilter ? "default" : "outline"}
               size="sm"
-              onClick={() => setTimeFilter("30")}
+              onClick={() => {
+                setTimeFilter("30");
+                setDateFilter(null);
+              }}
             >
               Prossimi 30gg
             </Button>
             <Button
-              variant={timeFilter === "90" ? "default" : "outline"}
+              variant={timeFilter === "90" && !dateFilter ? "default" : "outline"}
               size="sm"
-              onClick={() => setTimeFilter("90")}
+              onClick={() => {
+                setTimeFilter("90");
+                setDateFilter(null);
+              }}
             >
               Prossimi 90gg
             </Button>
