@@ -69,8 +69,10 @@ export default function Treasury() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [expenseItems, setExpenseItems] = useState<ExpenseItem[]>([]);
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
-  const [timeFilter, setTimeFilter] = useState<"all" | "30" | "90" | "month">("all");
+  const [timeFilter, setTimeFilter] = useState<"all" | "30" | "90" | "7">("all");
   const [paymentToMark, setPaymentToMark] = useState<Payment | null>(null);
+  const [contributors, setContributors] = useState<any[]>([]);
+  const [allocations, setAllocations] = useState<any[]>([]);
   const [kpis, setKpis] = useState({
     totalCommitment: 0,
     alreadyPaid: 0,
@@ -109,6 +111,8 @@ export default function Treasury() {
       if (itemIds.length === 0) {
         setPayments([]);
         setChartData([]);
+        setContributors([]);
+        setAllocations([]);
         calculateKPIs([], items);
         setLoading(false);
         return;
@@ -127,6 +131,30 @@ export default function Treasury() {
         status: p.status as 'Da Pagare' | 'Pagato'
       }));
       setPayments(allPayments);
+
+      // Load contributors
+      const { data: contributorsData, error: contributorsError } = await supabase
+        .from("financial_contributors")
+        .select("*")
+        .eq("wedding_id", weddingId)
+        .order("is_default", { ascending: false });
+
+      if (contributorsError) throw contributorsError;
+      setContributors(contributorsData || []);
+
+      // Load allocations for paid payments
+      const paidPaymentIds = allPayments.filter(p => p.status === 'Pagato').map(p => p.id);
+      if (paidPaymentIds.length > 0) {
+        const { data: allocationsData, error: allocationsError } = await supabase
+          .from("payment_allocations")
+          .select("*")
+          .in("payment_id", paidPaymentIds);
+
+        if (allocationsError) throw allocationsError;
+        setAllocations(allocationsData || []);
+      } else {
+        setAllocations([]);
+      }
 
       // Generate chart data
       generateChartData(allPayments, items);
@@ -328,7 +356,9 @@ export default function Treasury() {
       const dueDate = new Date(p.due_date);
       if (dueDate < today) return false;
 
-      if (timeFilter === "30") {
+      if (timeFilter === "7") {
+        return dueDate <= addDays(today, 7);
+      } else if (timeFilter === "30") {
         return dueDate <= addDays(today, 30);
       } else if (timeFilter === "90") {
         return dueDate <= addDays(today, 90);
@@ -362,16 +392,22 @@ export default function Treasury() {
         </p>
       </div>
 
-      {/* KPI Cards - Enhanced */}
+      {/* KPI Cards - INTERACTIVE */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
+        <Card 
+          className="cursor-pointer hover:shadow-lg transition-shadow"
+          onClick={() => {
+            setTimeFilter("all");
+            document.getElementById("payments-list")?.scrollIntoView({ behavior: "smooth" });
+          }}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Impegno Totale</CardTitle>
             <Euro className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">{formatCurrency(kpis.totalCommitment)}</div>
-            <p className="text-xs text-muted-foreground">Da pagare</p>
+            <p className="text-xs text-muted-foreground">Da pagare · Clicca per dettagli</p>
           </CardContent>
         </Card>
 
@@ -386,7 +422,13 @@ export default function Treasury() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card 
+          className="cursor-pointer hover:shadow-lg transition-shadow"
+          onClick={() => {
+            setTimeFilter("7");
+            document.getElementById("payments-list")?.scrollIntoView({ behavior: "smooth" });
+          }}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Prossimi 7 Giorni</CardTitle>
             <AlertCircle className="h-4 w-4 text-yellow-600" />
@@ -395,7 +437,7 @@ export default function Treasury() {
             <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
               {formatCurrency(kpis.next7DaysAmount)}
             </div>
-            <p className="text-xs text-muted-foreground">In scadenza</p>
+            <p className="text-xs text-muted-foreground">In scadenza · Clicca per dettagli</p>
           </CardContent>
         </Card>
 
@@ -413,44 +455,76 @@ export default function Treasury() {
         </Card>
       </div>
 
-      {/* Card Riepilogo Contributi */}
+      {/* Cruscotto Fondi di Progetto */}
       {(() => {
-        const contributionsByPayer = payments
-          .filter(p => p.status === 'Pagato' && p.paid_by)
-          .reduce((acc, p) => {
-            const payer = p.paid_by || 'Non specificato';
-            acc[payer] = (acc[payer] || 0) + calculatePaymentTotal(p);
-            return acc;
-          }, {} as Record<string, number>);
+        // Calculate contributions from allocations
+        const contributionsByContributor = contributors.reduce((acc, contributor) => {
+          const contributorAllocations = allocations.filter(a => a.contributor_id === contributor.id);
+          const totalPaid = contributorAllocations.reduce((sum, a) => sum + Number(a.amount), 0);
+          
+          acc[contributor.id] = {
+            name: contributor.name,
+            paid: totalPaid,
+            target: contributor.contribution_target || null,
+          };
+          return acc;
+        }, {} as Record<string, { name: string; paid: number; target: number | null }>);
 
-        const hasContributions = Object.keys(contributionsByPayer).length > 0;
+        const hasContributors = contributors.length > 0;
+        if (!hasContributors) return null;
 
-        if (!hasContributions) return null;
+        const contributionsArray = Object.values(contributionsByContributor) as Array<{ name: string; paid: number; target: number | null }>;
+        const totalPaid = contributionsArray.reduce((sum, c) => sum + c.paid, 0);
 
         return (
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Chi Ha Pagato Cosa</CardTitle>
+              <CardTitle className="text-lg flex items-center gap-2">
+                💰 Cruscotto Fondi di Progetto
+              </CardTitle>
+              <CardDescription>
+                Monitora i contributi di ciascun fondo rispetto ai target previsti
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {Object.entries(contributionsByPayer)
-                  .sort(([, a], [, b]) => b - a)
-                  .map(([payer, amount]) => (
-                    <div key={payer} className="flex justify-between items-center">
-                      <span className="text-sm font-medium">{payer}</span>
-                      <span className="text-lg font-semibold">
-                        {formatCurrency(amount)}
-                      </span>
+              <div className="space-y-4">
+                {contributors.map((contributor) => {
+                  const contrib = contributionsByContributor[contributor.id];
+                  if (!contrib) return null;
+                  
+                  const percentage = contrib.target 
+                    ? Math.min(100, (contrib.paid / contrib.target) * 100)
+                    : 0;
+
+                  return (
+                    <div key={contributor.id} className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium">{contrib.name}</span>
+                        <span className="text-sm text-muted-foreground">
+                          {formatCurrency(contrib.paid)}
+                          {contrib.target && ` / ${formatCurrency(contrib.target)}`}
+                        </span>
+                      </div>
+                      {contrib.target ? (
+                        <div className="w-full bg-muted rounded-full h-2.5">
+                          <div
+                            className="bg-primary h-2.5 rounded-full transition-all"
+                            style={{ width: `${percentage}%` }}
+                          />
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground italic">
+                          Nessun target impostato · <a href="/app/settings" className="underline">Imposta in Settings</a>
+                        </p>
+                      )}
                     </div>
-                  ))}
+                  );
+                })}
                 <div className="pt-3 border-t">
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-bold">TOTALE PAGATO</span>
                     <span className="text-xl font-bold text-green-600 dark:text-green-400">
-                      {formatCurrency(
-                        Object.values(contributionsByPayer).reduce((sum, val) => sum + val, 0)
-                      )}
+                      {formatCurrency(totalPaid)}
                     </span>
                   </div>
                 </div>
@@ -540,7 +614,7 @@ export default function Treasury() {
       </Card>
 
       {/* Future Cash Flows List */}
-      <Card>
+      <Card id="payments-list">
         <CardHeader>
           <CardTitle>Dettaglio Pagamenti Futuri</CardTitle>
           <CardDescription>
@@ -553,6 +627,13 @@ export default function Treasury() {
               onClick={() => setTimeFilter("all")}
             >
               Tutti
+            </Button>
+            <Button
+              variant={timeFilter === "7" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setTimeFilter("7")}
+            >
+              Prossimi 7gg
             </Button>
             <Button
               variant={timeFilter === "30" ? "default" : "outline"}
