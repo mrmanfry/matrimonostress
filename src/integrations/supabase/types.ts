@@ -314,6 +314,7 @@ export type Database = {
           notes: string | null
           party_id: string | null
           phone: string | null
+          rsvp_invitation_sent: string | null
           rsvp_send_status: Database["public"]["Enums"]["send_status_enum"]
           rsvp_status: string | null
           unique_rsvp_token: string | null
@@ -334,6 +335,7 @@ export type Database = {
           notes?: string | null
           party_id?: string | null
           phone?: string | null
+          rsvp_invitation_sent?: string | null
           rsvp_send_status?: Database["public"]["Enums"]["send_status_enum"]
           rsvp_status?: string | null
           unique_rsvp_token?: string | null
@@ -354,6 +356,7 @@ export type Database = {
           notes?: string | null
           party_id?: string | null
           phone?: string | null
+          rsvp_invitation_sent?: string | null
           rsvp_send_status?: Database["public"]["Enums"]["send_status_enum"]
           rsvp_status?: string | null
           unique_rsvp_token?: string | null

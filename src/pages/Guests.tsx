@@ -27,6 +27,7 @@ import { PartyDialog } from "@/components/guests/PartyDialog";
 import { SmartGrouperDialog } from "@/components/guests/SmartGrouperDialog";
 import { SmartImportDialog } from "@/components/guests/SmartImportDialog";
 import { ContactSyncDialog } from "@/components/guests/ContactSyncDialog";
+import { RSVPCampaignDialog } from "@/components/guests/RSVPCampaignDialog";
 import { GuestStatsChart } from "@/components/guests/GuestStatsChart";
 import { ImportDropdown } from "@/components/guests/ImportDropdown";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -58,6 +59,8 @@ interface InviteParty {
 
 interface Wedding {
   id: string;
+  partner1_name: string;
+  partner2_name: string;
 }
 
 const Guests = () => {
@@ -79,6 +82,8 @@ const Guests = () => {
   const [smartGrouperOpen, setSmartGrouperOpen] = useState(false);
   const [smartImportOpen, setSmartImportOpen] = useState(false);
   const [contactSyncOpen, setContactSyncOpen] = useState(false);
+  const [rsvpCampaignOpen, setRsvpCampaignOpen] = useState(false);
+  const [selectedPartiesForRSVP, setSelectedPartiesForRSVP] = useState<InviteParty[]>([]);
 
   useEffect(() => {
     if (authState.status === "authenticated") {
@@ -93,7 +98,7 @@ const Guests = () => {
 
       const { data: weddingData } = await supabase
         .from("weddings")
-        .select("id")
+        .select("id, partner1_name, partner2_name")
         .limit(1)
         .maybeSingle();
 
@@ -291,11 +296,21 @@ const Guests = () => {
   };
 
   const handleSendRSVP = (party: InviteParty) => {
-    // TODO: Implementare Capitolo B - Invio WhatsApp
-    toast({
-      title: "Funzionalità in arrivo",
-      description: "L'invio RSVP via WhatsApp sarà disponibile nel prossimo aggiornamento.",
-    });
+    setSelectedPartiesForRSVP([party]);
+    setRsvpCampaignOpen(true);
+  };
+
+  const handleBulkSendRSVP = () => {
+    if (parties.length === 0) {
+      toast({
+        title: "Nessun nucleo disponibile",
+        description: "Crea prima alcuni nuclei di invito per avviare la campagna.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setSelectedPartiesForRSVP(parties);
+    setRsvpCampaignOpen(true);
   };
 
   const handleSmartGrouperApprove = async (suggestions: { party_name: string; guest_ids: string[] }[]) => {
@@ -565,6 +580,14 @@ const Guests = () => {
                 className="pl-10"
               />
             </div>
+            <Button
+              onClick={handleBulkSendRSVP}
+              disabled={parties.length === 0}
+              variant="default"
+              className="gap-2 whitespace-nowrap"
+            >
+              💬 Avvia Campagna RSVP ({parties.length})
+            </Button>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-full sm:w-48">
                 <SelectValue placeholder="Filtra per stato" />
@@ -654,6 +677,14 @@ const Guests = () => {
         onOpenChange={setContactSyncOpen}
         weddingId={wedding?.id || ""}
         onSyncComplete={loadData}
+      />
+
+      <RSVPCampaignDialog
+        open={rsvpCampaignOpen}
+        onOpenChange={setRsvpCampaignOpen}
+        selectedParties={selectedPartiesForRSVP}
+        weddingId={wedding?.id || ""}
+        coupleName={wedding ? `${wedding.partner1_name} & ${wedding.partner2_name}` : ""}
       />
     </div>
   );
