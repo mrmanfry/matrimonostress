@@ -6,7 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TrendingUp, ArrowRight } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { TrendingUp, ArrowRight, Search, X } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 
 interface ExpenseItem {
@@ -45,6 +47,8 @@ export default function BudgetLegacy() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [totalBudget, setTotalBudget] = useState(0);
   const [categoryData, setCategoryData] = useState<CategoryData[]>([]);
+  const [searchFilter, setSearchFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
 
   useEffect(() => {
     if (authState.status === "authenticated") {
@@ -165,6 +169,47 @@ export default function BudgetLegacy() {
       .sort((a, b) => b.value - a.value);
 
     setCategoryData(data);
+  };
+
+  const getFilteredExpenseItems = () => {
+    return expenseItems.filter((item) => {
+      const categoryName = 
+        item.vendors?.expense_categories?.name || 
+        item.expense_categories?.name || 
+        "Senza Categoria";
+      
+      const vendorName = item.vendors?.name || "";
+      const description = item.description || "";
+      
+      // Category filter
+      if (categoryFilter !== "all" && categoryName !== categoryFilter) {
+        return false;
+      }
+      
+      // Search filter (searches in voce, fornitore)
+      if (searchFilter) {
+        const searchLower = searchFilter.toLowerCase();
+        const matchesDescription = description.toLowerCase().includes(searchLower);
+        const matchesVendor = vendorName.toLowerCase().includes(searchLower);
+        if (!matchesDescription && !matchesVendor) {
+          return false;
+        }
+      }
+      
+      return true;
+    });
+  };
+
+  const getUniqueCategories = () => {
+    const categories = new Set<string>();
+    expenseItems.forEach((item) => {
+      const categoryName = 
+        item.vendors?.expense_categories?.name || 
+        item.expense_categories?.name || 
+        "Senza Categoria";
+      categories.add(categoryName);
+    });
+    return Array.from(categories).sort();
   };
 
 
@@ -313,6 +358,40 @@ export default function BudgetLegacy() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {/* Filtri */}
+          <div className="flex flex-col sm:flex-row gap-3 mb-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Cerca per voce o fornitore..."
+                value={searchFilter}
+                onChange={(e) => setSearchFilter(e.target.value)}
+                className="pl-9"
+              />
+              {searchFilter && (
+                <button
+                  onClick={() => setSearchFilter("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2"
+                >
+                  <X className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                </button>
+              )}
+            </div>
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="w-full sm:w-[200px]">
+                <SelectValue placeholder="Filtra per categoria" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tutte le categorie</SelectItem>
+                {getUniqueCategories().map((category) => (
+                  <SelectItem key={category} value={category}>
+                    {category}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           {expenseItems.length === 0 ? (
             <Alert>
               <AlertDescription>
@@ -332,7 +411,7 @@ export default function BudgetLegacy() {
                   </tr>
                 </thead>
                 <tbody>
-                  {expenseItems.map((item) => {
+                  {getFilteredExpenseItems().map((item) => {
                     const itemPayments = payments.filter((p) => p.expense_item_id === item.id);
                     const paidPayments = itemPayments.filter((p) => p.status === "Pagato");
                     const totalPaid = paidPayments.reduce((sum, p) => sum + calculatePaymentTotal(p), 0);
