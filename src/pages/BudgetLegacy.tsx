@@ -303,6 +303,98 @@ export default function BudgetLegacy() {
           )}
         </CardContent>
       </Card>
+
+      {/* Riepilogo Impegni per Fornitore */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg md:text-xl">Riepilogo Impegni per Fornitore</CardTitle>
+          <CardDescription>
+            Vista aggregata dei contratti stipulati. Per il dettaglio delle singole rate e scadenze, vai alla Tesoreria.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {expenseItems.length === 0 ? (
+            <Alert>
+              <AlertDescription>
+                Nessun impegno registrato. Vai su "Fornitori" per aggiungere fornitori e definire i loro contratti.
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-3 px-2 font-medium text-sm">Fornitore / Voce</th>
+                    <th className="text-left py-3 px-2 font-medium text-sm hidden md:table-cell">Categoria</th>
+                    <th className="text-right py-3 px-2 font-medium text-sm">Impegno Totale</th>
+                    <th className="text-right py-3 px-2 font-medium text-sm hidden sm:table-cell">Già Pagato</th>
+                    <th className="text-center py-3 px-2 font-medium text-sm hidden lg:table-cell">Stato Rate</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {expenseItems.map((item) => {
+                    const itemPayments = payments.filter((p) => p.expense_item_id === item.id);
+                    const paidPayments = itemPayments.filter((p) => p.status === "Pagato");
+                    const totalPaid = paidPayments.reduce((sum, p) => sum + calculatePaymentTotal(p), 0);
+                    const totalCommitment = Number(item.total_amount || 0);
+                    const categoryName = 
+                      item.vendors?.expense_categories?.name || 
+                      item.expense_categories?.name || 
+                      "Senza Categoria";
+
+                    return (
+                      <tr key={item.id} className="border-b hover:bg-muted/50">
+                        <td className="py-3 px-2">
+                          <div>
+                            <p className="font-medium text-sm">{item.description}</p>
+                            {item.vendors && (
+                              <p className="text-xs text-muted-foreground">{item.vendors.name}</p>
+                            )}
+                            <p className="text-xs text-muted-foreground md:hidden">{categoryName}</p>
+                          </div>
+                        </td>
+                        <td className="py-3 px-2 hidden md:table-cell">
+                          <span className="text-sm text-muted-foreground">{categoryName}</span>
+                        </td>
+                        <td className="py-3 px-2 text-right">
+                          <p className="font-semibold text-sm">{formatCurrency(totalCommitment)}</p>
+                          <p className="text-xs text-muted-foreground sm:hidden">
+                            Pagato: {formatCurrency(totalPaid)}
+                          </p>
+                        </td>
+                        <td className="py-3 px-2 text-right hidden sm:table-cell">
+                          <p className={`font-medium text-sm ${totalPaid > 0 ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
+                            {formatCurrency(totalPaid)}
+                          </p>
+                        </td>
+                        <td className="py-3 px-2 text-center hidden lg:table-cell">
+                          {itemPayments.length > 0 ? (
+                            <div className="flex flex-col items-center gap-1">
+                              <span className="text-sm font-medium">
+                                {paidPayments.length}/{itemPayments.length} rate
+                              </span>
+                              <div className="w-full max-w-[100px] h-2 bg-muted rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-green-500 transition-all"
+                                  style={{
+                                    width: `${(paidPayments.length / itemPayments.length) * 100}%`,
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Nessuna rata</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
