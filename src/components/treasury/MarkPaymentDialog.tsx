@@ -159,6 +159,14 @@ export function MarkPaymentDialog({
 
       if (paymentError) throw paymentError;
 
+      // Delete existing allocations for this payment (if any)
+      const { error: deleteError } = await supabase
+        .from("payment_allocations")
+        .delete()
+        .eq("payment_id", payment.id);
+
+      if (deleteError) throw deleteError;
+
       // Create allocation records
       const allocationRecords = Array.from(selectedContributors).map((contributorId) => {
         const amount = selectedContributors.size === 1 ? totalAmount : (allocations[contributorId] || 0);
