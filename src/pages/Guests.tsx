@@ -3,19 +3,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Users,
   Plus,
   Search,
-  Edit,
-  Trash2,
-  FolderOpen,
-  Trash,
+  Sparkles,
+  AlertCircle,
   Smartphone,
 } from "lucide-react";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -23,44 +22,38 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { GuestDialog } from "@/components/guests/GuestDialog";
-import { GroupsDialog } from "@/components/guests/GroupsDialog";
+import { PartyCard } from "@/components/guests/PartyCard";
+import { PartyDialog } from "@/components/guests/PartyDialog";
+import { SmartGrouperDialog } from "@/components/guests/SmartGrouperDialog";
 import { SmartImportDialog } from "@/components/guests/SmartImportDialog";
 import { ContactSyncDialog } from "@/components/guests/ContactSyncDialog";
 import { GuestStatsChart } from "@/components/guests/GuestStatsChart";
-import { GuestCard } from "@/components/guests/GuestCard";
 import { ImportDropdown } from "@/components/guests/ImportDropdown";
-import { MobileFilters } from "@/components/guests/MobileFilters";
-import { GuestEmptyState } from "@/components/guests/GuestEmptyState";
-import { Card } from "@/components/ui/card";
-import {
-  generateCSVTemplate,
-  parseCSV,
-  validateCSVRows,
-  exportGuestsToCSV,
-  downloadCSV,
-} from "@/utils/csvHelpers";
-import { generateCateringReport } from "@/utils/pdfHelpers";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface Guest {
   id: string;
+  wedding_id: string;
   first_name: string;
   last_name: string;
-  rsvp_status: string;
+  phone?: string;
+  party_id?: string;
+  is_child: boolean;
+  unique_rsvp_token?: string;
+  rsvp_send_status: 'Non Inviato' | 'Inviato' | 'Fallito';
+  menu_choice?: string;
+  dietary_restrictions?: string;
+  notes?: string;
   adults_count: number;
   children_count: number;
-  menu_choice: string;
-  dietary_restrictions: string;
-  notes: string;
-  group_id: string | null;
-  group_name?: string;
-  phone?: string;
 }
 
-interface Group {
+interface InviteParty {
   id: string;
-  name: string;
-  guest_count?: number;
+  wedding_id: string;
+  party_name: string;
+  rsvp_status: 'In attesa' | 'Confermato' | 'Rifiutato';
+  guests: Guest[];
 }
 
 interface Wedding {
@@ -68,30 +61,30 @@ interface Wedding {
 }
 
 const Guests = () => {
-  const [wedding, setWedding] = useState<Wedding | null>(null);
-  const [guests, setGuests] = useState<Guest[]>([]);
-  const [groups, setGroups] = useState<Group[]>([]);
-  const [filteredGuests, setFilteredGuests] = useState<Guest[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filterStatus, setFilterStatus] = useState<string>("all");
-  const [filterGroup, setFilterGroup] = useState<string>("all");
-  const [guestDialogOpen, setGuestDialogOpen] = useState(false);
-  const [groupsDialogOpen, setGroupsDialogOpen] = useState(false);
-  const [smartImportDialogOpen, setSmartImportDialogOpen] = useState(false);
-  const [contactSyncDialogOpen, setContactSyncDialogOpen] = useState(false);
-  const [selectedGuest, setSelectedGuest] = useState<Guest | null>(null);
-  const [selectedGuestIds, setSelectedGuestIds] = useState<Set<string>>(new Set());
+  const { authState } = useAuth();
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  
+  const [wedding, setWedding] = useState<Wedding | null>(null);
+  const [parties, setParties] = useState<InviteParty[]>([]);
+  const [ungroupedGuests, setUngroupedGuests] = useState<Guest[]>([]);
+  const [allGuests, setAllGuests] = useState<Guest[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  
+  const [partyDialogOpen, setPartyDialogOpen] = useState(false);
+  const [editingParty, setEditingParty] = useState<InviteParty | undefined>();
+  const [smartGrouperOpen, setSmartGrouperOpen] = useState(false);
+  const [smartImportOpen, setSmartImportOpen] = useState(false);
+  const [contactSyncOpen, setContactSyncOpen] = useState(false);
 
   useEffect(() => {
-    loadData();
-  }, []);
-
-  useEffect(() => {
-    applyFilters();
-  }, [guests, searchQuery, filterStatus, filterGroup]);
+    if (authState.status === "authenticated") {
+      loadData();
+    }
+  }, [authState]);
 
   const loadData = async () => {
     try {
@@ -107,7 +100,10 @@ const Guests = () => {
       if (!weddingData) return;
       setWedding(weddingData);
 
-      await Promise.all([loadGuests(weddingData.id), loadGroups(weddingData.id)]);
+      await Promise.all([
+        loadParties(weddingData.id),
+        loadAllGuests(weddingData.id)
+      ]);
     } catch (error) {
       console.error("Error loading data:", error);
     } finally {
@@ -115,666 +111,492 @@ const Guests = () => {
     }
   };
 
-  const loadGuests = async (weddingId: string) => {
-    const { data: guestsData } = await supabase
-      .from("guests")
-      .select(`
-        *,
-        guest_groups(name)
-      `)
-      .eq("wedding_id", weddingId)
-      .order("last_name", { ascending: true });
-
-    if (guestsData) {
-      const formattedGuests = guestsData.map((g: any) => ({
-        ...g,
-        group_name: g.guest_groups?.name || null,
-      }));
-      setGuests(formattedGuests);
-    }
-  };
-
-  const loadGroups = async (weddingId: string) => {
-    const { data: groupsData } = await supabase
-      .from("guest_groups")
+  const loadParties = async (weddingId: string) => {
+    // Carica tutte le parties con i loro guests
+    const { data: partiesData } = await supabase
+      .from("invite_parties")
       .select("*")
       .eq("wedding_id", weddingId)
-      .order("name", { ascending: true });
+      .order("party_name");
 
-    if (groupsData) {
-      // Count guests per group
-      const groupsWithCounts = await Promise.all(
-        groupsData.map(async (group) => {
-          const { count } = await supabase
-            .from("guests")
-            .select("*", { count: "exact", head: true })
-            .eq("group_id", group.id);
-          return { ...group, guest_count: count || 0 };
-        })
-      );
-      setGroups(groupsWithCounts);
+    if (!partiesData) return;
+
+    // Per ogni party, carica i suoi guests
+    const partiesWithGuests = await Promise.all(
+      partiesData.map(async (party) => {
+        const { data: guestsData } = await supabase
+          .from("guests")
+          .select("*")
+          .eq("party_id", party.id)
+          .order("is_child", { ascending: true })
+          .order("first_name");
+
+        return {
+          ...party,
+          guests: guestsData || [],
+        };
+      })
+    );
+
+    setParties(partiesWithGuests);
+  };
+
+  const loadAllGuests = async (weddingId: string) => {
+    const { data: guestsData } = await supabase
+      .from("guests")
+      .select("*")
+      .eq("wedding_id", weddingId)
+      .order("last_name");
+
+    if (guestsData) {
+      setAllGuests(guestsData);
+      // Filtra gli invitati non raggruppati
+      const ungrouped = guestsData.filter((g: Guest) => !g.party_id);
+      setUngroupedGuests(ungrouped);
     }
   };
 
-  const applyFilters = () => {
-    let filtered = [...guests];
-
-    if (filterStatus !== "all") {
-      filtered = filtered.filter((g) => g.rsvp_status === filterStatus);
-    }
-
-    if (filterGroup !== "all") {
-      filtered = filtered.filter((g) => g.group_id === filterGroup);
-    }
-
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (g) =>
-          g.first_name.toLowerCase().includes(query) ||
-          g.last_name.toLowerCase().includes(query) ||
-          g.notes?.toLowerCase().includes(query)
-      );
-    }
-
-    setFilteredGuests(filtered);
-  };
-
-  const handleSaveGuest = async (guestData: Omit<Guest, "id">) => {
+  const handleCreateParty = async (partyData: { party_name: string; guest_ids: string[] }) => {
     if (!wedding) return;
 
     try {
-      if (selectedGuest) {
-        const { error } = await supabase
-          .from("guests")
-          .update(guestData)
-          .eq("id", selectedGuest.id);
+      // Crea il party
+      const { data: newParty, error: partyError } = await supabase
+        .from("invite_parties")
+        .insert({
+          wedding_id: wedding.id,
+          party_name: partyData.party_name,
+          rsvp_status: 'In attesa',
+        })
+        .select()
+        .single();
 
-        if (error) throw error;
+      if (partyError) throw partyError;
 
-        toast({
-          title: "Aggiornato!",
-          description: "Invitato modificato con successo",
-        });
-      } else {
-        const { error } = await supabase
-          .from("guests")
-          .insert({ ...guestData, wedding_id: wedding.id });
+      // Aggiorna i guests assegnando il party_id
+      const { error: updateError } = await supabase
+        .from("guests")
+        .update({ party_id: newParty.id })
+        .in("id", partyData.guest_ids);
 
-        if (error) throw error;
+      if (updateError) throw updateError;
 
-        toast({
-          title: "Creato!",
-          description: "Nuovo invitato aggiunto",
-        });
-      }
+      toast({
+        title: "Nucleo Creato!",
+        description: `"${partyData.party_name}" è stato creato con ${partyData.guest_ids.length} membri.`,
+      });
 
-      await loadGuests(wedding.id);
-      setSelectedGuest(null);
+      await loadData();
     } catch (error: any) {
       toast({
         title: "Errore",
         description: error.message,
         variant: "destructive",
       });
-      throw error;
     }
   };
 
-  const handleDeleteGuest = async (id: string) => {
-    if (!confirm("Eliminare questo invitato?")) return;
+  const handleUpdateParty = async (partyData: { id?: string; party_name: string; guest_ids: string[] }) => {
+    if (!wedding || !partyData.id) return;
 
-    const { error } = await supabase.from("guests").delete().eq("id", id);
+    try {
+      // Aggiorna il nome del party
+      const { error: partyError } = await supabase
+        .from("invite_parties")
+        .update({ party_name: partyData.party_name })
+        .eq("id", partyData.id);
 
-    if (error) {
-      toast({
-        title: "Errore",
-        description: error.message,
-        variant: "destructive",
-      });
-      return;
-    }
+      if (partyError) throw partyError;
 
-    toast({
-      title: "Eliminato",
-      description: "Invitato rimosso dalla lista",
-    });
+      // Rimuovi party_id dai guests che non sono più nel party
+      const currentParty = parties.find(p => p.id === partyData.id);
+      const removedGuestIds = currentParty?.guests
+        .filter(g => !partyData.guest_ids.includes(g.id))
+        .map(g => g.id) || [];
 
-    if (wedding) await loadGuests(wedding.id);
-  };
-
-  const handleDeleteSelectedGuests = async () => {
-    const count = selectedGuestIds.size;
-    if (!confirm(`Eliminare ${count} invitati selezionati?`)) return;
-
-    const { error } = await supabase
-      .from("guests")
-      .delete()
-      .in("id", Array.from(selectedGuestIds));
-
-    if (error) {
-      toast({
-        title: "Errore",
-        description: error.message,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    toast({
-      title: "Eliminati",
-      description: `${count} invitati rimossi dalla lista`,
-    });
-
-    setSelectedGuestIds(new Set());
-    if (wedding) await loadGuests(wedding.id);
-  };
-
-  const toggleGuestSelection = (guestId: string) => {
-    setSelectedGuestIds(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(guestId)) {
-        newSet.delete(guestId);
-      } else {
-        newSet.add(guestId);
+      if (removedGuestIds.length > 0) {
+        await supabase
+          .from("guests")
+          .update({ party_id: null })
+          .in("id", removedGuestIds);
       }
-      return newSet;
-    });
-  };
 
-  const toggleSelectAll = () => {
-    if (selectedGuestIds.size === filteredGuests.length) {
-      setSelectedGuestIds(new Set());
-    } else {
-      setSelectedGuestIds(new Set(filteredGuests.map(g => g.id)));
+      // Aggiungi party_id ai nuovi guests
+      const { error: updateError } = await supabase
+        .from("guests")
+        .update({ party_id: partyData.id })
+        .in("id", partyData.guest_ids);
+
+      if (updateError) throw updateError;
+
+      toast({
+        title: "Nucleo Aggiornato!",
+        description: `"${partyData.party_name}" è stato modificato.`,
+      });
+
+      await loadData();
+    } catch (error: any) {
+      toast({
+        title: "Errore",
+        description: error.message,
+        variant: "destructive",
+      });
     }
   };
 
-  const handleCreateGroup = async (name: string) => {
+  const handleSaveParty = async (partyData: { id?: string; party_name: string; guest_ids: string[] }) => {
+    if (partyData.id) {
+      await handleUpdateParty(partyData);
+    } else {
+      await handleCreateParty(partyData);
+    }
+  };
+
+  const handleDeleteParty = async (partyId: string) => {
+    if (!confirm("Eliminare questo nucleo? Gli invitati torneranno nella lista non raggruppati.")) return;
+
+    try {
+      // Rimuovi party_id dai guests
+      await supabase
+        .from("guests")
+        .update({ party_id: null })
+        .eq("party_id", partyId);
+
+      // Elimina il party
+      const { error } = await supabase
+        .from("invite_parties")
+        .delete()
+        .eq("id", partyId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Nucleo Eliminato",
+        description: "Gli invitati sono stati spostati nella lista non raggruppati.",
+      });
+
+      await loadData();
+    } catch (error: any) {
+      toast({
+        title: "Errore",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEditParty = (party: InviteParty) => {
+    setEditingParty(party);
+    setPartyDialogOpen(true);
+  };
+
+  const handleSendRSVP = (party: InviteParty) => {
+    // TODO: Implementare Capitolo B - Invio WhatsApp
+    toast({
+      title: "Funzionalità in arrivo",
+      description: "L'invio RSVP via WhatsApp sarà disponibile nel prossimo aggiornamento.",
+    });
+  };
+
+  const handleSmartGrouperApprove = async (suggestions: { party_name: string; guest_ids: string[] }[]) => {
     if (!wedding) return;
 
-    const { error } = await supabase
-      .from("guest_groups")
-      .insert({ wedding_id: wedding.id, name });
+    try {
+      for (const suggestion of suggestions) {
+        await handleCreateParty(suggestion);
+      }
 
-    if (error) {
+      toast({
+        title: "Raggruppamento Completato!",
+        description: `${suggestions.length} nuclei sono stati creati.`,
+      });
+    } catch (error: any) {
       toast({
         title: "Errore",
         description: error.message,
         variant: "destructive",
       });
-      throw error;
     }
-
-    toast({
-      title: "Creato!",
-      description: `Gruppo "${name}" aggiunto`,
-    });
-
-    await loadGroups(wedding.id);
   };
 
-  const handleDeleteGroup = async (id: string) => {
-    const { error } = await supabase.from("guest_groups").delete().eq("id", id);
-
-    if (error) {
-      toast({
-        title: "Errore",
-        description: error.message,
-        variant: "destructive",
-      });
-      throw error;
+  // Filtra parties
+  const filteredParties = parties.filter(party => {
+    if (statusFilter !== "all" && party.rsvp_status !== statusFilter) return false;
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      return (
+        party.party_name.toLowerCase().includes(query) ||
+        party.guests.some(g =>
+          g.first_name.toLowerCase().includes(query) ||
+          g.last_name.toLowerCase().includes(query)
+        )
+      );
     }
+    return true;
+  });
 
+  // Calcola statistiche
+  const totalGuests = allGuests.length;
+  const totalParties = parties.length;
+  const confirmedParties = parties.filter(p => p.rsvp_status === 'Confermato').length;
+  const guestsWithoutPhone = allGuests.filter(g => !g.phone).length;
+  const partiesReadyToSend = parties.filter(p =>
+    p.guests.some(g => g.phone)
+  ).length;
+
+  const totalAdults = allGuests.reduce((sum, g) => sum + (g.is_child ? 0 : 1), 0);
+  const totalChildren = allGuests.reduce((sum, g) => sum + (g.is_child ? 1 : 0), 0);
+
+  // Calcola stats RSVP
+  const confirmedGuests = allGuests.filter(g => {
+    const party = parties.find(p => p.id === g.party_id);
+    return party?.rsvp_status === 'Confermato';
+  });
+  const pendingGuests = allGuests.filter(g => {
+    const party = parties.find(p => p.id === g.party_id);
+    return !party || party.rsvp_status === 'In attesa';
+  });
+  const declinedGuests = allGuests.filter(g => {
+    const party = parties.find(p => p.id === g.party_id);
+    return party?.rsvp_status === 'Rifiutato';
+  });
+
+  const stats = {
+    total: allGuests.length,
+    confirmed: confirmedGuests.length,
+    pending: pendingGuests.length,
+    declined: declinedGuests.length,
+  };
+
+  // Funzioni per ImportDropdown (placeholder per ora)
+  const handleDownloadTemplate = () => {
     toast({
-      title: "Eliminato",
-      description: "Gruppo rimosso",
+      title: "Funzionalità in arrivo",
+      description: "Il download del template CSV sarà disponibile a breve.",
     });
+  };
 
-    if (wedding) {
-      await Promise.all([loadGroups(wedding.id), loadGuests(wedding.id)]);
-    }
+  const handleImportCSV = () => {
+    toast({
+      title: "Funzionalità in arrivo",
+      description: "L'import CSV sarà disponibile a breve.",
+    });
   };
 
   const handleExportCSV = () => {
-    const csv = exportGuestsToCSV(guests);
-    const date = new Date().toISOString().split("T")[0];
-    downloadCSV(csv, `invitati_${date}.csv`);
-
     toast({
-      title: "Esportato!",
-      description: `${guests.length} invitati esportati in CSV`,
-    });
-  };
-
-  const handleDownloadTemplate = () => {
-    const template = generateCSVTemplate();
-    downloadCSV(template, "template_invitati.csv");
-
-    toast({
-      title: "Template scaricato",
-      description: "Usa questo file come esempio per l'import",
+      title: "Funzionalità in arrivo",
+      description: "L'export CSV sarà disponibile a breve.",
     });
   };
 
   const handleExportCateringPDF = () => {
-    const confirmedGuests = guests.filter(g => g.rsvp_status === 'confirmed');
-    
-    if (confirmedGuests.length === 0) {
-      toast({
-        title: "Attenzione",
-        description: "Non ci sono invitati confermati da esportare",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    generateCateringReport(confirmedGuests);
     toast({
-      title: "Report generato!",
-      description: "Report catering scaricato in formato PDF",
+      title: "Funzionalità in arrivo",
+      description: "Il report catering sarà disponibile a breve.",
     });
-  };
-
-  const handleImportCSV = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !wedding) return;
-
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      try {
-        const content = event.target?.result as string;
-        const rows = parseCSV(content);
-        const { valid, errors } = validateCSVRows(rows);
-
-        if (errors.length > 0) {
-          toast({
-            title: "Errori di validazione",
-            description: errors.join("\n"),
-            variant: "destructive",
-          });
-          return;
-        }
-
-        // Map group names to IDs
-        const rowsWithGroupIds = await Promise.all(
-          valid.map(async (row) => {
-            let groupId = null;
-
-            if (row.group_name) {
-              const existingGroup = groups.find(
-                (g) => g.name.toLowerCase() === row.group_name!.toLowerCase()
-              );
-
-              if (existingGroup) {
-                groupId = existingGroup.id;
-              } else {
-                const { data: newGroup } = await supabase
-                  .from("guest_groups")
-                  .insert({ wedding_id: wedding.id, name: row.group_name })
-                  .select()
-                  .single();
-
-                if (newGroup) groupId = newGroup.id;
-              }
-            }
-
-            return {
-              wedding_id: wedding.id,
-              first_name: row.first_name,
-              last_name: row.last_name,
-              rsvp_status: row.rsvp_status || "pending",
-              adults_count: row.adults_count || 1,
-              children_count: row.children_count || 0,
-              menu_choice: row.menu_choice || "",
-              dietary_restrictions: row.dietary_restrictions || "",
-              notes: row.notes || "",
-              group_id: groupId,
-            };
-          })
-        );
-
-        const { error } = await supabase.from("guests").insert(rowsWithGroupIds);
-
-        if (error) throw error;
-
-        toast({
-          title: "Importati!",
-          description: `${valid.length} invitati aggiunti con successo`,
-        });
-
-        await Promise.all([loadGuests(wedding.id), loadGroups(wedding.id)]);
-      } catch (error: any) {
-        toast({
-          title: "Errore import",
-          description: error.message,
-          variant: "destructive",
-        });
-      }
-    };
-
-    reader.readAsText(file);
-    e.target.value = "";
-  };
-
-  const getRSVPBadge = (status: string) => {
-    switch (status) {
-      case "confirmed":
-        return <Badge className="bg-green-600">Confermato</Badge>;
-      case "declined":
-        return <Badge variant="destructive">Rifiutato</Badge>;
-      default:
-        return <Badge variant="secondary">In attesa</Badge>;
-    }
-  };
-
-  const stats = {
-    total: guests.reduce((sum, g) => sum + g.adults_count + g.children_count, 0),
-    confirmed: guests
-      .filter((g) => g.rsvp_status === "confirmed")
-      .reduce((sum, g) => sum + g.adults_count + g.children_count, 0),
-    pending: guests
-      .filter((g) => g.rsvp_status === "pending")
-      .reduce((sum, g) => sum + g.adults_count + g.children_count, 0),
-    declined: guests
-      .filter((g) => g.rsvp_status === "declined")
-      .reduce((sum, g) => sum + g.adults_count + g.children_count, 0),
   };
 
   if (loading) {
     return (
-      <div className="p-4 lg:p-8">
-        <p className="text-muted-foreground">Caricamento...</p>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Caricamento...</p>
+        </div>
       </div>
     );
   }
 
-  const hasNoGuests = guests.length === 0;
-  const hasNoFilteredGuests = filteredGuests.length === 0;
-  const isFiltering = searchQuery || filterStatus !== "all" || filterGroup !== "all";
+  const hasNoGuests = allGuests.length === 0;
 
   return (
-    <div className="p-4 lg:p-8 max-w-7xl mx-auto space-y-6 pb-24 lg:pb-8">
+    <div className="container mx-auto p-6 space-y-6 max-w-7xl">
       {/* Header */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-3">
-          <Users className="w-8 h-8 text-primary" />
-          <h1 className="text-3xl font-bold">Gestione Invitati</h1>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold flex items-center gap-3">
+            <Users className="w-8 h-8" />
+            Gestione Invitati
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            Organizza i tuoi invitati in nuclei familiari
+          </p>
         </div>
-        <p className="text-muted-foreground">
-          Traccia RSVP, gestisci gruppi e organizza la lista completa
-        </p>
-      </div>
 
-      {/* Stats Chart */}
-      <GuestStatsChart stats={stats} />
-
-      {/* Contact Sync Banner - Only show if we have guests without phone */}
-      {!hasNoGuests && guests.filter(g => !g.phone).length > 0 && (
-        <Card className="p-4 bg-gradient-to-r from-accent/5 to-primary/5 border-accent/20">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="flex-1">
-              <h3 className="font-semibold mb-1 flex items-center gap-2">
-                <Smartphone className="w-5 h-5" />
-                {guests.filter(g => !g.phone).length} invitati senza numero di telefono
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                Sincronizza i contatti dal tuo smartphone per inviare gli inviti via WhatsApp
-              </p>
-            </div>
-            <Button onClick={() => setContactSyncDialogOpen(true)} className="shrink-0">
-              <Smartphone className="w-4 h-4 mr-2" />
-              Sincronizza Ora
-            </Button>
-          </div>
-        </Card>
-      )}
-
-      {/* Actions Bar - Desktop */}
-      {!isMobile && !hasNoGuests && (
-        <Card className="p-4">
-          <div className="flex flex-wrap items-center gap-3">
-            {selectedGuestIds.size > 0 && (
-              <Button 
-                variant="destructive" 
-                onClick={handleDeleteSelectedGuests}
-              >
-                <Trash className="w-4 h-4 mr-2" />
-                Elimina Selezionati ({selectedGuestIds.size})
-              </Button>
-            )}
-            
-            <Button onClick={() => { setSelectedGuest(null); setGuestDialogOpen(true); }}>
-              <Plus className="w-4 h-4 mr-2" />
-              Aggiungi Invitato
-            </Button>
-
+        {!isMobile && !hasNoGuests && (
+          <div className="flex gap-2">
             <ImportDropdown
-              onSmartImport={() => setSmartImportDialogOpen(true)}
+              onSmartImport={() => setSmartImportOpen(true)}
               onDownloadTemplate={handleDownloadTemplate}
               onImportCSV={handleImportCSV}
               onExportCSV={handleExportCSV}
               onExportCateringPDF={handleExportCateringPDF}
-              hasGuests={guests.length > 0}
-              hasConfirmedGuests={guests.filter(g => g.rsvp_status === 'confirmed').length > 0}
+              hasGuests={allGuests.length > 0}
+              hasConfirmedGuests={confirmedGuests.length > 0}
             />
-
-            <div className="flex-1" />
-
-            <Button variant="outline" onClick={() => setContactSyncDialogOpen(true)}>
+            <Button
+              onClick={() => setContactSyncOpen(true)}
+              variant="outline"
+            >
               <Smartphone className="w-4 h-4 mr-2" />
               Sincronizza Contatti
             </Button>
-
-            <Button variant="outline" onClick={() => setGroupsDialogOpen(true)}>
-              <FolderOpen className="w-4 h-4 mr-2" />
-              Gestisci Gruppi
+            <Button
+              onClick={() => {
+                setEditingParty(undefined);
+                setPartyDialogOpen(true);
+              }}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Crea Nucleo
             </Button>
           </div>
-        </Card>
-      )}
+        )}
+      </div>
 
       {/* Empty State */}
       {hasNoGuests ? (
-        <GuestEmptyState
-          onAddGuest={() => { setSelectedGuest(null); setGuestDialogOpen(true); }}
-          onSmartImport={() => setSmartImportDialogOpen(true)}
-        />
+        <Card className="p-12">
+          <div className="text-center space-y-4">
+            <Users className="w-16 h-16 mx-auto text-muted-foreground" />
+            <h2 className="text-2xl font-semibold">Nessun Invitato</h2>
+            <p className="text-muted-foreground max-w-md mx-auto">
+              Inizia aggiungendo i tuoi invitati manualmente o importali da un file CSV.
+            </p>
+            <div className="flex justify-center gap-2">
+              <ImportDropdown
+                onSmartImport={() => setSmartImportOpen(true)}
+                onDownloadTemplate={handleDownloadTemplate}
+                onImportCSV={handleImportCSV}
+                onExportCSV={handleExportCSV}
+                onExportCateringPDF={handleExportCateringPDF}
+                hasGuests={false}
+                hasConfirmedGuests={false}
+              />
+              <Button onClick={() => setSmartImportOpen(true)}>
+                <Sparkles className="w-4 h-4 mr-2" />
+                Smart Import
+              </Button>
+            </div>
+          </div>
+        </Card>
       ) : (
         <>
-          {/* Filters */}
-          <Card className="p-4">
-            <div className="flex gap-3">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder="Cerca per nome..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-
-              {isMobile ? (
-                <MobileFilters
-                  filterStatus={filterStatus}
-                  filterGroup={filterGroup}
-                  groups={groups}
-                  onStatusChange={setFilterStatus}
-                  onGroupChange={setFilterGroup}
-                />
-              ) : (
-                <>
-                  <Select value={filterStatus} onValueChange={setFilterStatus}>
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="Stato" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Tutti gli stati</SelectItem>
-                      <SelectItem value="pending">In attesa</SelectItem>
-                      <SelectItem value="confirmed">Confermati</SelectItem>
-                      <SelectItem value="declined">Rifiutati</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  <Select value={filterGroup} onValueChange={setFilterGroup}>
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="Gruppo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Tutti i gruppi</SelectItem>
-                      {groups.map((group) => (
-                        <SelectItem key={group.id} value={group.id}>
-                          {group.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </>
-              )}
-            </div>
-          </Card>
-
-          {/* Bulk Actions Bar (Mobile & Desktop when items selected) */}
-          {selectedGuestIds.size > 0 && (
-            <Card className="p-4 bg-destructive/5 border-destructive/20">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">
-                  {selectedGuestIds.size} {selectedGuestIds.size === 1 ? 'invitato selezionato' : 'invitati selezionati'}
-                </span>
-                <Button 
-                  variant="destructive" 
-                  size="sm"
-                  onClick={handleDeleteSelectedGuests}
-                >
-                  <Trash className="w-4 h-4 mr-2" />
-                  Elimina
-                </Button>
+          {/* KPI Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card className="p-4">
+              <div className="text-sm text-muted-foreground">Invitati Totali</div>
+              <div className="text-3xl font-bold">{totalGuests}</div>
+              <div className="text-xs text-muted-foreground mt-1">
+                {totalAdults} adulti • {totalChildren} bambini
               </div>
             </Card>
+            <Card className="p-4">
+              <div className="text-sm text-muted-foreground">Nuclei di Invito</div>
+              <div className="text-3xl font-bold">{totalParties}</div>
+              <div className="text-xs text-muted-foreground mt-1">
+                {confirmedParties} confermati
+              </div>
+            </Card>
+            <Card className="p-4">
+              <div className="text-sm text-muted-foreground">Pronti per l'Invio</div>
+              <div className="text-3xl font-bold text-green-600">{partiesReadyToSend}</div>
+              <div className="text-xs text-muted-foreground mt-1">
+                Nuclei con almeno un contatto
+              </div>
+            </Card>
+            <Card className="p-4">
+              <div className="text-sm text-muted-foreground">Non Raggruppati</div>
+              <div className="text-3xl font-bold text-orange-600">{ungroupedGuests.length}</div>
+              <div className="text-xs text-muted-foreground mt-1">
+                Invitati senza nucleo
+              </div>
+            </Card>
+          </div>
+
+          {/* Warnings */}
+          {guestsWithoutPhone > 0 && (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                <strong>{guestsWithoutPhone}</strong> invitati non hanno un numero di telefono.{" "}
+                <Button
+                  variant="link"
+                  className="p-0 h-auto"
+                  onClick={() => setContactSyncOpen(true)}
+                >
+                  Sincronizza i contatti
+                </Button>
+              </AlertDescription>
+            </Alert>
           )}
 
-          {/* Guests List */}
-          {hasNoFilteredGuests ? (
-            <Card className="p-12">
-              <div className="text-center">
-                <Users className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-50" />
-                <p className="text-lg font-medium mb-2">Nessun invitato trovato</p>
-                <p className="text-muted-foreground mb-4">
-                  Prova a modificare i filtri di ricerca
-                </p>
-                <Button 
+          {ungroupedGuests.length > 0 && (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription className="flex items-center justify-between">
+                <span>
+                  <strong>{ungroupedGuests.length}</strong> invitati non sono ancora assegnati a un nucleo.
+                </span>
+                <Button
                   variant="outline"
-                  onClick={() => {
-                    setSearchQuery("");
-                    setFilterStatus("all");
-                    setFilterGroup("all");
-                  }}
+                  size="sm"
+                  onClick={() => setSmartGrouperOpen(true)}
                 >
-                  Reset Filtri
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Raggruppa con AI
                 </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Stats Chart */}
+          <GuestStatsChart stats={stats} />
+
+          {/* Filters */}
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Cerca nuclei o invitati..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full sm:w-48">
+                <SelectValue placeholder="Filtra per stato" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tutti gli stati</SelectItem>
+                <SelectItem value="In attesa">In attesa</SelectItem>
+                <SelectItem value="Confermato">Confermato</SelectItem>
+                <SelectItem value="Rifiutato">Rifiutato</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Parties Grid */}
+          {filteredParties.length === 0 ? (
+            <Card className="p-8">
+              <div className="text-center text-muted-foreground">
+                Nessun nucleo trovato con i filtri applicati.
               </div>
             </Card>
-          ) : isMobile ? (
-            // Mobile: Card Layout
-            <div className="space-y-3">
-              {filteredGuests.map((guest) => (
-                <GuestCard
-                  key={guest.id}
-                  guest={guest}
-                  isSelected={selectedGuestIds.has(guest.id)}
-                  onToggleSelect={() => toggleGuestSelection(guest.id)}
-                  onEdit={() => {
-                    setSelectedGuest(guest);
-                    setGuestDialogOpen(true);
-                  }}
-                  onDelete={() => handleDeleteGuest(guest.id)}
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredParties.map((party) => (
+                <PartyCard
+                  key={party.id}
+                  party={party}
+                  onEdit={handleEditParty}
+                  onDelete={handleDeleteParty}
+                  onSendRSVP={handleSendRSVP}
                 />
               ))}
             </div>
-          ) : (
-            // Desktop: Table Layout
-            <Card className="overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-muted/50">
-                    <tr>
-                      <th className="p-4 w-12">
-                        <Checkbox
-                          checked={filteredGuests.length > 0 && selectedGuestIds.size === filteredGuests.length}
-                          onCheckedChange={toggleSelectAll}
-                        />
-                      </th>
-                      <th className="text-left p-4 font-semibold">Nome</th>
-                      <th className="text-left p-4 font-semibold">Stato</th>
-                      <th className="text-left p-4 font-semibold">Gruppo</th>
-                      <th className="text-center p-4 font-semibold">Adulti</th>
-                      <th className="text-center p-4 font-semibold">Bambini</th>
-                      <th className="text-left p-4 font-semibold">Menù</th>
-                      <th className="text-right p-4 font-semibold">Azioni</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredGuests.map((guest) => (
-                      <tr key={guest.id} className="border-t hover:bg-muted/30 transition-colors">
-                        <td className="p-4">
-                          <Checkbox
-                            checked={selectedGuestIds.has(guest.id)}
-                            onCheckedChange={() => toggleGuestSelection(guest.id)}
-                          />
-                        </td>
-                        <td className="p-4">
-                          <div>
-                            <p className="font-medium">
-                              {guest.first_name} {guest.last_name}
-                            </p>
-                            {guest.dietary_restrictions && (
-                              <p className="text-sm text-muted-foreground">
-                                🍽️ {guest.dietary_restrictions}
-                              </p>
-                            )}
-                          </div>
-                        </td>
-                        <td className="p-4">{getRSVPBadge(guest.rsvp_status)}</td>
-                        <td className="p-4">
-                          {guest.group_name ? (
-                            <Badge variant="outline">{guest.group_name}</Badge>
-                          ) : (
-                            <span className="text-muted-foreground text-sm">—</span>
-                          )}
-                        </td>
-                        <td className="p-4 text-center">{guest.adults_count}</td>
-                        <td className="p-4 text-center">{guest.children_count}</td>
-                        <td className="p-4">
-                          {guest.menu_choice || <span className="text-muted-foreground">—</span>}
-                        </td>
-                        <td className="p-4">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                setSelectedGuest(guest);
-                                setGuestDialogOpen(true);
-                              }}
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDeleteGuest(guest.id)}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
           )}
         </>
       )}
@@ -784,40 +606,52 @@ const Guests = () => {
         <Button
           size="lg"
           className="fixed bottom-20 right-6 h-14 w-14 rounded-full shadow-lg z-50"
-          onClick={() => { setSelectedGuest(null); setGuestDialogOpen(true); }}
+          onClick={() => {
+            setEditingParty(undefined);
+            setPartyDialogOpen(true);
+          }}
         >
           <Plus className="w-6 h-6" />
         </Button>
       )}
 
       {/* Dialogs */}
-      <GuestDialog
-        open={guestDialogOpen}
-        onOpenChange={setGuestDialogOpen}
-        guest={selectedGuest}
-        groups={groups}
-        onSave={handleSaveGuest}
+      <PartyDialog
+        open={partyDialogOpen}
+        onOpenChange={(open) => {
+          setPartyDialogOpen(open);
+          if (!open) setEditingParty(undefined);
+        }}
+        party={editingParty ? {
+          id: editingParty.id,
+          party_name: editingParty.party_name,
+          guest_ids: editingParty.guests.map(g => g.id),
+        } : undefined}
+        availableGuests={editingParty
+          ? [...ungroupedGuests, ...editingParty.guests]
+          : ungroupedGuests
+        }
+        onSave={handleSaveParty}
       />
 
-      <GroupsDialog
-        open={groupsDialogOpen}
-        onOpenChange={setGroupsDialogOpen}
-        groups={groups}
-        onCreateGroup={handleCreateGroup}
-        onDeleteGroup={handleDeleteGroup}
+      <SmartGrouperDialog
+        open={smartGrouperOpen}
+        onOpenChange={setSmartGrouperOpen}
+        ungroupedGuests={ungroupedGuests}
+        onApprove={handleSmartGrouperApprove}
       />
 
       <SmartImportDialog
-        open={smartImportDialogOpen}
-        onOpenChange={setSmartImportDialogOpen}
+        open={smartImportOpen}
+        onOpenChange={setSmartImportOpen}
         weddingId={wedding?.id || ""}
         onSuccess={loadData}
-        groups={groups}
+        groups={[]}
       />
 
       <ContactSyncDialog
-        open={contactSyncDialogOpen}
-        onOpenChange={setContactSyncDialogOpen}
+        open={contactSyncOpen}
+        onOpenChange={setContactSyncOpen}
         weddingId={wedding?.id || ""}
         onSyncComplete={loadData}
       />

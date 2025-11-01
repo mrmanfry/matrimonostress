@@ -308,11 +308,15 @@ export type Database = {
           first_name: string
           group_id: string | null
           id: string
+          is_child: boolean
           last_name: string
           menu_choice: string | null
           notes: string | null
+          party_id: string | null
           phone: string | null
+          rsvp_send_status: Database["public"]["Enums"]["send_status_enum"]
           rsvp_status: string | null
+          unique_rsvp_token: string | null
           updated_at: string
           wedding_id: string
         }
@@ -324,11 +328,15 @@ export type Database = {
           first_name: string
           group_id?: string | null
           id?: string
+          is_child?: boolean
           last_name: string
           menu_choice?: string | null
           notes?: string | null
+          party_id?: string | null
           phone?: string | null
+          rsvp_send_status?: Database["public"]["Enums"]["send_status_enum"]
           rsvp_status?: string | null
+          unique_rsvp_token?: string | null
           updated_at?: string
           wedding_id: string
         }
@@ -340,11 +348,15 @@ export type Database = {
           first_name?: string
           group_id?: string | null
           id?: string
+          is_child?: boolean
           last_name?: string
           menu_choice?: string | null
           notes?: string | null
+          party_id?: string | null
           phone?: string | null
+          rsvp_send_status?: Database["public"]["Enums"]["send_status_enum"]
           rsvp_status?: string | null
+          unique_rsvp_token?: string | null
           updated_at?: string
           wedding_id?: string
         }
@@ -357,7 +369,69 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "guests_party_id_fkey"
+            columns: ["party_id"]
+            isOneToOne: false
+            referencedRelation: "invite_parties"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "guests_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invite_parties: {
+        Row: {
+          confirmed_by_guest_id: string | null
+          created_at: string
+          id: string
+          last_rsvp_log_id: string | null
+          party_name: string
+          rsvp_status: Database["public"]["Enums"]["rsvp_status_enum"]
+          updated_at: string
+          wedding_id: string
+        }
+        Insert: {
+          confirmed_by_guest_id?: string | null
+          created_at?: string
+          id?: string
+          last_rsvp_log_id?: string | null
+          party_name: string
+          rsvp_status?: Database["public"]["Enums"]["rsvp_status_enum"]
+          updated_at?: string
+          wedding_id: string
+        }
+        Update: {
+          confirmed_by_guest_id?: string | null
+          created_at?: string
+          id?: string
+          last_rsvp_log_id?: string | null
+          party_name?: string
+          rsvp_status?: Database["public"]["Enums"]["rsvp_status_enum"]
+          updated_at?: string
+          wedding_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_last_rsvp_log"
+            columns: ["last_rsvp_log_id"]
+            isOneToOne: false
+            referencedRelation: "rsvp_log"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invite_parties_confirmed_by_guest_id_fkey"
+            columns: ["confirmed_by_guest_id"]
+            isOneToOne: false
+            referencedRelation: "guests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invite_parties_wedding_id_fkey"
             columns: ["wedding_id"]
             isOneToOne: false
             referencedRelation: "weddings"
@@ -495,6 +569,48 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      rsvp_log: {
+        Row: {
+          created_at: string
+          guest_id_actor: string
+          id: string
+          party_id: string
+          payload: Json
+          timestamp: string
+        }
+        Insert: {
+          created_at?: string
+          guest_id_actor: string
+          id?: string
+          party_id: string
+          payload: Json
+          timestamp?: string
+        }
+        Update: {
+          created_at?: string
+          guest_id_actor?: string
+          id?: string
+          party_id?: string
+          payload?: Json
+          timestamp?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rsvp_log_guest_id_actor_fkey"
+            columns: ["guest_id_actor"]
+            isOneToOne: false
+            referencedRelation: "guests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rsvp_log_party_id_fkey"
+            columns: ["party_id"]
+            isOneToOne: false
+            referencedRelation: "invite_parties"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sync_tokens: {
         Row: {
@@ -913,6 +1029,8 @@ export type Database = {
     }
     Enums: {
       app_role: "co_planner" | "manager" | "guest"
+      rsvp_status_enum: "In attesa" | "Confermato" | "Rifiutato"
+      send_status_enum: "Non Inviato" | "Inviato" | "Fallito"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1041,6 +1159,8 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["co_planner", "manager", "guest"],
+      rsvp_status_enum: ["In attesa", "Confermato", "Rifiutato"],
+      send_status_enum: ["Non Inviato", "Inviato", "Fallito"],
     },
   },
 } as const
