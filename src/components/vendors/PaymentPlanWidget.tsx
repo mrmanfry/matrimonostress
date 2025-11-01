@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { MarkPaymentDialog } from "@/components/treasury/MarkPaymentDialog";
 
 interface Payment {
   id?: string;
@@ -46,6 +47,9 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId, totalIn
   const [contributors, setContributors] = useState<any[]>([]);
   const [editingPaymentIndex, setEditingPaymentIndex] = useState<number | null>(null);
   const [originalPaymentData, setOriginalPaymentData] = useState<Payment | null>(null);
+  const [markPaymentDialogOpen, setMarkPaymentDialogOpen] = useState(false);
+  const [paymentToMark, setPaymentToMark] = useState<any>(null);
+  const [vendorName, setVendorName] = useState<string>("");
   const { toast } = useToast();
 
   useEffect(() => {
@@ -53,10 +57,29 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId, totalIn
       loadPayments();
       loadWeddingDate();
       loadContributors();
+      loadVendorName();
     } else {
       setPayments([]);
     }
   }, [expenseItemId]);
+
+  const loadVendorName = async () => {
+    if (!vendorId) return;
+    
+    try {
+      const { data } = await supabase
+        .from("vendors")
+        .select("name")
+        .eq("id", vendorId)
+        .single();
+      
+      if (data) {
+        setVendorName(data.name);
+      }
+    } catch (error) {
+      console.error("Error loading vendor name:", error);
+    }
+  };
 
   const loadWeddingDate = async () => {
     try {
@@ -237,6 +260,47 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId, totalIn
     return null;
   };
 
+  const handleStatusChange = async (index: number, newStatus: string) => {
+    const payment = payments[index];
+    
+    // Se passa da "Da Pagare" a "Pagato" e il pagamento è già salvato nel DB
+    if (newStatus === 'Pagato' && payment.status === 'Da Pagare' && payment.id) {
+      // Calcola l'importo effettivo del pagamento
+      let actualAmount = 0;
+      if (payment.amount_type === 'fixed') {
+        actualAmount = parseFloat(payment.amount);
+        // Se IVA Esclusa, aggiungi l'IVA
+        if (payment.tax_inclusive === false && payment.tax_rate) {
+          const taxRate = parseFloat(payment.tax_rate);
+          actualAmount = actualAmount * (1 + taxRate / 100);
+        }
+      } else if (payment.amount_type === 'percentage') {
+        const pct = parseFloat(payment.percentage_value);
+        actualAmount = (totalInvoice * pct) / 100;
+      }
+
+      // Converti il payment locale nel formato del dialog
+      const paymentForDialog = {
+        id: payment.id,
+        description: payment.description,
+        amount: actualAmount,
+        due_date: payment.due_date ? format(payment.due_date, "yyyy-MM-dd") : new Date().toISOString().split('T')[0],
+        status: payment.status as 'Da Pagare' | 'Pagato',
+        paid_on_date: payment.paid_on_date ? format(payment.paid_on_date, "yyyy-MM-dd") : null,
+        paid_by: payment.paid_by || null,
+        expense_item_id: expenseItemId!,
+        tax_inclusive: payment.tax_inclusive || true,
+        tax_rate: payment.tax_rate ? parseFloat(payment.tax_rate) : null,
+      };
+
+      setPaymentToMark(paymentForDialog);
+      setMarkPaymentDialogOpen(true);
+    } else {
+      // Altrimenti, semplice cambio di stato
+      updatePayment(index, "status", newStatus);
+    }
+  };
+
   const handleSavePayment = async (index: number) => {
     const payment = payments[index];
 
@@ -247,26 +311,6 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId, totalIn
         variant: "destructive",
       });
       return;
-    }
-
-    // Validazione per pagamenti completati
-    if (payment.status === 'Pagato') {
-      if (!payment.paid_by || payment.paid_by.trim() === '') {
-        toast({
-          title: "Chi ha pagato?",
-          description: "Specifica chi ha effettuato il pagamento",
-          variant: "destructive",
-        });
-        return;
-      }
-      if (!payment.paid_on_date) {
-        toast({
-          title: "Data pagamento mancante",
-          description: "Specifica la data di pagamento effettivo",
-          variant: "destructive",
-        });
-        return;
-      }
     }
 
     // Validazione in base al tipo di importo
@@ -615,7 +659,7 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId, totalIn
                 <Label>Stato</Label>
                 <Select
                   value={payment.status}
-                  onValueChange={(value) => updatePayment(index, "status", value)}
+                  onValueChange={(value) => handleStatusChange(index, value)}
                   disabled={!isEditing}
                 >
                   <SelectTrigger>
@@ -628,8 +672,8 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId, totalIn
                 </Select>
               </div>
 
-              {/* Campi per "Chi ha pagato" - mostrati solo se status = "Pagato" */}
-              {payment.status === 'Pagato' && (
+              {/* Mostra info pagamento se già completato */}
+              {payment.status === 'Pagato' && payment.id && (
                 <div className="space-y-3 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-900">
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4 text-green-600" />
@@ -637,67 +681,48 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId, totalIn
                       Pagamento Completato
                     </Label>
                   </div>
-                  
-                  <div>
-                    <Label htmlFor={`paid-by-${index}`} className="text-sm">
-                      Pagato da *
-                    </Label>
-                    <Select
-                      value={payment.paid_by || ''}
-                      onValueChange={(value) => updatePayment(index, 'paid_by', value)}
-                      disabled={!isEditing}
-                    >
-                      <SelectTrigger id={`paid-by-${index}`} className="mt-1">
-                        <SelectValue placeholder="Seleziona chi ha pagato" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {contributors.map((contributor) => (
-                          <SelectItem key={contributor.id} value={contributor.name}>
-                            {contributor.name}
-                            {contributor.user_id && " 👤"}
-                          </SelectItem>
-                        ))}
-                        {contributors.length === 0 && (
-                          <SelectItem value="Io">Io</SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {payment.paid_on_date && (
+                    <div className="text-sm">
+                      <span className="text-muted-foreground">Data: </span>
+                      <span className="font-medium">{format(payment.paid_on_date, "dd/MM/yyyy")}</span>
+                    </div>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      let actualAmount = 0;
+                      if (payment.amount_type === 'fixed') {
+                        actualAmount = parseFloat(payment.amount);
+                        if (payment.tax_inclusive === false && payment.tax_rate) {
+                          const taxRate = parseFloat(payment.tax_rate);
+                          actualAmount = actualAmount * (1 + taxRate / 100);
+                        }
+                      } else if (payment.amount_type === 'percentage') {
+                        const pct = parseFloat(payment.percentage_value);
+                        actualAmount = (totalInvoice * pct) / 100;
+                      }
 
-                  <div>
-                    <Label htmlFor={`paid-on-date-${index}`} className="text-sm">
-                      Data pagamento effettivo *
-                    </Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          id={`paid-on-date-${index}`}
-                          variant="outline"
-                          className={cn(
-                            "w-full justify-start text-left font-normal mt-1",
-                            !payment.paid_on_date && "text-muted-foreground"
-                          )}
-                          disabled={!isEditing}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {payment.paid_on_date ? (
-                            format(payment.paid_on_date, "dd/MM/yyyy")
-                          ) : (
-                            <span>Seleziona data</span>
-                          )}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={payment.paid_on_date}
-                          onSelect={(date) => updatePayment(index, 'paid_on_date', date)}
-                          initialFocus
-                          className="pointer-events-auto"
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
+                      const paymentForDialog = {
+                        id: payment.id!,
+                        description: payment.description,
+                        amount: actualAmount,
+                        due_date: payment.due_date ? format(payment.due_date, "yyyy-MM-dd") : new Date().toISOString().split('T')[0],
+                        status: 'Pagato' as const,
+                        paid_on_date: payment.paid_on_date ? format(payment.paid_on_date, "yyyy-MM-dd") : null,
+                        paid_by: payment.paid_by || null,
+                        expense_item_id: expenseItemId!,
+                        tax_inclusive: payment.tax_inclusive || true,
+                        tax_rate: payment.tax_rate ? parseFloat(payment.tax_rate) : null,
+                      };
+
+                      setPaymentToMark(paymentForDialog);
+                      setMarkPaymentDialogOpen(true);
+                    }}
+                    disabled={!isEditing}
+                  >
+                    Modifica Allocazioni
+                  </Button>
                 </div>
               )}
 
@@ -906,6 +931,22 @@ export function PaymentPlanWidget({ vendorId, expenseItemId, categoryId, totalIn
           </Alert>
         )}
       </CardContent>
+
+      <MarkPaymentDialog
+        payment={paymentToMark}
+        vendorName={vendorName}
+        totalAmount={paymentToMark?.amount || 0}
+        contributors={contributors}
+        open={markPaymentDialogOpen}
+        onOpenChange={setMarkPaymentDialogOpen}
+        onSuccess={() => {
+          loadPayments();
+          toast({
+            title: "Pagamento registrato",
+            description: "Le allocazioni sono state salvate",
+          });
+        }}
+      />
     </Card>
   );
 }
