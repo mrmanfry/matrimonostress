@@ -22,7 +22,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { PartyCard } from "@/components/guests/PartyCard";
 import { PartyDialog } from "@/components/guests/PartyDialog";
 import { SmartGrouperDialog } from "@/components/guests/SmartGrouperDialog";
 import { SmartImportDialog } from "@/components/guests/SmartImportDialog";
@@ -31,6 +30,9 @@ import { RSVPCampaignDialog } from "@/components/guests/RSVPCampaignDialog";
 import { GuestStatsChart } from "@/components/guests/GuestStatsChart";
 import { ImportDropdown } from "@/components/guests/ImportDropdown";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { GuestSingleCard } from "@/components/guests/GuestSingleCard";
+import { GuestNucleoCard } from "@/components/guests/GuestNucleoCard";
+import { SelectionToolbar } from "@/components/guests/SelectionToolbar";
 
 interface Guest {
   id: string;
@@ -76,6 +78,7 @@ const Guests = () => {
   
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [groupingFilter, setGroupingFilter] = useState("all"); // all, grouped, singles
   
   const [partyDialogOpen, setPartyDialogOpen] = useState(false);
   const [editingParty, setEditingParty] = useState<InviteParty | undefined>();
@@ -84,6 +87,10 @@ const Guests = () => {
   const [contactSyncOpen, setContactSyncOpen] = useState(false);
   const [rsvpCampaignOpen, setRsvpCampaignOpen] = useState(false);
   const [selectedPartiesForRSVP, setSelectedPartiesForRSVP] = useState<InviteParty[]>([]);
+  
+  // Selection state for multi-select
+  const [selectedGuestIds, setSelectedGuestIds] = useState<Set<string>>(new Set());
+  const [selectedPartyIds, setSelectedPartyIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (authState.status === "authenticated") {
@@ -323,44 +330,164 @@ const Guests = () => {
 
       toast({
         title: "Raggruppamento Completato!",
-        description: `${suggestions.length} nuclei sono stati creati.`,
+        description: `${suggestions.length} nuclei creati con successo!`,
       });
+      await loadData();
     } catch (error: any) {
       toast({
         title: "Errore",
-        description: error.message,
+        description: error.message || "Errore nel raggruppamento",
         variant: "destructive",
       });
     }
   };
 
-  // Filtra parties
-  const filteredParties = parties.filter(party => {
-    if (statusFilter !== "all" && party.rsvp_status !== statusFilter) return false;
+  // Selection handlers
+  const toggleGuestSelection = (guestId: string) => {
+    setSelectedGuestIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(guestId)) {
+        newSet.delete(guestId);
+      } else {
+        newSet.add(guestId);
+      }
+      return newSet;
+    });
+  };
+
+  const togglePartySelection = (partyId: string) => {
+    setSelectedPartyIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(partyId)) {
+        newSet.delete(partyId);
+      } else {
+        newSet.add(partyId);
+      }
+      return newSet;
+    });
+  };
+
+  const clearSelection = () => {
+    setSelectedGuestIds(new Set());
+    setSelectedPartyIds(new Set());
+  };
+
+  const handleCreatePartyFromSelection = () => {
+    if (selectedGuestIds.size === 0) {
+      toast({
+        title: "Selezione vuota",
+        description: "Seleziona almeno un invitato",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Convert selected guests to array for dialog
+    const selectedGuests = ungroupedGuests.filter(g => selectedGuestIds.has(g.id));
+    
+    // Open dialog with pre-selected guests
+    setEditingParty({
+      id: "",
+      wedding_id: wedding?.id || "",
+      party_name: "",
+      rsvp_status: 'In attesa',
+      guests: selectedGuests,
+    } as any);
+    setPartyDialogOpen(true);
+    clearSelection();
+  };
+
+  const handleEditGuest = (guestId: string) => {
+    // TODO: Implement guest edit dialog
+    toast({
+      title: "Funzionalità in arrivo",
+      description: "La modifica dell'invitato sarà disponibile a breve.",
+    });
+  };
+
+  const handleAddGuestToParty = (guestId: string) => {
+    const guest = ungroupedGuests.find(g => g.id === guestId);
+    if (!guest) return;
+    
+    setEditingParty({
+      id: "",
+      wedding_id: wedding?.id || "",
+      party_name: "",
+      rsvp_status: 'In attesa',
+      guests: [guest],
+    } as any);
+    setPartyDialogOpen(true);
+  };
+
+  // Filter logic for hybrid list
+  const filteredItems = () => {
+    let items: Array<{ type: 'single' | 'party'; data: Guest | InviteParty }> = [];
+
+    // Add parties (grouped guests)
+    if (groupingFilter !== "singles") {
+      parties.forEach(party => {
+        items.push({ type: 'party', data: party });
+      });
+    }
+
+    // Add ungrouped guests (singles)
+    if (groupingFilter !== "grouped") {
+      ungroupedGuests.forEach(guest => {
+        items.push({ type: 'single', data: guest });
+      });
+    }
+
+    // Apply status filter
+    items = items.filter(item => {
+      if (statusFilter !== "all") {
+        if (item.type === 'party') {
+          const party = item.data as InviteParty;
+          return party.rsvp_status === statusFilter;
+        }
+        // Singles are always "In attesa"
+        return statusFilter === "In attesa";
+      }
+      return true;
+    });
+
+    // Apply search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      return (
-        party.party_name.toLowerCase().includes(query) ||
-        party.guests.some(g =>
-          g.first_name.toLowerCase().includes(query) ||
-          g.last_name.toLowerCase().includes(query)
-        )
-      );
+      items = items.filter(item => {
+        if (item.type === 'party') {
+          const party = item.data as InviteParty;
+          return (
+            party.party_name.toLowerCase().includes(query) ||
+            party.guests.some(g =>
+              g.first_name.toLowerCase().includes(query) ||
+              g.last_name.toLowerCase().includes(query)
+            )
+          );
+        } else {
+          const guest = item.data as Guest;
+          return (
+            guest.first_name.toLowerCase().includes(query) ||
+            guest.last_name.toLowerCase().includes(query)
+          );
+        }
+      });
     }
-    return true;
-  });
 
-  // Calcola statistiche
+    return items;
+  };
+
+  const hybridList = filteredItems();
+
+  // Calcola statistiche (riorganizzate per la nuova UI)
   const totalGuests = allGuests.length;
-  const totalParties = parties.length;
-  const confirmedParties = parties.filter(p => p.rsvp_status === 'Confermato').length;
-  const guestsWithoutPhone = allGuests.filter(g => !g.phone).length;
-  const partiesReadyToSend = parties.filter(p =>
-    p.guests.some(g => g.phone)
-  ).length;
-
   const totalAdults = allGuests.reduce((sum, g) => sum + (g.is_child ? 0 : 1), 0);
   const totalChildren = allGuests.reduce((sum, g) => sum + (g.is_child ? 1 : 0), 0);
+  
+  // "Nuclei di Invito" = parties + ungrouped (ogni single è un nucleo di 1)
+  const totalNuclei = parties.length + ungroupedGuests.length;
+  
+  const guestsWithoutPhone = allGuests.filter(g => !g.phone).length;
+  const confirmedParties = parties.filter(p => p.rsvp_status === 'Confermato').length;
 
   // Calcola stats RSVP
   const confirmedGuests = allGuests.filter(g => {
@@ -498,34 +625,27 @@ const Guests = () => {
         </Card>
       ) : (
         <>
-          {/* KPI Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* KPI Cards - Riorganizzate */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card className="p-4">
               <div className="text-sm text-muted-foreground">Invitati Totali</div>
               <div className="text-3xl font-bold">{totalGuests}</div>
               <div className="text-xs text-muted-foreground mt-1">
-                {totalAdults} adulti • {totalChildren} bambini
+                {totalAdults} Adult{totalAdults !== 1 ? 'i' : 'o'}, {totalChildren} Bambin{totalChildren !== 1 ? 'i' : 'o'}
               </div>
             </Card>
             <Card className="p-4">
               <div className="text-sm text-muted-foreground">Nuclei di Invito</div>
-              <div className="text-3xl font-bold">{totalParties}</div>
+              <div className="text-3xl font-bold">{totalNuclei}</div>
               <div className="text-xs text-muted-foreground mt-1">
-                {confirmedParties} confermati
+                {parties.length} raggruppati • {ungroupedGuests.length} singoli
               </div>
             </Card>
             <Card className="p-4">
-              <div className="text-sm text-muted-foreground">Pronti per l'Invio</div>
-              <div className="text-3xl font-bold text-green-600">{partiesReadyToSend}</div>
+              <div className="text-sm text-muted-foreground">Contatti Mancanti</div>
+              <div className="text-3xl font-bold text-orange-600">{guestsWithoutPhone}</div>
               <div className="text-xs text-muted-foreground mt-1">
-                Nuclei con almeno un contatto
-              </div>
-            </Card>
-            <Card className="p-4">
-              <div className="text-sm text-muted-foreground">Non Raggruppati</div>
-              <div className="text-3xl font-bold text-orange-600">{ungroupedGuests.length}</div>
-              <div className="text-xs text-muted-foreground mt-1">
-                Invitati senza nucleo
+                Invitati senza numero di telefono
               </div>
             </Card>
           </div>
@@ -569,28 +689,32 @@ const Guests = () => {
           {/* Stats Chart */}
           <GuestStatsChart stats={stats} />
 
-          {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-4">
+          {/* Filters - Ridisegnati */}
+          <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Cerca nuclei o invitati..."
+                placeholder="🔍 Cerca invitati o nuclei..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
               />
             </div>
-            <Button
-              onClick={handleBulkSendRSVP}
-              disabled={parties.length === 0}
-              variant="default"
-              className="gap-2 whitespace-nowrap"
-            >
-              💬 Avvia Campagna RSVP ({parties.length})
-            </Button>
+            
+            <Select value={groupingFilter} onValueChange={setGroupingFilter}>
+              <SelectTrigger className="w-full sm:w-52">
+                <SelectValue placeholder="Stato Raggruppamento" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tutti</SelectItem>
+                <SelectItem value="grouped">Solo Raggruppati</SelectItem>
+                <SelectItem value="singles">Solo Singoli</SelectItem>
+              </SelectContent>
+            </Select>
+
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-full sm:w-48">
-                <SelectValue placeholder="Filtra per stato" />
+                <SelectValue placeholder="Stato RSVP" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tutti gli stati</SelectItem>
@@ -599,28 +723,62 @@ const Guests = () => {
                 <SelectItem value="Rifiutato">Rifiutato</SelectItem>
               </SelectContent>
             </Select>
+
+            <Button
+              onClick={handleBulkSendRSVP}
+              disabled={parties.length === 0}
+              variant="default"
+              className="gap-2 whitespace-nowrap"
+            >
+              💬 Campagna RSVP
+            </Button>
           </div>
 
-          {/* Parties Grid */}
-          {filteredParties.length === 0 ? (
+          {/* Hybrid List - La Lista Ibrida (Nuclei + Singoli) */}
+          {hybridList.length === 0 ? (
             <Card className="p-8">
               <div className="text-center text-muted-foreground">
-                Nessun nucleo trovato con i filtri applicati.
+                Nessun invitato trovato con i filtri applicati.
               </div>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredParties.map((party) => (
-                <PartyCard
-                  key={party.id}
-                  party={party}
-                  onEdit={handleEditParty}
-                  onDelete={handleDeleteParty}
-                  onSendRSVP={handleSendRSVP}
-                />
-              ))}
+            <div className="space-y-3">
+              {hybridList.map((item) => {
+                if (item.type === 'party') {
+                  const party = item.data as InviteParty;
+                  return (
+                    <GuestNucleoCard
+                      key={`party-${party.id}`}
+                      party={party}
+                      selected={selectedPartyIds.has(party.id)}
+                      onToggleSelect={togglePartySelection}
+                      onEdit={handleEditParty}
+                      onSendRSVP={handleSendRSVP}
+                    />
+                  );
+                } else {
+                  const guest = item.data as Guest;
+                  return (
+                    <GuestSingleCard
+                      key={`guest-${guest.id}`}
+                      guest={guest}
+                      selected={selectedGuestIds.has(guest.id)}
+                      onToggleSelect={toggleGuestSelection}
+                      onEdit={handleEditGuest}
+                      onAddToParty={handleAddGuestToParty}
+                    />
+                  );
+                }
+              })}
             </div>
           )}
+
+          {/* Selection Toolbar */}
+          <SelectionToolbar
+            selectedCount={selectedGuestIds.size + selectedPartyIds.size}
+            onCreateParty={handleCreatePartyFromSelection}
+            onClearSelection={clearSelection}
+          />
         </>
       )}
 
