@@ -19,17 +19,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { MarkPaymentDialog } from "@/components/treasury/MarkPaymentDialog";
 
 interface Payment {
   id: string;
@@ -314,36 +305,9 @@ export default function Treasury() {
     return item?.vendor_id || null;
   };
 
-  const handleMarkAsPaid = async () => {
-    if (!paymentToMark) return;
-
-    try {
-      const { error } = await supabase
-        .from("payments")
-        .update({
-          status: "Pagato",
-          paid_on_date: format(new Date(), "yyyy-MM-dd"),
-        })
-        .eq("id", paymentToMark.id);
-
-      if (error) throw error;
-
-      toast({
-        title: "Pagamento registrato",
-        description: `€${formatCurrency(calculatePaymentTotal(paymentToMark))} a ${getVendorName(paymentToMark.expense_item_id)}`,
-      });
-
-      // Reload data
-      await loadData();
-      setPaymentToMark(null);
-    } catch (error) {
-      console.error("Error marking payment as paid:", error);
-      toast({
-        title: "Errore",
-        description: "Impossibile aggiornare il pagamento",
-        variant: "destructive",
-      });
-    }
+  const handlePaymentSuccess = async () => {
+    await loadData();
+    setPaymentToMark(null);
   };
 
   // Filter future payments based on time filter
@@ -719,31 +683,15 @@ export default function Treasury() {
       </Card>
 
       {/* Mark as Paid Dialog */}
-      <AlertDialog open={!!paymentToMark} onOpenChange={() => setPaymentToMark(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Conferma Pagamento</AlertDialogTitle>
-            <AlertDialogDescription>
-              Confermi di aver pagato{" "}
-              <strong className="text-foreground">
-                {paymentToMark && formatCurrency(calculatePaymentTotal(paymentToMark))}
-              </strong>{" "}
-              a{" "}
-              <strong className="text-foreground">
-                {paymentToMark && getVendorName(paymentToMark.expense_item_id)}
-              </strong>
-              ?
-              <br />
-              <br />
-              Questa azione aggiornerà automaticamente il grafico e i KPI.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Annulla</AlertDialogCancel>
-            <AlertDialogAction onClick={handleMarkAsPaid}>Conferma Pagamento</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <MarkPaymentDialog
+        payment={paymentToMark}
+        vendorName={paymentToMark ? getVendorName(paymentToMark.expense_item_id) : ""}
+        totalAmount={paymentToMark ? calculatePaymentTotal(paymentToMark) : 0}
+        contributors={contributors}
+        open={!!paymentToMark}
+        onOpenChange={(open) => !open && setPaymentToMark(null)}
+        onSuccess={handlePaymentSuccess}
+      />
 
       {/* Info Banner */}
       <Alert>
