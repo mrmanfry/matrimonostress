@@ -79,6 +79,8 @@ const Guests = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [groupingFilter, setGroupingFilter] = useState("all"); // all, grouped, singles
+  const [contactFilter, setContactFilter] = useState("all"); // all, with_phone, without_phone
+  const [ageFilter, setAgeFilter] = useState("all"); // all, adults, children
   
   const [partyDialogOpen, setPartyDialogOpen] = useState(false);
   const [editingParty, setEditingParty] = useState<InviteParty | undefined>();
@@ -450,6 +452,38 @@ const Guests = () => {
       return true;
     });
 
+    // Apply contact filter
+    if (contactFilter !== "all") {
+      items = items.filter(item => {
+        if (item.type === 'party') {
+          const party = item.data as InviteParty;
+          const hasPhone = party.guests.some(g => g.phone);
+          return contactFilter === "with_phone" ? hasPhone : !hasPhone;
+        } else {
+          const guest = item.data as Guest;
+          const hasPhone = !!guest.phone;
+          return contactFilter === "with_phone" ? hasPhone : !hasPhone;
+        }
+      });
+    }
+
+    // Apply age filter
+    if (ageFilter !== "all") {
+      items = items.filter(item => {
+        if (item.type === 'party') {
+          const party = item.data as InviteParty;
+          if (ageFilter === "adults") {
+            return party.guests.some(g => !g.is_child);
+          } else {
+            return party.guests.some(g => g.is_child);
+          }
+        } else {
+          const guest = item.data as Guest;
+          return ageFilter === "adults" ? !guest.is_child : guest.is_child;
+        }
+      });
+    }
+
     // Apply search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -689,49 +723,76 @@ const Guests = () => {
           {/* Stats Chart */}
           <GuestStatsChart stats={stats} />
 
-          {/* Filters - Ridisegnati */}
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="🔍 Cerca invitati o nuclei..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
+          {/* Filters - Ridisegnati con tutti i filtri */}
+          <div className="space-y-3">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="🔍 Cerca invitati o nuclei..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+
+              <Button
+                onClick={handleBulkSendRSVP}
+                disabled={parties.length === 0}
+                variant="default"
+                className="gap-2 whitespace-nowrap"
+              >
+                💬 Campagna RSVP
+              </Button>
             </div>
-            
-            <Select value={groupingFilter} onValueChange={setGroupingFilter}>
-              <SelectTrigger className="w-full sm:w-52">
-                <SelectValue placeholder="Stato Raggruppamento" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tutti</SelectItem>
-                <SelectItem value="grouped">Solo Raggruppati</SelectItem>
-                <SelectItem value="singles">Solo Singoli</SelectItem>
-              </SelectContent>
-            </Select>
 
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-48">
-                <SelectValue placeholder="Stato RSVP" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tutti gli stati</SelectItem>
-                <SelectItem value="In attesa">In attesa</SelectItem>
-                <SelectItem value="Confermato">Confermato</SelectItem>
-                <SelectItem value="Rifiutato">Rifiutato</SelectItem>
-              </SelectContent>
-            </Select>
+            {/* Seconda riga di filtri */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <Select value={groupingFilter} onValueChange={setGroupingFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Raggruppamento" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tutti</SelectItem>
+                  <SelectItem value="grouped">Solo Raggruppati</SelectItem>
+                  <SelectItem value="singles">Solo Singoli</SelectItem>
+                </SelectContent>
+              </Select>
 
-            <Button
-              onClick={handleBulkSendRSVP}
-              disabled={parties.length === 0}
-              variant="default"
-              className="gap-2 whitespace-nowrap"
-            >
-              💬 Campagna RSVP
-            </Button>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Stato RSVP" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tutti gli stati</SelectItem>
+                  <SelectItem value="In attesa">In attesa</SelectItem>
+                  <SelectItem value="Confermato">Confermato</SelectItem>
+                  <SelectItem value="Rifiutato">Rifiutato</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={contactFilter} onValueChange={setContactFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Contatto" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tutti</SelectItem>
+                  <SelectItem value="with_phone">Con numero</SelectItem>
+                  <SelectItem value="without_phone">Senza numero</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={ageFilter} onValueChange={setAgeFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Età" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tutti</SelectItem>
+                  <SelectItem value="adults">Solo Adulti</SelectItem>
+                  <SelectItem value="children">Solo Bambini</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {/* Hybrid List - La Lista Ibrida (Nuclei + Singoli) */}
