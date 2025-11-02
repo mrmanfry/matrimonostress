@@ -216,6 +216,8 @@ export type Database = {
           id: string
           order_index: number | null
           quantity_fixed: number | null
+          quantity_limit: number | null
+          quantity_range: string | null
           quantity_type: string
           tax_rate: number | null
           unit_price: number
@@ -229,6 +231,8 @@ export type Database = {
           id?: string
           order_index?: number | null
           quantity_fixed?: number | null
+          quantity_limit?: number | null
+          quantity_range?: string | null
           quantity_type: string
           tax_rate?: number | null
           unit_price?: number
@@ -242,6 +246,8 @@ export type Database = {
           id?: string
           order_index?: number | null
           quantity_fixed?: number | null
+          quantity_limit?: number | null
+          quantity_range?: string | null
           quantity_type?: string
           tax_rate?: number | null
           unit_price?: number

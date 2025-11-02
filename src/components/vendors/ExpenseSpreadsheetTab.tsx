@@ -25,6 +25,8 @@ interface ExpenseLineItem {
   unit_price: number;
   quantity_type: 'fixed' | 'adults' | 'children' | 'total_guests';
   quantity_fixed: number | null;
+  quantity_limit: number | null;
+  quantity_range: 'all' | 'up_to' | 'over';
   discount_percentage: number;
   tax_rate: number;
   order_index: number;
@@ -130,6 +132,8 @@ export function ExpenseSpreadsheetTab({
       unit_price: 0,
       quantity_type: 'fixed',
       quantity_fixed: 1,
+      quantity_limit: null,
+      quantity_range: 'all',
       discount_percentage: 0,
       tax_rate: 22,
       order_index: lineItems.length,
@@ -239,14 +243,27 @@ export function ExpenseSpreadsheetTab({
 
     if (line.quantity_type === 'fixed') {
       quantity = line.quantity_fixed || 0;
-    } else if (line.quantity_type === 'adults') {
-      quantity = mode === 'planned' ? plannedAdults : actualAdults;
-    } else if (line.quantity_type === 'children') {
-      quantity = mode === 'planned' ? plannedChildren : actualChildren;
-    } else if (line.quantity_type === 'total_guests') {
-      quantity = mode === 'planned' 
-        ? plannedAdults + plannedChildren 
-        : actualAdults + actualChildren;
+    } else {
+      // Calculate base quantity
+      let baseQuantity = 0;
+      if (line.quantity_type === 'adults') {
+        baseQuantity = mode === 'planned' ? plannedAdults : actualAdults;
+      } else if (line.quantity_type === 'children') {
+        baseQuantity = mode === 'planned' ? plannedChildren : actualChildren;
+      } else if (line.quantity_type === 'total_guests') {
+        baseQuantity = mode === 'planned' 
+          ? plannedAdults + plannedChildren 
+          : actualAdults + actualChildren;
+      }
+
+      // Apply quantity range logic
+      if (line.quantity_range === 'up_to' && line.quantity_limit) {
+        quantity = Math.min(baseQuantity, line.quantity_limit);
+      } else if (line.quantity_range === 'over' && line.quantity_limit) {
+        quantity = Math.max(baseQuantity - line.quantity_limit, 0);
+      } else {
+        quantity = baseQuantity;
+      }
     }
 
     const subtotal = line.unit_price * quantity;
