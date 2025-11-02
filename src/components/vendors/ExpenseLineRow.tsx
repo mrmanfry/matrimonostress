@@ -86,7 +86,7 @@ export function ExpenseLineRow({
             type="number"
             step="0.01"
             min="0"
-            value={localData.unit_price}
+            value={localData.unit_price || ''}
             onChange={(e) => handleUpdate('unit_price', parseFloat(e.target.value) || 0)}
             placeholder="Prezzo €"
             className="h-9"
@@ -116,7 +116,7 @@ export function ExpenseLineRow({
           <Input
             type="number"
             min="0"
-            value={getQuantityDisplay()}
+            value={getQuantityDisplay() || ''}
             onChange={(e) => {
               if (isQuantityEditable) {
                 handleUpdate('quantity_fixed', parseInt(e.target.value) || 0);
@@ -134,7 +134,7 @@ export function ExpenseLineRow({
             step="0.1"
             min="0"
             max="100"
-            value={localData.discount_percentage}
+            value={localData.discount_percentage || ''}
             onChange={(e) => handleUpdate('discount_percentage', parseFloat(e.target.value) || 0)}
             placeholder="Sconto %"
             className="h-9"
@@ -148,7 +148,7 @@ export function ExpenseLineRow({
             step="0.1"
             min="0"
             max="100"
-            value={localData.tax_rate}
+            value={localData.tax_rate || ''}
             onChange={(e) => handleUpdate('tax_rate', parseFloat(e.target.value) || 0)}
             placeholder="IVA %"
             className="h-9"
