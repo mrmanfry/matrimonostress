@@ -16,6 +16,23 @@ interface ExpenseItem {
   total_amount: number | null;
   amount_is_tax_inclusive: boolean;
   tax_rate: number | null;
+  calculation_mode: 'planned' | 'actual';
+  planned_adults: number;
+  planned_children: number;
+}
+
+interface ExpenseLineItem {
+  id: string;
+  expense_item_id: string;
+  description: string;
+  unit_price: number;
+  quantity_type: 'fixed' | 'adults' | 'children' | 'total_guests';
+  quantity_fixed: number | null;
+  quantity_limit: number | null;
+  quantity_range: 'all' | 'up_to' | 'over';
+  discount_percentage: number;
+  tax_rate: number;
+  order_index: number;
 }
 
 interface Payment {
@@ -37,6 +54,7 @@ interface ExpenseItemsManagerProps {
 
 export function ExpenseItemsManager({ vendorId, categoryId }: ExpenseItemsManagerProps) {
   const [expenseItems, setExpenseItems] = useState<ExpenseItem[]>([]);
+  const [lineItems, setLineItems] = useState<Record<string, ExpenseLineItem[]>>({});
   const [payments, setPayments] = useState<Record<string, Payment[]>>({});
   const [loading, setLoading] = useState(true);
   const [tabsOpen, setTabsOpen] = useState(false);
@@ -44,13 +62,55 @@ export function ExpenseItemsManager({ vendorId, categoryId }: ExpenseItemsManage
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+  const [actualAdults, setActualAdults] = useState(0);
+  const [actualChildren, setActualChildren] = useState(0);
   const { toast } = useToast();
 
   useEffect(() => {
     if (vendorId) {
       loadExpenseItems();
+      loadActualGuestCounts();
     }
   }, [vendorId]);
+
+  const loadActualGuestCounts = async () => {
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return;
+
+      const { data: weddingData } = await supabase
+        .from("weddings")
+        .select("id")
+        .eq("created_by", userData.user.id)
+        .maybeSingle();
+
+      if (!weddingData) return;
+
+      const { data: parties } = await supabase
+        .from("invite_parties")
+        .select("id, guests(*)")
+        .eq("wedding_id", weddingData.id)
+        .eq("rsvp_status", "Confermato");
+
+      let adults = 0;
+      let children = 0;
+
+      parties?.forEach((party: any) => {
+        party.guests?.forEach((guest: any) => {
+          if (guest.is_child) {
+            children++;
+          } else {
+            adults++;
+          }
+        });
+      });
+
+      setActualAdults(adults);
+      setActualChildren(children);
+    } catch (error) {
+      console.error("Error loading guest counts:", error);
+    }
+  };
 
   const loadExpenseItems = async () => {
     setLoading(true);
@@ -65,11 +125,33 @@ export function ExpenseItemsManager({ vendorId, categoryId }: ExpenseItemsManage
       if (itemsError) throw itemsError;
 
       const items = itemsData || [];
-      setExpenseItems(items);
+      setExpenseItems(items as ExpenseItem[]);
 
-      // Load payments for each item
+      // Load line items and payments for each item
       if (items.length > 0) {
         const itemIds = items.map(item => item.id);
+        
+        // Load line items
+        const { data: lineItemsData, error: lineItemsError } = await supabase
+          .from("expense_line_items")
+          .select("*")
+          .in("expense_item_id", itemIds)
+          .order("order_index", { ascending: true });
+
+        if (lineItemsError) throw lineItemsError;
+
+        // Group line items by expense_item_id
+        const lineItemsByItem = (lineItemsData || []).reduce((acc, lineItem) => {
+          if (!acc[lineItem.expense_item_id]) {
+            acc[lineItem.expense_item_id] = [];
+          }
+          acc[lineItem.expense_item_id].push(lineItem as ExpenseLineItem);
+          return acc;
+        }, {} as Record<string, ExpenseLineItem[]>);
+
+        setLineItems(lineItemsByItem);
+
+        // Load payments
         const { data: paymentsData, error: paymentsError } = await supabase
           .from("payments")
           .select("*")
@@ -150,8 +232,58 @@ export function ExpenseItemsManager({ vendorId, categoryId }: ExpenseItemsManage
     setDeleteDialogOpen(true);
   };
 
-  const calculateItemTotal = (itemId: string): number => {
-    const itemPayments = payments[itemId] || [];
+  const calculateLineTotal = (lineItem: ExpenseLineItem, item: ExpenseItem): number => {
+    let quantity = 0;
+
+    if (lineItem.quantity_type === 'fixed') {
+      quantity = lineItem.quantity_fixed || 0;
+    } else {
+      // Calculate base quantity
+      let baseQuantity = 0;
+      const mode = item.calculation_mode;
+      
+      if (lineItem.quantity_type === 'adults') {
+        baseQuantity = mode === 'planned' ? item.planned_adults : actualAdults;
+      } else if (lineItem.quantity_type === 'children') {
+        baseQuantity = mode === 'planned' ? item.planned_children : actualChildren;
+      } else if (lineItem.quantity_type === 'total_guests') {
+        baseQuantity = mode === 'planned' 
+          ? item.planned_adults + item.planned_children 
+          : actualAdults + actualChildren;
+      }
+
+      // Apply quantity range logic
+      if (lineItem.quantity_range === 'up_to' && lineItem.quantity_limit) {
+        quantity = Math.min(baseQuantity, lineItem.quantity_limit);
+      } else if (lineItem.quantity_range === 'over' && lineItem.quantity_limit) {
+        quantity = Math.max(baseQuantity - lineItem.quantity_limit, 0);
+      } else {
+        quantity = baseQuantity;
+      }
+    }
+
+    const subtotal = lineItem.unit_price * quantity;
+    const afterDiscount = subtotal * (1 - lineItem.discount_percentage / 100);
+    const total = afterDiscount * (1 + lineItem.tax_rate / 100);
+
+    return total;
+  };
+
+  const calculateItemTotal = (item: ExpenseItem): number => {
+    const itemLines = lineItems[item.id] || [];
+    
+    // If there are line items, calculate from them
+    if (itemLines.length > 0) {
+      return itemLines.reduce((sum, line) => sum + calculateLineTotal(line, item), 0);
+    }
+    
+    // Fallback to old logic for legacy data
+    if (item.total_amount) {
+      return item.total_amount;
+    }
+    
+    // Last fallback: calculate from payments
+    const itemPayments = payments[item.id] || [];
     return itemPayments.reduce((sum, p) => {
       if (p.amount_type === 'fixed') {
         return sum + Number(p.amount);
@@ -189,14 +321,7 @@ export function ExpenseItemsManager({ vendorId, categoryId }: ExpenseItemsManage
   };
 
   const totalVendorAmount = expenseItems.reduce((sum, item) => {
-    let itemTotal = item.total_amount || calculateItemTotal(item.id);
-    
-    // Se IVA Esclusa, aggiungi l'IVA al totale
-    if (item.total_amount && item.amount_is_tax_inclusive === false && item.tax_rate) {
-      itemTotal = item.total_amount * (1 + item.tax_rate / 100);
-    }
-    
-    return sum + itemTotal;
+    return sum + calculateItemTotal(item);
   }, 0);
 
   const calculateAmountPaid = (): number => {
@@ -253,13 +378,7 @@ export function ExpenseItemsManager({ vendorId, categoryId }: ExpenseItemsManage
             <>
               {expenseItems.map((item) => {
                 const itemPayments = payments[item.id] || [];
-                let itemTotal = item.total_amount || calculateItemTotal(item.id);
-                
-                // Se IVA Esclusa, aggiungi l'IVA al totale visualizzato
-                if (item.total_amount && item.amount_is_tax_inclusive === false && item.tax_rate) {
-                  itemTotal = item.total_amount * (1 + item.tax_rate / 100);
-                }
-                
+                const itemTotal = calculateItemTotal(item);
                 const isExpanded = expandedItems.has(item.id);
 
                 return (
