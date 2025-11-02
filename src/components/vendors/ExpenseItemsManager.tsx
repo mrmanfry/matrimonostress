@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Plus, ChevronDown, ChevronUp, Trash2, Edit } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { ExpenseItemDialog } from "./ExpenseItemDialog";
+import { ExpenseItemTabs } from "./ExpenseItemTabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
@@ -39,8 +39,8 @@ export function ExpenseItemsManager({ vendorId, categoryId }: ExpenseItemsManage
   const [expenseItems, setExpenseItems] = useState<ExpenseItem[]>([]);
   const [payments, setPayments] = useState<Record<string, Payment[]>>({});
   const [loading, setLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedExpenseItem, setSelectedExpenseItem] = useState<ExpenseItem | null>(null);
+  const [tabsOpen, setTabsOpen] = useState(false);
+  const [selectedExpenseItemId, setSelectedExpenseItemId] = useState<string | null>(null);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
@@ -102,13 +102,13 @@ export function ExpenseItemsManager({ vendorId, categoryId }: ExpenseItemsManage
   };
 
   const handleAddExpenseItem = () => {
-    setSelectedExpenseItem(null);
-    setDialogOpen(true);
+    setSelectedExpenseItemId(null);
+    setTabsOpen(true);
   };
 
-  const handleEditExpenseItem = (item: ExpenseItem) => {
-    setSelectedExpenseItem(item);
-    setDialogOpen(true);
+  const handleEditExpenseItem = (itemId: string) => {
+    setSelectedExpenseItemId(itemId);
+    setTabsOpen(true);
   };
 
   const handleDeleteExpenseItem = async (itemId: string) => {
@@ -283,7 +283,7 @@ export function ExpenseItemsManager({ vendorId, categoryId }: ExpenseItemsManage
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleEditExpenseItem(item)}
+                            onClick={() => handleEditExpenseItem(item.id)}
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
@@ -382,12 +382,12 @@ export function ExpenseItemsManager({ vendorId, categoryId }: ExpenseItemsManage
         </CardContent>
       </Card>
 
-      <ExpenseItemDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
+      <ExpenseItemTabs
+        open={tabsOpen}
+        onOpenChange={setTabsOpen}
         vendorId={vendorId}
         categoryId={categoryId}
-        expenseItem={selectedExpenseItem}
+        expenseItemId={selectedExpenseItemId}
         onSaved={loadExpenseItems}
       />
 

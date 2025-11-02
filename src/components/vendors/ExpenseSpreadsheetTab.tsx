@@ -1,0 +1,397 @@
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Plus } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { ExpenseLineRow } from "./ExpenseLineRow";
+import { ExpenseSummaryCard } from "./ExpenseSummaryCard";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+
+interface ExpenseItem {
+  id: string;
+  description: string;
+  calculation_mode: 'planned' | 'actual';
+  planned_adults: number;
+  planned_children: number;
+}
+
+interface ExpenseLineItem {
+  id?: string;
+  expense_item_id: string;
+  description: string;
+  unit_price: number;
+  quantity_type: 'fixed' | 'adults' | 'children' | 'total_guests';
+  quantity_fixed: number | null;
+  discount_percentage: number;
+  tax_rate: number;
+  order_index: number;
+}
+
+interface ExpenseSpreadsheetTabProps {
+  expenseItem: ExpenseItem;
+  onExpenseItemUpdate: () => void;
+  onTotalsUpdate: (planned: number, actual: number) => void;
+}
+
+export function ExpenseSpreadsheetTab({
+  expenseItem,
+  onExpenseItemUpdate,
+  onTotalsUpdate,
+}: ExpenseSpreadsheetTabProps) {
+  const [lineItems, setLineItems] = useState<ExpenseLineItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [calculationMode, setCalculationMode] = useState<'planned' | 'actual'>(expenseItem.calculation_mode);
+  const [actualAdults, setActualAdults] = useState(0);
+  const [actualChildren, setActualChildren] = useState(0);
+  const [itemDescription, setItemDescription] = useState(expenseItem.description);
+  const [plannedAdults, setPlannedAdults] = useState(expenseItem.planned_adults);
+  const [plannedChildren, setPlannedChildren] = useState(expenseItem.planned_children);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    loadLineItems();
+    loadActualGuestCounts();
+  }, [expenseItem.id]);
+
+  useEffect(() => {
+    const totals = calculateTotals();
+    onTotalsUpdate(totals.planned, totals.actual);
+  }, [lineItems, plannedAdults, plannedChildren, actualAdults, actualChildren]);
+
+  const loadLineItems = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("expense_line_items")
+        .select("*")
+        .eq("expense_item_id", expenseItem.id)
+        .order("order_index", { ascending: true });
+
+      if (error) throw error;
+      setLineItems((data || []) as ExpenseLineItem[]);
+    } catch (error) {
+      console.error("Error loading line items:", error);
+      toast({
+        title: "Errore",
+        description: "Impossibile caricare le righe di costo",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadActualGuestCounts = async () => {
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return;
+
+      const { data: weddingData } = await supabase
+        .from("weddings")
+        .select("id")
+        .eq("created_by", userData.user.id)
+        .maybeSingle();
+
+      if (!weddingData) return;
+
+      const { data: parties } = await supabase
+        .from("invite_parties")
+        .select("id, guests(*)")
+        .eq("wedding_id", weddingData.id)
+        .eq("rsvp_status", "Confermato");
+
+      let adults = 0;
+      let children = 0;
+
+      parties?.forEach((party: any) => {
+        party.guests?.forEach((guest: any) => {
+          if (guest.is_child) {
+            children++;
+          } else {
+            adults++;
+          }
+        });
+      });
+
+      setActualAdults(adults);
+      setActualChildren(children);
+    } catch (error) {
+      console.error("Error loading guest counts:", error);
+    }
+  };
+
+  const handleAddLineItem = async () => {
+    const newItem: ExpenseLineItem = {
+      expense_item_id: expenseItem.id,
+      description: "",
+      unit_price: 0,
+      quantity_type: 'fixed',
+      quantity_fixed: 1,
+      discount_percentage: 0,
+      tax_rate: 22,
+      order_index: lineItems.length,
+    };
+
+    try {
+      const { data, error } = await supabase
+        .from("expense_line_items")
+        .insert(newItem)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setLineItems([...lineItems, data as ExpenseLineItem]);
+      toast({
+        title: "Riga aggiunta",
+        description: "Nuova riga di costo creata",
+      });
+    } catch (error) {
+      console.error("Error adding line item:", error);
+      toast({
+        title: "Errore",
+        description: "Impossibile aggiungere la riga",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleUpdateLineItem = async (id: string, updates: Partial<ExpenseLineItem>) => {
+    try {
+      const { error } = await supabase
+        .from("expense_line_items")
+        .update(updates)
+        .eq("id", id);
+
+      if (error) throw error;
+
+      setLineItems(lineItems.map(item => 
+        item.id === id ? { ...item, ...updates } : item
+      ));
+    } catch (error) {
+      console.error("Error updating line item:", error);
+      toast({
+        title: "Errore",
+        description: "Impossibile aggiornare la riga",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteLineItem = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from("expense_line_items")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+
+      setLineItems(lineItems.filter(item => item.id !== id));
+      toast({
+        title: "Riga eliminata",
+        description: "La riga di costo è stata rimossa",
+      });
+    } catch (error) {
+      console.error("Error deleting line item:", error);
+      toast({
+        title: "Errore",
+        description: "Impossibile eliminare la riga",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSaveDescription = async () => {
+    try {
+      const { error } = await supabase
+        .from("expense_items")
+        .update({ 
+          description: itemDescription,
+          calculation_mode: calculationMode,
+          planned_adults: plannedAdults,
+          planned_children: plannedChildren,
+        })
+        .eq("id", expenseItem.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Salvato",
+        description: "Descrizione e parametri aggiornati",
+      });
+      onExpenseItemUpdate();
+    } catch (error) {
+      console.error("Error updating description:", error);
+      toast({
+        title: "Errore",
+        description: "Impossibile salvare la descrizione",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const calculateLineTotal = (line: ExpenseLineItem, mode: 'planned' | 'actual'): number => {
+    let quantity = 0;
+
+    if (line.quantity_type === 'fixed') {
+      quantity = line.quantity_fixed || 0;
+    } else if (line.quantity_type === 'adults') {
+      quantity = mode === 'planned' ? plannedAdults : actualAdults;
+    } else if (line.quantity_type === 'children') {
+      quantity = mode === 'planned' ? plannedChildren : actualChildren;
+    } else if (line.quantity_type === 'total_guests') {
+      quantity = mode === 'planned' 
+        ? plannedAdults + plannedChildren 
+        : actualAdults + actualChildren;
+    }
+
+    const subtotal = line.unit_price * quantity;
+    const afterDiscount = subtotal * (1 - line.discount_percentage / 100);
+    const total = afterDiscount * (1 + line.tax_rate / 100);
+
+    return total;
+  };
+
+  const calculateTotals = () => {
+    const planned = lineItems.reduce((sum, line) => sum + calculateLineTotal(line, 'planned'), 0);
+    const actual = lineItems.reduce((sum, line) => sum + calculateLineTotal(line, 'actual'), 0);
+    return { planned, actual };
+  };
+
+  const totals = calculateTotals();
+
+  if (loading) {
+    return <div className="p-4">Caricamento...</div>;
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Descrizione e Modalità */}
+      <Card>
+        <CardContent className="pt-6 space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="description">Descrizione Spesa</Label>
+            <div className="flex gap-2">
+              <Input
+                id="description"
+                value={itemDescription}
+                onChange={(e) => setItemDescription(e.target.value)}
+                placeholder="Es: Catering"
+              />
+              <Button onClick={handleSaveDescription} variant="outline">
+                Salva
+              </Button>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <Label>Modalità di Calcolo</Label>
+            <RadioGroup
+              value={calculationMode}
+              onValueChange={(val) => setCalculationMode(val as 'planned' | 'actual')}
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="planned" id="planned" />
+                <Label htmlFor="planned" className="font-normal cursor-pointer">
+                  • Pianificato (Preventivo manuale)
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="actual" id="actual" />
+                <Label htmlFor="actual" className="font-normal cursor-pointer">
+                  Effettivo (Da RSVP confermati)
+                </Label>
+              </div>
+            </RadioGroup>
+          </div>
+
+          {calculationMode === 'planned' && (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="planned_adults">N° Adulti Pianificati</Label>
+                <Input
+                  id="planned_adults"
+                  type="number"
+                  min="0"
+                  value={plannedAdults}
+                  onChange={(e) => setPlannedAdults(parseInt(e.target.value) || 0)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="planned_children">N° Bambini Pianificati</Label>
+                <Input
+                  id="planned_children"
+                  type="number"
+                  min="0"
+                  value={plannedChildren}
+                  onChange={(e) => setPlannedChildren(parseInt(e.target.value) || 0)}
+                />
+              </div>
+            </div>
+          )}
+
+          {calculationMode === 'actual' && (
+            <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
+              <p className="text-sm font-medium mb-2">Invitati Confermati (da RSVP):</p>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Adulti:</span>
+                  <span className="ml-2 font-semibold text-primary">{actualAdults}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Bambini:</span>
+                  <span className="ml-2 font-semibold text-primary">{actualChildren}</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Tabella Righe di Costo */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span>Righe di Costo</span>
+            <Button onClick={handleAddLineItem} size="sm">
+              <Plus className="h-4 w-4 mr-2" />
+              Aggiungi Riga
+            </Button>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {lineItems.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">
+              Nessuna riga di costo. Clicca "Aggiungi Riga" per iniziare.
+            </p>
+          ) : (
+            lineItems.map((line) => (
+              <ExpenseLineRow
+                key={line.id}
+                lineItem={line}
+                calculationMode={calculationMode}
+                plannedAdults={plannedAdults}
+                plannedChildren={plannedChildren}
+                actualAdults={actualAdults}
+                actualChildren={actualChildren}
+                onUpdate={handleUpdateLineItem}
+                onDelete={handleDeleteLineItem}
+                totalAmount={calculateLineTotal(line, calculationMode)}
+              />
+            ))
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Riepilogo */}
+      <ExpenseSummaryCard
+        totalPlanned={totals.planned}
+        totalActual={totals.actual}
+      />
+    </div>
+  );
+}

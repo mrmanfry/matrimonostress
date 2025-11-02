@@ -140,10 +140,13 @@ export type Database = {
       expense_items: {
         Row: {
           amount_is_tax_inclusive: boolean | null
+          calculation_mode: string | null
           category_id: string | null
           created_at: string
           description: string
           id: string
+          planned_adults: number | null
+          planned_children: number | null
           tax_rate: number | null
           total_amount: number | null
           updated_at: string
@@ -152,10 +155,13 @@ export type Database = {
         }
         Insert: {
           amount_is_tax_inclusive?: boolean | null
+          calculation_mode?: string | null
           category_id?: string | null
           created_at?: string
           description: string
           id?: string
+          planned_adults?: number | null
+          planned_children?: number | null
           tax_rate?: number | null
           total_amount?: number | null
           updated_at?: string
@@ -164,10 +170,13 @@ export type Database = {
         }
         Update: {
           amount_is_tax_inclusive?: boolean | null
+          calculation_mode?: string | null
           category_id?: string | null
           created_at?: string
           description?: string
           id?: string
+          planned_adults?: number | null
+          planned_children?: number | null
           tax_rate?: number | null
           total_amount?: number | null
           updated_at?: string
@@ -194,6 +203,56 @@ export type Database = {
             columns: ["wedding_id"]
             isOneToOne: false
             referencedRelation: "weddings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expense_line_items: {
+        Row: {
+          created_at: string
+          description: string
+          discount_percentage: number | null
+          expense_item_id: string
+          id: string
+          order_index: number | null
+          quantity_fixed: number | null
+          quantity_type: string
+          tax_rate: number | null
+          unit_price: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          discount_percentage?: number | null
+          expense_item_id: string
+          id?: string
+          order_index?: number | null
+          quantity_fixed?: number | null
+          quantity_type: string
+          tax_rate?: number | null
+          unit_price?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          discount_percentage?: number | null
+          expense_item_id?: string
+          id?: string
+          order_index?: number | null
+          quantity_fixed?: number | null
+          quantity_type?: string
+          tax_rate?: number | null
+          unit_price?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_line_items_expense_item_id_fkey"
+            columns: ["expense_item_id"]
+            isOneToOne: false
+            referencedRelation: "expense_items"
             referencedColumns: ["id"]
           },
         ]
@@ -498,6 +557,7 @@ export type Database = {
           paid_by: string | null
           paid_on_date: string | null
           percentage_value: number | null
+          recalculate_on_actual: boolean | null
           status: string
           tax_inclusive: boolean
           tax_rate: number | null
@@ -516,6 +576,7 @@ export type Database = {
           paid_by?: string | null
           paid_on_date?: string | null
           percentage_value?: number | null
+          recalculate_on_actual?: boolean | null
           status?: string
           tax_inclusive?: boolean
           tax_rate?: number | null
@@ -534,6 +595,7 @@ export type Database = {
           paid_by?: string | null
           paid_on_date?: string | null
           percentage_value?: number | null
+          recalculate_on_actual?: boolean | null
           status?: string
           tax_inclusive?: boolean
           tax_rate?: number | null
