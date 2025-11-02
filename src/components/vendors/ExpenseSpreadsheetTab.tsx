@@ -16,6 +16,7 @@ interface ExpenseItem {
   calculation_mode: 'planned' | 'actual';
   planned_adults: number;
   planned_children: number;
+  planned_staff: number;
 }
 
 interface ExpenseLineItem {
@@ -23,7 +24,7 @@ interface ExpenseLineItem {
   expense_item_id: string;
   description: string;
   unit_price: number;
-  quantity_type: 'fixed' | 'adults' | 'children' | 'total_guests';
+  quantity_type: 'fixed' | 'adults' | 'children' | 'total_guests' | 'staff';
   quantity_fixed: number | null;
   quantity_limit: number | null;
   quantity_range: 'all' | 'up_to' | 'over';
@@ -48,9 +49,11 @@ export function ExpenseSpreadsheetTab({
   const [calculationMode, setCalculationMode] = useState<'planned' | 'actual'>(expenseItem.calculation_mode);
   const [actualAdults, setActualAdults] = useState(0);
   const [actualChildren, setActualChildren] = useState(0);
+  const [actualStaff, setActualStaff] = useState(0);
   const [itemDescription, setItemDescription] = useState(expenseItem.description);
   const [plannedAdults, setPlannedAdults] = useState(expenseItem.planned_adults);
   const [plannedChildren, setPlannedChildren] = useState(expenseItem.planned_children);
+  const [plannedStaff, setPlannedStaff] = useState(expenseItem.planned_staff);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -61,7 +64,7 @@ export function ExpenseSpreadsheetTab({
   useEffect(() => {
     const totals = calculateTotals();
     onTotalsUpdate(totals.planned, totals.actual);
-  }, [lineItems, plannedAdults, plannedChildren, actualAdults, actualChildren]);
+  }, [lineItems, plannedAdults, plannedChildren, plannedStaff, actualAdults, actualChildren, actualStaff]);
 
   const loadLineItems = async () => {
     setLoading(true);
@@ -107,10 +110,13 @@ export function ExpenseSpreadsheetTab({
 
       let adults = 0;
       let children = 0;
+      let staff = 0;
 
       parties?.forEach((party: any) => {
         party.guests?.forEach((guest: any) => {
-          if (guest.is_child) {
+          if (guest.is_staff) {
+            staff++;
+          } else if (guest.is_child) {
             children++;
           } else {
             adults++;
@@ -120,6 +126,7 @@ export function ExpenseSpreadsheetTab({
 
       setActualAdults(adults);
       setActualChildren(children);
+      setActualStaff(staff);
     } catch (error) {
       console.error("Error loading guest counts:", error);
     }
@@ -218,6 +225,7 @@ export function ExpenseSpreadsheetTab({
           calculation_mode: calculationMode,
           planned_adults: plannedAdults,
           planned_children: plannedChildren,
+          planned_staff: plannedStaff,
         })
         .eq("id", expenseItem.id);
 
@@ -250,10 +258,12 @@ export function ExpenseSpreadsheetTab({
         baseQuantity = mode === 'planned' ? plannedAdults : actualAdults;
       } else if (line.quantity_type === 'children') {
         baseQuantity = mode === 'planned' ? plannedChildren : actualChildren;
+      } else if (line.quantity_type === 'staff') {
+        baseQuantity = mode === 'planned' ? plannedStaff : actualStaff;
       } else if (line.quantity_type === 'total_guests') {
         baseQuantity = mode === 'planned' 
-          ? plannedAdults + plannedChildren 
-          : actualAdults + actualChildren;
+          ? plannedAdults + plannedChildren + plannedStaff
+          : actualAdults + actualChildren + actualStaff;
       }
 
       // Apply quantity range logic
@@ -327,7 +337,7 @@ export function ExpenseSpreadsheetTab({
           </div>
 
           {calculationMode === 'planned' && (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="planned_adults">N° Adulti Pianificati</Label>
                 <Input
@@ -348,13 +358,23 @@ export function ExpenseSpreadsheetTab({
                   onChange={(e) => setPlannedChildren(parseInt(e.target.value) || 0)}
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="planned_staff">N° Staff Pianificato</Label>
+                <Input
+                  id="planned_staff"
+                  type="number"
+                  min="0"
+                  value={plannedStaff}
+                  onChange={(e) => setPlannedStaff(parseInt(e.target.value) || 0)}
+                />
+              </div>
             </div>
           )}
 
           {calculationMode === 'actual' && (
             <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
               <p className="text-sm font-medium mb-2">Invitati Confermati (da RSVP):</p>
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-3 gap-4 text-sm">
                 <div>
                   <span className="text-muted-foreground">Adulti:</span>
                   <span className="ml-2 font-semibold text-primary">{actualAdults}</span>
@@ -362,6 +382,10 @@ export function ExpenseSpreadsheetTab({
                 <div>
                   <span className="text-muted-foreground">Bambini:</span>
                   <span className="ml-2 font-semibold text-primary">{actualChildren}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Staff:</span>
+                  <span className="ml-2 font-semibold text-primary">{actualStaff}</span>
                 </div>
               </div>
             </div>
@@ -392,9 +416,11 @@ export function ExpenseSpreadsheetTab({
                 lineItem={line}
                 calculationMode={calculationMode}
                 plannedAdults={plannedAdults}
-                plannedChildren={plannedChildren}
-                actualAdults={actualAdults}
-                actualChildren={actualChildren}
+                  plannedChildren={plannedChildren}
+                  plannedStaff={expenseItem.planned_staff}
+                  actualAdults={actualAdults}
+                  actualChildren={actualChildren}
+                  actualStaff={actualStaff}
                 onUpdate={handleUpdateLineItem}
                 onDelete={handleDeleteLineItem}
                 totalAmount={calculateLineTotal(line, calculationMode)}

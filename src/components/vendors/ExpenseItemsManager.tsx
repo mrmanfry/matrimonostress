@@ -19,6 +19,7 @@ interface ExpenseItem {
   calculation_mode: 'planned' | 'actual';
   planned_adults: number;
   planned_children: number;
+  planned_staff: number;
 }
 
 interface ExpenseLineItem {
@@ -26,7 +27,7 @@ interface ExpenseLineItem {
   expense_item_id: string;
   description: string;
   unit_price: number;
-  quantity_type: 'fixed' | 'adults' | 'children' | 'total_guests';
+  quantity_type: 'fixed' | 'adults' | 'children' | 'total_guests' | 'staff';
   quantity_fixed: number | null;
   quantity_limit: number | null;
   quantity_range: 'all' | 'up_to' | 'over';
@@ -64,6 +65,7 @@ export function ExpenseItemsManager({ vendorId, categoryId }: ExpenseItemsManage
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
   const [actualAdults, setActualAdults] = useState(0);
   const [actualChildren, setActualChildren] = useState(0);
+  const [actualStaff, setActualStaff] = useState(0);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -94,10 +96,13 @@ export function ExpenseItemsManager({ vendorId, categoryId }: ExpenseItemsManage
 
       let adults = 0;
       let children = 0;
+      let staff = 0;
 
       parties?.forEach((party: any) => {
         party.guests?.forEach((guest: any) => {
-          if (guest.is_child) {
+          if (guest.is_staff) {
+            staff++;
+          } else if (guest.is_child) {
             children++;
           } else {
             adults++;
@@ -107,6 +112,7 @@ export function ExpenseItemsManager({ vendorId, categoryId }: ExpenseItemsManage
 
       setActualAdults(adults);
       setActualChildren(children);
+      setActualStaff(staff);
     } catch (error) {
       console.error("Error loading guest counts:", error);
     }
@@ -246,10 +252,12 @@ export function ExpenseItemsManager({ vendorId, categoryId }: ExpenseItemsManage
         baseQuantity = mode === 'planned' ? item.planned_adults : actualAdults;
       } else if (lineItem.quantity_type === 'children') {
         baseQuantity = mode === 'planned' ? item.planned_children : actualChildren;
+      } else if (lineItem.quantity_type === 'staff') {
+        baseQuantity = mode === 'planned' ? item.planned_staff : actualStaff;
       } else if (lineItem.quantity_type === 'total_guests') {
         baseQuantity = mode === 'planned' 
-          ? item.planned_adults + item.planned_children 
-          : actualAdults + actualChildren;
+          ? item.planned_adults + item.planned_children + item.planned_staff
+          : actualAdults + actualChildren + actualStaff;
       }
 
       // Apply quantity range logic

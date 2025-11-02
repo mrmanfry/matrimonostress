@@ -16,6 +16,7 @@ interface ExpenseItem {
   calculation_mode: 'planned' | 'actual';
   planned_adults: number;
   planned_children: number;
+  planned_staff: number;
 }
 
 interface ExpenseItemTabsProps {
@@ -89,6 +90,7 @@ export function ExpenseItemTabs({
           calculation_mode: 'planned',
           planned_adults: 100,
           planned_children: 0,
+          planned_staff: 0,
         })
         .select()
         .single();

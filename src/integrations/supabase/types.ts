@@ -147,6 +147,7 @@ export type Database = {
           id: string
           planned_adults: number | null
           planned_children: number | null
+          planned_staff: number | null
           tax_rate: number | null
           total_amount: number | null
           updated_at: string
@@ -162,6 +163,7 @@ export type Database = {
           id?: string
           planned_adults?: number | null
           planned_children?: number | null
+          planned_staff?: number | null
           tax_rate?: number | null
           total_amount?: number | null
           updated_at?: string
@@ -177,6 +179,7 @@ export type Database = {
           id?: string
           planned_adults?: number | null
           planned_children?: number | null
+          planned_staff?: number | null
           tax_rate?: number | null
           total_amount?: number | null
           updated_at?: string
@@ -374,6 +377,7 @@ export type Database = {
           group_id: string | null
           id: string
           is_child: boolean
+          is_staff: boolean | null
           last_name: string
           menu_choice: string | null
           notes: string | null
@@ -395,6 +399,7 @@ export type Database = {
           group_id?: string | null
           id?: string
           is_child?: boolean
+          is_staff?: boolean | null
           last_name: string
           menu_choice?: string | null
           notes?: string | null
@@ -416,6 +421,7 @@ export type Database = {
           group_id?: string | null
           id?: string
           is_child?: boolean
+          is_staff?: boolean | null
           last_name?: string
           menu_choice?: string | null
           notes?: string | null

@@ -10,7 +10,7 @@ interface ExpenseLineItem {
   expense_item_id: string;
   description: string;
   unit_price: number;
-  quantity_type: 'fixed' | 'adults' | 'children' | 'total_guests';
+  quantity_type: 'fixed' | 'adults' | 'children' | 'total_guests' | 'staff';
   quantity_fixed: number | null;
   quantity_limit: number | null;
   quantity_range: 'all' | 'up_to' | 'over';
@@ -24,8 +24,10 @@ interface ExpenseLineRowProps {
   calculationMode: 'planned' | 'actual';
   plannedAdults: number;
   plannedChildren: number;
+  plannedStaff: number;
   actualAdults: number;
   actualChildren: number;
+  actualStaff: number;
   onUpdate: (id: string, updates: Partial<ExpenseLineItem>) => void;
   onDelete: (id: string) => void;
   totalAmount: number;
@@ -36,8 +38,10 @@ export function ExpenseLineRow({
   calculationMode,
   plannedAdults,
   plannedChildren,
+  plannedStaff,
   actualAdults,
   actualChildren,
+  actualStaff,
   onUpdate,
   onDelete,
   totalAmount,
@@ -61,10 +65,12 @@ export function ExpenseLineRow({
       baseQuantity = calculationMode === 'planned' ? plannedAdults : actualAdults;
     } else if (localData.quantity_type === 'children') {
       baseQuantity = calculationMode === 'planned' ? plannedChildren : actualChildren;
+    } else if (localData.quantity_type === 'staff') {
+      baseQuantity = calculationMode === 'planned' ? plannedStaff : actualStaff;
     } else if (localData.quantity_type === 'total_guests') {
       baseQuantity = calculationMode === 'planned' 
-        ? plannedAdults + plannedChildren 
-        : actualAdults + actualChildren;
+        ? plannedAdults + plannedChildren + plannedStaff
+        : actualAdults + actualChildren + actualStaff;
     }
 
     // Apply quantity range logic
@@ -125,7 +131,8 @@ export function ExpenseLineRow({
               <SelectItem value="fixed">Quantità Fissa</SelectItem>
               <SelectItem value="adults">N° Adulti</SelectItem>
               <SelectItem value="children">N° Bambini</SelectItem>
-              <SelectItem value="total_guests">N° Totale Invitati</SelectItem>
+              <SelectItem value="staff">N° Staff</SelectItem>
+              <SelectItem value="total_guests">N° Totale (Tutti)</SelectItem>
             </SelectContent>
           </Select>
         </div>
