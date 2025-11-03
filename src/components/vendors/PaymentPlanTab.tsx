@@ -405,19 +405,27 @@ export function PaymentPlanTab({
                               }
                             }}
                           >
-                            <div className="flex items-center space-x-2">
+                            <div className="flex items-center space-x-2 cursor-pointer" onClick={() => {
+                              updatePayment(index, 'amount_type', 'fixed');
+                            }}>
                               <RadioGroupItem value="fixed" id={`fixed-${index}`} />
                               <Label htmlFor={`fixed-${index}`} className="font-normal cursor-pointer">
                                 Importo Fisso
                               </Label>
                             </div>
-                            <div className="flex items-center space-x-2">
+                            <div className="flex items-center space-x-2 cursor-pointer" onClick={() => {
+                              updatePayment(index, 'amount_type', 'percentage');
+                            }}>
                               <RadioGroupItem value="percentage" id={`percentage-${index}`} />
                               <Label htmlFor={`percentage-${index}`} className="font-normal cursor-pointer">
                                 Percentuale
                               </Label>
                             </div>
-                            <div className="flex items-center space-x-2">
+                            <div className="flex items-center space-x-2 cursor-pointer" onClick={() => {
+                              updatePayment(index, 'amount_type', 'balance');
+                              updatePayment(index, 'amount', '');
+                              updatePayment(index, 'percentage_value', '');
+                            }}>
                               <RadioGroupItem value="balance" id={`balance-${index}`} />
                               <Label htmlFor={`balance-${index}`} className="font-normal cursor-pointer">
                                 Saldo (Chiudi Conti)
