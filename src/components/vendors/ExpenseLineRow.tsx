@@ -119,8 +119,15 @@ export function ExpenseLineRow({
             value={localData.quantity_type}
             onValueChange={(val) => {
               handleUpdate('quantity_type', val);
+              // Reset quantity_range when switching types
               if (val === 'fixed') {
                 handleUpdate('quantity_range', 'all');
+                handleUpdate('quantity_limit', null);
+              } else if (localData.quantity_type === 'fixed') {
+                // When switching FROM fixed to dynamic, ensure quantity_range is set
+                if (!localData.quantity_range || localData.quantity_range === 'all') {
+                  handleUpdate('quantity_range', 'all');
+                }
               }
             }}
           >
