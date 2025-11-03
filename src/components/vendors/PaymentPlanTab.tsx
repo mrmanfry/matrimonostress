@@ -395,15 +395,22 @@ export function PaymentPlanTab({
                         <div className="space-y-2">
                           <Label>Tipo Importo</Label>
                           <RadioGroup
+                            name={`payment-type-${index}`}
                             value={payment.amount_type}
                             onValueChange={(val) => {
+                              console.log('🎯 Tipo Importo selezionato:', val);
                               updatePayment(index, 'amount_type', val);
                               // Reset dei campi quando si cambia tipo
                               if (val === 'balance') {
                                 updatePayment(index, 'amount', '');
                                 updatePayment(index, 'percentage_value', '');
+                                // ✅ Inizializza balance_base automaticamente
+                                if (!payment.balance_base) {
+                                  updatePayment(index, 'balance_base', 'planned');
+                                }
                               }
                             }}
+                            className="flex flex-col gap-3"
                           >
                             <div className="flex items-center space-x-2">
                               <RadioGroupItem value="fixed" id={`fixed-${index}`} />
@@ -456,6 +463,7 @@ export function PaymentPlanTab({
                             <div className="space-y-2">
                               <Label>Calcolato su:</Label>
                               <RadioGroup
+                                name={`percentage-base-${index}`}
                                 value={payment.percentage_base || 'planned'}
                                 onValueChange={(val) => updatePayment(index, 'percentage_base', val)}
                               >
@@ -482,6 +490,7 @@ export function PaymentPlanTab({
                             <div className="space-y-2">
                               <Label>Base di Calcolo per il Saldo:</Label>
                               <RadioGroup
+                                name={`balance-base-${index}`}
                                 value={payment.balance_base || 'planned'}
                                 onValueChange={(val) => updatePayment(index, 'balance_base', val)}
                               >
