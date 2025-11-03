@@ -559,6 +559,7 @@ export type Database = {
         Row: {
           amount: number
           amount_type: string | null
+          balance_base: string | null
           created_at: string
           days_before_wedding: number | null
           description: string
@@ -568,6 +569,7 @@ export type Database = {
           id: string
           paid_by: string | null
           paid_on_date: string | null
+          percentage_base: string | null
           percentage_value: number | null
           recalculate_on_actual: boolean | null
           status: string
@@ -578,6 +580,7 @@ export type Database = {
         Insert: {
           amount: number
           amount_type?: string | null
+          balance_base?: string | null
           created_at?: string
           days_before_wedding?: number | null
           description: string
@@ -587,6 +590,7 @@ export type Database = {
           id?: string
           paid_by?: string | null
           paid_on_date?: string | null
+          percentage_base?: string | null
           percentage_value?: number | null
           recalculate_on_actual?: boolean | null
           status?: string
@@ -597,6 +601,7 @@ export type Database = {
         Update: {
           amount?: number
           amount_type?: string | null
+          balance_base?: string | null
           created_at?: string
           days_before_wedding?: number | null
           description?: string
@@ -606,6 +611,7 @@ export type Database = {
           id?: string
           paid_by?: string | null
           paid_on_date?: string | null
+          percentage_base?: string | null
           percentage_value?: number | null
           recalculate_on_actual?: boolean | null
           status?: string

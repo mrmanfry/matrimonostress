@@ -6,7 +6,6 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Trash2, Plus, CalendarIcon, Edit, X, Check } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { format } from "date-fns";
@@ -20,8 +19,10 @@ interface Payment {
   id?: string;
   description: string;
   amount: string;
-  amount_type: 'fixed' | 'percentage';
+  amount_type: 'fixed' | 'percentage' | 'balance';
   percentage_value: string;
+  percentage_base?: 'planned' | 'actual';
+  balance_base?: 'planned' | 'actual';
   due_date: Date | null;
   due_date_type: 'absolute' | 'days_before';
   days_before_wedding: string;
@@ -30,7 +31,6 @@ interface Payment {
   tax_inclusive?: boolean;
   paid_by?: string;
   paid_on_date?: Date | null;
-  recalculate_on_actual?: boolean;
 }
 
 interface PaymentPlanTabProps {
@@ -53,10 +53,7 @@ export function PaymentPlanTab({
   const [weddingDate, setWeddingDate] = useState<Date | null>(null);
   const [editingPaymentIndex, setEditingPaymentIndex] = useState<number | null>(null);
   const [originalPaymentData, setOriginalPaymentData] = useState<Payment | null>(null);
-  const [calculationBase, setCalculationBase] = useState<'planned' | 'actual'>('planned');
   const { toast } = useToast();
-
-  const totalInvoice = calculationBase === 'planned' ? totalPlanned : totalActual;
 
   useEffect(() => {
     if (expenseItemId) {
@@ -100,8 +97,10 @@ export function PaymentPlanTab({
           id: p.id,
           description: p.description,
           amount: String(p.amount),
-          amount_type: (p.amount_type || 'fixed') as 'fixed' | 'percentage',
+          amount_type: (p.amount_type || 'fixed') as 'fixed' | 'percentage' | 'balance',
           percentage_value: String(p.percentage_value || ''),
+          percentage_base: p.percentage_base as 'planned' | 'actual' | undefined,
+          balance_base: p.balance_base as 'planned' | 'actual' | undefined,
           due_date: p.due_date ? new Date(p.due_date) : null,
           due_date_type: (p.due_date_type || 'absolute') as 'absolute' | 'days_before',
           days_before_wedding: String(p.days_before_wedding || ''),
@@ -110,7 +109,6 @@ export function PaymentPlanTab({
           tax_inclusive: p.tax_inclusive !== false,
           paid_by: p.paid_by || undefined,
           paid_on_date: p.paid_on_date ? new Date(p.paid_on_date) : null,
-          recalculate_on_actual: p.recalculate_on_actual || false,
         }))
       );
     } catch (error) {
@@ -129,15 +127,16 @@ export function PaymentPlanTab({
     const newPayment = {
       description: "",
       amount: "",
-      amount_type: "percentage" as const,
+      amount_type: "fixed" as const,
       percentage_value: "",
+      percentage_base: "planned" as const,
+      balance_base: "planned" as const,
       due_date: null,
       due_date_type: "absolute" as const,
       days_before_wedding: "",
       status: "Da Pagare" as const,
       tax_inclusive: true,
       tax_rate: "22",
-      recalculate_on_actual: false,
     };
     setPayments([...payments, newPayment]);
     setEditingPaymentIndex(payments.length);
@@ -213,19 +212,24 @@ export function PaymentPlanTab({
   };
 
   const calculatePaymentAmount = (payment: Payment, previousPayments: number): number => {
-    // Se è l'ultima rata con ricalcolo automatico
-    if (payment.recalculate_on_actual && payment.status === 'Da Pagare') {
-      return totalActual - previousPayments;
-    }
-
-    // Calcolo standard
+    // Scenario 1: Importo Fisso
     if (payment.amount_type === 'fixed' && payment.amount) {
       return parseFloat(payment.amount);
-    } else if (payment.amount_type === 'percentage' && payment.percentage_value) {
-      const pct = parseFloat(payment.percentage_value);
-      return (totalInvoice * pct) / 100;
     }
-
+    
+    // Scenario 2: Percentuale
+    if (payment.amount_type === 'percentage' && payment.percentage_value) {
+      const pct = parseFloat(payment.percentage_value);
+      const base = payment.percentage_base === 'actual' ? totalActual : totalPlanned;
+      return (base * pct) / 100;
+    }
+    
+    // Scenario 3: Saldo (Chiudi Conti)
+    if (payment.amount_type === 'balance') {
+      const targetTotal = payment.balance_base === 'actual' ? totalActual : totalPlanned;
+      return Math.max(0, targetTotal - previousPayments);
+    }
+    
     return 0;
   };
 
@@ -250,10 +254,29 @@ export function PaymentPlanTab({
       return;
     }
 
-    if (payment.amount_type === 'percentage' && !payment.percentage_value) {
+    if (payment.amount_type === 'percentage') {
+      if (!payment.percentage_value) {
+        toast({
+          title: "Percentuale mancante",
+          description: "Inserisci la percentuale della rata",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!payment.percentage_base) {
+        toast({
+          title: "Base di calcolo mancante",
+          description: "Seleziona su quale totale calcolare la percentuale",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    if (payment.amount_type === 'balance' && !payment.balance_base) {
       toast({
-        title: "Percentuale mancante",
-        description: "Inserisci la percentuale della rata",
+        title: "Base di calcolo mancante",
+        description: "Seleziona quale totale saldare",
         variant: "destructive",
       });
       return;
@@ -278,6 +301,8 @@ export function PaymentPlanTab({
         amount: payment.amount_type === 'fixed' ? parseFloat(payment.amount) : 0,
         amount_type: payment.amount_type,
         percentage_value: payment.amount_type === 'percentage' ? parseFloat(payment.percentage_value) : null,
+        percentage_base: payment.amount_type === 'percentage' ? payment.percentage_base : null,
+        balance_base: payment.amount_type === 'balance' ? payment.balance_base : null,
         due_date: finalDueDate || format(new Date(), "yyyy-MM-dd"),
         due_date_type: payment.due_date_type,
         days_before_wedding: payment.due_date_type === 'days_before' ? parseInt(payment.days_before_wedding) : null,
@@ -288,7 +313,6 @@ export function PaymentPlanTab({
         paid_on_date: payment.status === 'Pagato' && payment.paid_on_date 
           ? format(payment.paid_on_date, "yyyy-MM-dd") 
           : null,
-        recalculate_on_actual: payment.recalculate_on_actual || false,
       };
 
       if (payment.id) {
@@ -342,30 +366,6 @@ export function PaymentPlanTab({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Selezione Base di Calcolo */}
-        <div className="space-y-3">
-          <Label>Base di Calcolo per le Rate</Label>
-          <Select
-            value={calculationBase}
-            onValueChange={(val) => setCalculationBase(val as 'planned' | 'actual')}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="planned">
-                Totale Pianificato ({formatCurrency(totalPlanned)})
-              </SelectItem>
-              <SelectItem value="actual">
-                Totale Effettivo ({formatCurrency(totalActual)})
-              </SelectItem>
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-muted-foreground">
-            Le percentuali delle rate saranno calcolate su questa base
-          </p>
-        </div>
-
         {/* Lista Rate */}
         <div className="space-y-3">
           {payments.map((payment, index) => {
@@ -391,13 +391,26 @@ export function PaymentPlanTab({
                         />
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-4">
                         <div className="space-y-2">
                           <Label>Tipo Importo</Label>
                           <RadioGroup
                             value={payment.amount_type}
-                            onValueChange={(val) => updatePayment(index, 'amount_type', val)}
+                            onValueChange={(val) => {
+                              updatePayment(index, 'amount_type', val);
+                              // Reset dei campi quando si cambia tipo
+                              if (val === 'balance') {
+                                updatePayment(index, 'amount', '');
+                                updatePayment(index, 'percentage_value', '');
+                              }
+                            }}
                           >
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="fixed" id={`fixed-${index}`} />
+                              <Label htmlFor={`fixed-${index}`} className="font-normal">
+                                Importo Fisso
+                              </Label>
+                            </div>
                             <div className="flex items-center space-x-2">
                               <RadioGroupItem value="percentage" id={`percentage-${index}`} />
                               <Label htmlFor={`percentage-${index}`} className="font-normal">
@@ -405,26 +418,16 @@ export function PaymentPlanTab({
                               </Label>
                             </div>
                             <div className="flex items-center space-x-2">
-                              <RadioGroupItem value="fixed" id={`fixed-${index}`} />
-                              <Label htmlFor={`fixed-${index}`} className="font-normal">
-                                Importo Fisso
+                              <RadioGroupItem value="balance" id={`balance-${index}`} />
+                              <Label htmlFor={`balance-${index}`} className="font-normal">
+                                Saldo (Chiudi Conti)
                               </Label>
                             </div>
                           </RadioGroup>
                         </div>
 
-                        {payment.amount_type === 'percentage' ? (
-                          <div className="space-y-2">
-                            <Label>Percentuale (%)</Label>
-                            <Input
-                              type="number"
-                              step="0.1"
-                              value={payment.percentage_value}
-                              onChange={(e) => updatePayment(index, 'percentage_value', e.target.value)}
-                              placeholder="20"
-                            />
-                          </div>
-                        ) : (
+                        {/* Scenario A: Importo Fisso */}
+                        {payment.amount_type === 'fixed' && (
                           <div className="space-y-2">
                             <Label>Importo (€)</Label>
                             <Input
@@ -435,6 +438,77 @@ export function PaymentPlanTab({
                               placeholder="3000"
                             />
                           </div>
+                        )}
+
+                        {/* Scenario B: Percentuale */}
+                        {payment.amount_type === 'percentage' && (
+                          <>
+                            <div className="space-y-2">
+                              <Label>Valore (%)</Label>
+                              <Input
+                                type="number"
+                                step="0.1"
+                                value={payment.percentage_value}
+                                onChange={(e) => updatePayment(index, 'percentage_value', e.target.value)}
+                                placeholder="20"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Calcolato su:</Label>
+                              <RadioGroup
+                                value={payment.percentage_base || 'planned'}
+                                onValueChange={(val) => updatePayment(index, 'percentage_base', val)}
+                              >
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="planned" id={`pct-planned-${index}`} />
+                                  <Label htmlFor={`pct-planned-${index}`} className="font-normal">
+                                    Totale Pianificato ({formatCurrency(totalPlanned)})
+                                  </Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="actual" id={`pct-actual-${index}`} />
+                                  <Label htmlFor={`pct-actual-${index}`} className="font-normal">
+                                    Totale Effettivo (da RSVP)
+                                  </Label>
+                                </div>
+                              </RadioGroup>
+                            </div>
+                          </>
+                        )}
+
+                        {/* Scenario C: Saldo (Chiudi Conti) */}
+                        {payment.amount_type === 'balance' && (
+                          <>
+                            <div className="space-y-2">
+                              <Label>Base di Calcolo per il Saldo:</Label>
+                              <RadioGroup
+                                value={payment.balance_base || 'planned'}
+                                onValueChange={(val) => updatePayment(index, 'balance_base', val)}
+                              >
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="planned" id={`bal-planned-${index}`} />
+                                  <Label htmlFor={`bal-planned-${index}`} className="font-normal">
+                                    Salda il Totale Pianificato ({formatCurrency(totalPlanned)})
+                                  </Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="actual" id={`bal-actual-${index}`} />
+                                  <Label htmlFor={`bal-actual-${index}`} className="font-normal">
+                                    Salda il Totale Effettivo (da RSVP)
+                                  </Label>
+                                </div>
+                              </RadioGroup>
+                            </div>
+                            
+                            <Alert>
+                              <AlertDescription>
+                                {payment.balance_base === 'actual'
+                                  ? `Questa rata salderà il Totale Effettivo (${formatCurrency(totalActual)}) meno gli acconti già inseriti.`
+                                  : `Questa rata salderà il Totale Pianificato (${formatCurrency(totalPlanned)}) meno gli acconti già inseriti.`
+                                }
+                              </AlertDescription>
+                            </Alert>
+                          </>
                         )}
                       </div>
 
@@ -456,17 +530,6 @@ export function PaymentPlanTab({
                             />
                           </PopoverContent>
                         </Popover>
-                      </div>
-
-                      <div className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`recalculate-${index}`}
-                          checked={payment.recalculate_on_actual}
-                          onCheckedChange={(checked) => updatePayment(index, 'recalculate_on_actual', checked)}
-                        />
-                        <Label htmlFor={`recalculate-${index}`} className="text-sm font-normal">
-                          ✔ Ricalcola questa rata in base al Totale Effettivo (Saldo Intelligente)
-                        </Label>
                       </div>
 
                       <div className="flex gap-2">
@@ -494,8 +557,13 @@ export function PaymentPlanTab({
                         <h4 className="font-medium">{payment.description}</h4>
                         <p className="text-sm text-muted-foreground">
                           {formatCurrency(amount)}
-                          {payment.amount_type === 'percentage' && ` (${payment.percentage_value}%)`}
-                          {payment.recalculate_on_actual && " 🎯 Saldo Intelligente"}
+                          {payment.amount_type === 'fixed' && ' (Importo fisso)'}
+                          {payment.amount_type === 'percentage' && (
+                            ` (${payment.percentage_value}% del ${payment.percentage_base === 'actual' ? 'Totale Effettivo' : 'Totale Pianificato'})`
+                          )}
+                          {payment.amount_type === 'balance' && (
+                            ` (Saldo sul ${payment.balance_base === 'actual' ? 'Totale Effettivo' : 'Totale Pianificato'})`
+                          )}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
@@ -526,8 +594,8 @@ export function PaymentPlanTab({
         {payments.length > 0 && totalActual < totalPlanned && (
           <Alert>
             <AlertDescription>
-              ℹ️ Hai risparmiato {formatCurrency(totalPlanned - totalActual)}! 
-              Ricorda di ricalcolare il saldo finale usando il "Saldo Intelligente".
+              ℹ️ Il Totale Effettivo ({formatCurrency(totalActual)}) è inferiore al Totale Pianificato ({formatCurrency(totalPlanned)}). 
+              Hai risparmiato {formatCurrency(totalPlanned - totalActual)}!
             </AlertDescription>
           </Alert>
         )}
