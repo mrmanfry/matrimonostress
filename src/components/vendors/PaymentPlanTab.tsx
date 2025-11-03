@@ -399,16 +399,24 @@ export function PaymentPlanTab({
                             value={payment.amount_type}
                             onValueChange={(val) => {
                               console.log('🎯 Tipo Importo selezionato:', val);
-                              updatePayment(index, 'amount_type', val);
-                              // Reset dei campi quando si cambia tipo
+                              // ✅ Fare UN SOLO update invece di chiamate multiple
+                              const updated = [...payments];
+                              const newType = val as 'fixed' | 'percentage' | 'balance';
                               if (val === 'balance') {
-                                updatePayment(index, 'amount', '');
-                                updatePayment(index, 'percentage_value', '');
-                                // ✅ Inizializza balance_base automaticamente
-                                if (!payment.balance_base) {
-                                  updatePayment(index, 'balance_base', 'planned');
-                                }
+                                updated[index] = {
+                                  ...updated[index],
+                                  amount_type: newType,
+                                  amount: '',
+                                  percentage_value: '',
+                                  balance_base: updated[index].balance_base || 'planned'
+                                };
+                              } else {
+                                updated[index] = {
+                                  ...updated[index],
+                                  amount_type: newType
+                                };
                               }
+                              setPayments(updated);
                             }}
                             className="flex flex-col gap-3"
                           >
