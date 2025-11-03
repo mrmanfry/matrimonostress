@@ -143,13 +143,36 @@ const Vendors = () => {
   };
 
   const loadVendors = async (weddingId: string) => {
+    // Import the centralized calculation library
+    const { calculateExpenseAmount, inferExpenseType } = await import("@/lib/expenseCalculations");
+    
+    // Load global calculation mode
+    const { data: weddingData } = await supabase
+      .from('weddings')
+      .select('calculation_mode')
+      .eq('id', weddingId)
+      .single();
+    
+    const globalMode = weddingData?.calculation_mode || 'planned';
+    
+    // Load vendors with all expense data
     const { data, error } = await supabase
       .from("vendors")
       .select(`
         *,
         category:expense_categories(name),
         vendor_contracts(id, analyzed_at, ai_analysis, file_path),
-        expense_items(total_amount, tax_rate, amount_is_tax_inclusive)
+        expense_items(
+          id,
+          expense_type,
+          fixed_amount,
+          total_amount,
+          planned_adults,
+          planned_children,
+          planned_staff,
+          tax_rate,
+          amount_is_tax_inclusive
+        )
       `)
       .eq("wedding_id", weddingId)
       .order("created_at", { ascending: false });
@@ -159,21 +182,79 @@ const Vendors = () => {
       return;
     }
 
+    // Load guest counts for calculations
+    const { data: parties } = await supabase
+      .from("invite_parties")
+      .select("id, guests(*)")
+      .eq("wedding_id", weddingId)
+      .eq("rsvp_status", "Confermato");
+
+    let actualAdults = 0;
+    let actualChildren = 0;
+    let actualStaff = 0;
+
+    parties?.forEach((party: any) => {
+      party.guests?.forEach((guest: any) => {
+        if (guest.is_staff) {
+          actualStaff++;
+        } else if (guest.is_child) {
+          actualChildren++;
+        } else {
+          actualAdults++;
+        }
+      });
+    });
+
+    // Load expense line items for all vendors
+    const allExpenseItemIds = data.flatMap((v: any) => 
+      v.expense_items?.map((item: any) => item.id) || []
+    );
+    
+    const { data: lineItemsData } = await supabase
+      .from("expense_line_items")
+      .select("*")
+      .in("expense_item_id", allExpenseItemIds);
+
+    const lineItemsByExpenseItem = (lineItemsData || []).reduce((acc: any, item: any) => {
+      if (!acc[item.expense_item_id]) acc[item.expense_item_id] = [];
+      acc[item.expense_item_id].push(item);
+      return acc;
+    }, {});
+
+    // Calculate totals using centralized logic
     setVendors(
       data.map((v: any) => ({
         ...v,
         category_name: v.category?.name || null,
         expenses_total: v.expense_items?.reduce((sum: number, item: any) => {
-          const baseAmount = item.total_amount || 0;
-          const itemTaxRate = item.tax_rate || 0;
-          const isNetAmount = item.amount_is_tax_inclusive === false; // importo al NETTO dell'IVA
+          const lineItems = lineItemsByExpenseItem[item.id] || [];
+          const hasLineItems = lineItems.length > 0;
           
-          // Se l'importo è netto, aggiungi l'IVA specifica della spesa
-          const totalWithTax = isNetAmount && itemTaxRate > 0
-            ? baseAmount * (1 + itemTaxRate / 100)
-            : baseAmount;
+          // Infer expense type for legacy data
+          const expenseType = inferExpenseType(item, hasLineItems);
           
-          return sum + totalWithTax;
+          const guestCounts = {
+            planned: {
+              adults: item.planned_adults || 100,
+              children: item.planned_children || 0,
+              staff: item.planned_staff || 0,
+            },
+            actual: {
+              adults: actualAdults,
+              children: actualChildren,
+              staff: actualStaff,
+            }
+          };
+          
+          // Use centralized calculation
+          const amount = calculateExpenseAmount(
+            { ...item, expense_type: expenseType },
+            lineItems,
+            globalMode as 'planned' | 'actual',
+            guestCounts
+          );
+          
+          return sum + amount;
         }, 0) || 0,
       }))
     );

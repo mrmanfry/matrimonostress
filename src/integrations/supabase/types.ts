@@ -144,6 +144,8 @@ export type Database = {
           category_id: string | null
           created_at: string
           description: string
+          expense_type: string | null
+          fixed_amount: number | null
           id: string
           planned_adults: number | null
           planned_children: number | null
@@ -160,6 +162,8 @@ export type Database = {
           category_id?: string | null
           created_at?: string
           description: string
+          expense_type?: string | null
+          fixed_amount?: number | null
           id?: string
           planned_adults?: number | null
           planned_children?: number | null
@@ -176,6 +180,8 @@ export type Database = {
           category_id?: string | null
           created_at?: string
           description?: string
+          expense_type?: string | null
+          fixed_amount?: number | null
           id?: string
           planned_adults?: number | null
           planned_children?: number | null
@@ -1053,6 +1059,7 @@ export type Database = {
       weddings: {
         Row: {
           access_code: string | null
+          calculation_mode: string | null
           created_at: string
           created_by: string
           id: string
@@ -1064,6 +1071,7 @@ export type Database = {
         }
         Insert: {
           access_code?: string | null
+          calculation_mode?: string | null
           created_at?: string
           created_by: string
           id?: string
@@ -1075,6 +1083,7 @@ export type Database = {
         }
         Update: {
           access_code?: string | null
+          calculation_mode?: string | null
           created_at?: string
           created_by?: string
           id?: string

@@ -277,27 +277,60 @@ export function ExpenseItemsManager({ vendorId, categoryId }: ExpenseItemsManage
     return total;
   };
 
-  const calculateItemTotal = (item: ExpenseItem): number => {
+  const calculateItemTotal = async (item: ExpenseItem): Promise<number> => {
+    // Import centralized calculation library
+    const { calculateExpenseAmount, inferExpenseType } = await import("@/lib/expenseCalculations");
+    
+    // Get wedding data for global mode
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) return 0;
+    
+    const { data: userRole } = await supabase
+      .from("user_roles")
+      .select("wedding_id")
+      .eq("user_id", userData.user.id)
+      .single();
+    
+    if (!userRole) return 0;
+    
+    const { data: weddingData } = await supabase
+      .from("weddings")
+      .select("calculation_mode")
+      .eq("id", userRole.wedding_id)
+      .single();
+    
+    const globalMode = weddingData?.calculation_mode || 'planned';
+    
     const itemLines = lineItems[item.id] || [];
+    const hasLineItems = itemLines.length > 0;
     
-    // If there are line items, calculate from them
-    if (itemLines.length > 0) {
-      return itemLines.reduce((sum, line) => sum + calculateLineTotal(line, item), 0);
-    }
+    // Infer expense type for legacy data
+    const expenseType = inferExpenseType(item, hasLineItems);
     
-    // Fallback to old logic for legacy data
-    if (item.total_amount) {
-      return item.total_amount;
-    }
-    
-    // Last fallback: calculate from payments
-    const itemPayments = payments[item.id] || [];
-    return itemPayments.reduce((sum, p) => {
-      if (p.amount_type === 'fixed') {
-        return sum + Number(p.amount);
+    const guestCounts = {
+      planned: {
+        adults: item.planned_adults,
+        children: item.planned_children,
+        staff: item.planned_staff
+      },
+      actual: {
+        adults: actualAdults,
+        children: actualChildren,
+        staff: actualStaff
       }
-      return sum;
-    }, 0);
+    };
+    
+    // Use centralized calculation
+    return calculateExpenseAmount(
+      { 
+        ...item, 
+        expense_type: expenseType,
+        fixed_amount: item.total_amount || null
+      },
+      itemLines,
+      globalMode as 'planned' | 'actual',
+      guestCounts
+    );
   };
 
   const toggleExpanded = (itemId: string) => {
@@ -328,9 +361,18 @@ export function ExpenseItemsManager({ vendorId, categoryId }: ExpenseItemsManage
     });
   };
 
-  const totalVendorAmount = expenseItems.reduce((sum, item) => {
-    return sum + calculateItemTotal(item);
-  }, 0);
+  const [totalVendorAmount, setTotalVendorAmount] = useState(0);
+  
+  useEffect(() => {
+    const calculateTotal = async () => {
+      let sum = 0;
+      for (const item of expenseItems) {
+        sum += await calculateItemTotal(item);
+      }
+      setTotalVendorAmount(sum);
+    };
+    calculateTotal();
+  }, [expenseItems, lineItems, actualAdults, actualChildren, actualStaff]);
 
   const calculateAmountPaid = (): number => {
     return Object.values(payments).flat().reduce((sum, payment) => {
@@ -386,7 +428,12 @@ export function ExpenseItemsManager({ vendorId, categoryId }: ExpenseItemsManage
             <>
               {expenseItems.map((item) => {
                 const itemPayments = payments[item.id] || [];
-                const itemTotal = calculateItemTotal(item);
+                const [itemTotal, setItemTotal] = useState(0);
+                
+                useEffect(() => {
+                  calculateItemTotal(item).then(setItemTotal);
+                }, [item, lineItems, actualAdults, actualChildren, actualStaff]);
+                
                 const isExpanded = expandedItems.has(item.id);
 
                 return (

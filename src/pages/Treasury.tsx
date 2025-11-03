@@ -11,6 +11,7 @@ import { it } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -69,6 +70,7 @@ export default function Treasury() {
   const [paymentToMark, setPaymentToMark] = useState<Payment | null>(null);
   const [contributors, setContributors] = useState<any[]>([]);
   const [allocations, setAllocations] = useState<any[]>([]);
+  const [globalMode, setGlobalMode] = useState<'planned' | 'actual'>('planned');
   const [kpis, setKpis] = useState({
     totalCommitment: 0,
     alreadyPaid: 0,
@@ -119,6 +121,18 @@ export default function Treasury() {
 
     setLoading(true);
     try {
+      // Load wedding data to get global calculation_mode
+      const { data: weddingData, error: weddingError } = await supabase
+        .from("weddings")
+        .select("calculation_mode")
+        .eq("id", weddingId)
+        .single();
+
+      if (weddingError) throw weddingError;
+      if (weddingData?.calculation_mode) {
+        setGlobalMode(weddingData.calculation_mode as 'planned' | 'actual');
+      }
+
       // Load expense items with vendor info
       const { data: itemsData, error: itemsError } = await supabase
         .from("expense_items")
@@ -395,14 +409,77 @@ export default function Treasury() {
     );
   }
 
+  const handleModeChange = async (newMode: 'planned' | 'actual') => {
+    if (authState.status !== 'authenticated' || !authState.weddingId) return;
+    
+    try {
+      const { error } = await supabase
+        .from('weddings')
+        .update({ calculation_mode: newMode })
+        .eq('id', authState.weddingId);
+      
+      if (error) throw error;
+      
+      setGlobalMode(newMode);
+      toast({
+        title: 'Modalità aggiornata',
+        description: `Ora stai visualizzando i dati ${newMode === 'planned' ? 'pianificati' : 'effettivi'}`
+      });
+      
+      // Reload data to reflect new calculations
+      await loadData();
+    } catch (error) {
+      console.error('Error updating calculation mode:', error);
+      toast({
+        title: 'Errore',
+        description: 'Impossibile aggiornare la modalità',
+        variant: 'destructive'
+      });
+    }
+  };
+
   return (
     <div className="container mx-auto p-6 space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold mb-2">Orizzonte Liquidità</h1>
-        <p className="text-muted-foreground">
-          Monitora i tuoi impegni di pagamento e la disponibilità futura
-        </p>
+      {/* Header with Global Toggle */}
+      <div className="space-y-4">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Orizzonte Liquidità</h1>
+          <p className="text-muted-foreground">
+            Monitora i tuoi impegni di pagamento e la disponibilità futura
+          </p>
+        </div>
+        
+        {/* Global Calculation Mode Toggle */}
+        <Card className="bg-primary/5 border-primary/20">
+          <CardContent className="pt-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+              <div className="flex-1">
+                <Label className="text-base font-semibold">Modalità di Calcolo Globale</Label>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {globalMode === 'planned' 
+                    ? 'Stai visualizzando i dati pianificati (preventivo manuale)'
+                    : 'Stai visualizzando i dati effettivi (da conferme RSVP)'}
+                </p>
+              </div>
+              <div className="flex items-center gap-4">
+                <Button
+                  variant={globalMode === 'planned' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => handleModeChange('planned')}
+                >
+                  📊 Pianificato
+                </Button>
+                <Button
+                  variant={globalMode === 'actual' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => handleModeChange('actual')}
+                >
+                  ✅ Effettivo
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* KPI Cards - INTERACTIVE */}

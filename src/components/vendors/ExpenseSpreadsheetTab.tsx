@@ -4,11 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ExpenseLineRow } from "./ExpenseLineRow";
 import { ExpenseSummaryCard } from "./ExpenseSummaryCard";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 interface ExpenseItem {
   id: string;
@@ -46,7 +46,7 @@ export function ExpenseSpreadsheetTab({
 }: ExpenseSpreadsheetTabProps) {
   const [lineItems, setLineItems] = useState<ExpenseLineItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [calculationMode, setCalculationMode] = useState<'planned' | 'actual'>(expenseItem.calculation_mode);
+  const [globalMode, setGlobalMode] = useState<'planned' | 'actual'>('planned');
   const [actualAdults, setActualAdults] = useState(0);
   const [actualChildren, setActualChildren] = useState(0);
   const [actualStaff, setActualStaff] = useState(0);
@@ -55,6 +55,33 @@ export function ExpenseSpreadsheetTab({
   const [plannedChildren, setPlannedChildren] = useState(expenseItem.planned_children);
   const [plannedStaff, setPlannedStaff] = useState(expenseItem.planned_staff);
   const { toast } = useToast();
+
+  // Load global calculation mode from wedding
+  useEffect(() => {
+    const loadGlobalMode = async () => {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return;
+
+      const { data: userRole } = await supabase
+        .from("user_roles")
+        .select("wedding_id")
+        .eq("user_id", userData.user.id)
+        .single();
+
+      if (!userRole) return;
+
+      const { data: weddingData } = await supabase
+        .from("weddings")
+        .select("calculation_mode")
+        .eq("id", userRole.wedding_id)
+        .single();
+
+      if (weddingData && weddingData.calculation_mode) {
+        setGlobalMode(weddingData.calculation_mode as 'planned' | 'actual');
+      }
+    };
+    loadGlobalMode();
+  }, []);
 
   useEffect(() => {
     loadLineItems();
@@ -222,7 +249,6 @@ export function ExpenseSpreadsheetTab({
         .from("expense_items")
         .update({ 
           description: itemDescription,
-          calculation_mode: calculationMode,
           planned_adults: plannedAdults,
           planned_children: plannedChildren,
           planned_staff: plannedStaff,
@@ -315,28 +341,26 @@ export function ExpenseSpreadsheetTab({
             </div>
           </div>
 
-          <div className="space-y-3">
-            <Label>Modalità di Calcolo</Label>
-            <RadioGroup
-              value={calculationMode}
-              onValueChange={(val) => setCalculationMode(val as 'planned' | 'actual')}
-            >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="planned" id="planned" />
-                <Label htmlFor="planned" className="font-normal cursor-pointer">
-                  • Pianificato (Preventivo manuale)
-                </Label>
+          <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
+            <div className="space-y-2">
+              <Label className="font-semibold">Modalità di Calcolo Attiva</Label>
+              <div className="flex items-center gap-2">
+                <Badge variant={globalMode === 'planned' ? 'default' : 'secondary'}>
+                  {globalMode === 'planned' ? '📊 Pianificato' : '✅ Effettivo'}
+                </Badge>
+                <span className="text-sm text-muted-foreground">
+                  {globalMode === 'planned' 
+                    ? 'Stai usando i dati pianificati (preventivo manuale)'
+                    : 'Stai usando i dati effettivi (da conferme RSVP)'}
+                </span>
               </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="actual" id="actual" />
-                <Label htmlFor="actual" className="font-normal cursor-pointer">
-                  Effettivo (Da RSVP confermati)
-                </Label>
-              </div>
-            </RadioGroup>
+              <p className="text-xs text-muted-foreground mt-2">
+                💡 Cambia la modalità globale dalla pagina Treasury per passare tra pianificato ed effettivo
+              </p>
+            </div>
           </div>
 
-          {calculationMode === 'planned' && (
+          {globalMode === 'planned' && (
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="planned_adults">N° Adulti Pianificati</Label>
@@ -371,21 +395,21 @@ export function ExpenseSpreadsheetTab({
             </div>
           )}
 
-          {calculationMode === 'actual' && (
-            <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
+          {globalMode === 'actual' && (
+            <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900 rounded-lg p-4">
               <p className="text-sm font-medium mb-2">Invitati Confermati (da RSVP):</p>
               <div className="grid grid-cols-3 gap-4 text-sm">
                 <div>
                   <span className="text-muted-foreground">Adulti:</span>
-                  <span className="ml-2 font-semibold text-primary">{actualAdults}</span>
+                  <span className="ml-2 font-semibold text-green-700 dark:text-green-400">{actualAdults}</span>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Bambini:</span>
-                  <span className="ml-2 font-semibold text-primary">{actualChildren}</span>
+                  <span className="ml-2 font-semibold text-green-700 dark:text-green-400">{actualChildren}</span>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Staff:</span>
-                  <span className="ml-2 font-semibold text-primary">{actualStaff}</span>
+                  <span className="ml-2 font-semibold text-green-700 dark:text-green-400">{actualStaff}</span>
                 </div>
               </div>
             </div>
@@ -414,7 +438,7 @@ export function ExpenseSpreadsheetTab({
               <ExpenseLineRow
                 key={line.id}
                 lineItem={line}
-                calculationMode={calculationMode}
+                calculationMode={globalMode}
                 plannedAdults={plannedAdults}
                   plannedChildren={plannedChildren}
                   plannedStaff={expenseItem.planned_staff}
@@ -423,7 +447,7 @@ export function ExpenseSpreadsheetTab({
                   actualStaff={actualStaff}
                 onUpdate={handleUpdateLineItem}
                 onDelete={handleDeleteLineItem}
-                totalAmount={calculateLineTotal(line, calculationMode)}
+                totalAmount={calculateLineTotal(line, globalMode)}
               />
             ))
           )}
