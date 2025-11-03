@@ -53,6 +53,8 @@ export function PaymentPlanTab({
   const [loading, setLoading] = useState(false);
   const [weddingDate, setWeddingDate] = useState<Date | null>(null);
   const [contributors, setContributors] = useState<any[]>([]);
+  const [paymentAllocations, setPaymentAllocations] = useState<Record<string, any[]>>({});
+  const [editingAllocations, setEditingAllocations] = useState<Array<{contributor_id: string, amount: string}>>([]);
   const [editingPaymentIndex, setEditingPaymentIndex] = useState<number | null>(null);
   const [originalPaymentData, setOriginalPaymentData] = useState<Payment | null>(null);
   const { toast } = useToast();
@@ -121,25 +123,46 @@ export function PaymentPlanTab({
 
       if (error) throw error;
 
-      setPayments(
-        (data || []).map((p) => ({
-          id: p.id,
-          description: p.description,
-          amount: String(p.amount),
-          amount_type: (p.amount_type || 'fixed') as 'fixed' | 'percentage' | 'balance',
-          percentage_value: String(p.percentage_value || ''),
-          percentage_base: p.percentage_base as 'planned' | 'actual' | undefined,
-          balance_base: p.balance_base as 'planned' | 'actual' | undefined,
-          due_date: p.due_date ? new Date(p.due_date) : null,
-          due_date_type: (p.due_date_type || 'absolute') as 'absolute' | 'days_before',
-          days_before_wedding: String(p.days_before_wedding || ''),
-          status: p.status as 'Da Pagare' | 'Pagato',
-          tax_rate: String(p.tax_rate || '22'),
-          tax_inclusive: p.tax_inclusive !== false,
-          paid_by: p.paid_by || undefined,
-          paid_on_date: p.paid_on_date ? new Date(p.paid_on_date) : null,
-        }))
-      );
+      const paymentsData = (data || []).map((p) => ({
+        id: p.id,
+        description: p.description,
+        amount: String(p.amount),
+        amount_type: (p.amount_type || 'fixed') as 'fixed' | 'percentage' | 'balance',
+        percentage_value: String(p.percentage_value || ''),
+        percentage_base: p.percentage_base as 'planned' | 'actual' | undefined,
+        balance_base: p.balance_base as 'planned' | 'actual' | undefined,
+        due_date: p.due_date ? new Date(p.due_date) : null,
+        due_date_type: (p.due_date_type || 'absolute') as 'absolute' | 'days_before',
+        days_before_wedding: String(p.days_before_wedding || ''),
+        status: p.status as 'Da Pagare' | 'Pagato',
+        tax_rate: String(p.tax_rate || '22'),
+        tax_inclusive: p.tax_inclusive !== false,
+        paid_by: p.paid_by || undefined,
+        paid_on_date: p.paid_on_date ? new Date(p.paid_on_date) : null,
+      }));
+
+      setPayments(paymentsData);
+
+      // Load allocations for paid payments
+      const paidPaymentIds = paymentsData.filter(p => p.id && p.status === 'Pagato').map(p => p.id!);
+      if (paidPaymentIds.length > 0) {
+        const { data: allocationsData, error: allocationsError } = await supabase
+          .from("payment_allocations")
+          .select("*")
+          .in("payment_id", paidPaymentIds);
+
+        if (allocationsError) throw allocationsError;
+
+        const allocationsByPayment = (allocationsData || []).reduce((acc, alloc) => {
+          if (!acc[alloc.payment_id]) {
+            acc[alloc.payment_id] = [];
+          }
+          acc[alloc.payment_id].push(alloc);
+          return acc;
+        }, {} as Record<string, any[]>);
+
+        setPaymentAllocations(allocationsByPayment);
+      }
     } catch (error) {
       console.error("Error loading payments:", error);
       toast({
@@ -175,6 +198,19 @@ export function PaymentPlanTab({
   const handleStartEdit = (index: number) => {
     setEditingPaymentIndex(index);
     setOriginalPaymentData({ ...payments[index] });
+    
+    // Carica le allocazioni esistenti se il pagamento è già salvato e pagato
+    const payment = payments[index];
+    if (payment.id && payment.status === 'Pagato' && paymentAllocations[payment.id]) {
+      setEditingAllocations(
+        paymentAllocations[payment.id].map(alloc => ({
+          contributor_id: alloc.contributor_id,
+          amount: String(alloc.amount)
+        }))
+      );
+    } else {
+      setEditingAllocations([]);
+    }
   };
 
   const handleCancelEdit = () => {
@@ -192,6 +228,7 @@ export function PaymentPlanTab({
     
     setEditingPaymentIndex(null);
     setOriginalPaymentData(null);
+    setEditingAllocations([]);
   };
 
   const handleRemovePayment = async (index: number) => {
@@ -640,23 +677,108 @@ export function PaymentPlanTab({
                       {/* Campi aggiuntivi se Pagato */}
                       {payment.status === 'Pagato' && (
                         <>
-                          <div className="space-y-2">
-                            <Label>Pagato da</Label>
-                            <Select
-                              value={payment.paid_by || ''}
-                              onValueChange={(value) => updatePayment(index, 'paid_by', value)}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Seleziona chi ha pagato" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {contributors.map((contributor) => (
-                                  <SelectItem key={contributor.id} value={contributor.name}>
-                                    {contributor.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <Label>Allocazione Pagamento</Label>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  if (contributors.length > 0) {
+                                    setEditingAllocations([...editingAllocations, { contributor_id: contributors[0].id, amount: '' }]);
+                                  }
+                                }}
+                              >
+                                <Plus className="h-4 w-4 mr-2" />
+                                Aggiungi Contributore
+                              </Button>
+                            </div>
+
+                            {editingAllocations.length === 0 && (
+                              <Alert>
+                                <AlertDescription>
+                                  Aggiungi almeno un contributore per specificare chi ha pagato e quanto.
+                                </AlertDescription>
+                              </Alert>
+                            )}
+
+                            {editingAllocations.map((allocation, allocIndex) => (
+                              <Card key={allocIndex} className="p-3">
+                                <div className="flex gap-2 items-end">
+                                  <div className="flex-1 space-y-2">
+                                    <Label>Contributore</Label>
+                                    <Select
+                                      value={allocation.contributor_id}
+                                      onValueChange={(value) => {
+                                        const updated = [...editingAllocations];
+                                        updated[allocIndex].contributor_id = value;
+                                        setEditingAllocations(updated);
+                                      }}
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Seleziona contributore" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {contributors.map((contributor) => (
+                                          <SelectItem key={contributor.id} value={contributor.id}>
+                                            {contributor.name}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  <div className="flex-1 space-y-2">
+                                    <Label>Importo (€)</Label>
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      value={allocation.amount}
+                                      onChange={(e) => {
+                                        const updated = [...editingAllocations];
+                                        updated[allocIndex].amount = e.target.value;
+                                        setEditingAllocations(updated);
+                                      }}
+                                      placeholder="0.00"
+                                    />
+                                  </div>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      setEditingAllocations(editingAllocations.filter((_, i) => i !== allocIndex));
+                                    }}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </Card>
+                            ))}
+
+                            {editingAllocations.length > 0 && (() => {
+                              const totalAllocated = editingAllocations.reduce((sum, alloc) => sum + (parseFloat(alloc.amount) || 0), 0);
+                              const paymentAmount = calculatePaymentAmount(payment, 0, index);
+                              const difference = paymentAmount - totalAllocated;
+                              const isComplete = Math.abs(difference) < 0.01;
+
+                              return (
+                                <Alert variant={isComplete ? "default" : "destructive"}>
+                                  <AlertDescription>
+                                    <div className="space-y-1">
+                                      <div>Importo rata: {formatCurrency(paymentAmount)}</div>
+                                      <div>Totale allocato: {formatCurrency(totalAllocated)}</div>
+                                      {!isComplete && (
+                                        <div className="font-semibold">
+                                          {difference > 0 ? `Mancano: ${formatCurrency(difference)}` : `Eccesso: ${formatCurrency(Math.abs(difference))}`}
+                                        </div>
+                                      )}
+                                      {isComplete && <div className="text-green-600 font-semibold">✓ Allocazione completa</div>}
+                                    </div>
+                                  </AlertDescription>
+                                </Alert>
+                              );
+                            })()}
                           </div>
 
                           <div className="space-y-2">
@@ -719,10 +841,22 @@ export function PaymentPlanTab({
                             ` (Saldo sul ${payment.balance_base === 'actual' ? 'Totale Effettivo' : 'Totale Pianificato'})`
                           )}
                         </p>
-                        {payment.status === 'Pagato' && payment.paid_by && (
+                        {payment.status === 'Pagato' && payment.id && paymentAllocations[payment.id] && paymentAllocations[payment.id].length > 0 && (
+                          <div className="text-xs text-muted-foreground space-y-1">
+                            <div className="font-medium">Pagato da:</div>
+                            {paymentAllocations[payment.id].map((alloc, i) => {
+                              const contributor = contributors.find(c => c.id === alloc.contributor_id);
+                              return (
+                                <div key={i}>
+                                  • {contributor?.name || 'N/A'}: {formatCurrency(alloc.amount)}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                        {payment.status === 'Pagato' && payment.paid_on_date && (
                           <p className="text-xs text-muted-foreground">
-                            Pagato da {payment.paid_by}
-                            {payment.paid_on_date && ` il ${format(payment.paid_on_date, "dd/MM/yyyy")}`}
+                            Data pagamento: {format(payment.paid_on_date, "dd/MM/yyyy")}
                           </p>
                         )}
                       </div>
