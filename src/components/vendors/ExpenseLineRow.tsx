@@ -56,6 +56,14 @@ export function ExpenseLineRow({
     }
   };
 
+  const handleBatchUpdate = (updates: Partial<ExpenseLineItem>) => {
+    const updated = { ...localData, ...updates };
+    setLocalData(updated);
+    if (lineItem.id) {
+      onUpdate(lineItem.id, updates);
+    }
+  };
+
   const getQuantityDisplay = (): number => {
     let baseQuantity = 0;
     
@@ -118,23 +126,22 @@ export function ExpenseLineRow({
           <Select
             value={localData.quantity_type}
             onValueChange={(val) => {
-              handleUpdate('quantity_type', val);
-              // Reset quantity_range when switching types
+              // Batch update per evitare multiple chiamate
               if (val === 'fixed') {
-                handleUpdate('quantity_range', 'all');
-                handleUpdate('quantity_limit', null);
-              } else if (localData.quantity_type === 'fixed') {
-                // When switching FROM fixed to dynamic, ensure quantity_range is set
-                if (!localData.quantity_range || localData.quantity_range === 'all') {
-                  handleUpdate('quantity_range', 'all');
-                }
+                handleBatchUpdate({
+                  quantity_type: val,
+                  quantity_range: 'all',
+                  quantity_limit: null
+                });
+              } else {
+                handleUpdate('quantity_type', val);
               }
             }}
           >
             <SelectTrigger className="h-9">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-background z-50">
               <SelectItem value="fixed">Quantità Fissa</SelectItem>
               <SelectItem value="adults">N° Adulti</SelectItem>
               <SelectItem value="children">N° Bambini</SelectItem>
@@ -154,7 +161,7 @@ export function ExpenseLineRow({
               <SelectTrigger className="h-9">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-background z-50">
                 <SelectItem value="all">Tutti</SelectItem>
                 <SelectItem value="up_to">Fino a</SelectItem>
                 <SelectItem value="over">Oltre</SelectItem>
