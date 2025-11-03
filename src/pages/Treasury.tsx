@@ -26,6 +26,10 @@ interface Payment {
   id: string;
   description: string;
   amount: number;
+  amount_type?: 'fixed' | 'percentage' | 'balance';
+  percentage_value?: number | null;
+  percentage_base?: 'planned' | 'actual' | null;
+  balance_base?: 'planned' | 'actual' | null;
   due_date: string;
   status: 'Da Pagare' | 'Pagato';
   paid_on_date: string | null;
@@ -148,7 +152,10 @@ export default function Treasury() {
 
       const allPayments = (paymentsData || []).map(p => ({
         ...p,
-        status: p.status as 'Da Pagare' | 'Pagato'
+        status: p.status as 'Da Pagare' | 'Pagato',
+        amount_type: (p.amount_type || 'fixed') as 'fixed' | 'percentage' | 'balance',
+        percentage_base: p.percentage_base as 'planned' | 'actual' | null,
+        balance_base: p.balance_base as 'planned' | 'actual' | null,
       }));
       setPayments(allPayments);
 
@@ -309,7 +316,15 @@ export default function Treasury() {
   };
 
   const calculatePaymentTotal = (payment: Payment) => {
-    const baseAmount = Number(payment.amount || 0);
+    let baseAmount = Number(payment.amount || 0);
+    
+    // Se è un pagamento 'balance' o 'percentage' e amount è 0, 
+    // significa che è un vecchio record non ancora ricalcolato.
+    // In questo caso, mostriamo 0 ma logghiamo un warning.
+    if ((payment.amount_type === 'balance' || payment.amount_type === 'percentage') && baseAmount === 0) {
+      console.warn(`⚠️ Payment ${payment.id} (${payment.description}) ha amount=0. Potrebbe essere un record vecchio che necessita ricalcolo.`);
+    }
+    
     if (!payment.tax_inclusive && payment.tax_rate) {
       const taxAmount = baseAmount * (Number(payment.tax_rate) / 100);
       return baseAmount + taxAmount;

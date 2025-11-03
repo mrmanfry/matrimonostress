@@ -211,7 +211,30 @@ export function PaymentPlanTab({
     return null;
   };
 
-  const calculatePaymentAmount = (payment: Payment, previousPayments: number): number => {
+  const calculateBalanceAmount = (
+    paymentIndex: number,
+    balanceBase: 'planned' | 'actual'
+  ): number => {
+    const baseTotal = balanceBase === 'actual' ? totalActual : totalPlanned;
+    
+    // Somma tutti gli acconti (pagamenti precedenti a questo, esclusi altri balance)
+    const previousPayments = payments
+      .slice(0, paymentIndex)
+      .filter(p => p.amount_type !== 'balance')
+      .reduce((sum, p) => {
+        if (p.amount_type === 'fixed') {
+          return sum + parseFloat(p.amount || '0');
+        } else if (p.amount_type === 'percentage') {
+          const percentageBase = p.percentage_base === 'actual' ? totalActual : totalPlanned;
+          return sum + (percentageBase * parseFloat(p.percentage_value || '0') / 100);
+        }
+        return sum;
+      }, 0);
+    
+    return Math.max(0, baseTotal - previousPayments);
+  };
+
+  const calculatePaymentAmount = (payment: Payment, previousPayments: number, paymentIndex?: number): number => {
     // Scenario 1: Importo Fisso
     if (payment.amount_type === 'fixed' && payment.amount) {
       return parseFloat(payment.amount);
@@ -224,8 +247,12 @@ export function PaymentPlanTab({
       return (base * pct) / 100;
     }
     
-    // Scenario 3: Saldo (Chiudi Conti)
+    // Scenario 3: Saldo (Chiudi Conti) - usa la nuova funzione se disponibile l'indice
     if (payment.amount_type === 'balance') {
+      if (paymentIndex !== undefined && payment.balance_base) {
+        return calculateBalanceAmount(paymentIndex, payment.balance_base);
+      }
+      // Fallback alla vecchia logica
       const targetTotal = payment.balance_base === 'actual' ? totalActual : totalPlanned;
       return Math.max(0, targetTotal - previousPayments);
     }
@@ -295,10 +322,21 @@ export function PaymentPlanTab({
         return;
       }
 
+      // Calcola l'importo corretto in base al tipo
+      let calculatedAmount = 0;
+      if (payment.amount_type === 'fixed') {
+        calculatedAmount = parseFloat(payment.amount);
+      } else if (payment.amount_type === 'percentage') {
+        const percentageBase = payment.percentage_base === 'actual' ? totalActual : totalPlanned;
+        calculatedAmount = (percentageBase * parseFloat(payment.percentage_value || '0') / 100);
+      } else if (payment.amount_type === 'balance' && payment.balance_base) {
+        calculatedAmount = calculateBalanceAmount(index, payment.balance_base);
+      }
+
       const paymentData = {
         expense_item_id: expenseItemId,
         description: payment.description,
-        amount: payment.amount_type === 'fixed' ? parseFloat(payment.amount) : 0,
+        amount: calculatedAmount,
         amount_type: payment.amount_type,
         percentage_value: payment.amount_type === 'percentage' ? parseFloat(payment.percentage_value) : null,
         percentage_base: payment.amount_type === 'percentage' ? payment.percentage_base : null,
@@ -375,7 +413,7 @@ export function PaymentPlanTab({
               .filter(p => p.status === 'Pagato')
               .reduce((sum, p) => sum + calculatePaymentAmount(p, 0), 0);
             
-            const amount = calculatePaymentAmount(payment, previousPaid);
+            const amount = calculatePaymentAmount(payment, previousPaid, index);
 
             return (
               <Card key={index} className={isEditing ? "border-primary" : ""}>
@@ -523,6 +561,10 @@ export function PaymentPlanTab({
                                   ? `Questa rata salderà il Totale Effettivo (${formatCurrency(totalActual)}) meno gli acconti già inseriti.`
                                   : `Questa rata salderà il Totale Pianificato (${formatCurrency(totalPlanned)}) meno gli acconti già inseriti.`
                                 }
+                                <br />
+                                <strong className="text-primary">
+                                  Importo calcolato: {formatCurrency(calculateBalanceAmount(index, payment.balance_base || 'planned'))}
+                                </strong>
                               </AlertDescription>
                             </Alert>
                           </>
