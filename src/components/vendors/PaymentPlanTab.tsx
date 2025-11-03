@@ -6,6 +6,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Trash2, Plus, CalendarIcon, Edit, X, Check } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { format } from "date-fns";
@@ -51,6 +52,7 @@ export function PaymentPlanTab({
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(false);
   const [weddingDate, setWeddingDate] = useState<Date | null>(null);
+  const [contributors, setContributors] = useState<any[]>([]);
   const [editingPaymentIndex, setEditingPaymentIndex] = useState<number | null>(null);
   const [originalPaymentData, setOriginalPaymentData] = useState<Payment | null>(null);
   const { toast } = useToast();
@@ -59,6 +61,7 @@ export function PaymentPlanTab({
     if (expenseItemId) {
       loadPayments();
       loadWeddingDate();
+      loadContributors();
     }
   }, [expenseItemId]);
 
@@ -78,6 +81,32 @@ export function PaymentPlanTab({
       }
     } catch (error) {
       console.error("Error loading wedding date:", error);
+    }
+  };
+
+  const loadContributors = async () => {
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return;
+
+      const { data: weddingData } = await supabase
+        .from("weddings")
+        .select("id")
+        .eq("created_by", userData.user.id)
+        .maybeSingle();
+
+      if (!weddingData) return;
+
+      const { data, error } = await supabase
+        .from("financial_contributors")
+        .select("*")
+        .eq("wedding_id", weddingData.id)
+        .order("is_default", { ascending: false });
+
+      if (error) throw error;
+      setContributors(data || []);
+    } catch (error) {
+      console.error("Error loading contributors:", error);
     }
   };
 
@@ -591,6 +620,67 @@ export function PaymentPlanTab({
                         </Popover>
                       </div>
 
+                      {/* Stato del Pagamento */}
+                      <div className="space-y-2">
+                        <Label>Stato</Label>
+                        <Select
+                          value={payment.status}
+                          onValueChange={(value) => updatePayment(index, 'status', value as 'Da Pagare' | 'Pagato')}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Da Pagare">Da Pagare</SelectItem>
+                            <SelectItem value="Pagato">Pagato</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Campi aggiuntivi se Pagato */}
+                      {payment.status === 'Pagato' && (
+                        <>
+                          <div className="space-y-2">
+                            <Label>Pagato da</Label>
+                            <Select
+                              value={payment.paid_by || ''}
+                              onValueChange={(value) => updatePayment(index, 'paid_by', value)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Seleziona chi ha pagato" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {contributors.map((contributor) => (
+                                  <SelectItem key={contributor.id} value={contributor.name}>
+                                    {contributor.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>Data di Pagamento</Label>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button variant="outline" className="w-full justify-start">
+                                  <CalendarIcon className="mr-2 h-4 w-4" />
+                                  {payment.paid_on_date ? format(payment.paid_on_date, "PPP", { locale: it }) : "Seleziona data"}
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0">
+                                <Calendar
+                                  mode="single"
+                                  selected={payment.paid_on_date || undefined}
+                                  onSelect={(date) => updatePayment(index, 'paid_on_date', date)}
+                                  locale={it}
+                                />
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                        </>
+                      )}
+
                       <div className="flex gap-2">
                         <Button onClick={() => handleSavePayment(index)} size="sm">
                           <Check className="h-4 w-4 mr-2" />
@@ -612,8 +702,13 @@ export function PaymentPlanTab({
                     </>
                   ) : (
                     <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <h4 className="font-medium">{payment.description}</h4>
+                      <div className="flex-1 space-y-1">
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-medium">{payment.description}</h4>
+                          <Badge variant={payment.status === 'Pagato' ? 'default' : 'secondary'}>
+                            {payment.status}
+                          </Badge>
+                        </div>
                         <p className="text-sm text-muted-foreground">
                           {formatCurrency(amount)}
                           {payment.amount_type === 'fixed' && ' (Importo fisso)'}
@@ -624,10 +719,16 @@ export function PaymentPlanTab({
                             ` (Saldo sul ${payment.balance_base === 'actual' ? 'Totale Effettivo' : 'Totale Pianificato'})`
                           )}
                         </p>
+                        {payment.status === 'Pagato' && payment.paid_by && (
+                          <p className="text-xs text-muted-foreground">
+                            Pagato da {payment.paid_by}
+                            {payment.paid_on_date && ` il ${format(payment.paid_on_date, "dd/MM/yyyy")}`}
+                          </p>
+                        )}
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-sm text-muted-foreground">
-                          {payment.due_date && format(payment.due_date, "dd/MM/yyyy")}
+                          Scadenza: {payment.due_date && format(payment.due_date, "dd/MM/yyyy")}
                         </span>
                         <Button
                           variant="ghost"
