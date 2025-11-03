@@ -407,19 +407,19 @@ export function PaymentPlanTab({
                           >
                             <div className="flex items-center space-x-2">
                               <RadioGroupItem value="fixed" id={`fixed-${index}`} />
-                              <Label htmlFor={`fixed-${index}`} className="font-normal">
+                              <Label htmlFor={`fixed-${index}`} className="font-normal cursor-pointer">
                                 Importo Fisso
                               </Label>
                             </div>
                             <div className="flex items-center space-x-2">
                               <RadioGroupItem value="percentage" id={`percentage-${index}`} />
-                              <Label htmlFor={`percentage-${index}`} className="font-normal">
+                              <Label htmlFor={`percentage-${index}`} className="font-normal cursor-pointer">
                                 Percentuale
                               </Label>
                             </div>
                             <div className="flex items-center space-x-2">
                               <RadioGroupItem value="balance" id={`balance-${index}`} />
-                              <Label htmlFor={`balance-${index}`} className="font-normal">
+                              <Label htmlFor={`balance-${index}`} className="font-normal cursor-pointer">
                                 Saldo (Chiudi Conti)
                               </Label>
                             </div>
@@ -461,13 +461,13 @@ export function PaymentPlanTab({
                               >
                                 <div className="flex items-center space-x-2">
                                   <RadioGroupItem value="planned" id={`pct-planned-${index}`} />
-                                  <Label htmlFor={`pct-planned-${index}`} className="font-normal">
+                                  <Label htmlFor={`pct-planned-${index}`} className="font-normal cursor-pointer">
                                     Totale Pianificato ({formatCurrency(totalPlanned)})
                                   </Label>
                                 </div>
                                 <div className="flex items-center space-x-2">
                                   <RadioGroupItem value="actual" id={`pct-actual-${index}`} />
-                                  <Label htmlFor={`pct-actual-${index}`} className="font-normal">
+                                  <Label htmlFor={`pct-actual-${index}`} className="font-normal cursor-pointer">
                                     Totale Effettivo (da RSVP)
                                   </Label>
                                 </div>
@@ -487,13 +487,13 @@ export function PaymentPlanTab({
                               >
                                 <div className="flex items-center space-x-2">
                                   <RadioGroupItem value="planned" id={`bal-planned-${index}`} />
-                                  <Label htmlFor={`bal-planned-${index}`} className="font-normal">
+                                  <Label htmlFor={`bal-planned-${index}`} className="font-normal cursor-pointer">
                                     Salda il Totale Pianificato ({formatCurrency(totalPlanned)})
                                   </Label>
                                 </div>
                                 <div className="flex items-center space-x-2">
                                   <RadioGroupItem value="actual" id={`bal-actual-${index}`} />
-                                  <Label htmlFor={`bal-actual-${index}`} className="font-normal">
+                                  <Label htmlFor={`bal-actual-${index}`} className="font-normal cursor-pointer">
                                     Salda il Totale Effettivo (da RSVP)
                                   </Label>
                                 </div>
