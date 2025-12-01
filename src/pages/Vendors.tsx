@@ -143,14 +143,20 @@ const Vendors = () => {
     // Import the centralized calculation library
     const {
       calculateExpenseAmount,
-      inferExpenseType
+      inferExpenseType,
+      resolveGuestCounts
     } = await import("@/lib/expenseCalculations");
 
-    // Load global calculation mode
+    // Load global calculation mode and wedding targets
     const {
       data: weddingData
-    } = await supabase.from('weddings').select('calculation_mode').eq('id', weddingId).single();
+    } = await supabase.from('weddings').select('calculation_mode, target_adults, target_children, target_staff').eq('id', weddingId).single();
     const globalMode = weddingData?.calculation_mode || 'planned';
+    const globalTargets = {
+      adults: weddingData?.target_adults || 100,
+      children: weddingData?.target_children || 0,
+      staff: weddingData?.target_staff || 0
+    };
 
     // Load vendors with all expense data
     const {
@@ -219,12 +225,12 @@ const Vendors = () => {
 
         // Infer expense type for legacy data
         const expenseType = inferExpenseType(item, hasLineItems);
+        
+        // Resolve guest counts using global targets as fallback
+        const resolvedCounts = resolveGuestCounts(item, globalTargets);
+        
         const guestCounts = {
-          planned: {
-            adults: item.planned_adults || 100,
-            children: item.planned_children || 0,
-            staff: item.planned_staff || 0
-          },
+          planned: resolvedCounts,
           actual: {
             adults: actualAdults,
             children: actualChildren,
