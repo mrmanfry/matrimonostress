@@ -15,6 +15,7 @@ import { AddBudgetItemDialog } from "./AddBudgetItemDialog";
 import { AssignVendorDialog } from "./AssignVendorDialog";
 import { BudgetScenarioBar } from "./BudgetScenarioBar";
 import { CalculationModeToggle } from "@/components/ui/calculation-mode-toggle";
+import { isDeclined, isConfirmed, isPending } from "@/lib/rsvpHelpers";
 
 interface BudgetRowData {
   id: string;
@@ -123,19 +124,19 @@ export function BudgetSpreadsheet() {
 
       if (guestsError) throw guestsError;
 
-      // Calcola breakdown per il toggle
-      const confirmedGuests = (guests || []).filter(g => g.rsvp_status === 'Confermato').length;
-      const pendingGuests = (guests || []).filter(g => !g.rsvp_status || g.rsvp_status === 'In attesa').length;
-      const declinedGuests = (guests || []).filter(g => g.rsvp_status === 'Rifiutato').length;
+      // Use consistent RSVP status helpers
+      const confirmedGuests = (guests || []).filter(g => isConfirmed(g.rsvp_status)).length;
+      const declinedGuests = (guests || []).filter(g => isDeclined(g.rsvp_status)).length;
+      const pendingGuests = (guests || []).length - confirmedGuests - declinedGuests;
 
       // Calcola conteggi ospiti per tutte e tre le modalità
-      const confirmedAdults = (guests || []).filter(g => !g.is_child && !g.is_staff && g.rsvp_status === "Confermato").length;
-      const confirmedChildren = (guests || []).filter(g => g.is_child && g.rsvp_status === "Confermato").length;
-      const confirmedStaff = (guests || []).filter(g => g.is_staff && g.rsvp_status === "Confermato").length;
+      const confirmedAdults = (guests || []).filter(g => !g.is_child && !g.is_staff && isConfirmed(g.rsvp_status)).length;
+      const confirmedChildren = (guests || []).filter(g => g.is_child && isConfirmed(g.rsvp_status)).length;
+      const confirmedStaff = (guests || []).filter(g => g.is_staff && isConfirmed(g.rsvp_status)).length;
 
-      const expectedAdults = (guests || []).filter(g => !g.is_child && !g.is_staff && g.rsvp_status !== "Rifiutato").length;
-      const expectedChildren = (guests || []).filter(g => g.is_child && g.rsvp_status !== "Rifiutato").length;
-      const expectedStaff = (guests || []).filter(g => g.is_staff && g.rsvp_status !== "Rifiutato").length;
+      const expectedAdults = (guests || []).filter(g => !g.is_child && !g.is_staff && !isDeclined(g.rsvp_status)).length;
+      const expectedChildren = (guests || []).filter(g => g.is_child && !isDeclined(g.rsvp_status)).length;
+      const expectedStaff = (guests || []).filter(g => g.is_staff && !isDeclined(g.rsvp_status)).length;
 
       return {
         wedding,
