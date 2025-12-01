@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -22,6 +22,8 @@ const statusConfig = {
 export default function VendorDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab') || 'expenses';
 
   // Fetch vendor details
   const { data: vendor, isLoading } = useQuery({
@@ -188,7 +190,7 @@ export default function VendorDetails() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="expenses" className="w-full">
+      <Tabs defaultValue={initialTab} className="w-full">
         <TabsList className="w-full justify-start border-b rounded-none bg-transparent h-auto p-0 space-x-8">
           <TabsTrigger
             value="expenses"

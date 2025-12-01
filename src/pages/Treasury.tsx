@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { MarkPaymentDialog } from "@/components/treasury/MarkPaymentDialog";
+import { UnallocatedExpensesWidget } from "@/components/treasury/UnallocatedExpensesWidget";
 
 interface Payment {
   id: string;
@@ -481,6 +482,11 @@ export default function Treasury() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Unallocated Expenses Widget */}
+      {authState.status === "authenticated" && authState.weddingId && (
+        <UnallocatedExpensesWidget weddingId={authState.weddingId} globalMode={globalMode} />
+      )}
 
       {/* KPI Cards - INTERACTIVE */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
