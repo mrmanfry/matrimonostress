@@ -419,9 +419,12 @@ export function PaymentPlanTab({
           : null,
       };
 
+      let paymentId: string;
+
       if (payment.id) {
         const { error } = await supabase.from("payments").update(paymentData).eq("id", payment.id);
         if (error) throw error;
+        paymentId = payment.id;
       } else {
         const { data, error } = await supabase.from("payments").insert(paymentData).select().single();
         if (error) throw error;
@@ -429,6 +432,45 @@ export function PaymentPlanTab({
         const updatedPayments = [...payments];
         updatedPayments[index].id = data.id;
         setPayments(updatedPayments);
+        paymentId = data.id;
+      }
+
+      // Gestione allocazioni di pagamento
+      if (payment.status === 'Pagato' && editingAllocations.length > 0) {
+        // Elimina allocazioni esistenti
+        await supabase
+          .from("payment_allocations")
+          .delete()
+          .eq("payment_id", paymentId);
+
+        // Inserisci le nuove allocazioni
+        const allocationsToInsert = editingAllocations.map(alloc => ({
+          payment_id: paymentId,
+          contributor_id: alloc.contributor_id,
+          amount: parseFloat(alloc.amount),
+        }));
+
+        const { error: allocError } = await supabase
+          .from("payment_allocations")
+          .insert(allocationsToInsert);
+
+        if (allocError) throw allocError;
+
+        // Aggiorna lo state locale delle allocazioni
+        const newPaymentAllocations = { ...paymentAllocations };
+        newPaymentAllocations[paymentId] = allocationsToInsert;
+        setPaymentAllocations(newPaymentAllocations);
+      } else if (payment.status !== 'Pagato') {
+        // Se il pagamento non è più "Pagato", elimina le allocazioni
+        await supabase
+          .from("payment_allocations")
+          .delete()
+          .eq("payment_id", paymentId);
+
+        // Rimuovi dallo state locale
+        const newPaymentAllocations = { ...paymentAllocations };
+        delete newPaymentAllocations[paymentId];
+        setPaymentAllocations(newPaymentAllocations);
       }
 
       toast({
@@ -438,6 +480,7 @@ export function PaymentPlanTab({
 
       setEditingPaymentIndex(null);
       setOriginalPaymentData(null);
+      setEditingAllocations([]);
     } catch (error) {
       console.error("Error saving payment:", error);
       toast({
