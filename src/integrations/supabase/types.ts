@@ -144,6 +144,7 @@ export type Database = {
           category_id: string | null
           created_at: string
           description: string
+          estimated_amount: number | null
           expense_type: string | null
           fixed_amount: number | null
           id: string
@@ -162,6 +163,7 @@ export type Database = {
           category_id?: string | null
           created_at?: string
           description: string
+          estimated_amount?: number | null
           expense_type?: string | null
           fixed_amount?: number | null
           id?: string
@@ -180,6 +182,7 @@ export type Database = {
           category_id?: string | null
           created_at?: string
           description?: string
+          estimated_amount?: number | null
           expense_type?: string | null
           fixed_amount?: number | null
           id?: string
