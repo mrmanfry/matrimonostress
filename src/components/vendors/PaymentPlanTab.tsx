@@ -301,29 +301,36 @@ export function PaymentPlanTab({
   };
 
   const calculatePaymentAmount = (payment: Payment, previousPayments: number, paymentIndex?: number): number => {
+    let baseAmount = 0;
+    
     // Scenario 1: Importo Fisso
     if (payment.amount_type === 'fixed' && payment.amount) {
-      return parseFloat(payment.amount);
+      baseAmount = parseFloat(payment.amount);
     }
-    
     // Scenario 2: Percentuale
-    if (payment.amount_type === 'percentage' && payment.percentage_value) {
+    else if (payment.amount_type === 'percentage' && payment.percentage_value) {
       const pct = parseFloat(payment.percentage_value);
       const base = payment.percentage_base === 'actual' ? totalActual : totalPlanned;
-      return (base * pct) / 100;
+      baseAmount = (base * pct) / 100;
     }
-    
-    // Scenario 3: Saldo (Chiudi Conti) - usa la nuova funzione se disponibile l'indice
-    if (payment.amount_type === 'balance') {
+    // Scenario 3: Saldo (Chiudi Conti)
+    else if (payment.amount_type === 'balance') {
       if (paymentIndex !== undefined && payment.balance_base) {
-        return calculateBalanceAmount(paymentIndex, payment.balance_base);
+        baseAmount = calculateBalanceAmount(paymentIndex, payment.balance_base);
+      } else {
+        // Fallback alla vecchia logica
+        const targetTotal = payment.balance_base === 'actual' ? totalActual : totalPlanned;
+        baseAmount = Math.max(0, targetTotal - previousPayments);
       }
-      // Fallback alla vecchia logica
-      const targetTotal = payment.balance_base === 'actual' ? totalActual : totalPlanned;
-      return Math.max(0, targetTotal - previousPayments);
     }
     
-    return 0;
+    // Se l'importo è IVA esclusa, aggiungi l'IVA
+    if (payment.tax_inclusive === false && payment.tax_rate) {
+      const taxRate = parseFloat(payment.tax_rate);
+      return baseAmount * (1 + taxRate / 100);
+    }
+    
+    return baseAmount;
   };
 
   const handleSavePayment = async (index: number) => {
