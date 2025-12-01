@@ -24,6 +24,7 @@ import { useToast } from "@/hooks/use-toast";
 import { MarkPaymentDialog } from "@/components/treasury/MarkPaymentDialog";
 import { UnallocatedExpensesWidget } from "@/components/treasury/UnallocatedExpensesWidget";
 import { CalculationModeToggle } from "@/components/ui/calculation-mode-toggle";
+import { calculateExpenseAmount } from "@/lib/expenseCalculations";
 
 interface Payment {
   id: string;
@@ -46,10 +47,30 @@ interface ExpenseItem {
   id: string;
   description: string;
   vendor_id: string | null;
+  expense_type: 'fixed' | 'variable' | 'mixed' | null;
+  planned_adults: number | null;
+  planned_children: number | null;
+  planned_staff: number | null;
+  fixed_amount: number | null;
+  tax_rate: number | null;
+  amount_is_tax_inclusive: boolean | null;
   vendors?: {
     id: string;
     name: string;
   } | null;
+}
+
+interface ExpenseLineItem {
+  id: string;
+  expense_item_id: string;
+  description: string;
+  quantity_type: 'adults' | 'children' | 'staff' | 'total_guests' | 'fixed';
+  quantity_fixed: number | null;
+  quantity_range: 'all' | 'up_to' | 'over' | null;
+  quantity_limit: number | null;
+  unit_price: number;
+  discount_percentage: number | null;
+  tax_rate: number | null;
 }
 
 interface ChartDataPoint {
@@ -66,6 +87,7 @@ export default function Treasury() {
   const [loading, setLoading] = useState(true);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [expenseItems, setExpenseItems] = useState<ExpenseItem[]>([]);
+  const [expenseLineItems, setExpenseLineItems] = useState<ExpenseLineItem[]>([]);
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
   const [timeFilter, setTimeFilter] = useState<"all" | "30" | "90" | "7">("all");
   const [dateFilter, setDateFilter] = useState<string | null>(null);
@@ -150,26 +172,24 @@ export default function Treasury() {
         .select("is_child, is_staff, rsvp_status")
         .eq("wedding_id", weddingId);
 
-      if (allGuests) {
-        const breakdown = {
-          confirmed: {
-            adults: allGuests.filter(g => !g.is_child && !g.is_staff && g.rsvp_status === 'confirmed').length,
-            children: allGuests.filter(g => g.is_child && g.rsvp_status === 'confirmed').length,
-            staff: allGuests.filter(g => g.is_staff && g.rsvp_status === 'confirmed').length
-          },
-          pending: {
-            adults: allGuests.filter(g => !g.is_child && !g.is_staff && g.rsvp_status === 'pending').length,
-            children: allGuests.filter(g => g.is_child && g.rsvp_status === 'pending').length,
-            staff: allGuests.filter(g => g.is_staff && g.rsvp_status === 'pending').length
-          },
-          declined: {
-            adults: allGuests.filter(g => !g.is_child && !g.is_staff && g.rsvp_status === 'declined').length,
-            children: allGuests.filter(g => g.is_child && g.rsvp_status === 'declined').length,
-            staff: allGuests.filter(g => g.is_staff && g.rsvp_status === 'declined').length
-          }
-        };
-        setGuestBreakdown(breakdown);
-      }
+      const breakdown = {
+        confirmed: {
+          adults: allGuests?.filter(g => !g.is_child && !g.is_staff && g.rsvp_status === 'confirmed').length || 0,
+          children: allGuests?.filter(g => g.is_child && g.rsvp_status === 'confirmed').length || 0,
+          staff: allGuests?.filter(g => g.is_staff && g.rsvp_status === 'confirmed').length || 0
+        },
+        pending: {
+          adults: allGuests?.filter(g => !g.is_child && !g.is_staff && g.rsvp_status === 'pending').length || 0,
+          children: allGuests?.filter(g => g.is_child && g.rsvp_status === 'pending').length || 0,
+          staff: allGuests?.filter(g => g.is_staff && g.rsvp_status === 'pending').length || 0
+        },
+        declined: {
+          adults: allGuests?.filter(g => !g.is_child && !g.is_staff && g.rsvp_status === 'declined').length || 0,
+          children: allGuests?.filter(g => g.is_child && g.rsvp_status === 'declined').length || 0,
+          staff: allGuests?.filter(g => g.is_staff && g.rsvp_status === 'declined').length || 0
+        }
+      };
+      setGuestBreakdown(breakdown);
 
       // Load expense items with vendor info
       const { data: itemsData, error: itemsError } = await supabase
@@ -179,17 +199,50 @@ export default function Treasury() {
 
       if (itemsError) throw itemsError;
 
-      const items = itemsData || [];
+      const items = (itemsData || []).map(item => ({
+        ...item,
+        expense_type: item.expense_type as 'fixed' | 'variable' | 'mixed' | null
+      }));
       setExpenseItems(items);
 
+      // Load line items for all expense items
+      const itemIds = items.map(item => item.id);
+      let lineItems: ExpenseLineItem[] = [];
+      if (itemIds.length > 0) {
+        const { data: lineItemsData, error: lineItemsError } = await supabase
+          .from("expense_line_items")
+          .select("*")
+          .in("expense_item_id", itemIds);
+
+        if (lineItemsError) throw lineItemsError;
+        lineItems = (lineItemsData || []).map(li => ({
+          ...li,
+          quantity_type: li.quantity_type as 'adults' | 'children' | 'staff' | 'total_guests' | 'fixed',
+          quantity_range: li.quantity_range as 'all' | 'up_to' | 'over' | null
+        }));
+      }
+      setExpenseLineItems(lineItems);
+
+      // Load wedding targets for planned mode
+      const { data: weddingTargets } = await supabase
+        .from("weddings")
+        .select("target_adults, target_children, target_staff")
+        .eq("id", weddingId)
+        .single();
+
+      const targets = {
+        adults: weddingTargets?.target_adults || 100,
+        children: weddingTargets?.target_children || 0,
+        staff: weddingTargets?.target_staff || 0
+      };
+
       // Load payments
-      const itemIds = items.map((item) => item.id);
       if (itemIds.length === 0) {
         setPayments([]);
         setChartData([]);
         setContributors([]);
         setAllocations([]);
-        calculateKPIs([], items);
+        calculateKPIs([], items, lineItems, targets, breakdown);
         setLoading(false);
         return;
       }
@@ -236,10 +289,10 @@ export default function Treasury() {
       }
 
       // Generate chart data
-      generateChartData(allPayments, items);
+      generateChartData(allPayments, items, lineItems, targets, breakdown);
 
       // Calculate KPIs
-      calculateKPIs(allPayments, items);
+      calculateKPIs(allPayments, items, lineItems, targets, breakdown);
     } catch (error) {
       console.error("Error loading treasury data:", error);
     } finally {
@@ -247,14 +300,31 @@ export default function Treasury() {
     }
   };
 
-  const generateChartData = (allPayments: Payment[], items: ExpenseItem[]) => {
+  const generateChartData = (
+    allPayments: Payment[], 
+    items: ExpenseItem[], 
+    lineItems: ExpenseLineItem[],
+    targets: { adults: number; children: number; staff: number },
+    breakdown: typeof guestBreakdown
+  ) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+
+    // Build guest counts for current mode
+    const guestCounts = {
+      planned: targets,
+      expected: {
+        adults: breakdown.confirmed.adults + breakdown.pending.adults,
+        children: breakdown.confirmed.children + breakdown.pending.children,
+        staff: breakdown.confirmed.staff + breakdown.pending.staff
+      },
+      confirmed: breakdown.confirmed
+    };
 
     // Calculate "Già Pagato"
     const alreadyPaid = allPayments
       .filter((p) => p.status === "Pagato")
-      .reduce((sum, p) => sum + Number(p.amount), 0);
+      .reduce((sum, p) => sum + calculatePaymentTotalDynamic(p, items, lineItems, guestCounts), 0);
 
     // Filter future payments (Da Pagare)
     const futurePayments = allPayments
@@ -268,7 +338,7 @@ export default function Treasury() {
       if (!paymentsByDate[dateKey]) {
         paymentsByDate[dateKey] = { amount: 0, payments: [] };
       }
-      paymentsByDate[dateKey].amount += Number(payment.amount);
+      paymentsByDate[dateKey].amount += calculatePaymentTotalDynamic(payment, items, lineItems, guestCounts);
       paymentsByDate[dateKey].payments.push(payment.description);
     });
 
@@ -298,19 +368,36 @@ export default function Treasury() {
     setChartData(data);
   };
 
-  const calculateKPIs = (allPayments: Payment[], items: ExpenseItem[]) => {
+  const calculateKPIs = (
+    allPayments: Payment[], 
+    items: ExpenseItem[], 
+    lineItems: ExpenseLineItem[],
+    targets: { adults: number; children: number; staff: number },
+    breakdown: typeof guestBreakdown
+  ) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+
+    // Build guest counts for current mode
+    const guestCounts = {
+      planned: targets,
+      expected: {
+        adults: breakdown.confirmed.adults + breakdown.pending.adults,
+        children: breakdown.confirmed.children + breakdown.pending.children,
+        staff: breakdown.confirmed.staff + breakdown.pending.staff
+      },
+      confirmed: breakdown.confirmed
+    };
 
     // Total Commitment (Only unpaid)
     const totalCommitment = allPayments
       .filter((p) => p.status === "Da Pagare")
-      .reduce((sum, p) => sum + calculatePaymentTotal(p), 0);
+      .reduce((sum, p) => sum + calculatePaymentTotalDynamic(p, items, lineItems, guestCounts), 0);
 
     // Already Paid
     const alreadyPaid = allPayments
       .filter((p) => p.status === "Pagato")
-      .reduce((sum, p) => sum + calculatePaymentTotal(p), 0);
+      .reduce((sum, p) => sum + calculatePaymentTotalDynamic(p, items, lineItems, guestCounts), 0);
 
     // Next 7 Days Amount
     const next7Days = addDays(today, 7);
@@ -320,7 +407,7 @@ export default function Treasury() {
         const dueDate = new Date(p.due_date);
         return dueDate >= today && dueDate <= next7Days;
       })
-      .reduce((sum, p) => sum + calculatePaymentTotal(p), 0);
+      .reduce((sum, p) => sum + calculatePaymentTotalDynamic(p, items, lineItems, guestCounts), 0);
 
     // Busiest Month
     const futurePayments = allPayments.filter(
@@ -329,7 +416,7 @@ export default function Treasury() {
     const monthlyAmounts: Record<string, number> = {};
     futurePayments.forEach((p) => {
       const monthKey = format(parseISO(p.due_date), "MMMM yyyy", { locale: it });
-      monthlyAmounts[monthKey] = (monthlyAmounts[monthKey] || 0) + calculatePaymentTotal(p);
+      monthlyAmounts[monthKey] = (monthlyAmounts[monthKey] || 0) + calculatePaymentTotalDynamic(p, items, lineItems, guestCounts);
     });
     let busiestMonth = { month: "", amount: 0 };
     Object.entries(monthlyAmounts).forEach(([month, amount]) => {
@@ -349,7 +436,7 @@ export default function Treasury() {
 
     if (nextPayments.length > 0) {
       const nextPayment = nextPayments[0];
-      nextPaymentAmount = calculatePaymentTotal(nextPayment);
+      nextPaymentAmount = calculatePaymentTotalDynamic(nextPayment, items, lineItems, guestCounts);
       const dueDate = new Date(nextPayment.due_date);
       const diffTime = dueDate.getTime() - today.getTime();
       nextPaymentDaysUntil = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -367,20 +454,67 @@ export default function Treasury() {
     });
   };
 
-  const calculatePaymentTotal = (payment: Payment) => {
-    let baseAmount = Number(payment.amount || 0);
-    
-    // Se è un pagamento 'balance' o 'percentage' e amount è 0, 
-    // significa che è un vecchio record non ancora ricalcolato.
-    // In questo caso, mostriamo 0 ma logghiamo un warning.
-    if ((payment.amount_type === 'balance' || payment.amount_type === 'percentage') && baseAmount === 0) {
-      console.warn(`⚠️ Payment ${payment.id} (${payment.description}) ha amount=0. Potrebbe essere un record vecchio che necessita ricalcolo.`);
+  // Calcola l'importo del pagamento in base al tipo e alla modalità globale
+  const calculatePaymentTotalDynamic = (
+    payment: Payment,
+    items: ExpenseItem[],
+    lineItems: ExpenseLineItem[],
+    guestCounts: {
+      planned: { adults: number; children: number; staff: number };
+      expected: { adults: number; children: number; staff: number };
+      confirmed: { adults: number; children: number; staff: number };
     }
+  ) => {
+    let baseAmount = 0;
+
+    // Trova l'expense item associato
+    const expenseItem = items.find(item => item.id === payment.expense_item_id);
     
+    if (!expenseItem) {
+      console.warn(`⚠️ Payment ${payment.id} (${payment.description}) non ha un expense_item associato`);
+      return Number(payment.amount || 0);
+    }
+
+    // Calcola il totale dell'expense in base alla modalità globale
+    const expenseLineItemsForItem = lineItems.filter(li => li.expense_item_id === expenseItem.id);
+    const expenseTotal = calculateExpenseAmount(
+      expenseItem,
+      expenseLineItemsForItem,
+      globalMode,
+      guestCounts
+    );
+
+    // Calcola baseAmount in base al tipo di pagamento
+    if (payment.amount_type === 'fixed') {
+      baseAmount = Number(payment.amount || 0);
+    } else if (payment.amount_type === 'percentage') {
+      // Ricalcola in base alla percentuale sul totale dell'expense
+      const percentage = Number(payment.percentage_value || 0);
+      baseAmount = (expenseTotal * percentage) / 100;
+    } else if (payment.amount_type === 'balance') {
+      // Il saldo è il totale meno tutti i pagamenti precedenti
+      const allPaymentsForItem = payments.filter(p => p.expense_item_id === payment.expense_item_id);
+      const previousPayments = allPaymentsForItem
+        .filter(p => p.id !== payment.id && p.amount_type !== 'balance')
+        .reduce((sum, p) => {
+          if (p.amount_type === 'fixed') {
+            return sum + Number(p.amount || 0);
+          } else if (p.amount_type === 'percentage') {
+            const pct = Number(p.percentage_value || 0);
+            return sum + (expenseTotal * pct) / 100;
+          }
+          return sum;
+        }, 0);
+      
+      baseAmount = Math.max(0, expenseTotal - previousPayments);
+    }
+
+    // Applica IVA se necessario
     if (!payment.tax_inclusive && payment.tax_rate) {
       const taxAmount = baseAmount * (Number(payment.tax_rate) / 100);
       return baseAmount + taxAmount;
     }
+    
     return baseAmount;
   };
 
@@ -870,7 +1004,20 @@ export default function Treasury() {
                           )}
                         </TableCell>
                         <TableCell className="text-right font-semibold">
-                          {formatCurrency(calculatePaymentTotal(payment))}
+                          {formatCurrency(calculatePaymentTotalDynamic(
+                            payment,
+                            expenseItems,
+                            expenseLineItems,
+                            {
+                              planned: { adults: 0, children: 0, staff: 0 },
+                              expected: { 
+                                adults: guestBreakdown.confirmed.adults + guestBreakdown.pending.adults,
+                                children: guestBreakdown.confirmed.children + guestBreakdown.pending.children,
+                                staff: guestBreakdown.confirmed.staff + guestBreakdown.pending.staff
+                              },
+                              confirmed: guestBreakdown.confirmed
+                            }
+                          ))}
                         </TableCell>
                         <TableCell className="text-right">
                           <Button
@@ -897,7 +1044,20 @@ export default function Treasury() {
       <MarkPaymentDialog
         payment={paymentToMark}
         vendorName={paymentToMark ? getVendorName(paymentToMark.expense_item_id) : ""}
-        totalAmount={paymentToMark ? calculatePaymentTotal(paymentToMark) : 0}
+        totalAmount={paymentToMark ? calculatePaymentTotalDynamic(
+          paymentToMark,
+          expenseItems,
+          expenseLineItems,
+          {
+            planned: { adults: 0, children: 0, staff: 0 },
+            expected: { 
+              adults: guestBreakdown.confirmed.adults + guestBreakdown.pending.adults,
+              children: guestBreakdown.confirmed.children + guestBreakdown.pending.children,
+              staff: guestBreakdown.confirmed.staff + guestBreakdown.pending.staff
+            },
+            confirmed: guestBreakdown.confirmed
+          }
+        ) : 0}
         contributors={contributors}
         open={!!paymentToMark}
         onOpenChange={(open) => !open && setPaymentToMark(null)}
