@@ -27,32 +27,11 @@ export const ContractUploadDialog = ({
   onAnalysisComplete,
 }: ContractUploadDialogProps) => {
   const [uploading, setUploading] = useState(false);
-  const [analyzing, setAnalyzing] = useState(false);
   const { toast } = useToast();
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-
-    // Validate file type - only formats that AI can process as images
-    const allowedTypes = [
-      "application/pdf",
-      "image/png",
-      "image/jpeg",
-      "image/heic",
-    ];
-    
-    const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
-    const allowedExtensions = ['.pdf', '.png', '.jpg', '.jpeg', '.heic'];
-    
-    if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension)) {
-      toast({
-        title: "Formato non supportato",
-        description: "Carica un file PDF o un'immagine (PNG, JPG, HEIC). I file Word non sono supportati.",
-        variant: "destructive",
-      });
-      return;
-    }
 
     // Validate file size (max 20MB)
     if (file.size > 20 * 1024 * 1024) {
@@ -83,56 +62,38 @@ export const ContractUploadDialog = ({
         throw uploadError;
       }
 
-      setUploading(false);
-      setAnalyzing(true);
+      // Save record to database (without AI analysis)
+      const { error: dbError } = await supabase
+        .from("vendor_contracts")
+        .insert({
+          vendor_id: vendorId,
+          wedding_id: weddingId,
+          file_name: file.name,
+          file_path: fileName,
+          file_type: file.type,
+          ai_analysis: null,
+          analyzed_at: null,
+        });
 
-      toast({
-        title: "File caricato",
-        description: "Analisi AI del contratto in corso... 🤖 (Potrebbe richiedere fino a 60 secondi)",
-      });
-
-      // Call edge function to analyze contract
-      const { data, error } = await supabase.functions.invoke("analyze-contract", {
-        body: {
-          fileUrl: fileName,
-          totalContract,
-          weddingDate,
-        },
-      });
-
-      if (error) {
-        console.error("Edge function error:", error);
-        throw new Error(error.message || "Errore durante l'analisi");
-      }
-
-      if (data?.error) {
-        console.error("Analysis error:", data.error);
-        throw new Error(data.error);
-      }
-
-      if (!data?.analysis) {
-        throw new Error("L'AI non ha restituito risultati. Riprova con un file più chiaro.");
-      }
-
-      // Validate the new analysis format
-      if (!data.analysis.full_text || !data.analysis.sections) {
-        throw new Error("Formato di analisi non valido. Riprova.");
+      if (dbError) {
+        throw dbError;
       }
 
       toast({
-        title: "Analisi completata",
-        description: `${data.analysis.sections.length} sezioni identificate. Rivedi i dati prima di salvare.`,
+        title: "Documento caricato",
+        description: "Il file è stato caricato con successo",
       });
 
-      onAnalysisComplete(data.analysis, {
+      onOpenChange(false);
+      
+      // Trigger refresh (pass empty analysis to signal completion)
+      onAnalysisComplete({}, {
         fileName: file.name,
         filePath: fileName,
         fileType: file.type,
       });
-
-      onOpenChange(false);
     } catch (error) {
-      console.error("Error uploading/analyzing contract:", error);
+      console.error("Error uploading document:", error);
       toast({
         title: "Errore",
         description: error instanceof Error ? error.message : "Errore durante il caricamento",
@@ -140,7 +101,6 @@ export const ContractUploadDialog = ({
       });
     } finally {
       setUploading(false);
-      setAnalyzing(false);
     }
   };
 
@@ -157,21 +117,19 @@ export const ContractUploadDialog = ({
               <Input
                 id="contract-file"
                 type="file"
-                accept=".pdf,.png,.jpg,.jpeg,.heic,image/*,application/pdf"
                 onChange={handleFileUpload}
-                disabled={uploading || analyzing}
+                disabled={uploading}
               />
             </div>
             <p className="text-sm text-muted-foreground">
-              Formati supportati: PDF, PNG, JPG, HEIC (max 20MB)
+              Tutti i formati supportati (max 20MB)
             </p>
           </div>
 
-          {(uploading || analyzing) && (
+          {uploading && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
-              {uploading && "Caricamento in corso..."}
-              {analyzing && "Analisi AI in corso... Potrebbe richiedere fino a 60 secondi"}
+              Caricamento in corso...
             </div>
           )}
         </div>
