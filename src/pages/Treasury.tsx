@@ -242,13 +242,16 @@ export default function Treasury() {
       };
       setWeddingTargets(targets);
 
+      // Get the current mode to use for calculations
+      const currentMode = weddingData?.calculation_mode as 'planned' | 'expected' | 'confirmed' || 'planned';
+
       // Load payments
       if (itemIds.length === 0) {
         setPayments([]);
         setChartData([]);
         setContributors([]);
         setAllocations([]);
-        calculateKPIs([], items, lineItems, targets, breakdown);
+        calculateKPIs([], items, lineItems, targets, breakdown, currentMode);
         setLoading(false);
         return;
       }
@@ -294,11 +297,11 @@ export default function Treasury() {
         setAllocations([]);
       }
 
-      // Generate chart data
-      generateChartData(allPayments, items, lineItems, targets, breakdown);
+      // Generate chart data with explicit mode
+      generateChartData(allPayments, items, lineItems, targets, breakdown, currentMode);
 
-      // Calculate KPIs
-      calculateKPIs(allPayments, items, lineItems, targets, breakdown);
+      // Calculate KPIs with explicit mode
+      calculateKPIs(allPayments, items, lineItems, targets, breakdown, currentMode);
     } catch (error) {
       console.error("Error loading treasury data:", error);
     } finally {
@@ -311,7 +314,8 @@ export default function Treasury() {
     items: ExpenseItem[], 
     lineItems: ExpenseLineItem[],
     targets: { adults: number; children: number; staff: number },
-    breakdown: typeof guestBreakdown
+    breakdown: typeof guestBreakdown,
+    mode: 'planned' | 'expected' | 'confirmed'
   ) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -330,7 +334,7 @@ export default function Treasury() {
     // Calculate "Già Pagato"
     const alreadyPaid = allPayments
       .filter((p) => p.status === "Pagato")
-      .reduce((sum, p) => sum + calculatePaymentTotalDynamic(p, items, lineItems, guestCounts), 0);
+      .reduce((sum, p) => sum + calculatePaymentTotalDynamic(p, items, lineItems, guestCounts, mode), 0);
 
     // Filter future payments (Da Pagare)
     const futurePayments = allPayments
@@ -344,7 +348,7 @@ export default function Treasury() {
       if (!paymentsByDate[dateKey]) {
         paymentsByDate[dateKey] = { amount: 0, payments: [] };
       }
-      paymentsByDate[dateKey].amount += calculatePaymentTotalDynamic(payment, items, lineItems, guestCounts);
+      paymentsByDate[dateKey].amount += calculatePaymentTotalDynamic(payment, items, lineItems, guestCounts, mode);
       paymentsByDate[dateKey].payments.push(payment.description);
     });
 
@@ -379,7 +383,8 @@ export default function Treasury() {
     items: ExpenseItem[], 
     lineItems: ExpenseLineItem[],
     targets: { adults: number; children: number; staff: number },
-    breakdown: typeof guestBreakdown
+    breakdown: typeof guestBreakdown,
+    mode: 'planned' | 'expected' | 'confirmed'
   ) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -398,12 +403,12 @@ export default function Treasury() {
     // Total Commitment (Only unpaid)
     const totalCommitment = allPayments
       .filter((p) => p.status === "Da Pagare")
-      .reduce((sum, p) => sum + calculatePaymentTotalDynamic(p, items, lineItems, guestCounts), 0);
+      .reduce((sum, p) => sum + calculatePaymentTotalDynamic(p, items, lineItems, guestCounts, mode), 0);
 
     // Already Paid
     const alreadyPaid = allPayments
       .filter((p) => p.status === "Pagato")
-      .reduce((sum, p) => sum + calculatePaymentTotalDynamic(p, items, lineItems, guestCounts), 0);
+      .reduce((sum, p) => sum + calculatePaymentTotalDynamic(p, items, lineItems, guestCounts, mode), 0);
 
     // Next 7 Days Amount
     const next7Days = addDays(today, 7);
@@ -413,7 +418,7 @@ export default function Treasury() {
         const dueDate = new Date(p.due_date);
         return dueDate >= today && dueDate <= next7Days;
       })
-      .reduce((sum, p) => sum + calculatePaymentTotalDynamic(p, items, lineItems, guestCounts), 0);
+      .reduce((sum, p) => sum + calculatePaymentTotalDynamic(p, items, lineItems, guestCounts, mode), 0);
 
     // Busiest Month
     const futurePayments = allPayments.filter(
@@ -422,7 +427,7 @@ export default function Treasury() {
     const monthlyAmounts: Record<string, number> = {};
     futurePayments.forEach((p) => {
       const monthKey = format(parseISO(p.due_date), "MMMM yyyy", { locale: it });
-      monthlyAmounts[monthKey] = (monthlyAmounts[monthKey] || 0) + calculatePaymentTotalDynamic(p, items, lineItems, guestCounts);
+      monthlyAmounts[monthKey] = (monthlyAmounts[monthKey] || 0) + calculatePaymentTotalDynamic(p, items, lineItems, guestCounts, mode);
     });
     let busiestMonth = { month: "", amount: 0 };
     Object.entries(monthlyAmounts).forEach(([month, amount]) => {
@@ -442,7 +447,7 @@ export default function Treasury() {
 
     if (nextPayments.length > 0) {
       const nextPayment = nextPayments[0];
-      nextPaymentAmount = calculatePaymentTotalDynamic(nextPayment, items, lineItems, guestCounts);
+      nextPaymentAmount = calculatePaymentTotalDynamic(nextPayment, items, lineItems, guestCounts, mode);
       const dueDate = new Date(nextPayment.due_date);
       const diffTime = dueDate.getTime() - today.getTime();
       nextPaymentDaysUntil = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -469,7 +474,8 @@ export default function Treasury() {
       planned: { adults: number; children: number; staff: number };
       expected: { adults: number; children: number; staff: number };
       confirmed: { adults: number; children: number; staff: number };
-    }
+    },
+    mode: 'planned' | 'expected' | 'confirmed'
   ) => {
     let baseAmount = 0;
 
@@ -481,12 +487,12 @@ export default function Treasury() {
       return Number(payment.amount || 0);
     }
 
-    // Calcola il totale dell'expense in base alla modalità globale
+    // Calcola il totale dell'expense in base alla modalità passata esplicitamente
     const expenseLineItemsForItem = lineItems.filter(li => li.expense_item_id === expenseItem.id);
     const expenseTotal = calculateExpenseAmount(
       expenseItem,
       expenseLineItemsForItem,
-      globalMode,
+      mode,
       guestCounts
     );
 
@@ -1022,7 +1028,8 @@ export default function Treasury() {
                                 staff: guestBreakdown.confirmed.staff + guestBreakdown.pending.staff
                               },
                               confirmed: guestBreakdown.confirmed
-                            }
+                            },
+                            globalMode
                           ))}
                         </TableCell>
                         <TableCell className="text-right">
@@ -1062,7 +1069,8 @@ export default function Treasury() {
               staff: guestBreakdown.confirmed.staff + guestBreakdown.pending.staff
             },
             confirmed: guestBreakdown.confirmed
-          }
+          },
+          globalMode
         ) : 0}
         contributors={contributors}
         open={!!paymentToMark}
