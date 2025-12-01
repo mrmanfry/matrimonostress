@@ -184,6 +184,8 @@ export function VendorDialog({
         const { error: uploadError } = await supabase.storage
           .from("vendor-contracts")
           .upload(filePath, file, { 
+            contentType: file.type,
+            cacheControl: '3600',
             upsert: true,
           });
 

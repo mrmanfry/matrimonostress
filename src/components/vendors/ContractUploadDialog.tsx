@@ -73,7 +73,11 @@ export const ContractUploadDialog = ({
       
       const { error: uploadError } = await supabase.storage
         .from("vendor-contracts")
-        .upload(fileName, file);
+        .upload(fileName, file, {
+          contentType: file.type,
+          cacheControl: '3600',
+          upsert: false,
+        });
 
       if (uploadError) {
         throw uploadError;

@@ -40,14 +40,27 @@ export function DocumentViewerDialog({
   const loadFile = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.storage
-        .from("vendor-contracts")
-        .download(filePath);
+      // For PDFs, use signed URL to avoid CORS issues with iframe
+      if (isPDF) {
+        const { data, error } = await supabase.storage
+          .from("vendor-contracts")
+          .createSignedUrl(filePath, 3600); // 1 hour expiry
 
-      if (error) throw error;
+        if (error) throw error;
+        if (!data?.signedUrl) throw new Error("No signed URL returned");
 
-      const url = URL.createObjectURL(data);
-      setFileUrl(url);
+        setFileUrl(data.signedUrl);
+      } else {
+        // For images and other files, download as blob
+        const { data, error } = await supabase.storage
+          .from("vendor-contracts")
+          .download(filePath);
+
+        if (error) throw error;
+
+        const url = URL.createObjectURL(data);
+        setFileUrl(url);
+      }
     } catch (error) {
       console.error("Error loading file:", error);
       toast({
