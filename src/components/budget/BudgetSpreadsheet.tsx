@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Loader2, AlertCircle, CheckCircle2, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
-import { calculateExpenseAmount, ExpenseItem, ExpenseLineItem, GuestCounts } from "@/lib/expenseCalculations";
+import { calculateExpenseAmount, resolveGuestCounts, ExpenseItem, ExpenseLineItem, GuestCounts } from "@/lib/expenseCalculations";
 import { Button } from "@/components/ui/button";
 import { AddBudgetItemDialog } from "./AddBudgetItemDialog";
 import { AssignVendorDialog } from "./AssignVendorDialog";
@@ -169,6 +169,16 @@ export function BudgetSpreadsheet() {
     const groups = new Map<string, CategoryGroup>();
 
     budgetData.expenseItems.forEach((item: any) => {
+      // Risolvi i guest counts con logica di ereditarietà (NULL -> usa globale)
+      const resolvedCounts = resolveGuestCounts(
+        {
+          planned_adults: item.planned_adults,
+          planned_children: item.planned_children,
+          planned_staff: item.planned_staff
+        },
+        budgetData.guestCounts.planned
+      );
+
       // Calcola importo effettivo usando la libreria centralizzata
       const itemLineItems = budgetData.lineItems.filter((li: any) => li.expense_item_id === item.id);
       const actualAmount = calculateExpenseAmount(
@@ -176,9 +186,9 @@ export function BudgetSpreadsheet() {
           id: item.id,
           expense_type: item.expense_type || 'fixed',
           fixed_amount: item.fixed_amount,
-          planned_adults: item.planned_adults || 100,
-          planned_children: item.planned_children || 0,
-          planned_staff: item.planned_staff || 0,
+          planned_adults: resolvedCounts.adults,
+          planned_children: resolvedCounts.children,
+          planned_staff: resolvedCounts.staff,
           tax_rate: item.tax_rate,
           amount_is_tax_inclusive: item.amount_is_tax_inclusive ?? true
         } as ExpenseItem,
@@ -208,9 +218,9 @@ export function BudgetSpreadsheet() {
             id: item.id,
             expense_type: item.expense_type || 'fixed',
             fixed_amount: item.fixed_amount,
-            planned_adults: item.planned_adults || 100,
-            planned_children: item.planned_children || 0,
-            planned_staff: item.planned_staff || 0,
+            planned_adults: resolvedCounts.adults,
+            planned_children: resolvedCounts.children,
+            planned_staff: resolvedCounts.staff,
             tax_rate: item.tax_rate,
             amount_is_tax_inclusive: item.amount_is_tax_inclusive ?? true
           } as ExpenseItem,

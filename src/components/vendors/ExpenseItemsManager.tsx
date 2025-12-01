@@ -66,14 +66,47 @@ export function ExpenseItemsManager({ vendorId, categoryId }: ExpenseItemsManage
   const [actualAdults, setActualAdults] = useState(0);
   const [actualChildren, setActualChildren] = useState(0);
   const [actualStaff, setActualStaff] = useState(0);
+  const [weddingTargets, setWeddingTargets] = useState({ adults: 100, children: 0, staff: 0 });
   const { toast } = useToast();
 
   useEffect(() => {
     if (vendorId) {
       loadExpenseItems();
       loadActualGuestCounts();
+      loadWeddingTargets();
     }
   }, [vendorId]);
+
+  const loadWeddingTargets = async () => {
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return;
+
+      const { data: userRole } = await supabase
+        .from("user_roles")
+        .select("wedding_id")
+        .eq("user_id", userData.user.id)
+        .single();
+
+      if (!userRole) return;
+
+      const { data: wedding } = await supabase
+        .from("weddings")
+        .select("target_adults, target_children, target_staff")
+        .eq("id", userRole.wedding_id)
+        .single();
+
+      if (wedding) {
+        setWeddingTargets({
+          adults: wedding.target_adults || 100,
+          children: wedding.target_children || 0,
+          staff: wedding.target_staff || 0
+        });
+      }
+    } catch (error) {
+      console.error("Error loading wedding targets:", error);
+    }
+  };
 
   const loadActualGuestCounts = async () => {
     try {
@@ -279,7 +312,7 @@ export function ExpenseItemsManager({ vendorId, categoryId }: ExpenseItemsManage
 
   const calculateItemTotal = useCallback(async (item: ExpenseItem): Promise<number> => {
     // Import centralized calculation library
-    const { calculateExpenseAmount, inferExpenseType } = await import("@/lib/expenseCalculations");
+    const { calculateExpenseAmount, inferExpenseType, resolveGuestCounts } = await import("@/lib/expenseCalculations");
     
     // Get wedding data for global mode
     const { data: userData } = await supabase.auth.getUser();
@@ -307,12 +340,18 @@ export function ExpenseItemsManager({ vendorId, categoryId }: ExpenseItemsManage
     // Infer expense type for legacy data
     const expenseType = inferExpenseType(item, hasLineItems);
     
-    const guestCounts = {
-      planned: {
-        adults: item.planned_adults,
-        children: item.planned_children,
-        staff: item.planned_staff
+    // Risolvi i guest counts con ereditarietà: NULL -> usa target globali
+    const resolvedCounts = resolveGuestCounts(
+      {
+        planned_adults: item.planned_adults,
+        planned_children: item.planned_children,
+        planned_staff: item.planned_staff
       },
+      weddingTargets
+    );
+    
+    const guestCounts = {
+      planned: resolvedCounts,
       actual: {
         adults: actualAdults,
         children: actualChildren,
@@ -325,13 +364,16 @@ export function ExpenseItemsManager({ vendorId, categoryId }: ExpenseItemsManage
       { 
         ...item, 
         expense_type: expenseType,
-        fixed_amount: item.total_amount || null
+        fixed_amount: item.total_amount || null,
+        planned_adults: resolvedCounts.adults,
+        planned_children: resolvedCounts.children,
+        planned_staff: resolvedCounts.staff
       },
       itemLines,
       globalMode as 'planned' | 'actual',
       guestCounts
     );
-  }, [lineItems, actualAdults, actualChildren, actualStaff]);
+  }, [lineItems, actualAdults, actualChildren, actualStaff, weddingTargets]);
 
   const toggleExpanded = (itemId: string) => {
     setExpandedItems(prev => {
