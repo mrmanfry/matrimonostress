@@ -461,7 +461,7 @@ export function VendorDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="evaluating">In valutazione</SelectItem>
-                  <SelectItem value="booked">Prenotato</SelectItem>
+                  <SelectItem value="booked">Opzionato</SelectItem>
                   <SelectItem value="confirmed">Confermato</SelectItem>
                   <SelectItem value="rejected">Rifiutato</SelectItem>
                 </SelectContent>
