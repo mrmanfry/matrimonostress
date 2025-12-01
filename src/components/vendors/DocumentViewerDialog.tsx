@@ -41,7 +41,7 @@ export function DocumentViewerDialog({
     setLoading(true);
     try {
       const { data, error } = await supabase.storage
-        .from("vendor-documents")
+        .from("vendor-contracts")
         .download(filePath);
 
       if (error) throw error;

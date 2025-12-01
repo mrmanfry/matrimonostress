@@ -262,12 +262,13 @@ const Vendors = () => {
 
   const loadVendorDocuments = async (vendorId: string) => {
     try {
-      const { data: user } = await supabase.auth.getUser();
-      if (!user.user) return;
+      if (!weddingData?.id) return;
+
+      const weddingId = weddingData.id;
 
       const { data, error } = await supabase.storage
-        .from("vendor-documents")
-        .list(`${user.user.id}/${vendorId}`);
+        .from("vendor-contracts")
+        .list(`${weddingId}/${vendorId}`);
 
       if (error) throw error;
 
@@ -275,7 +276,7 @@ const Vendors = () => {
         setVendorDocuments(
           data.map((file) => ({
             name: file.name,
-            path: `${user.user.id}/${vendorId}/${file.name}`,
+            path: `${weddingId}/${vendorId}/${file.name}`,
           }))
         );
       } else {
@@ -290,7 +291,7 @@ const Vendors = () => {
   const handleDeleteDocument = async (filePath: string) => {
     try {
       const { error } = await supabase.storage
-        .from("vendor-documents")
+        .from("vendor-contracts")
         .remove([filePath]);
 
       if (error) throw error;
