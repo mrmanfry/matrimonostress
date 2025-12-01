@@ -360,6 +360,16 @@ export function BudgetSpreadsheet() {
     }
   };
 
+  // Calculate grand totals across all categories
+  const grandTotals = useMemo(() => {
+    return groupedData.reduce((acc, category) => ({
+      estimated: acc.estimated + category.totalEstimated,
+      actual: acc.actual + category.totalActual,
+      paid: acc.paid + category.totalPaid,
+      remaining: acc.remaining + category.totalRemaining
+    }), { estimated: 0, actual: 0, paid: 0, remaining: 0 });
+  }, [groupedData]);
+
   if (isLoading) {
     return (
       <Card className="p-8">
@@ -583,6 +593,26 @@ export function BudgetSpreadsheet() {
                 })}
               </>
             ))}
+            
+            {/* Riga Totale Generale */}
+            <TableRow className="bg-primary/5 font-bold border-t-2 border-primary/20">
+              <TableCell className="py-4">
+                <span className="text-base">TOTALE GENERALE</span>
+              </TableCell>
+              <TableCell className="text-right py-4 text-base">
+                {formatCurrency(grandTotals.estimated)}
+              </TableCell>
+              <TableCell className="text-right py-4 text-base text-orange-600 dark:text-orange-400">
+                {formatCurrency(grandTotals.actual)}
+              </TableCell>
+              <TableCell className="text-right py-4 text-base text-green-600 dark:text-green-400">
+                {formatCurrency(grandTotals.paid)}
+              </TableCell>
+              <TableCell className="text-right py-4 text-base text-orange-600 dark:text-orange-400">
+                {formatCurrency(grandTotals.remaining)}
+              </TableCell>
+              <TableCell className="py-4" />
+            </TableRow>
           </TableBody>
         </Table>
         </div>
