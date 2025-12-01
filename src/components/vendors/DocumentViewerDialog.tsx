@@ -40,27 +40,19 @@ export function DocumentViewerDialog({
   const loadFile = async () => {
     setLoading(true);
     try {
-      // For PDFs, use signed URL to avoid CORS issues with iframe
-      if (isPDF) {
-        const { data, error } = await supabase.storage
-          .from("vendor-contracts")
-          .createSignedUrl(filePath, 3600); // 1 hour expiry
+      // Download file as blob for all types
+      // This avoids ERR_BLOCKED_BY_CLIENT from ad blockers/browser extensions
+      const { data, error } = await supabase.storage
+        .from("vendor-contracts")
+        .download(filePath);
 
-        if (error) throw error;
-        if (!data?.signedUrl) throw new Error("No signed URL returned");
+      if (error) throw error;
 
-        setFileUrl(data.signedUrl);
-      } else {
-        // For images and other files, download as blob
-        const { data, error } = await supabase.storage
-          .from("vendor-contracts")
-          .download(filePath);
-
-        if (error) throw error;
-
-        const url = URL.createObjectURL(data);
-        setFileUrl(url);
-      }
+      // Create blob URL with correct MIME type for PDF viewing
+      const mimeType = isPDF ? 'application/pdf' : data.type;
+      const blob = new Blob([data], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      setFileUrl(url);
     } catch (error) {
       console.error("Error loading file:", error);
       toast({
@@ -126,7 +118,7 @@ export function DocumentViewerDialog({
             <>
               {isPDF && (
                 <iframe
-                  src={fileUrl}
+                  src={`${fileUrl}#toolbar=1`}
                   className="w-full h-full"
                   title={fileName}
                 />
