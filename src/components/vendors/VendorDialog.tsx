@@ -111,12 +111,19 @@ export function VendorDialog({
 
   const loadExistingFiles = async (vendorId: string) => {
     try {
-      const { data: user } = await supabase.auth.getUser();
-      if (!user.user) return;
+      const { data: vendorRow, error: vendorError } = await supabase
+        .from("vendors")
+        .select("wedding_id")
+        .eq("id", vendorId)
+        .single();
+
+      if (vendorError || !vendorRow) return;
+
+      const weddingId = vendorRow.wedding_id;
 
       const { data, error } = await supabase.storage
-        .from("vendor-documents")
-        .list(`${user.user.id}/${vendorId}`);
+        .from("vendor-contracts")
+        .list(`${weddingId}/${vendorId}`);
 
       if (error) throw error;
 
@@ -124,7 +131,7 @@ export function VendorDialog({
         setUploadedFiles(
           data.map((file) => ({
             name: file.name,
-            path: `${user.user.id}/${vendorId}/${file.name}`,
+            path: `${weddingId}/${vendorId}/${file.name}`,
           }))
         );
       }
@@ -175,7 +182,7 @@ export function VendorDialog({
         setUploadProgress(0);
         
         const { error: uploadError } = await supabase.storage
-          .from("vendor-documents")
+          .from("vendor-contracts")
           .upload(filePath, file, { 
             upsert: true,
           });
@@ -244,12 +251,22 @@ export function VendorDialog({
       const { data: user } = await supabase.auth.getUser();
       if (!user.user) throw new Error("Utente non autenticato");
 
+      const { data: vendorRow, error: vendorError } = await supabase
+        .from("vendors")
+        .select("wedding_id")
+        .eq("id", vendor.id)
+        .single();
+
+      if (vendorError || !vendorRow) throw new Error("Fornitore non trovato");
+
+      const weddingId = vendorRow.wedding_id;
+
       const uploadedCount = { current: 0 };
       const totalFiles = validFiles.length;
 
       // Upload all valid files
       for (const file of validFiles) {
-        const filePath = `${user.user.id}/${vendor.id}/${file.name}`;
+        const filePath = `${weddingId}/${vendor.id}/${file.name}`;
         
         await uploadWithRetry(filePath, file);
         
@@ -289,7 +306,7 @@ export function VendorDialog({
   const handleFileDelete = async (filePath: string) => {
     try {
       const { error } = await supabase.storage
-        .from("vendor-documents")
+        .from("vendor-contracts")
         .remove([filePath]);
 
       if (error) throw error;
@@ -313,7 +330,7 @@ export function VendorDialog({
   const handleFileDownload = async (filePath: string, fileName: string) => {
     try {
       const { data, error } = await supabase.storage
-        .from("vendor-documents")
+        .from("vendor-contracts")
         .download(filePath);
 
       if (error) throw error;
