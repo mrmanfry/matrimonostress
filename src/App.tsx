@@ -23,6 +23,7 @@ import Tables from "./pages/Tables";
 import Timeline from "./pages/Timeline";
 import TimelinePublic from "./pages/TimelinePublic";
 import ContactSync from "./pages/ContactSync";
+import RSVPPublic from "./pages/RSVPPublic";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -49,6 +50,7 @@ const App = () => (
             />
             <Route path="/timeline/:token" element={<TimelinePublic />} />
             <Route path="/sync/:token" element={<ContactSync />} />
+            <Route path="/rsvp/:token" element={<RSVPPublic />} />
             <Route
               path="/app" 
               element={

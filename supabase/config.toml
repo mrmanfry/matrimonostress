@@ -1,5 +1,8 @@
 project_id = "evaivaudtestjzckutsd"
 
+[functions.rsvp-handler]
+verify_jwt = false
+
 [functions.generate-sync-token]
 verify_jwt = true
 
