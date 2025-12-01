@@ -26,7 +26,6 @@ interface BudgetRowData {
   isPlaceholder: boolean;
   expenseType: "fixed" | "variable" | "mixed";
   isVariableExpense: boolean;
-  estimated: number;
   actual: number;
   paid: number;
   remaining: number;
@@ -36,7 +35,6 @@ interface CategoryGroup {
   categoryName: string;
   categoryId: string;
   rows: BudgetRowData[];
-  totalEstimated: number;
   totalActual: number;
   totalPaid: number;
   totalRemaining: number;
@@ -200,21 +198,6 @@ export function BudgetSpreadsheet() {
     }`);
   };
 
-  // Mutation per aggiornare estimated_amount
-  const updateEstimate = useMutation({
-    mutationFn: async ({ id, value }: { id: string; value: number }) => {
-      const { error } = await supabase
-        .from("expense_items")
-        .update({ estimated_amount: value })
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["budget-spreadsheet"] });
-      toast.success("Budget stimato aggiornato");
-    },
-    onError: () => toast.error("Errore nel salvataggio"),
-  });
 
   // Calcola i dati delle righe
   const groupedData = useMemo(() => {
@@ -264,26 +247,6 @@ export function BudgetSpreadsheet() {
 
       const isPlaceholder = !item.vendor_id;
       const isVariable = item.expense_type === "variable";
-      
-      // Per spese variabili, il "Stimato" viene calcolato, non editato
-      let estimatedAmount = Number(item.estimated_amount || 0);
-      if (isVariable && itemLineItems.length > 0) {
-        estimatedAmount = calculateExpenseAmount(
-          {
-            id: item.id,
-            expense_type: item.expense_type || 'fixed',
-            fixed_amount: item.fixed_amount,
-            planned_adults: resolvedCounts.adults,
-            planned_children: resolvedCounts.children,
-            planned_staff: resolvedCounts.staff,
-            tax_rate: item.tax_rate,
-            amount_is_tax_inclusive: item.amount_is_tax_inclusive ?? true
-          } as ExpenseItem,
-          itemLineItems as ExpenseLineItem[],
-          'planned',
-          budgetData.guestCounts
-        );
-      }
 
       const row: BudgetRowData = {
         id: item.id,
@@ -294,7 +257,6 @@ export function BudgetSpreadsheet() {
         isPlaceholder,
         expenseType: (item.expense_type || "fixed") as "fixed" | "variable" | "mixed",
         isVariableExpense: isVariable,
-        estimated: estimatedAmount,
         actual: actualAmount,
         paid: paidAmount,
         remaining: Math.max(0, actualAmount - paidAmount)
@@ -305,7 +267,6 @@ export function BudgetSpreadsheet() {
           categoryName,
           categoryId,
           rows: [],
-          totalEstimated: 0,
           totalActual: 0,
           totalPaid: 0,
           totalRemaining: 0
@@ -314,7 +275,6 @@ export function BudgetSpreadsheet() {
 
       const group = groups.get(categoryId)!;
       group.rows.push(row);
-      group.totalEstimated += row.estimated;
       group.totalActual += row.actual;
       group.totalPaid += row.paid;
       group.totalRemaining += row.remaining;
@@ -363,11 +323,10 @@ export function BudgetSpreadsheet() {
   // Calculate grand totals across all categories
   const grandTotals = useMemo(() => {
     return groupedData.reduce((acc, category) => ({
-      estimated: acc.estimated + category.totalEstimated,
       actual: acc.actual + category.totalActual,
       paid: acc.paid + category.totalPaid,
       remaining: acc.remaining + category.totalRemaining
-    }), { estimated: 0, actual: 0, paid: 0, remaining: 0 });
+    }), { actual: 0, paid: 0, remaining: 0 });
   }, [groupedData]);
 
   if (isLoading) {
@@ -435,14 +394,13 @@ export function BudgetSpreadsheet() {
           <Table>
           <TableHeader className="bg-muted/50">
             <TableRow>
-              <TableHead className="w-[35%]">Voce di Spesa</TableHead>
-              <TableHead className="w-[13%] text-right">Stimato</TableHead>
-              <TableHead className="w-[13%] text-right">
+              <TableHead className="w-[40%]">Voce di Spesa</TableHead>
+              <TableHead className="w-[18%] text-right">
                 Effettivo {getGuestCountLabel()}
               </TableHead>
-              <TableHead className="w-[13%] text-right">Pagato</TableHead>
-              <TableHead className="w-[13%] text-right">Residuo</TableHead>
-              <TableHead className="w-[13%]">Stato</TableHead>
+              <TableHead className="w-[15%] text-right">Pagato</TableHead>
+              <TableHead className="w-[15%] text-right">Residuo</TableHead>
+              <TableHead className="w-[12%]">Stato</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -467,9 +425,6 @@ export function BudgetSpreadsheet() {
                         {category.categoryName}
                       </span>
                     </div>
-                  </TableCell>
-                  <TableCell className="text-right py-3 text-sm font-semibold">
-                    {formatCurrency(category.totalEstimated)}
                   </TableCell>
                   <TableCell className="text-right py-3 text-sm font-semibold">
                     {formatCurrency(category.totalActual)}
@@ -518,29 +473,6 @@ export function BudgetSpreadsheet() {
                             </div>
                           </div>
                         </div>
-                      </TableCell>
-
-                      {/* Cella STIMATO - Editabile solo per fissi */}
-                      <TableCell className="text-right p-1">
-                        {row.isVariableExpense ? (
-                          <div className="text-right text-muted-foreground italic pr-3">
-                            {formatCurrency(row.estimated)}
-                          </div>
-                        ) : (
-                          <Input
-                            type="number"
-                            defaultValue={row.estimated}
-                            className="text-right h-9 w-32 ml-auto border-transparent hover:border-input focus:border-primary bg-transparent"
-                            onBlur={(e) => {
-                              const val = parseFloat(e.target.value) || 0;
-                              if (val !== row.estimated) {
-                                updateEstimate.mutate({ id: row.id, value: val });
-                              }
-                            }}
-                            step="0.01"
-                            min="0"
-                          />
-                        )}
                       </TableCell>
 
                       <TableCell className="text-right">
@@ -598,9 +530,6 @@ export function BudgetSpreadsheet() {
             <TableRow className="bg-primary/5 font-bold border-t-2 border-primary/20">
               <TableCell className="py-4">
                 <span className="text-base">TOTALE GENERALE</span>
-              </TableCell>
-              <TableCell className="text-right py-4 text-base">
-                {formatCurrency(grandTotals.estimated)}
               </TableCell>
               <TableCell className="text-right py-4 text-base text-orange-600 dark:text-orange-400">
                 {formatCurrency(grandTotals.actual)}
