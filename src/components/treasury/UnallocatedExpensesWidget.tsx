@@ -78,7 +78,7 @@ export function UnallocatedExpensesWidget({ weddingId, globalMode }: Unallocated
           amount_is_tax_inclusive,
           vendors (id, name),
           expense_line_items (*),
-          payments (amount)
+          payments (amount, tax_inclusive, tax_rate)
         `)
         .eq("wedding_id", weddingId);
 
@@ -115,11 +115,16 @@ export function UnallocatedExpensesWidget({ weddingId, globalMode }: Unallocated
           guestCounts
         );
 
-        // Somma pagamenti schedulati
-        const scheduled = expense.payments?.reduce(
-          (sum, p) => sum + Number(p.amount),
-          0
-        ) || 0;
+        // Sum all scheduled payments, accounting for tax
+        const scheduled = expense.payments?.reduce((sum, p) => {
+          const amount = Number(p.amount);
+          // If tax_inclusive is false, add VAT to the amount
+          if (p.tax_inclusive === false && p.tax_rate) {
+            return sum + amount * (1 + Number(p.tax_rate) / 100);
+          }
+          // Otherwise amount already includes VAT
+          return sum + amount;
+        }, 0) || 0;
 
         // Calcola missing (tolleranza 1€ per arrotondamenti)
         const missing = totalCost - scheduled;
