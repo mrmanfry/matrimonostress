@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ExpenseLineRow } from "./ExpenseLineRow";
@@ -55,6 +56,11 @@ export function ExpenseSpreadsheetTab({
   const [plannedChildren, setPlannedChildren] = useState<number | null>(expenseItem.planned_children);
   const [plannedStaff, setPlannedStaff] = useState<number | null>(expenseItem.planned_staff);
   const [weddingTargets, setWeddingTargets] = useState({ adults: 100, children: 0, staff: 0 });
+  const [useCustomCounts, setUseCustomCounts] = useState(
+    expenseItem.planned_adults !== null || 
+    expenseItem.planned_children !== null || 
+    expenseItem.planned_staff !== null
+  );
   const { toast } = useToast();
 
   // Load global calculation mode and targets from wedding
@@ -280,6 +286,44 @@ export function ExpenseSpreadsheetTab({
     }
   };
 
+  const handleToggleCustomCounts = async (checked: boolean) => {
+    setUseCustomCounts(checked);
+    
+    if (!checked) {
+      // Clear local values when switching to global
+      setPlannedAdults(null);
+      setPlannedChildren(null);
+      setPlannedStaff(null);
+      
+      // Save to DB
+      try {
+        const { error } = await supabase
+          .from("expense_items")
+          .update({ 
+            planned_adults: null,
+            planned_children: null,
+            planned_staff: null,
+          })
+          .eq("id", expenseItem.id);
+
+        if (error) throw error;
+
+        toast({
+          title: "Salvato",
+          description: "Ora usa i valori globali",
+        });
+        onExpenseItemUpdate();
+      } catch (error) {
+        console.error("Error clearing custom counts:", error);
+        toast({
+          title: "Errore",
+          description: "Impossibile salvare le modifiche",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
   const calculateLineTotal = (line: ExpenseLineItem, mode: 'planned' | 'actual'): number => {
     let quantity = 0;
 
@@ -369,65 +413,87 @@ export function ExpenseSpreadsheetTab({
           </div>
 
           {globalMode === 'planned' && (
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="planned_adults">N° Adulti Pianificati</Label>
-                <div className="relative">
-                  <Input
-                    id="planned_adults"
-                    type="number"
-                    min="0"
-                    value={plannedAdults ?? ''}
-                    placeholder={`Globale: ${weddingTargets.adults}`}
-                    className={plannedAdults === null ? "border-primary/40 bg-primary/5" : ""}
-                    onChange={(e) => setPlannedAdults(e.target.value === '' ? null : parseInt(e.target.value) || 0)}
-                  />
-                  {plannedAdults === null && (
-                    <Badge variant="outline" className="absolute -top-2 right-2 text-[10px] bg-background">
-                      Eredita globale
-                    </Badge>
-                  )}
-                </div>
-                <p className="text-[10px] text-muted-foreground">
-                  Lascia vuoto per usare il target globale. Scrivi un numero per creare un'eccezione.
-                </p>
+            <div className="space-y-4">
+              <div className="flex items-center space-x-2 pb-2 border-b">
+                <Checkbox 
+                  id="custom-counts" 
+                  checked={useCustomCounts}
+                  onCheckedChange={handleToggleCustomCounts}
+                />
+                <Label 
+                  htmlFor="custom-counts" 
+                  className="text-sm font-medium cursor-pointer"
+                >
+                  Personalizza conteggio per questa spesa
+                </Label>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="planned_children">N° Bambini Pianificati</Label>
-                <div className="relative">
-                  <Input
-                    id="planned_children"
-                    type="number"
-                    min="0"
-                    value={plannedChildren ?? ''}
-                    placeholder={`Globale: ${weddingTargets.children}`}
-                    className={plannedChildren === null ? "border-primary/40 bg-primary/5" : ""}
-                    onChange={(e) => setPlannedChildren(e.target.value === '' ? null : parseInt(e.target.value) || 0)}
-                  />
-                  {plannedChildren === null && (
-                    <Badge variant="outline" className="absolute -top-2 right-2 text-[10px] bg-background">
-                      Eredita globale
-                    </Badge>
-                  )}
+              
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="planned_adults">N° Adulti Pianificati</Label>
+                  <div className="relative">
+                    <Input
+                      id="planned_adults"
+                      type="number"
+                      min="0"
+                      disabled={!useCustomCounts}
+                      value={plannedAdults ?? ''}
+                      placeholder={`Globale: ${weddingTargets.adults}`}
+                      className={plannedAdults === null ? "border-primary/40 bg-primary/5" : ""}
+                      onChange={(e) => setPlannedAdults(e.target.value === '' ? null : parseInt(e.target.value) || 0)}
+                    />
+                    {plannedAdults === null && (
+                      <Badge variant="outline" className="absolute -top-2 right-2 text-[10px] bg-background">
+                        Eredita globale
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    {useCustomCounts 
+                      ? "Lascia vuoto per usare il target globale. Scrivi un numero per creare un'eccezione."
+                      : "Attiva 'Personalizza conteggio' per modificare"
+                    }
+                  </p>
                 </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="planned_staff">N° Staff Pianificato</Label>
-                <div className="relative">
-                  <Input
-                    id="planned_staff"
-                    type="number"
-                    min="0"
-                    value={plannedStaff ?? ''}
-                    placeholder={`Globale: ${weddingTargets.staff}`}
-                    className={plannedStaff === null ? "border-primary/40 bg-primary/5" : ""}
-                    onChange={(e) => setPlannedStaff(e.target.value === '' ? null : parseInt(e.target.value) || 0)}
-                  />
-                  {plannedStaff === null && (
-                    <Badge variant="outline" className="absolute -top-2 right-2 text-[10px] bg-background">
-                      Eredita globale
-                    </Badge>
-                  )}
+                <div className="space-y-2">
+                  <Label htmlFor="planned_children">N° Bambini Pianificati</Label>
+                  <div className="relative">
+                    <Input
+                      id="planned_children"
+                      type="number"
+                      min="0"
+                      disabled={!useCustomCounts}
+                      value={plannedChildren ?? ''}
+                      placeholder={`Globale: ${weddingTargets.children}`}
+                      className={plannedChildren === null ? "border-primary/40 bg-primary/5" : ""}
+                      onChange={(e) => setPlannedChildren(e.target.value === '' ? null : parseInt(e.target.value) || 0)}
+                    />
+                    {plannedChildren === null && (
+                      <Badge variant="outline" className="absolute -top-2 right-2 text-[10px] bg-background">
+                        Eredita globale
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="planned_staff">N° Staff Pianificato</Label>
+                  <div className="relative">
+                    <Input
+                      id="planned_staff"
+                      type="number"
+                      min="0"
+                      disabled={!useCustomCounts}
+                      value={plannedStaff ?? ''}
+                      placeholder={`Globale: ${weddingTargets.staff}`}
+                      className={plannedStaff === null ? "border-primary/40 bg-primary/5" : ""}
+                      onChange={(e) => setPlannedStaff(e.target.value === '' ? null : parseInt(e.target.value) || 0)}
+                    />
+                    {plannedStaff === null && (
+                      <Badge variant="outline" className="absolute -top-2 right-2 text-[10px] bg-background">
+                        Eredita globale
+                      </Badge>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
