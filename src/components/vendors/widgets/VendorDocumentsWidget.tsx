@@ -3,12 +3,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Upload, Eye, Trash2, Sparkles, Calendar } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { FileText, Upload, Eye, Trash2, Pencil, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { ContractUploadDialog } from "../ContractUploadDialog";
-import ContractViewDialog from "../ContractViewDialog";
-import { ContractReviewDialog } from "../ContractReviewDialog";
 import { DocumentViewerDialog } from "../DocumentViewerDialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
@@ -26,18 +26,13 @@ interface Document {
   ai_analysis: any;
 }
 
-interface ContractAnalysis {
-  full_text: string[];
-  sections: any[];
-}
-
 export function VendorDocumentsWidget({ vendorId, vendorName }: VendorDocumentsWidgetProps) {
   const queryClient = useQueryClient();
   const [uploadOpen, setUploadOpen] = useState(false);
   const [viewDocument, setViewDocument] = useState<Document | null>(null);
-  const [reviewDocument, setReviewDocument] = useState<Document | null>(null);
   const [deleteDocument, setDeleteDocument] = useState<Document | null>(null);
-  const [viewContractVendor, setViewContractVendor] = useState<any>(null);
+  const [renamingDoc, setRenamingDoc] = useState<Document | null>(null);
+  const [newFileName, setNewFileName] = useState("");
 
   // Fetch wedding data for dialogs
   const { data: wedding } = useQuery({
@@ -100,8 +95,33 @@ export function VendorDocumentsWidget({ vendorId, vendorName }: VendorDocumentsW
     },
   });
 
+  // Rename mutation
+  const renameMutation = useMutation({
+    mutationFn: async ({ id, newName }: { id: string; newName: string }) => {
+      const { error } = await supabase
+        .from("vendor_contracts")
+        .update({ file_name: newName })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["vendor-documents", vendorId] });
+      toast.success("Documento rinominato");
+      setRenamingDoc(null);
+      setNewFileName("");
+    },
+    onError: (error) => {
+      toast.error("Errore nella rinomina: " + error.message);
+    },
+  });
+
   const isPDF = (fileName: string) => {
     return fileName.toLowerCase().endsWith('.pdf');
+  };
+
+  const handleRenameClick = (doc: Document) => {
+    setRenamingDoc(doc);
+    setNewFileName(doc.file_name);
   };
 
   if (isLoading) {
@@ -153,21 +173,9 @@ export function VendorDocumentsWidget({ vendorId, vendorName }: VendorDocumentsW
                         {isPDF(doc.file_name) && (
                           <Badge variant="secondary" className="text-xs">PDF</Badge>
                         )}
-                        {doc.analyzed_at && (
-                          <Badge variant="default" className="text-xs bg-indigo-100 text-indigo-700">
-                            Analizzato
-                          </Badge>
-                        )}
                       </div>
                     </div>
                   </div>
-
-                  {doc.analyzed_at && (
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Calendar className="w-3 h-3" />
-                      <span>{new Date(doc.analyzed_at).toLocaleDateString()}</span>
-                    </div>
-                  )}
 
                   <div className="flex flex-wrap gap-2">
                     <Button
@@ -180,38 +188,15 @@ export function VendorDocumentsWidget({ vendorId, vendorName }: VendorDocumentsW
                       Visualizza
                     </Button>
 
-                    {doc.analyzed_at && doc.ai_analysis ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setViewContractVendor({
-                            id: vendorId,
-                            name: vendorName,
-                            vendor_contracts: [{
-                              id: doc.id,
-                              analyzed_at: doc.analyzed_at,
-                              ai_analysis: doc.ai_analysis,
-                              file_path: doc.file_path
-                            }]
-                          });
-                        }}
-                        className="flex-1"
-                      >
-                        <Sparkles className="w-3 h-3 mr-1" />
-                        Analisi AI
-                      </Button>
-                    ) : isPDF(doc.file_name) ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setReviewDocument(doc)}
-                        className="flex-1"
-                      >
-                        <Sparkles className="w-3 h-3 mr-1" />
-                        Analizza
-                      </Button>
-                    ) : null}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleRenameClick(doc)}
+                      className="flex-1"
+                    >
+                      <Pencil className="w-3 h-3 mr-1" />
+                      Rinomina
+                    </Button>
 
                     <Button
                       size="sm"
@@ -229,7 +214,7 @@ export function VendorDocumentsWidget({ vendorId, vendorName }: VendorDocumentsW
         </CardContent>
       </Card>
 
-      {/* Dialogs */}
+      {/* Upload Dialog */}
       {wedding && (
         <ContractUploadDialog
           open={uploadOpen}
@@ -237,13 +222,14 @@ export function VendorDocumentsWidget({ vendorId, vendorName }: VendorDocumentsW
           vendorId={vendorId}
           weddingId={wedding.id}
           weddingDate={wedding.wedding_date}
-          onAnalysisComplete={(analysis, fileInfo) => {
+          onAnalysisComplete={() => {
             queryClient.invalidateQueries({ queryKey: ["vendor-documents", vendorId] });
             setUploadOpen(false);
           }}
         />
       )}
 
+      {/* View Document Dialog */}
       {viewDocument && (
         <DocumentViewerDialog
           open={!!viewDocument}
@@ -253,33 +239,35 @@ export function VendorDocumentsWidget({ vendorId, vendorName }: VendorDocumentsW
         />
       )}
 
-      {viewContractVendor && (
-        <ContractViewDialog
-          open={!!viewContractVendor}
-          onOpenChange={(open) => !open && setViewContractVendor(null)}
-          vendor={viewContractVendor}
-        />
-      )}
+      {/* Rename Dialog */}
+      <Dialog open={!!renamingDoc} onOpenChange={(open) => !open && setRenamingDoc(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rinomina Documento</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Input
+              value={newFileName}
+              onChange={(e) => setNewFileName(e.target.value)}
+              placeholder="Nuovo nome file"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenamingDoc(null)}>
+              Annulla
+            </Button>
+            <Button
+              onClick={() => renamingDoc && renameMutation.mutate({ id: renamingDoc.id, newName: newFileName })}
+              disabled={!newFileName.trim() || renameMutation.isPending}
+            >
+              {renameMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Salva
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {reviewDocument && wedding && reviewDocument.ai_analysis && (
-        <ContractReviewDialog
-          open={!!reviewDocument}
-          onOpenChange={(open) => !open && setReviewDocument(null)}
-          analysis={reviewDocument.ai_analysis as ContractAnalysis}
-          fileInfo={{
-            fileName: reviewDocument.file_name,
-            filePath: reviewDocument.file_path,
-            fileType: reviewDocument.file_type
-          }}
-          vendorId={vendorId}
-          weddingId={wedding.id}
-          onSaveComplete={() => {
-            queryClient.invalidateQueries({ queryKey: ["vendor-documents", vendorId] });
-            setReviewDocument(null);
-          }}
-        />
-      )}
-
+      {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deleteDocument} onOpenChange={(open) => !open && setDeleteDocument(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>

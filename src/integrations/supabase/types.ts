@@ -907,7 +907,7 @@ export type Database = {
       }
       vendor_contracts: {
         Row: {
-          ai_analysis: Json
+          ai_analysis: Json | null
           analyzed_at: string | null
           created_at: string | null
           file_name: string
@@ -919,7 +919,7 @@ export type Database = {
           wedding_id: string
         }
         Insert: {
-          ai_analysis: Json
+          ai_analysis?: Json | null
           analyzed_at?: string | null
           created_at?: string | null
           file_name: string
@@ -931,7 +931,7 @@ export type Database = {
           wedding_id: string
         }
         Update: {
-          ai_analysis?: Json
+          ai_analysis?: Json | null
           analyzed_at?: string | null
           created_at?: string | null
           file_name?: string
