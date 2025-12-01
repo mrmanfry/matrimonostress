@@ -637,6 +637,53 @@ export function PaymentPlanTab({
                         )}
                       </div>
 
+                      {/* Gestione IVA */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <Label>Aliquota IVA (%)</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            max="100"
+                            placeholder="22"
+                            value={payment.tax_rate}
+                            onChange={(e) => updatePayment(index, "tax_rate", e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>L'importo inserito è...</Label>
+                          <RadioGroup
+                            value={payment.tax_inclusive ? "inclusive" : "exclusive"}
+                            onValueChange={(value) => updatePayment(index, "tax_inclusive", value === "inclusive")}
+                            className="flex gap-4"
+                          >
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="inclusive" id={`tax-inc-${index}`} />
+                              <Label htmlFor={`tax-inc-${index}`} className="font-normal cursor-pointer">IVA Inclusa</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="exclusive" id={`tax-exc-${index}`} />
+                              <Label htmlFor={`tax-exc-${index}`} className="font-normal cursor-pointer">IVA Esclusa</Label>
+                            </div>
+                          </RadioGroup>
+                        </div>
+                      </div>
+
+                      {/* Preview importo con IVA se esclusa */}
+                      {!payment.tax_inclusive && payment.tax_rate && amount > 0 && (
+                        <Alert>
+                          <AlertDescription>
+                            <div className="text-sm">
+                              <div>Importo: {formatCurrency(amount)} (IVA Esclusa {payment.tax_rate}%)</div>
+                              <div className="font-semibold text-primary mt-1">
+                                → Totale con IVA: {formatCurrency(amount * (1 + parseFloat(payment.tax_rate) / 100))}
+                              </div>
+                            </div>
+                          </AlertDescription>
+                        </Alert>
+                      )}
+
                       <div className="space-y-2">
                         <Label>Scadenza</Label>
                         <Popover>
