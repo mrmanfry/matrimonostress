@@ -8,8 +8,11 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { TrendingUp, ArrowRight, Search, X } from "lucide-react";
+import { TrendingUp, ArrowRight, Search, X, AlertCircle } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import { CalculationModeToggle } from "@/components/ui/calculation-mode-toggle";
+import { calculateExpenseAmount, ExpenseItem as ExpenseItemCalc, ExpenseLineItem, GuestCounts } from "@/lib/expenseCalculations";
+import { toast } from "sonner";
 import { BudgetSpreadsheet } from "@/components/budget/BudgetSpreadsheet";
 
 interface ExpenseItem {
@@ -22,6 +25,11 @@ interface ExpenseItem {
     expense_categories?: { name: string } | null;
   } | null;
   expense_categories?: { name: string } | null;
+  expense_type?: string | null;
+  fixed_amount?: number | null;
+  planned_adults?: number | null;
+  planned_children?: number | null;
+  planned_staff?: number | null;
 }
 
 interface Payment {
@@ -50,6 +58,10 @@ export default function BudgetLegacy() {
   const [categoryData, setCategoryData] = useState<CategoryData[]>([]);
   const [searchFilter, setSearchFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [globalMode, setGlobalMode] = useState<'planned' | 'expected' | 'confirmed'>('planned');
+  const [guestBreakdown, setGuestBreakdown] = useState({ confirmed: 0, pending: 0, declined: 0 });
+  const [guestCounts, setGuestCounts] = useState<GuestCounts | null>(null);
+  const [lineItemsMap, setLineItemsMap] = useState<Record<string, ExpenseLineItem[]>>({});
 
   useEffect(() => {
     if (authState.status === "authenticated") {
@@ -77,14 +89,15 @@ export default function BudgetLegacy() {
 
     setLoading(true);
     try {
-      // Load wedding budget
+      // Load wedding with calculation mode and targets
       const { data: wedding } = await supabase
         .from("weddings")
-        .select("total_budget")
+        .select("total_budget, calculation_mode, target_adults, target_children, target_staff")
         .eq("id", authState.weddingId)
         .single();
 
       setTotalBudget(wedding?.total_budget || 0);
+      setGlobalMode((wedding?.calculation_mode as any) || 'planned');
 
       // Load expense items with vendor categories
       const { data: items } = await supabase
@@ -94,9 +107,25 @@ export default function BudgetLegacy() {
 
       setExpenseItems(items || []);
 
-      // Load payments
+      // Load expense line items for all expenses
       const itemIds = (items || []).map((i) => i.id);
+      const lineItemsData: Record<string, ExpenseLineItem[]> = {};
+      
       if (itemIds.length > 0) {
+        const { data: lineItems } = await supabase
+          .from("expense_line_items")
+          .select("*")
+          .in("expense_item_id", itemIds);
+
+        // Group line items by expense_item_id
+        (lineItems || []).forEach((lineItem) => {
+          if (!lineItemsData[lineItem.expense_item_id]) {
+            lineItemsData[lineItem.expense_item_id] = [];
+          }
+          lineItemsData[lineItem.expense_item_id].push(lineItem as ExpenseLineItem);
+        });
+
+        // Load payments
         const { data: paymentsData } = await supabase
           .from("payments")
           .select("*")
@@ -105,8 +134,53 @@ export default function BudgetLegacy() {
         setPayments(paymentsData || []);
       }
 
-      // Generate category breakdown
-      generateCategoryData(items || []);
+      setLineItemsMap(lineItemsData);
+
+      // Load guests for expected/confirmed counts
+      const { data: guests } = await supabase
+        .from("guests")
+        .select("rsvp_status, is_child, is_staff")
+        .eq("wedding_id", authState.weddingId);
+
+      const confirmedGuests = (guests || []).filter(g => g.rsvp_status === 'Confermato');
+      const pendingGuests = (guests || []).filter(g => !g.rsvp_status || g.rsvp_status === 'In attesa');
+      const declinedGuests = (guests || []).filter(g => g.rsvp_status === 'Rifiutato');
+
+      setGuestBreakdown({
+        confirmed: confirmedGuests.length,
+        pending: pendingGuests.length,
+        declined: declinedGuests.length
+      });
+
+      // Calculate guest counts for all modes
+      const expectedGuests = [...confirmedGuests, ...pendingGuests];
+      
+      const countAdults = (guestList: any[]) => guestList.filter(g => !g.is_child && !g.is_staff).length;
+      const countChildren = (guestList: any[]) => guestList.filter(g => g.is_child).length;
+      const countStaff = (guestList: any[]) => guestList.filter(g => g.is_staff).length;
+
+      const counts: GuestCounts = {
+        planned: {
+          adults: wedding?.target_adults || 100,
+          children: wedding?.target_children || 0,
+          staff: wedding?.target_staff || 0
+        },
+        expected: {
+          adults: countAdults(expectedGuests),
+          children: countChildren(expectedGuests),
+          staff: countStaff(expectedGuests)
+        },
+        confirmed: {
+          adults: countAdults(confirmedGuests),
+          children: countChildren(confirmedGuests),
+          staff: countStaff(confirmedGuests)
+        }
+      };
+
+      setGuestCounts(counts);
+
+      // Generate category breakdown with current mode
+      generateCategoryData(items || [], (wedding?.calculation_mode as any) || 'planned');
     } catch (error) {
       console.error("Error loading budget data:", error);
     } finally {
@@ -123,9 +197,27 @@ export default function BudgetLegacy() {
     return baseAmount;
   };
 
+  const calculateDynamicAmount = (item: ExpenseItem, mode: 'planned' | 'expected' | 'confirmed') => {
+    if (!guestCounts) return Number(item.total_amount || 0);
+    
+    const itemLineItems = lineItemsMap[item.id] || [];
+    const expenseItemCalc: ExpenseItemCalc = {
+      id: item.id,
+      expense_type: (item.expense_type || 'fixed') as 'fixed' | 'variable' | 'mixed',
+      fixed_amount: item.fixed_amount || null,
+      planned_adults: item.planned_adults || 0,
+      planned_children: item.planned_children || 0,
+      planned_staff: item.planned_staff || 0,
+      tax_rate: null,
+      amount_is_tax_inclusive: true
+    };
+    
+    return calculateExpenseAmount(expenseItemCalc, itemLineItems, mode, guestCounts);
+  };
+
   const getTotalCommitment = () => {
-    // Sum of all expense_items total_amount (this is the REAL commitment)
-    return expenseItems.reduce((sum, item) => sum + Number(item.total_amount || 0), 0);
+    // Sum of all expense_items using dynamic calculation based on globalMode
+    return expenseItems.reduce((sum, item) => sum + calculateDynamicAmount(item, globalMode), 0);
   };
 
   const getTotalPaid = () => {
@@ -145,7 +237,7 @@ export default function BudgetLegacy() {
     }).format(value);
   };
 
-  const generateCategoryData = (items: ExpenseItem[]) => {
+  const generateCategoryData = (items: ExpenseItem[], mode: 'planned' | 'expected' | 'confirmed') => {
     const colors = [
       "hsl(221.2 83.2% 53.3%)", // blue
       "hsl(142.1 76.2% 36.3%)", // green
@@ -163,7 +255,9 @@ export default function BudgetLegacy() {
         item.expense_categories?.name || 
         "Senza Categoria";
       
-      categoryAmounts[categoryName] = (categoryAmounts[categoryName] || 0) + Number(item.total_amount || 0);
+      // Use dynamic calculation based on mode
+      const amount = calculateDynamicAmount(item, mode);
+      categoryAmounts[categoryName] = (categoryAmounts[categoryName] || 0) + amount;
     });
 
     // Convert to chart data
@@ -176,6 +270,37 @@ export default function BudgetLegacy() {
       .sort((a, b) => b.value - a.value);
 
     setCategoryData(data);
+  };
+
+  const handleModeChange = async (newMode: 'planned' | 'expected' | 'confirmed') => {
+    setGlobalMode(newMode);
+    
+    if (authState.status !== "authenticated" || !authState.weddingId) return;
+    
+    // Save to DB for synchronization with other pages
+    await supabase
+      .from("weddings")
+      .update({ calculation_mode: newMode })
+      .eq("id", authState.weddingId);
+    
+    // Regenerate category data with new mode
+    generateCategoryData(expenseItems, newMode);
+    
+    toast.success(`Modalità cambiata a: ${
+      newMode === 'planned' ? 'Pianificato' :
+      newMode === 'expected' ? 'Previsti' : 'Confermati'
+    }`);
+  };
+
+  const getGuestCountLabel = () => {
+    if (!guestCounts) return '';
+    const totalPlanned = guestCounts.planned.adults + guestCounts.planned.children + guestCounts.planned.staff;
+    
+    switch (globalMode) {
+      case 'planned': return `su ${totalPlanned} pianificati`;
+      case 'expected': return `su ${guestBreakdown.confirmed + guestBreakdown.pending} previsti`;
+      case 'confirmed': return `su ${guestBreakdown.confirmed} confermati`;
+    }
   };
 
   const getFilteredExpenseItems = () => {
@@ -230,13 +355,40 @@ export default function BudgetLegacy() {
     );
   }
 
+  const totalCurrentModeGuests = guestCounts 
+    ? (globalMode === 'planned' 
+        ? guestCounts.planned.adults + guestCounts.planned.children + guestCounts.planned.staff
+        : globalMode === 'expected'
+          ? guestBreakdown.confirmed + guestBreakdown.pending
+          : guestBreakdown.confirmed)
+    : 0;
+
   return (
     <div className="container mx-auto p-4 md:p-6 space-y-4 md:space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl md:text-3xl font-bold mb-2">Conto Economico</h1>
-        <p className="text-sm md:text-base text-muted-foreground">Vista strategica del budget e degli impegni finanziari</p>
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold mb-2">Conto Economico</h1>
+          <p className="text-sm md:text-base text-muted-foreground">Vista strategica del budget e degli impegni finanziari</p>
+        </div>
+        <CalculationModeToggle 
+          value={globalMode}
+          onValueChange={handleModeChange}
+          breakdown={guestBreakdown}
+        />
       </div>
+
+      {/* Zero Paradox Warning */}
+      {globalMode !== 'planned' && totalCurrentModeGuests === 0 && (
+        <Alert variant="destructive" className="border-orange-500 bg-orange-50 dark:bg-orange-950/20">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Non hai ancora {globalMode === 'confirmed' ? 'ospiti confermati' : 'risposte RSVP'}. 
+            Le spese variabili mostrano €0,00. 
+            Passa a "Pianificato" per vedere i costi stimati.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Alert for Treasury */}
       <Alert className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950 border-2 border-blue-200 dark:border-blue-800">
@@ -272,7 +424,7 @@ export default function BudgetLegacy() {
           </CardHeader>
           <CardContent>
             <div className="text-xl md:text-2xl font-bold text-orange-600 dark:text-orange-400">{formatCurrency(getTotalCommitment())}</div>
-            <p className="text-xs text-muted-foreground mt-1">Somma contratti</p>
+            <p className="text-xs text-muted-foreground mt-1">{getGuestCountLabel()}</p>
           </CardContent>
         </Card>
 
@@ -282,7 +434,7 @@ export default function BudgetLegacy() {
           </CardHeader>
           <CardContent>
             <div className="text-xl md:text-2xl font-bold text-green-600 dark:text-green-400">{formatCurrency(getRemainingBudget())}</div>
-            <p className="text-xs text-muted-foreground mt-1">Ancora da spendere</p>
+            <p className="text-xs text-muted-foreground mt-1">{getGuestCountLabel()}</p>
           </CardContent>
         </Card>
 
