@@ -60,7 +60,12 @@ export function calculateExpenseAmount(
 ): number {
   // TIPO 1: Spesa Fissa (es: Location €3.000)
   if (expenseItem.expense_type === 'fixed') {
-    return expenseItem.fixed_amount || 0;
+    const baseAmount = expenseItem.fixed_amount || 0;
+    // Se l'importo è IVA esclusa, aggiungi l'IVA
+    if (!expenseItem.amount_is_tax_inclusive && expenseItem.tax_rate) {
+      return baseAmount * (1 + expenseItem.tax_rate / 100);
+    }
+    return baseAmount;
   }
   
   // Calcola la parte variabile
