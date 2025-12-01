@@ -22,8 +22,6 @@ interface Document {
   file_name: string;
   file_path: string;
   file_type: string;
-  analyzed_at: string | null;
-  ai_analysis: any;
 }
 
 export function VendorDocumentsWidget({ vendorId, vendorName }: VendorDocumentsWidgetProps) {
@@ -52,38 +50,47 @@ export function VendorDocumentsWidget({ vendorId, vendorName }: VendorDocumentsW
     },
   });
 
-  // Fetch documents
+  // Fetch documents from Storage
   const { data: documents = [], isLoading } = useQuery({
     queryKey: ["vendor-documents", vendorId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("vendor_contracts")
-        .select("*")
-        .eq("vendor_id", vendorId)
-        .order("created_at", { ascending: false });
-      
-      if (error) throw error;
-      return data as Document[];
+      // First get the wedding_id for this vendor
+      const { data: vendorData, error: vendorError } = await supabase
+        .from("vendors")
+        .select("wedding_id")
+        .eq("id", vendorId)
+        .single();
+
+      if (vendorError) throw vendorError;
+      if (!vendorData) throw new Error("Vendor not found");
+
+      // List files from Storage bucket
+      const storagePath = `${vendorData.wedding_id}/${vendorId}`;
+      const { data: files, error: storageError } = await supabase.storage
+        .from("vendor-contracts")
+        .list(storagePath);
+
+      if (storageError) throw storageError;
+
+      // Transform storage files to Document format
+      return (files || []).map(file => ({
+        id: file.id,
+        file_name: file.name,
+        file_path: `${storagePath}/${file.name}`,
+        file_type: file.metadata?.mimetype || 'application/octet-stream',
+      })) as Document[];
     },
   });
 
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (document: Document) => {
-      // Delete from storage
+      // Delete from storage only
       const { error: storageError } = await supabase.storage
         .from("vendor-contracts")
         .remove([document.file_path]);
 
       if (storageError) throw storageError;
-
-      // Delete from database
-      const { error: dbError } = await supabase
-        .from("vendor_contracts")
-        .delete()
-        .eq("id", document.id);
-
-      if (dbError) throw dbError;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["vendor-documents", vendorId] });
@@ -95,14 +102,38 @@ export function VendorDocumentsWidget({ vendorId, vendorName }: VendorDocumentsW
     },
   });
 
-  // Rename mutation
+  // Rename mutation (download → upload with new name → delete old)
   const renameMutation = useMutation({
-    mutationFn: async ({ id, newName }: { id: string; newName: string }) => {
-      const { error } = await supabase
-        .from("vendor_contracts")
-        .update({ file_name: newName })
-        .eq("id", id);
-      if (error) throw error;
+    mutationFn: async ({ filePath, newName }: { filePath: string; newName: string }) => {
+      // 1. Download the file
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from("vendor-contracts")
+        .download(filePath);
+
+      if (downloadError) throw downloadError;
+      if (!fileData) throw new Error("File not found");
+
+      // 2. Upload with new name (keeping same path structure)
+      const pathParts = filePath.split('/');
+      pathParts[pathParts.length - 1] = newName;
+      const newPath = pathParts.join('/');
+
+      const { error: uploadError } = await supabase.storage
+        .from("vendor-contracts")
+        .upload(newPath, fileData, {
+          contentType: fileData.type,
+          cacheControl: '3600',
+          upsert: false,
+        });
+
+      if (uploadError) throw uploadError;
+
+      // 3. Delete old file
+      const { error: deleteError } = await supabase.storage
+        .from("vendor-contracts")
+        .remove([filePath]);
+
+      if (deleteError) throw deleteError;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["vendor-documents", vendorId] });
@@ -257,7 +288,7 @@ export function VendorDocumentsWidget({ vendorId, vendorName }: VendorDocumentsW
               Annulla
             </Button>
             <Button
-              onClick={() => renamingDoc && renameMutation.mutate({ id: renamingDoc.id, newName: newFileName })}
+              onClick={() => renamingDoc && renameMutation.mutate({ filePath: renamingDoc.file_path, newName: newFileName })}
               disabled={!newFileName.trim() || renameMutation.isPending}
             >
               {renameMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}

@@ -46,13 +46,12 @@ export const ContractUploadDialog = ({
     setUploading(true);
 
     try {
-      // Upload to Supabase Storage
-      const fileExt = file.name.split(".").pop();
-      const fileName = `${weddingId}/${vendorId}/${Date.now()}.${fileExt}`;
+      // Upload to Supabase Storage (keep original filename)
+      const storagePath = `${weddingId}/${vendorId}/${file.name}`;
       
       const { error: uploadError } = await supabase.storage
         .from("vendor-contracts")
-        .upload(fileName, file, {
+        .upload(storagePath, file, {
           contentType: file.type,
           cacheControl: '3600',
           upsert: false,
@@ -62,36 +61,13 @@ export const ContractUploadDialog = ({
         throw uploadError;
       }
 
-      // Save record to database (without AI analysis)
-      const { error: dbError } = await supabase
-        .from("vendor_contracts")
-        .insert({
-          vendor_id: vendorId,
-          wedding_id: weddingId,
-          file_name: file.name,
-          file_path: fileName,
-          file_type: file.type,
-          ai_analysis: null,
-          analyzed_at: null,
-        });
-
-      if (dbError) {
-        throw dbError;
-      }
-
       toast({
         title: "Documento caricato",
         description: "Il file è stato caricato con successo",
       });
 
       onOpenChange(false);
-      
-      // Trigger refresh (pass empty analysis to signal completion)
-      onAnalysisComplete({}, {
-        fileName: file.name,
-        filePath: fileName,
-        fileType: file.type,
-      });
+      onAnalysisComplete({}, {});
     } catch (error) {
       console.error("Error uploading document:", error);
       toast({
