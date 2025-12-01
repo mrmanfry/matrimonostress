@@ -23,6 +23,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { MarkPaymentDialog } from "@/components/treasury/MarkPaymentDialog";
 import { UnallocatedExpensesWidget } from "@/components/treasury/UnallocatedExpensesWidget";
+import { CalculationModeToggle } from "@/components/ui/calculation-mode-toggle";
 
 interface Payment {
   id: string;
@@ -71,7 +72,16 @@ export default function Treasury() {
   const [paymentToMark, setPaymentToMark] = useState<Payment | null>(null);
   const [contributors, setContributors] = useState<any[]>([]);
   const [allocations, setAllocations] = useState<any[]>([]);
-  const [globalMode, setGlobalMode] = useState<'planned' | 'actual'>('planned');
+  const [globalMode, setGlobalMode] = useState<'planned' | 'expected' | 'confirmed'>('planned');
+  const [guestBreakdown, setGuestBreakdown] = useState<{
+    confirmed: { adults: number; children: number; staff: number };
+    pending: { adults: number; children: number; staff: number };
+    declined: { adults: number; children: number; staff: number };
+  }>({
+    confirmed: { adults: 0, children: 0, staff: 0 },
+    pending: { adults: 0, children: 0, staff: 0 },
+    declined: { adults: 0, children: 0, staff: 0 }
+  });
   const [kpis, setKpis] = useState({
     totalCommitment: 0,
     alreadyPaid: 0,
@@ -131,7 +141,34 @@ export default function Treasury() {
 
       if (weddingError) throw weddingError;
       if (weddingData?.calculation_mode) {
-        setGlobalMode(weddingData.calculation_mode as 'planned' | 'actual');
+        setGlobalMode(weddingData.calculation_mode as 'planned' | 'expected' | 'confirmed');
+      }
+
+      // Load guest breakdown
+      const { data: allGuests } = await supabase
+        .from("guests")
+        .select("is_child, is_staff, rsvp_status")
+        .eq("wedding_id", weddingId);
+
+      if (allGuests) {
+        const breakdown = {
+          confirmed: {
+            adults: allGuests.filter(g => !g.is_child && !g.is_staff && g.rsvp_status === 'confirmed').length,
+            children: allGuests.filter(g => g.is_child && g.rsvp_status === 'confirmed').length,
+            staff: allGuests.filter(g => g.is_staff && g.rsvp_status === 'confirmed').length
+          },
+          pending: {
+            adults: allGuests.filter(g => !g.is_child && !g.is_staff && g.rsvp_status === 'pending').length,
+            children: allGuests.filter(g => g.is_child && g.rsvp_status === 'pending').length,
+            staff: allGuests.filter(g => g.is_staff && g.rsvp_status === 'pending').length
+          },
+          declined: {
+            adults: allGuests.filter(g => !g.is_child && !g.is_staff && g.rsvp_status === 'declined').length,
+            children: allGuests.filter(g => g.is_child && g.rsvp_status === 'declined').length,
+            staff: allGuests.filter(g => g.is_staff && g.rsvp_status === 'declined').length
+          }
+        };
+        setGuestBreakdown(breakdown);
       }
 
       // Load expense items with vendor info
@@ -410,7 +447,7 @@ export default function Treasury() {
     );
   }
 
-  const handleModeChange = async (newMode: 'planned' | 'actual') => {
+  const handleModeChange = async (newMode: 'planned' | 'expected' | 'confirmed') => {
     if (authState.status !== 'authenticated' || !authState.weddingId) return;
     
     try {
@@ -422,9 +459,16 @@ export default function Treasury() {
       if (error) throw error;
       
       setGlobalMode(newMode);
+      
+      const modeLabels = {
+        planned: 'pianificati (target contrattuali)',
+        expected: 'previsti (lista invitati - rifiutati)',
+        confirmed: 'confermati (solo RSVP confermati)'
+      };
+      
       toast({
         title: 'Modalità aggiornata',
-        description: `Ora stai visualizzando i dati ${newMode === 'planned' ? 'pianificati' : 'effettivi'}`
+        description: `Ora stai visualizzando i dati ${modeLabels[newMode]}`
       });
       
       // Reload data to reflect new calculations
@@ -457,27 +501,20 @@ export default function Treasury() {
               <div className="flex-1">
                 <Label className="text-base font-semibold">Modalità di Calcolo Globale</Label>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {globalMode === 'planned' 
-                    ? 'Stai visualizzando i dati pianificati (preventivo manuale)'
-                    : 'Stai visualizzando i dati effettivi (da conferme RSVP)'}
+                  {globalMode === 'planned' && 'Stai visualizzando i dati pianificati (target contrattuali)'}
+                  {globalMode === 'expected' && 'Stai visualizzando i previsti (lista invitati - rifiutati)'}
+                  {globalMode === 'confirmed' && 'Stai visualizzando solo gli invitati confermati'}
                 </p>
               </div>
-              <div className="flex items-center gap-4">
-                <Button
-                  variant={globalMode === 'planned' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => handleModeChange('planned')}
-                >
-                  📊 Pianificato
-                </Button>
-                <Button
-                  variant={globalMode === 'actual' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => handleModeChange('actual')}
-                >
-                  ✅ Effettivo
-                </Button>
-              </div>
+              <CalculationModeToggle
+                value={globalMode}
+                onValueChange={handleModeChange}
+                breakdown={{
+                  confirmed: guestBreakdown.confirmed.adults + guestBreakdown.confirmed.children + guestBreakdown.confirmed.staff,
+                  pending: guestBreakdown.pending.adults + guestBreakdown.pending.children + guestBreakdown.pending.staff,
+                  declined: guestBreakdown.declined.adults + guestBreakdown.declined.children + guestBreakdown.declined.staff
+                }}
+              />
             </div>
           </CardContent>
         </Card>

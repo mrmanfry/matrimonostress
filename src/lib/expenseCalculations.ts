@@ -21,7 +21,7 @@ export interface ExpenseItem {
   tax_rate: number | null;
   amount_is_tax_inclusive: boolean;
   total_amount?: number | null; // Legacy field, deprecated
-  calculation_mode?: 'planned' | 'actual'; // Legacy field, ora sostituito dal toggle globale
+  calculation_mode?: 'planned' | 'expected' | 'confirmed'; // Legacy field, ora sostituito dal toggle globale
 }
 
 export interface ExpenseLineItem {
@@ -37,7 +37,8 @@ export interface ExpenseLineItem {
 
 export interface GuestCounts {
   planned: { adults: number; children: number; staff: number };
-  actual: { adults: number; children: number; staff: number };
+  expected: { adults: number; children: number; staff: number }; // Lista invitati - declined
+  confirmed: { adults: number; children: number; staff: number }; // Solo confermati
 }
 
 // ============================================================================
@@ -48,14 +49,14 @@ export interface GuestCounts {
  * 
  * @param expenseItem - La spesa da calcolare
  * @param lineItems - Le righe di costo associate (solo per variable/mixed)
- * @param mode - Modalità di calcolo: 'planned' o 'actual'
- * @param guestCounts - Conteggio ospiti pianificati ed effettivi
+ * @param mode - Modalità di calcolo: 'planned', 'expected' o 'confirmed'
+ * @param guestCounts - Conteggio ospiti nelle tre modalità
  * @returns L'importo totale calcolato
  */
 export function calculateExpenseAmount(
   expenseItem: ExpenseItem,
   lineItems: ExpenseLineItem[],
-  mode: 'planned' | 'actual',
+  mode: 'planned' | 'expected' | 'confirmed',
   guestCounts: GuestCounts
 ): number {
   // TIPO 1: Spesa Fissa (es: Location €3.000)
@@ -89,13 +90,13 @@ export function calculateExpenseAmount(
  * Calcola il totale di una singola riga di costo
  * 
  * @param lineItem - La riga di costo
- * @param mode - Modalità di calcolo: 'planned' o 'actual'
- * @param guestCounts - Conteggio ospiti pianificati ed effettivi
+ * @param mode - Modalità di calcolo: 'planned', 'expected' o 'confirmed'
+ * @param guestCounts - Conteggio ospiti nelle tre modalità
  * @returns Il totale calcolato per questa riga
  */
 function calculateLineTotal(
   lineItem: ExpenseLineItem,
-  mode: 'planned' | 'actual',
+  mode: 'planned' | 'expected' | 'confirmed',
   guestCounts: GuestCounts
 ): number {
   let quantity = 0;
@@ -104,7 +105,9 @@ function calculateLineTotal(
   if (lineItem.quantity_type === 'fixed') {
     quantity = lineItem.quantity_fixed || 0;
   } else {
-    const counts = mode === 'planned' ? guestCounts.planned : guestCounts.actual;
+    const counts = mode === 'planned' ? guestCounts.planned : 
+                   mode === 'expected' ? guestCounts.expected : 
+                   guestCounts.confirmed;
     
     // Determina la quantità base
     let baseQuantity = 0;
@@ -145,22 +148,38 @@ function calculateLineTotal(
 // CALCOLO DURATA (Planned vs Actual)
 // ============================================================================
 /**
- * Calcola ENTRAMBE le versioni (pianificato e effettivo) di una spesa
+ * Calcola TUTTE le versioni (pianificato, previsto, confermato) di una spesa
  * Utile per mostrare il confronto nell'UI
  * 
  * @param expenseItem - La spesa da calcolare
  * @param lineItems - Le righe di costo associate
- * @param guestCounts - Conteggio ospiti pianificati ed effettivi
- * @returns Oggetto con importi pianificato e effettivo
+ * @param guestCounts - Conteggio ospiti nelle tre modalità
+ * @returns Oggetto con importi per tutte e tre le modalità
+ */
+export function calculateAllModes(
+  expenseItem: ExpenseItem,
+  lineItems: ExpenseLineItem[],
+  guestCounts: GuestCounts
+): { planned: number; expected: number; confirmed: number } {
+  return {
+    planned: calculateExpenseAmount(expenseItem, lineItems, 'planned', guestCounts),
+    expected: calculateExpenseAmount(expenseItem, lineItems, 'expected', guestCounts),
+    confirmed: calculateExpenseAmount(expenseItem, lineItems, 'confirmed', guestCounts)
+  };
+}
+
+/**
+ * @deprecated Use calculateAllModes instead
  */
 export function calculateBothModes(
   expenseItem: ExpenseItem,
   lineItems: ExpenseLineItem[],
   guestCounts: GuestCounts
 ): { planned: number; actual: number } {
+  const all = calculateAllModes(expenseItem, lineItems, guestCounts);
   return {
-    planned: calculateExpenseAmount(expenseItem, lineItems, 'planned', guestCounts),
-    actual: calculateExpenseAmount(expenseItem, lineItems, 'actual', guestCounts)
+    planned: all.planned,
+    actual: all.confirmed
   };
 }
 
