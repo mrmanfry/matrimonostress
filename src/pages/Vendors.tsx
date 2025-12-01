@@ -14,17 +14,7 @@ import ContractViewDialog from "@/components/vendors/ContractViewDialog";
 import { DocumentViewerDialog } from "@/components/vendors/DocumentViewerDialog";
 import { VendorDocumentsDialog } from "@/components/vendors/VendorDocumentsDialog";
 import { useToast } from "@/hooks/use-toast";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 interface Vendor {
   id: string;
   name: string;
@@ -52,19 +42,28 @@ interface Vendor {
     total_amount: number;
   }>;
 }
-
 interface Category {
   id: string;
   name: string;
 }
-
 const statusConfig = {
-  evaluating: { label: "In valutazione", color: "bg-yellow-600" },
-  booked: { label: "Opzionato", color: "bg-blue-600" },
-  confirmed: { label: "Confermato", color: "bg-green-600" },
-  rejected: { label: "Rifiutato", color: "bg-red-600" },
+  evaluating: {
+    label: "In valutazione",
+    color: "bg-yellow-600"
+  },
+  booked: {
+    label: "Opzionato",
+    color: "bg-blue-600"
+  },
+  confirmed: {
+    label: "Confermato",
+    color: "bg-green-600"
+  },
+  rejected: {
+    label: "Rifiutato",
+    color: "bg-red-600"
+  }
 };
-
 const Vendors = () => {
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -76,89 +75,88 @@ const Vendors = () => {
   const [contractReviewOpen, setContractReviewOpen] = useState(false);
   const [documentViewerOpen, setDocumentViewerOpen] = useState(false);
   const [documentsDialogOpen, setDocumentsDialogOpen] = useState(false);
-  const [selectedDocument, setSelectedDocument] = useState<{ path: string; name: string } | null>(null);
+  const [selectedDocument, setSelectedDocument] = useState<{
+    path: string;
+    name: string;
+  } | null>(null);
   const [analysisData, setAnalysisData] = useState<any>(null);
   const [fileInfoData, setFileInfoData] = useState<any>(null);
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
-  const [vendorDocuments, setVendorDocuments] = useState<Array<{ name: string; path: string }>>([]);
+  const [vendorDocuments, setVendorDocuments] = useState<Array<{
+    name: string;
+    path: string;
+  }>>([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [vendorToDelete, setVendorToDelete] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
-  const { toast } = useToast();
+  const {
+    toast
+  } = useToast();
   const [weddingData, setWeddingData] = useState<any>(null);
-
   useEffect(() => {
     loadData();
   }, []);
-
   const loadData = async () => {
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: {
+          user
+        }
+      } = await supabase.auth.getUser();
       if (!user) return;
 
       // Recupera il wedding_id dall'utente corrente tramite user_roles
-      const { data: userRole } = await supabase
-        .from("user_roles")
-        .select("wedding_id")
-        .eq("user_id", user.id)
-        .single();
-
+      const {
+        data: userRole
+      } = await supabase.from("user_roles").select("wedding_id").eq("user_id", user.id).single();
       if (!userRole) {
         toast({
           title: "Errore",
           description: "Non sei associato a nessun matrimonio",
-          variant: "destructive",
+          variant: "destructive"
         });
         return;
       }
 
       // Recupera i dati del matrimonio
-      const { data: wedding } = await supabase
-        .from("weddings")
-        .select("id, wedding_date")
-        .eq("id", userRole.wedding_id)
-        .single();
-
+      const {
+        data: wedding
+      } = await supabase.from("weddings").select("id, wedding_date").eq("id", userRole.wedding_id).single();
       if (!wedding) return;
-      
       setWeddingData(wedding);
-
-      await Promise.all([
-        loadVendors(wedding.id),
-        loadCategories(wedding.id),
-      ]);
+      await Promise.all([loadVendors(wedding.id), loadCategories(wedding.id)]);
     } catch (error) {
       console.error("Error loading data:", error);
       toast({
         title: "Errore",
         description: "Impossibile caricare i dati",
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setLoading(false);
     }
   };
-
   const loadVendors = async (weddingId: string) => {
     // Import the centralized calculation library
-    const { calculateExpenseAmount, inferExpenseType } = await import("@/lib/expenseCalculations");
-    
+    const {
+      calculateExpenseAmount,
+      inferExpenseType
+    } = await import("@/lib/expenseCalculations");
+
     // Load global calculation mode
-    const { data: weddingData } = await supabase
-      .from('weddings')
-      .select('calculation_mode')
-      .eq('id', weddingId)
-      .single();
-    
+    const {
+      data: weddingData
+    } = await supabase.from('weddings').select('calculation_mode').eq('id', weddingId).single();
     const globalMode = weddingData?.calculation_mode || 'planned';
-    
+
     // Load vendors with all expense data
-    const { data, error } = await supabase
-      .from("vendors")
-      .select(`
+    const {
+      data,
+      error
+    } = await supabase.from("vendors").select(`
         *,
         category:expense_categories(name),
         vendor_contracts(id, analyzed_at, ai_analysis, file_path),
@@ -173,26 +171,21 @@ const Vendors = () => {
           tax_rate,
           amount_is_tax_inclusive
         )
-      `)
-      .eq("wedding_id", weddingId)
-      .order("created_at", { ascending: false });
-
+      `).eq("wedding_id", weddingId).order("created_at", {
+      ascending: false
+    });
     if (error) {
       console.error("Error loading vendors:", error);
       return;
     }
 
     // Load guest counts for calculations
-    const { data: parties } = await supabase
-      .from("invite_parties")
-      .select("id, guests(*)")
-      .eq("wedding_id", weddingId)
-      .eq("rsvp_status", "Confermato");
-
+    const {
+      data: parties
+    } = await supabase.from("invite_parties").select("id, guests(*)").eq("wedding_id", weddingId).eq("rsvp_status", "Confermato");
     let actualAdults = 0;
     let actualChildren = 0;
     let actualStaff = 0;
-
     parties?.forEach((party: any) => {
       party.guests?.forEach((guest: any) => {
         if (guest.is_staff) {
@@ -206,15 +199,10 @@ const Vendors = () => {
     });
 
     // Load expense line items for all vendors
-    const allExpenseItemIds = data.flatMap((v: any) => 
-      v.expense_items?.map((item: any) => item.id) || []
-    );
-    
-    const { data: lineItemsData } = await supabase
-      .from("expense_line_items")
-      .select("*")
-      .in("expense_item_id", allExpenseItemIds);
-
+    const allExpenseItemIds = data.flatMap((v: any) => v.expense_items?.map((item: any) => item.id) || []);
+    const {
+      data: lineItemsData
+    } = await supabase.from("expense_line_items").select("*").in("expense_item_id", allExpenseItemIds);
     const lineItemsByExpenseItem = (lineItemsData || []).reduce((acc: any, item: any) => {
       if (!acc[item.expense_item_id]) acc[item.expense_item_id] = [];
       acc[item.expense_item_id].push(item);
@@ -222,63 +210,51 @@ const Vendors = () => {
     }, {});
 
     // Calculate totals using centralized logic
-    setVendors(
-      data.map((v: any) => ({
-        ...v,
-        category_name: v.category?.name || null,
-        expenses_total: v.expense_items?.reduce((sum: number, item: any) => {
-          const lineItems = lineItemsByExpenseItem[item.id] || [];
-          const hasLineItems = lineItems.length > 0;
-          
-          // Infer expense type for legacy data
-          const expenseType = inferExpenseType(item, hasLineItems);
-          
-          const guestCounts = {
-            planned: {
-              adults: item.planned_adults || 100,
-              children: item.planned_children || 0,
-              staff: item.planned_staff || 0,
-            },
-            actual: {
-              adults: actualAdults,
-              children: actualChildren,
-              staff: actualStaff,
-            }
-          };
-          
-          // Use centralized calculation
-          const amount = calculateExpenseAmount(
-            { ...item, expense_type: expenseType },
-            lineItems,
-            globalMode as 'planned' | 'actual',
-            guestCounts
-          );
-          
-          return sum + amount;
-        }, 0) || 0,
-      }))
-    );
-  };
+    setVendors(data.map((v: any) => ({
+      ...v,
+      category_name: v.category?.name || null,
+      expenses_total: v.expense_items?.reduce((sum: number, item: any) => {
+        const lineItems = lineItemsByExpenseItem[item.id] || [];
+        const hasLineItems = lineItems.length > 0;
 
+        // Infer expense type for legacy data
+        const expenseType = inferExpenseType(item, hasLineItems);
+        const guestCounts = {
+          planned: {
+            adults: item.planned_adults || 100,
+            children: item.planned_children || 0,
+            staff: item.planned_staff || 0
+          },
+          actual: {
+            adults: actualAdults,
+            children: actualChildren,
+            staff: actualStaff
+          }
+        };
+
+        // Use centralized calculation
+        const amount = calculateExpenseAmount({
+          ...item,
+          expense_type: expenseType
+        }, lineItems, globalMode as 'planned' | 'actual', guestCounts);
+        return sum + amount;
+      }, 0) || 0
+    })));
+  };
   const loadVendorDocuments = async (vendorId: string) => {
     try {
       if (!weddingData?.id) return;
-
       const weddingId = weddingData.id;
-
-      const { data, error } = await supabase.storage
-        .from("vendor-contracts")
-        .list(`${weddingId}/${vendorId}`);
-
+      const {
+        data,
+        error
+      } = await supabase.storage.from("vendor-contracts").list(`${weddingId}/${vendorId}`);
       if (error) throw error;
-
       if (data) {
-        setVendorDocuments(
-          data.map((file) => ({
-            name: file.name,
-            path: `${weddingId}/${vendorId}/${file.name}`,
-          }))
-        );
+        setVendorDocuments(data.map(file => ({
+          name: file.name,
+          path: `${weddingId}/${vendorId}/${file.name}`
+        })));
       } else {
         setVendorDocuments([]);
       }
@@ -287,18 +263,15 @@ const Vendors = () => {
       setVendorDocuments([]);
     }
   };
-
   const handleDeleteDocument = async (filePath: string) => {
     try {
-      const { error } = await supabase.storage
-        .from("vendor-contracts")
-        .remove([filePath]);
-
+      const {
+        error
+      } = await supabase.storage.from("vendor-contracts").remove([filePath]);
       if (error) throw error;
-
       toast({
         title: "Documento eliminato",
-        description: "Il file è stato rimosso con successo",
+        description: "Il file è stato rimosso con successo"
       });
 
       // Refresh documents list
@@ -310,82 +283,72 @@ const Vendors = () => {
       toast({
         title: "Errore eliminazione",
         description: error.message,
-        variant: "destructive",
+        variant: "destructive"
       });
     }
   };
-
   const loadCategories = async (weddingId: string) => {
-    const { data, error } = await supabase
-      .from("expense_categories")
-      .select("id, name")
-      .eq("wedding_id", weddingId)
-      .order("name");
-
+    const {
+      data,
+      error
+    } = await supabase.from("expense_categories").select("id, name").eq("wedding_id", weddingId).order("name");
     if (error) {
       console.error("Error loading categories:", error);
       return;
     }
-
     setCategories(data || []);
   };
-
   const handleSaveVendor = async (vendor: Partial<Vendor>) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: {
+          user
+        }
+      } = await supabase.auth.getUser();
       if (!user) {
         toast({
           title: "Errore",
           description: "Utente non autenticato",
-          variant: "destructive",
+          variant: "destructive"
         });
         return;
       }
 
       // Recupera il wedding_id dall'utente corrente tramite user_roles
-      const { data: userRole, error: roleError } = await supabase
-        .from("user_roles")
-        .select("wedding_id")
-        .eq("user_id", user.id)
-        .single();
-
+      const {
+        data: userRole,
+        error: roleError
+      } = await supabase.from("user_roles").select("wedding_id").eq("user_id", user.id).single();
       if (roleError || !userRole) {
         console.error("Error fetching user role:", roleError);
         toast({
           title: "Errore",
           description: "Non sei associato a nessun matrimonio. Contatta l'organizzatore.",
-          variant: "destructive",
+          variant: "destructive"
         });
         return;
       }
-
-      const { data: weddingData, error: weddingError } = await supabase
-        .from("weddings")
-        .select("id")
-        .eq("id", userRole.wedding_id)
-        .single();
-
+      const {
+        data: weddingData,
+        error: weddingError
+      } = await supabase.from("weddings").select("id").eq("id", userRole.wedding_id).single();
       if (weddingError || !weddingData) {
         console.error("Error fetching wedding:", weddingError);
         toast({
           title: "Errore",
           description: "Matrimonio non trovato",
-          variant: "destructive",
+          variant: "destructive"
         });
         return;
       }
-
       if (selectedVendor) {
-        const { error } = await supabase
-          .from("vendors")
-          .update(vendor)
-          .eq("id", selectedVendor.id);
-
+        const {
+          error
+        } = await supabase.from("vendors").update(vendor).eq("id", selectedVendor.id);
         if (error) throw error;
-
         toast({
           title: "Fornitore aggiornato",
-          description: "Le modifiche sono state salvate",
+          description: "Le modifiche sono state salvate"
         });
       } else {
         const insertData = {
@@ -396,29 +359,23 @@ const Vendors = () => {
           phone: vendor.phone || null,
           status: vendor.status || 'evaluating',
           notes: vendor.notes || null,
-          category_id: vendor.category_id || null,
+          category_id: vendor.category_id || null
         };
-        
         console.log("💾 Inserting vendor:", insertData);
-        
-        const { data: insertedData, error } = await supabase
-          .from("vendors")
-          .insert([insertData])
-          .select();
-
+        const {
+          data: insertedData,
+          error
+        } = await supabase.from("vendors").insert([insertData]).select();
         if (error) {
           console.error("❌ Insert failed:", error);
           throw error;
         }
-
         console.log("✅ Vendor inserted successfully:", insertedData);
-
         toast({
           title: "Fornitore aggiunto",
-          description: "Il fornitore è stato creato con successo",
+          description: "Il fornitore è stato creato con successo"
         });
       }
-
       await loadVendors(weddingData.id);
       setDialogOpen(false);
       setSelectedVendor(null);
@@ -427,28 +384,22 @@ const Vendors = () => {
       toast({
         title: "Errore",
         description: "Impossibile salvare il fornitore",
-        variant: "destructive",
+        variant: "destructive"
       });
     }
   };
-
   const handleDeleteVendor = async () => {
     if (!vendorToDelete) return;
-
     try {
-      const { error } = await supabase
-        .from("vendors")
-        .delete()
-        .eq("id", vendorToDelete);
-
+      const {
+        error
+      } = await supabase.from("vendors").delete().eq("id", vendorToDelete);
       if (error) throw error;
-
       toast({
         title: "Fornitore eliminato",
-        description: "Il fornitore è stato rimosso",
+        description: "Il fornitore è stato rimosso"
       });
-
-      setVendors(vendors.filter((v) => v.id !== vendorToDelete));
+      setVendors(vendors.filter(v => v.id !== vendorToDelete));
       setDeleteDialogOpen(false);
       setVendorToDelete(null);
     } catch (error) {
@@ -456,135 +407,112 @@ const Vendors = () => {
       toast({
         title: "Errore",
         description: "Impossibile eliminare il fornitore",
-        variant: "destructive",
+        variant: "destructive"
       });
     }
   };
-
   const handleCreateCategory = async (name: string) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: {
+          user
+        }
+      } = await supabase.auth.getUser();
       if (!user) {
         toast({
           title: "Errore",
           description: "Utente non autenticato",
-          variant: "destructive",
+          variant: "destructive"
         });
         return;
       }
 
       // Recupera il wedding_id dall'utente corrente tramite user_roles
-      const { data: userRole, error: roleError } = await supabase
-        .from("user_roles")
-        .select("wedding_id")
-        .eq("user_id", user.id)
-        .single();
-
+      const {
+        data: userRole,
+        error: roleError
+      } = await supabase.from("user_roles").select("wedding_id").eq("user_id", user.id).single();
       if (roleError || !userRole) {
         console.error("Error fetching user role:", roleError);
         toast({
           title: "Errore",
           description: "Non sei associato a nessun matrimonio. Contatta l'organizzatore.",
-          variant: "destructive",
+          variant: "destructive"
         });
         return;
       }
-
-      const { data: weddingData, error: weddingError } = await supabase
-        .from("weddings")
-        .select("id")
-        .eq("id", userRole.wedding_id)
-        .single();
-
+      const {
+        data: weddingData,
+        error: weddingError
+      } = await supabase.from("weddings").select("id").eq("id", userRole.wedding_id).single();
       if (weddingError || !weddingData) {
         console.error("Error fetching wedding:", weddingError);
         toast({
           title: "Errore",
           description: "Matrimonio non trovato",
-          variant: "destructive",
+          variant: "destructive"
         });
         return;
       }
-
-      const { error } = await supabase
-        .from("expense_categories")
-        .insert([{ wedding_id: weddingData.id, name }]);
-
+      const {
+        error
+      } = await supabase.from("expense_categories").insert([{
+        wedding_id: weddingData.id,
+        name
+      }]);
       if (error) throw error;
-
       await loadCategories(weddingData.id);
-
       toast({
         title: "Categoria creata",
-        description: `La categoria "${name}" è stata aggiunta`,
+        description: `La categoria "${name}" è stata aggiunta`
       });
     } catch (error) {
       console.error("Error creating category:", error);
       toast({
         title: "Errore",
         description: "Impossibile creare la categoria",
-        variant: "destructive",
+        variant: "destructive"
       });
     }
   };
-
   const handleDeleteCategory = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from("expense_categories")
-        .delete()
-        .eq("id", id);
-
+      const {
+        error
+      } = await supabase.from("expense_categories").delete().eq("id", id);
       if (error) throw error;
-
-      setCategories(categories.filter((c) => c.id !== id));
-
+      setCategories(categories.filter(c => c.id !== id));
       toast({
         title: "Categoria eliminata",
-        description: "La categoria è stata rimossa",
+        description: "La categoria è stata rimossa"
       });
     } catch (error) {
       console.error("Error deleting category:", error);
       toast({
         title: "Errore",
         description: "Impossibile eliminare la categoria",
-        variant: "destructive",
+        variant: "destructive"
       });
     }
   };
-
-  const filteredVendors = vendors.filter((vendor) => {
-    const matchesSearch =
-      searchQuery === "" ||
-      vendor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      vendor.contact_name?.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesStatus =
-      statusFilter === "all" || vendor.status === statusFilter;
-
-    const matchesCategory =
-      categoryFilter === "all" || vendor.category_id === categoryFilter;
-
+  const filteredVendors = vendors.filter(vendor => {
+    const matchesSearch = searchQuery === "" || vendor.name.toLowerCase().includes(searchQuery.toLowerCase()) || vendor.contact_name?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = statusFilter === "all" || vendor.status === statusFilter;
+    const matchesCategory = categoryFilter === "all" || vendor.category_id === categoryFilter;
     return matchesSearch && matchesStatus && matchesCategory;
   });
-
   const statsByStatus = {
-    evaluating: vendors.filter((v) => v.status === "evaluating").length,
-    booked: vendors.filter((v) => v.status === "booked").length,
-    paid: vendors.filter((v) => v.status === "paid").length,
-    excluded: vendors.filter((v) => v.status === "excluded").length,
+    evaluating: vendors.filter(v => v.status === "evaluating").length,
+    booked: vendors.filter(v => v.status === "booked").length,
+    paid: vendors.filter(v => v.status === "paid").length,
+    excluded: vendors.filter(v => v.status === "excluded").length
   };
-
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
+    return <div className="min-h-screen flex items-center justify-center">
         <Heart className="w-12 h-12 text-accent fill-accent animate-pulse" />
-      </div>
-    );
+      </div>;
   }
-
-  return (
-    <div className="container mx-auto p-6 space-y-6">
+  return <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
@@ -601,20 +529,7 @@ const Vendors = () => {
 
       {/* Statistics */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {Object.entries(statusConfig).map(([key, config]) => (
-          <Card key={key}>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                {config.label}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {statsByStatus[key as keyof typeof statsByStatus]}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+        {Object.entries(statusConfig).map(([key, config]) => {})}
       </div>
 
       {/* Filters */}
@@ -623,11 +538,7 @@ const Vendors = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Cerca</label>
-              <Input
-                placeholder="Nome fornitore o contatto..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+              <Input placeholder="Nome fornitore o contatto..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
             </div>
 
             <div className="space-y-2">
@@ -638,11 +549,9 @@ const Vendors = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Tutti</SelectItem>
-                  {Object.entries(statusConfig).map(([key, config]) => (
-                    <SelectItem key={key} value={key}>
+                  {Object.entries(statusConfig).map(([key, config]) => <SelectItem key={key} value={key}>
                       {config.label}
-                    </SelectItem>
-                  ))}
+                    </SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -655,11 +564,9 @@ const Vendors = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Tutte</SelectItem>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>
+                  {categories.map(cat => <SelectItem key={cat.id} value={cat.id}>
                       {cat.name}
-                    </SelectItem>
-                  ))}
+                    </SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -668,39 +575,28 @@ const Vendors = () => {
       </Card>
 
       {/* Vendors Grid */}
-      {filteredVendors.length === 0 ? (
-        <Card>
+      {filteredVendors.length === 0 ? <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <p className="text-muted-foreground mb-4">
-              {searchQuery || statusFilter !== "all" || categoryFilter !== "all"
-                ? "Nessun fornitore trovato con questi filtri"
-                : "Nessun fornitore ancora. Inizia ad aggiungerne uno!"}
+              {searchQuery || statusFilter !== "all" || categoryFilter !== "all" ? "Nessun fornitore trovato con questi filtri" : "Nessun fornitore ancora. Inizia ad aggiungerne uno!"}
             </p>
-            {!searchQuery && statusFilter === "all" && categoryFilter === "all" && (
-              <Button onClick={() => setDialogOpen(true)}>
+            {!searchQuery && statusFilter === "all" && categoryFilter === "all" && <Button onClick={() => setDialogOpen(true)}>
                 <Plus className="w-4 h-4 mr-2" />
                 Aggiungi Fornitore
-              </Button>
-            )}
+              </Button>}
           </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredVendors.map((vendor) => {
-            const hasContract = vendor.vendor_contracts && vendor.vendor_contracts.length > 0;
-            const contract = hasContract ? vendor.vendor_contracts[0] : null;
-            
-            return (
-              <Card key={vendor.id} className="hover:shadow-lg transition-shadow">
+        </Card> : <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredVendors.map(vendor => {
+        const hasContract = vendor.vendor_contracts && vendor.vendor_contracts.length > 0;
+        const contract = hasContract ? vendor.vendor_contracts[0] : null;
+        return <Card key={vendor.id} className="hover:shadow-lg transition-shadow">
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="space-y-1 flex-1">
                       <CardTitle className="text-lg">{vendor.name}</CardTitle>
-                      {vendor.category_name && (
-                        <p className="text-sm text-muted-foreground">
+                      {vendor.category_name && <p className="text-sm text-muted-foreground">
                           {vendor.category_name}
-                        </p>
-                      )}
+                        </p>}
                     </div>
                     <Badge className={statusConfig[vendor.status as keyof typeof statusConfig]?.color || "bg-gray-600"}>
                       {statusConfig[vendor.status as keyof typeof statusConfig]?.label || vendor.status}
@@ -708,31 +604,22 @@ const Vendors = () => {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {vendor.contact_name && (
-                    <div className="flex items-center gap-2 text-sm">
+                  {vendor.contact_name && <div className="flex items-center gap-2 text-sm">
                       <User className="w-4 h-4 text-muted-foreground" />
                       <span>{vendor.contact_name}</span>
-                    </div>
-                  )}
-                  {vendor.email && (
-                    <div className="flex items-center gap-2 text-sm">
+                    </div>}
+                  {vendor.email && <div className="flex items-center gap-2 text-sm">
                       <Mail className="w-4 h-4 text-muted-foreground" />
-                      <a
-                        href={`mailto:${vendor.email}`}
-                        className="hover:underline"
-                      >
+                      <a href={`mailto:${vendor.email}`} className="hover:underline">
                         {vendor.email}
                       </a>
-                    </div>
-                  )}
-                  {vendor.phone && (
-                    <div className="flex items-center gap-2 text-sm">
+                    </div>}
+                  {vendor.phone && <div className="flex items-center gap-2 text-sm">
                       <Phone className="w-4 h-4 text-muted-foreground" />
                       <a href={`tel:${vendor.phone}`} className="hover:underline">
                         {vendor.phone}
                       </a>
-                    </div>
-                  )}
+                    </div>}
                   
                   {/* Documents Section */}
                   <div className="border-t pt-3 space-y-2">
@@ -741,214 +628,127 @@ const Vendors = () => {
                         <FileText className="w-4 h-4 text-muted-foreground" />
                         <span className="text-sm font-medium">Documenti</span>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 text-xs"
-                        onClick={async () => {
-                          await loadVendorDocuments(vendor.id);
-                        }}
-                      >
+                      <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={async () => {
+                  await loadVendorDocuments(vendor.id);
+                }}>
                         Aggiorna
                       </Button>
                     </div>
                     
-                    {hasContract && contract && (
-                      <div className="pl-6 space-y-1">
+                    {hasContract && contract && <div className="pl-6 space-y-1">
                         <div className="flex items-center justify-between text-xs">
                           <span className="text-muted-foreground">Contratto analizzato</span>
                           <div className="flex gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 text-xs"
-                              onClick={() => {
-                                setSelectedVendor(vendor);
-                                setContractViewOpen(true);
-                              }}
-                            >
+                            <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => {
+                      setSelectedVendor(vendor);
+                      setContractViewOpen(true);
+                    }}>
                               <Sparkles className="w-3 h-3 mr-1" />
                               AI
                             </Button>
                           </div>
                         </div>
-                      </div>
-                    )}
+                      </div>}
                   </div>
                   
                   {/* Total Expenses for Vendor */}
-                  {vendor.expenses_total !== undefined && vendor.expenses_total > 0 && (
-                    <div className="border-t pt-3">
+                  {vendor.expenses_total !== undefined && vendor.expenses_total > 0 && <div className="border-t pt-3">
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-muted-foreground">Totale Spese</span>
-                        <span className="text-lg font-semibold">€{vendor.expenses_total.toLocaleString('it-IT', { minimumFractionDigits: 2 })}</span>
+                        <span className="text-lg font-semibold">€{vendor.expenses_total.toLocaleString('it-IT', {
+                    minimumFractionDigits: 2
+                  })}</span>
                       </div>
-                    </div>
-                  )}
+                    </div>}
                   
-                  {vendor.notes && (
-                    <p className="text-sm text-muted-foreground border-t pt-3">
+                  {vendor.notes && <p className="text-sm text-muted-foreground border-t pt-3">
                       {vendor.notes}
-                    </p>
-                  )}
+                    </p>}
 
                   <div className="grid grid-cols-2 gap-2 pt-3 border-t">
-                    <Button
-                      onClick={async () => {
-                        setSelectedVendor(vendor);
-                        await loadVendorDocuments(vendor.id);
-                        setDocumentsDialogOpen(true);
-                      }}
-                      variant="outline"
-                      size="sm"
-                      className="w-full"
-                    >
+                    <Button onClick={async () => {
+                setSelectedVendor(vendor);
+                await loadVendorDocuments(vendor.id);
+                setDocumentsDialogOpen(true);
+              }} variant="outline" size="sm" className="w-full">
                       <Eye className="w-4 h-4 mr-2" />
                       Documenti
                     </Button>
-                    <Button
-                      onClick={() => {
-                        setSelectedVendor(vendor);
-                        setExpensesDialogOpen(true);
-                      }}
-                      variant="outline"
-                      size="sm"
-                      className="w-full"
-                    >
+                    <Button onClick={() => {
+                setSelectedVendor(vendor);
+                setExpensesDialogOpen(true);
+              }} variant="outline" size="sm" className="w-full">
                       <Wallet className="w-4 h-4 mr-2" />
                       Spese
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedVendor(vendor);
-                        setDialogOpen(true);
-                      }}
-                    >
+                    <Button variant="outline" size="sm" onClick={() => {
+                setSelectedVendor(vendor);
+                setDialogOpen(true);
+              }}>
                       <Edit className="w-4 h-4 mr-1" />
                       Modifica
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setVendorToDelete(vendor.id);
-                        setDeleteDialogOpen(true);
-                      }}
-                    >
+                    <Button variant="outline" size="sm" onClick={() => {
+                setVendorToDelete(vendor.id);
+                setDeleteDialogOpen(true);
+              }}>
                       <Trash2 className="w-4 h-4 mr-1" />
                       Elimina
                     </Button>
                   </div>
                 </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
+              </Card>;
+      })}
+        </div>}
 
       {/* Dialogs */}
-      <VendorDialog
-        open={dialogOpen}
-        onOpenChange={(open) => {
-          setDialogOpen(open);
-          if (!open) setSelectedVendor(null);
-        }}
-        vendor={selectedVendor}
-        categories={categories}
-        onSave={handleSaveVendor}
-        onCreateCategory={handleCreateCategory}
-        onDeleteCategory={handleDeleteCategory}
-      />
+      <VendorDialog open={dialogOpen} onOpenChange={open => {
+      setDialogOpen(open);
+      if (!open) setSelectedVendor(null);
+    }} vendor={selectedVendor} categories={categories} onSave={handleSaveVendor} onCreateCategory={handleCreateCategory} onDeleteCategory={handleDeleteCategory} />
 
-      <VendorExpensesDialog
-        open={expensesDialogOpen}
-        onOpenChange={(open) => {
-          setExpensesDialogOpen(open);
-          if (!open) setSelectedVendor(null);
-        }}
-        vendor={selectedVendor}
-      />
+      <VendorExpensesDialog open={expensesDialogOpen} onOpenChange={open => {
+      setExpensesDialogOpen(open);
+      if (!open) setSelectedVendor(null);
+    }} vendor={selectedVendor} />
 
-      {weddingData && selectedVendor && (
-        <>
-          <ContractUploadDialog
-            open={contractUploadOpen}
-            onOpenChange={setContractUploadOpen}
-            vendorId={selectedVendor.id}
-            weddingId={weddingData.id}
-            weddingDate={weddingData.wedding_date}
-            totalContract={selectedVendor.expenses_total || 0}
-            onAnalysisComplete={(analysis, fileInfo) => {
-              setAnalysisData(analysis);
-              setFileInfoData(fileInfo);
-              setContractUploadOpen(false);
-              setContractReviewOpen(true);
-            }}
-          />
+      {weddingData && selectedVendor && <>
+          <ContractUploadDialog open={contractUploadOpen} onOpenChange={setContractUploadOpen} vendorId={selectedVendor.id} weddingId={weddingData.id} weddingDate={weddingData.wedding_date} totalContract={selectedVendor.expenses_total || 0} onAnalysisComplete={(analysis, fileInfo) => {
+        setAnalysisData(analysis);
+        setFileInfoData(fileInfo);
+        setContractUploadOpen(false);
+        setContractReviewOpen(true);
+      }} />
 
-          {analysisData && fileInfoData && (
-            <ContractReviewDialog
-              open={contractReviewOpen}
-              onOpenChange={setContractReviewOpen}
-              analysis={analysisData}
-              fileInfo={fileInfoData}
-              vendorId={selectedVendor.id}
-              weddingId={weddingData.id}
-              onSaveComplete={() => {
-                setContractReviewOpen(false);
-                setAnalysisData(null);
-                setFileInfoData(null);
-                if (weddingData) {
-                  loadVendors(weddingData.id);
-                }
-                toast({
-                  title: "Contratto salvato",
-                  description: "Anagrafica e contratto aggiornati con successo.",
-                });
-              }}
-            />
-          )}
+          {analysisData && fileInfoData && <ContractReviewDialog open={contractReviewOpen} onOpenChange={setContractReviewOpen} analysis={analysisData} fileInfo={fileInfoData} vendorId={selectedVendor.id} weddingId={weddingData.id} onSaveComplete={() => {
+        setContractReviewOpen(false);
+        setAnalysisData(null);
+        setFileInfoData(null);
+        if (weddingData) {
+          loadVendors(weddingData.id);
+        }
+        toast({
+          title: "Contratto salvato",
+          description: "Anagrafica e contratto aggiornati con successo."
+        });
+      }} />}
 
-          <ContractViewDialog
-            open={contractViewOpen}
-            onOpenChange={setContractViewOpen}
-            vendor={selectedVendor}
-          />
+          <ContractViewDialog open={contractViewOpen} onOpenChange={setContractViewOpen} vendor={selectedVendor} />
 
-          {selectedDocument && (
-            <DocumentViewerDialog
-              open={documentViewerOpen}
-              onOpenChange={setDocumentViewerOpen}
-              filePath={selectedDocument.path}
-              fileName={selectedDocument.name}
-            />
-          )}
+          {selectedDocument && <DocumentViewerDialog open={documentViewerOpen} onOpenChange={setDocumentViewerOpen} filePath={selectedDocument.path} fileName={selectedDocument.name} />}
 
-          <VendorDocumentsDialog
-            open={documentsDialogOpen}
-            onOpenChange={setDocumentsDialogOpen}
-            vendorName={selectedVendor?.name || ""}
-            documents={vendorDocuments}
-            analyzedContract={selectedVendor?.vendor_contracts?.[0]}
-            onViewDocument={(doc) => {
-              setSelectedDocument(doc);
-              setDocumentViewerOpen(true);
-            }}
-            onViewAnalysis={() => {
-              setContractViewOpen(true);
-            }}
-            onAnalyzeDocument={(doc) => {
-              // For now, just open the contract upload dialog
-              // In future, we could pre-select the document
-              setContractUploadOpen(true);
-              setDocumentsDialogOpen(false);
-            }}
-            onDeleteDocument={handleDeleteDocument}
-          />
-        </>
-      )}
+          <VendorDocumentsDialog open={documentsDialogOpen} onOpenChange={setDocumentsDialogOpen} vendorName={selectedVendor?.name || ""} documents={vendorDocuments} analyzedContract={selectedVendor?.vendor_contracts?.[0]} onViewDocument={doc => {
+        setSelectedDocument(doc);
+        setDocumentViewerOpen(true);
+      }} onViewAnalysis={() => {
+        setContractViewOpen(true);
+      }} onAnalyzeDocument={doc => {
+        // For now, just open the contract upload dialog
+        // In future, we could pre-select the document
+        setContractUploadOpen(true);
+        setDocumentsDialogOpen(false);
+      }} onDeleteDocument={handleDeleteDocument} />
+        </>}
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
@@ -967,8 +767,6 @@ const Vendors = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
-  );
+    </div>;
 };
-
 export default Vendors;
