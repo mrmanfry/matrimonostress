@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Loader2, Calculator, Users } from "lucide-react";
+import { Loader2, Calculator, Users, Plus, X, Check } from "lucide-react";
 import { toast } from "sonner";
 
 export function AddBudgetItemDialog() {
@@ -22,6 +22,8 @@ export function AddBudgetItemDialog() {
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
   const [categoryId, setCategoryId] = useState("");
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
 
   // Fetch Categorie
   const { data: categories } = useQuery({
@@ -58,6 +60,28 @@ export function AddBudgetItemDialog() {
   const previewTotal = type === "variable" 
     ? (parseFloat(amount || "0") * (guestCount || 0)) 
     : parseFloat(amount || "0");
+
+  // Mutation per creare categoria
+  const createCategory = useMutation({
+    mutationFn: async (name: string) => {
+      if (!weddingId) throw new Error("Wedding ID mancante");
+      const { data, error } = await supabase
+        .from("expense_categories")
+        .insert({ wedding_id: weddingId, name })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["expense-categories"] });
+      setCategoryId(data.id);
+      setIsCreatingCategory(false);
+      setNewCategoryName("");
+      toast.success(`Categoria "${data.name}" creata`);
+    },
+    onError: () => toast.error("Errore nella creazione categoria"),
+  });
 
   const createItem = useMutation({
     mutationFn: async () => {
@@ -169,14 +193,75 @@ export function AddBudgetItemDialog() {
           {/* Categoria */}
           <div className="space-y-2">
             <Label>Categoria</Label>
-            <Select value={categoryId} onValueChange={setCategoryId}>
-              <SelectTrigger><SelectValue placeholder="Seleziona categoria" /></SelectTrigger>
-              <SelectContent>
-                {categories?.map(c => (
-                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {!isCreatingCategory ? (
+              <div className="flex gap-2">
+                <Select value={categoryId} onValueChange={setCategoryId}>
+                  <SelectTrigger><SelectValue placeholder="Seleziona categoria" /></SelectTrigger>
+                  <SelectContent>
+                    {categories?.map(c => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setIsCreatingCategory(true)}
+                  title="Crea nuova categoria"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Nome nuova categoria..."
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && newCategoryName.trim()) {
+                      createCategory.mutate(newCategoryName.trim());
+                    }
+                    if (e.key === 'Escape') {
+                      setIsCreatingCategory(false);
+                      setNewCategoryName("");
+                    }
+                  }}
+                  autoFocus
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => {
+                    if (newCategoryName.trim()) {
+                      createCategory.mutate(newCategoryName.trim());
+                    }
+                  }}
+                  disabled={!newCategoryName.trim() || createCategory.isPending}
+                  title="Salva categoria"
+                >
+                  {createCategory.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Check className="h-4 w-4" />
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => {
+                    setIsCreatingCategory(false);
+                    setNewCategoryName("");
+                  }}
+                  title="Annulla"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Importo con Preview */}
