@@ -111,7 +111,7 @@ export function BudgetSpreadsheet() {
         payments = data || [];
       }
 
-      // 5. Fetch guests per conteggi actual
+      // 5. Fetch guests per conteggi expected, confirmed
       const { data: guests, error: guestsError } = await supabase
         .from("guests")
         .select("is_child, is_staff, rsvp_status")
@@ -119,10 +119,14 @@ export function BudgetSpreadsheet() {
 
       if (guestsError) throw guestsError;
 
-      // Calcola conteggi ospiti
-      const actualAdults = (guests || []).filter(g => !g.is_child && !g.is_staff && g.rsvp_status === "confirmed").length;
-      const actualChildren = (guests || []).filter(g => g.is_child && g.rsvp_status === "confirmed").length;
-      const actualStaff = (guests || []).filter(g => g.is_staff && g.rsvp_status === "confirmed").length;
+      // Calcola conteggi ospiti per tutte e tre le modalità
+      const confirmedAdults = (guests || []).filter(g => !g.is_child && !g.is_staff && g.rsvp_status === "confirmed").length;
+      const confirmedChildren = (guests || []).filter(g => g.is_child && g.rsvp_status === "confirmed").length;
+      const confirmedStaff = (guests || []).filter(g => g.is_staff && g.rsvp_status === "confirmed").length;
+
+      const expectedAdults = (guests || []).filter(g => !g.is_child && !g.is_staff && g.rsvp_status !== "declined").length;
+      const expectedChildren = (guests || []).filter(g => g.is_child && g.rsvp_status !== "declined").length;
+      const expectedStaff = (guests || []).filter(g => g.is_staff && g.rsvp_status !== "declined").length;
 
       return {
         wedding,
@@ -135,10 +139,15 @@ export function BudgetSpreadsheet() {
             children: wedding.target_children || 0,
             staff: wedding.target_staff || 0
           },
-          actual: {
-            adults: actualAdults,
-            children: actualChildren,
-            staff: actualStaff
+          expected: {
+            adults: expectedAdults,
+            children: expectedChildren,
+            staff: expectedStaff
+          },
+          confirmed: {
+            adults: confirmedAdults,
+            children: confirmedChildren,
+            staff: confirmedStaff
           }
         }
       };
@@ -165,7 +174,7 @@ export function BudgetSpreadsheet() {
   const groupedData = useMemo(() => {
     if (!budgetData) return [];
 
-    const calculationMode = (budgetData.wedding.calculation_mode || 'planned') as 'planned' | 'actual';
+    const calculationMode = (budgetData.wedding.calculation_mode || 'planned') as 'planned' | 'expected' | 'confirmed';
     const groups = new Map<string, CategoryGroup>();
 
     budgetData.expenseItems.forEach((item: any) => {
