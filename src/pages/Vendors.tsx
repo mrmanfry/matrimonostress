@@ -233,7 +233,12 @@ const Vendors = () => {
         
         const guestCounts = {
           planned: resolvedCounts,
-          actual: {
+          expected: {
+            adults: actualAdults,
+            children: actualChildren,
+            staff: actualStaff
+          },
+          confirmed: {
             adults: actualAdults,
             children: actualChildren,
             staff: actualStaff
@@ -244,7 +249,7 @@ const Vendors = () => {
         const amount = calculateExpenseAmount({
           ...item,
           expense_type: expenseType
-        }, lineItems, globalMode as 'planned' | 'actual', guestCounts);
+        }, lineItems, globalMode as 'planned' | 'expected' | 'confirmed', guestCounts);
         return sum + amount;
       }, 0) || 0
     })));
