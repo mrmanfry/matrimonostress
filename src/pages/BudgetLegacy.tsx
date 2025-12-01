@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TrendingUp, ArrowRight, Search, X } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import { BudgetSpreadsheet } from "@/components/budget/BudgetSpreadsheet";
 
 interface ExpenseItem {
   id: string;
@@ -355,10 +356,21 @@ export default function BudgetLegacy() {
         </CardContent>
       </Card>
 
-      {/* Riepilogo Impegni per Fornitore */}
+      {/* Budget Spreadsheet - Smart Excel-like View */}
+      <div className="space-y-4">
+        <div>
+          <h2 className="text-xl font-semibold mb-2">Foglio di Calcolo Budget</h2>
+          <p className="text-sm text-muted-foreground">
+            Vista dettagliata con budget stimato, costi effettivi e stato pagamenti. Clicca sulla colonna "Stimato" per modificare il budget target.
+          </p>
+        </div>
+        <BudgetSpreadsheet />
+      </div>
+
+      {/* Riepilogo Impegni per Fornitore (Legacy View) */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg md:text-xl">Riepilogo Impegni per Fornitore</CardTitle>
+          <CardTitle className="text-lg md:text-xl">Vista Classica - Riepilogo Impegni</CardTitle>
           <CardDescription>
             Vista aggregata dei contratti stipulati. Per il dettaglio delle singole rate e scadenze, vai alla Tesoreria.
           </CardDescription>

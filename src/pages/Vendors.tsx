@@ -529,7 +529,19 @@ const Vendors = () => {
 
       {/* Statistics */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {Object.entries(statusConfig).map(([key, config]) => {})}
+        {Object.entries(statusConfig).map(([key, config]) => (
+          <Card key={key}>
+            <CardContent className="pt-6">
+              <div className="flex flex-col space-y-2">
+                <p className="text-sm text-muted-foreground">{config.label}</p>
+                <p className="text-3xl font-bold">
+                  {vendors.filter(v => v.status === key).length}
+                </p>
+                <div className={`h-2 w-full rounded-full ${config.color}`} />
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       {/* Filters */}
