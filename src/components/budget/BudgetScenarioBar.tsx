@@ -19,8 +19,6 @@ export function BudgetScenarioBar() {
     staff: 0,
   });
 
-  const [debouncedCounts, setDebouncedCounts] = useState(counts);
-
   // Fetch wedding targets
   const { data: wedding } = useQuery({
     queryKey: ["wedding-targets", weddingId],
@@ -41,24 +39,13 @@ export function BudgetScenarioBar() {
   // Initialize from DB
   useEffect(() => {
     if (wedding) {
-      const newCounts = {
-        adults: wedding.target_adults || 100,
-        children: wedding.target_children || 0,
-        staff: wedding.target_staff || 0,
-      };
-      setCounts(newCounts);
-      setDebouncedCounts(newCounts);
+      setCounts({
+        adults: wedding.target_adults ?? 100,
+        children: wedding.target_children ?? 0,
+        staff: wedding.target_staff ?? 0,
+      });
     }
   }, [wedding]);
-
-  // Debounce effect
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedCounts(counts);
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [counts]);
 
   // Update DB with debounced values
   const updateTargets = useMutation({
@@ -79,22 +66,30 @@ export function BudgetScenarioBar() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["budget-spreadsheet"] });
       queryClient.invalidateQueries({ queryKey: ["wedding-targets"] });
+      toast.success("Numeri target salvati");
     },
     onError: (error) => {
       toast.error("Errore aggiornamento target: " + error.message);
     },
   });
 
-  // Trigger update when debounced value changes
+  // Debounced save effect with correct dependencies
   useEffect(() => {
-    if (wedding && JSON.stringify(debouncedCounts) !== JSON.stringify({
-      adults: wedding.target_adults || 100,
-      children: wedding.target_children || 0,
-      staff: wedding.target_staff || 0,
-    })) {
-      updateTargets.mutate(debouncedCounts);
-    }
-  }, [debouncedCounts]);
+    if (!wedding || !weddingId) return;
+    
+    const timer = setTimeout(() => {
+      const hasChanged = 
+        counts.adults !== (wedding.target_adults ?? 100) ||
+        counts.children !== (wedding.target_children ?? 0) ||
+        counts.staff !== (wedding.target_staff ?? 0);
+      
+      if (hasChanged) {
+        updateTargets.mutate(counts);
+      }
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, [counts, wedding, weddingId]);
 
   const handleChange = (field: keyof typeof counts, value: string) => {
     const num = parseInt(value) || 0;
