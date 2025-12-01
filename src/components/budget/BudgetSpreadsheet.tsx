@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, AlertCircle, CheckCircle2, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { calculateExpenseAmount, resolveGuestCounts, ExpenseItem, ExpenseLineItem, GuestCounts } from "@/lib/expenseCalculations";
@@ -13,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { AddBudgetItemDialog } from "./AddBudgetItemDialog";
 import { AssignVendorDialog } from "./AssignVendorDialog";
 import { BudgetScenarioBar } from "./BudgetScenarioBar";
+import { CalculationModeToggle } from "@/components/ui/calculation-mode-toggle";
 
 interface BudgetRowData {
   id: string;
@@ -45,6 +47,8 @@ export function BudgetSpreadsheet() {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<{ id: string; description: string } | null>(null);
+  const [globalMode, setGlobalMode] = useState<'planned' | 'expected' | 'confirmed'>('planned');
+  const [guestBreakdown, setGuestBreakdown] = useState({ confirmed: 0, pending: 0, declined: 0 });
 
   const weddingId = authState.status === "authenticated" ? authState.weddingId : null;
 
@@ -119,20 +123,26 @@ export function BudgetSpreadsheet() {
 
       if (guestsError) throw guestsError;
 
-      // Calcola conteggi ospiti per tutte e tre le modalità
-      const confirmedAdults = (guests || []).filter(g => !g.is_child && !g.is_staff && g.rsvp_status === "confirmed").length;
-      const confirmedChildren = (guests || []).filter(g => g.is_child && g.rsvp_status === "confirmed").length;
-      const confirmedStaff = (guests || []).filter(g => g.is_staff && g.rsvp_status === "confirmed").length;
+      // Calcola breakdown per il toggle
+      const confirmedGuests = (guests || []).filter(g => g.rsvp_status === 'Confermato').length;
+      const pendingGuests = (guests || []).filter(g => !g.rsvp_status || g.rsvp_status === 'In attesa').length;
+      const declinedGuests = (guests || []).filter(g => g.rsvp_status === 'Rifiutato').length;
 
-      const expectedAdults = (guests || []).filter(g => !g.is_child && !g.is_staff && g.rsvp_status !== "declined").length;
-      const expectedChildren = (guests || []).filter(g => g.is_child && g.rsvp_status !== "declined").length;
-      const expectedStaff = (guests || []).filter(g => g.is_staff && g.rsvp_status !== "declined").length;
+      // Calcola conteggi ospiti per tutte e tre le modalità
+      const confirmedAdults = (guests || []).filter(g => !g.is_child && !g.is_staff && g.rsvp_status === "Confermato").length;
+      const confirmedChildren = (guests || []).filter(g => g.is_child && g.rsvp_status === "Confermato").length;
+      const confirmedStaff = (guests || []).filter(g => g.is_staff && g.rsvp_status === "Confermato").length;
+
+      const expectedAdults = (guests || []).filter(g => !g.is_child && !g.is_staff && g.rsvp_status !== "Rifiutato").length;
+      const expectedChildren = (guests || []).filter(g => g.is_child && g.rsvp_status !== "Rifiutato").length;
+      const expectedStaff = (guests || []).filter(g => g.is_staff && g.rsvp_status !== "Rifiutato").length;
 
       return {
         wedding,
         expenseItems: expenseItems || [],
         lineItems,
         payments: payments || [],
+        guestBreakdown: { confirmed: confirmedGuests, pending: pendingGuests, declined: declinedGuests },
         guestCounts: {
           planned: {
             adults: wedding.target_adults || 100,
@@ -154,6 +164,41 @@ export function BudgetSpreadsheet() {
     }
   });
 
+  // Sync global mode and breakdown with DB data
+  useEffect(() => {
+    if (budgetData?.wedding?.calculation_mode) {
+      setGlobalMode(budgetData.wedding.calculation_mode as any);
+    }
+    if (budgetData?.guestBreakdown) {
+      setGuestBreakdown(budgetData.guestBreakdown);
+    }
+  }, [budgetData]);
+
+  // Handler for mode change
+  const handleModeChange = async (newMode: 'planned' | 'expected' | 'confirmed') => {
+    setGlobalMode(newMode);
+    
+    if (!weddingId) return;
+    
+    const { error } = await supabase
+      .from("weddings")
+      .update({ calculation_mode: newMode })
+      .eq("id", weddingId);
+
+    if (error) {
+      toast.error("Errore nel cambiare modalità");
+      return;
+    }
+    
+    queryClient.invalidateQueries({ queryKey: ["budget-spreadsheet"] });
+    queryClient.invalidateQueries({ queryKey: ["treasury-data"] });
+    
+    toast.success(`Modalità cambiata: ${
+      newMode === 'planned' ? 'Pianificato' :
+      newMode === 'expected' ? 'Previsti' : 'Confermati'
+    }`);
+  };
+
   // Mutation per aggiornare estimated_amount
   const updateEstimate = useMutation({
     mutationFn: async ({ id, value }: { id: string; value: number }) => {
@@ -174,7 +219,7 @@ export function BudgetSpreadsheet() {
   const groupedData = useMemo(() => {
     if (!budgetData) return [];
 
-    const calculationMode = (budgetData.wedding.calculation_mode || 'planned') as 'planned' | 'expected' | 'confirmed';
+    const calculationMode = globalMode;
     const groups = new Map<string, CategoryGroup>();
 
     budgetData.expenseItems.forEach((item: any) => {
@@ -275,7 +320,7 @@ export function BudgetSpreadsheet() {
     });
 
     return Array.from(groups.values()).sort((a, b) => a.categoryName.localeCompare(b.categoryName));
-  }, [budgetData]);
+  }, [budgetData, globalMode]);
 
   const toggleCategory = (categoryId: string) => {
     const newExpanded = new Set(expandedCategories);
@@ -292,6 +337,26 @@ export function BudgetSpreadsheet() {
       style: "currency",
       currency: "EUR",
     }).format(value);
+  };
+
+  // Calculate total guests for current mode
+  const totalCurrentModeGuests = budgetData?.guestCounts?.[globalMode] 
+    ? budgetData.guestCounts[globalMode].adults + 
+      budgetData.guestCounts[globalMode].children + 
+      budgetData.guestCounts[globalMode].staff
+    : 0;
+
+  // Get guest count label for headers
+  const getGuestCountLabel = () => {
+    if (!budgetData?.guestCounts) return '';
+    const counts = budgetData.guestCounts[globalMode];
+    const total = counts.adults + counts.children + counts.staff;
+    
+    switch (globalMode) {
+      case 'planned': return `(su ${total} pianificati)`;
+      case 'expected': return `(su ${total} previsti)`;
+      case 'confirmed': return `(su ${total} confermati)`;
+    }
   };
 
   if (isLoading) {
@@ -319,15 +384,40 @@ export function BudgetSpreadsheet() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center flex-wrap gap-4">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Budget Spreadsheet</h2>
           <p className="text-muted-foreground">Panoramica completa delle spese pianificate</p>
         </div>
-        <AddBudgetItemDialog />
+        <div className="flex items-center gap-4">
+          <CalculationModeToggle 
+            value={globalMode}
+            onValueChange={handleModeChange}
+            breakdown={guestBreakdown}
+          />
+          <AddBudgetItemDialog />
+        </div>
       </div>
 
-      <BudgetScenarioBar />
+      {globalMode !== 'planned' && totalCurrentModeGuests === 0 && (
+        <Alert variant="destructive" className="border-orange-500 bg-orange-50 dark:bg-orange-950">
+          <AlertCircle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+          <AlertDescription className="text-orange-800 dark:text-orange-200">
+            Non hai ancora {globalMode === 'confirmed' ? 'ospiti confermati' : 'risposte RSVP'}. 
+            Le spese variabili mostrano €0,00. 
+            Passa a "Pianificato" per vedere i costi stimati.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <BudgetScenarioBar 
+        currentMode={globalMode}
+        guestCounts={budgetData?.guestCounts || {
+          planned: { adults: 100, children: 0, staff: 0 },
+          expected: { adults: 0, children: 0, staff: 0 },
+          confirmed: { adults: 0, children: 0, staff: 0 },
+        }}
+      />
 
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
@@ -336,7 +426,9 @@ export function BudgetSpreadsheet() {
             <TableRow>
               <TableHead className="w-[35%]">Voce di Spesa</TableHead>
               <TableHead className="w-[13%] text-right">Stimato</TableHead>
-              <TableHead className="w-[13%] text-right">Effettivo</TableHead>
+              <TableHead className="w-[13%] text-right">
+                Effettivo {getGuestCountLabel()}
+              </TableHead>
               <TableHead className="w-[13%] text-right">Pagato</TableHead>
               <TableHead className="w-[13%] text-right">Residuo</TableHead>
               <TableHead className="w-[13%]">Stato</TableHead>
@@ -450,7 +542,7 @@ export function BudgetSpreadsheet() {
 
                       <TableCell className="text-right">
                         {row.paid > 0 ? (
-                          <span className="text-green-600 dark:text-green-400 font-medium">
+                          <span className="font-medium text-green-600 dark:text-green-400">
                             {formatCurrency(row.paid)}
                           </span>
                         ) : (
@@ -460,7 +552,7 @@ export function BudgetSpreadsheet() {
 
                       <TableCell className="text-right">
                         {row.remaining > 0 ? (
-                          <span className="font-bold text-orange-600 dark:text-orange-400">
+                          <span className="font-medium text-orange-600 dark:text-orange-400">
                             {formatCurrency(row.remaining)}
                           </span>
                         ) : (
@@ -470,15 +562,19 @@ export function BudgetSpreadsheet() {
 
                       <TableCell>
                         {isPaidOff ? (
-                          <Badge variant="outline" className="bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800 gap-1">
-                            <CheckCircle2 className="w-3 h-3" /> Saldato
+                          <Badge className="gap-1 bg-green-100 text-green-700 hover:bg-green-100 dark:bg-green-950 dark:text-green-300">
+                            <CheckCircle2 className="w-3 h-3" />
+                            Saldato
                           </Badge>
-                        ) : row.remaining > 0 && row.actual > 0 ? (
-                          <Badge variant="outline" className="bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800 gap-1">
-                            <AlertCircle className="w-3 h-3" /> In corso
+                        ) : row.paid > 0 ? (
+                          <Badge variant="outline" className="gap-1 text-amber-600 border-amber-300">
+                            <AlertCircle className="w-3 h-3" />
+                            Parziale
                           </Badge>
                         ) : (
-                          <span className="text-muted-foreground text-xs">-</span>
+                          <Badge variant="secondary" className="gap-1">
+                            In Attesa
+                          </Badge>
                         )}
                       </TableCell>
                     </TableRow>
@@ -488,20 +584,21 @@ export function BudgetSpreadsheet() {
             ))}
           </TableBody>
         </Table>
-      </div>
-    </Card>
+        </div>
+      </Card>
 
-    {selectedItem && (
-      <AssignVendorDialog
-        itemId={selectedItem.id}
-        itemDescription={selectedItem.description}
-        isOpen={assignDialogOpen}
-        onClose={() => {
-          setAssignDialogOpen(false);
-          setSelectedItem(null);
-        }}
-      />
-    )}
+      {/* Dialog per assegnare fornitore */}
+      {selectedItem && (
+        <AssignVendorDialog
+          isOpen={assignDialogOpen}
+          onClose={() => {
+            setAssignDialogOpen(false);
+            setSelectedItem(null);
+          }}
+          itemId={selectedItem.id}
+          itemDescription={selectedItem.description}
+        />
+      )}
     </div>
   );
 }
