@@ -342,28 +342,33 @@ export function BudgetSpreadsheet() {
                   className="bg-muted/30 hover:bg-muted/50 cursor-pointer font-semibold"
                   onClick={() => toggleCategory(category.categoryId)}
                 >
-                  <TableCell colSpan={6} className="py-3">
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                          {expandedCategories.has(category.categoryId) ? (
-                            <ChevronDown className="h-4 w-4" />
-                          ) : (
-                            <ChevronRight className="h-4 w-4" />
-                          )}
-                        </Button>
-                        <span className="uppercase tracking-wider text-xs text-muted-foreground">
-                          {category.categoryName}
-                        </span>
-                      </div>
-                      <div className="text-xs text-muted-foreground space-x-6">
-                        <span>Stimato: {formatCurrency(category.totalEstimated)}</span>
-                        <span>Effettivo: {formatCurrency(category.totalActual)}</span>
-                        <span>Pagato: {formatCurrency(category.totalPaid)}</span>
-                        <span className="font-semibold">Residuo: {formatCurrency(category.totalRemaining)}</span>
-                      </div>
+                  <TableCell className="py-3">
+                    <div className="flex items-center gap-2">
+                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                        {expandedCategories.has(category.categoryId) ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4" />
+                        )}
+                      </Button>
+                      <span className="uppercase tracking-wider text-xs text-muted-foreground">
+                        {category.categoryName}
+                      </span>
                     </div>
                   </TableCell>
+                  <TableCell className="text-right py-3 text-sm font-semibold">
+                    {formatCurrency(category.totalEstimated)}
+                  </TableCell>
+                  <TableCell className="text-right py-3 text-sm font-semibold">
+                    {formatCurrency(category.totalActual)}
+                  </TableCell>
+                  <TableCell className="text-right py-3 text-sm font-semibold">
+                    {formatCurrency(category.totalPaid)}
+                  </TableCell>
+                  <TableCell className="text-right py-3 text-sm font-semibold">
+                    {formatCurrency(category.totalRemaining)}
+                  </TableCell>
+                  <TableCell className="py-3" />
                 </TableRow>
 
                 {/* Righe Spese (se espansa) */}
