@@ -1,12 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, ChevronDown, ChevronUp, Trash2, Edit } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ExpenseItemTabs } from "./ExpenseItemTabs";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { ExpenseItemCard } from "./ExpenseItemCard";
 
 interface ExpenseItem {
   id: string;
@@ -277,7 +277,7 @@ export function ExpenseItemsManager({ vendorId, categoryId }: ExpenseItemsManage
     return total;
   };
 
-  const calculateItemTotal = async (item: ExpenseItem): Promise<number> => {
+  const calculateItemTotal = useCallback(async (item: ExpenseItem): Promise<number> => {
     // Import centralized calculation library
     const { calculateExpenseAmount, inferExpenseType } = await import("@/lib/expenseCalculations");
     
@@ -331,7 +331,7 @@ export function ExpenseItemsManager({ vendorId, categoryId }: ExpenseItemsManage
       globalMode as 'planned' | 'actual',
       guestCounts
     );
-  };
+  }, [lineItems, actualAdults, actualChildren, actualStaff]);
 
   const toggleExpanded = (itemId: string) => {
     setExpandedItems(prev => {
@@ -426,102 +426,18 @@ export function ExpenseItemsManager({ vendorId, categoryId }: ExpenseItemsManage
             </div>
           ) : (
             <>
-              {expenseItems.map((item) => {
-                const itemPayments = payments[item.id] || [];
-                const [itemTotal, setItemTotal] = useState(0);
-                
-                useEffect(() => {
-                  calculateItemTotal(item).then(setItemTotal);
-                }, [item, lineItems, actualAdults, actualChildren, actualStaff]);
-                
-                const isExpanded = expandedItems.has(item.id);
-
-                return (
-                  <Collapsible key={item.id} open={isExpanded} onOpenChange={() => toggleExpanded(item.id)}>
-                    <div className="border rounded-lg p-4 space-y-2">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-medium">{item.description}</h4>
-                            <span className="text-lg font-semibold text-primary">
-                              {formatCurrency(itemTotal)}
-                            </span>
-                          </div>
-                          {itemPayments.length > 0 && (
-                            <p className="text-sm text-muted-foreground mt-1">
-                              {itemPayments.length} {itemPayments.length === 1 ? 'rata' : 'rate'}
-                            </p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEditExpenseItem(item.id)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => confirmDelete(item.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                          {itemPayments.length > 0 && (
-                            <CollapsibleTrigger asChild>
-                              <Button variant="ghost" size="sm">
-                                {isExpanded ? (
-                                  <ChevronUp className="h-4 w-4" />
-                                ) : (
-                                  <ChevronDown className="h-4 w-4" />
-                                )}
-                              </Button>
-                            </CollapsibleTrigger>
-                          )}
-                        </div>
-                      </div>
-
-                      <CollapsibleContent className="space-y-2 pt-2">
-                        {itemPayments.map((payment) => (
-                          <div
-                            key={payment.id}
-                            className="ml-4 pl-4 border-l-2 flex items-center justify-between text-sm"
-                          >
-                            <div>
-                              <span className="font-medium">{payment.description}</span>
-                              {payment.amount_type === 'percentage' && payment.percentage_value && (
-                                <span className="text-muted-foreground ml-2">
-                                  ({payment.percentage_value}%)
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-3">
-                              {payment.amount_type === 'fixed' && (
-                                <span className="font-semibold">
-                                  {formatCurrency(Number(payment.amount))}
-                                </span>
-                              )}
-                              <span className="text-muted-foreground">
-                                📅 {formatDate(payment.due_date)}
-                              </span>
-                              <span
-                                className={`px-2 py-1 rounded text-xs font-medium ${
-                                  payment.status === 'Pagato'
-                                    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                                    : 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200'
-                                }`}
-                              >
-                                {payment.status}
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                      </CollapsibleContent>
-                    </div>
-                  </Collapsible>
-                );
-              })}
+              {expenseItems.map((item) => (
+                <ExpenseItemCard
+                  key={item.id}
+                  item={item}
+                  payments={payments[item.id] || []}
+                  isExpanded={expandedItems.has(item.id)}
+                  onToggleExpand={() => toggleExpanded(item.id)}
+                  onEdit={() => handleEditExpenseItem(item.id)}
+                  onDelete={() => confirmDelete(item.id)}
+                  calculateTotal={calculateItemTotal}
+                />
+              ))}
 
               <div className="pt-4 border-t">
                 <div className="flex items-center justify-between mb-4">
