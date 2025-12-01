@@ -12,6 +12,7 @@ import { TrendingUp, ArrowRight, Search, X, AlertCircle } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 import { CalculationModeToggle } from "@/components/ui/calculation-mode-toggle";
 import { calculateExpenseAmount, ExpenseItem as ExpenseItemCalc, ExpenseLineItem, GuestCounts } from "@/lib/expenseCalculations";
+import { isDeclined, isConfirmed, isPending } from "@/lib/rsvpHelpers";
 import { toast } from "sonner";
 import { BudgetSpreadsheet } from "@/components/budget/BudgetSpreadsheet";
 
@@ -142,18 +143,18 @@ export default function BudgetLegacy() {
         .select("rsvp_status, is_child, is_staff")
         .eq("wedding_id", authState.weddingId);
 
-      const confirmedGuests = (guests || []).filter(g => g.rsvp_status === 'Confermato');
-      const pendingGuests = (guests || []).filter(g => !g.rsvp_status || g.rsvp_status === 'In attesa');
-      const declinedGuests = (guests || []).filter(g => g.rsvp_status === 'Rifiutato');
+      // Use consistent RSVP status helpers
+      const confirmedGuests = (guests || []).filter(g => isConfirmed(g.rsvp_status));
+      const declinedGuests = (guests || []).filter(g => isDeclined(g.rsvp_status));
+      const pendingGuests = (guests || []).filter(g => isPending(g.rsvp_status));
+      // Expected = all guests except declined
+      const expectedGuests = (guests || []).filter(g => !isDeclined(g.rsvp_status));
 
       setGuestBreakdown({
         confirmed: confirmedGuests.length,
         pending: pendingGuests.length,
         declined: declinedGuests.length
       });
-
-      // Calculate guest counts for all modes
-      const expectedGuests = [...confirmedGuests, ...pendingGuests];
       
       const countAdults = (guestList: any[]) => guestList.filter(g => !g.is_child && !g.is_staff).length;
       const countChildren = (guestList: any[]) => guestList.filter(g => g.is_child).length;
