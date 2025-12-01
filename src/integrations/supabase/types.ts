@@ -1068,6 +1068,9 @@ export type Database = {
           id: string
           partner1_name: string
           partner2_name: string
+          target_adults: number | null
+          target_children: number | null
+          target_staff: number | null
           total_budget: number | null
           updated_at: string
           wedding_date: string
@@ -1080,6 +1083,9 @@ export type Database = {
           id?: string
           partner1_name: string
           partner2_name: string
+          target_adults?: number | null
+          target_children?: number | null
+          target_staff?: number | null
           total_budget?: number | null
           updated_at?: string
           wedding_date: string
@@ -1092,6 +1098,9 @@ export type Database = {
           id?: string
           partner1_name?: string
           partner2_name?: string
+          target_adults?: number | null
+          target_children?: number | null
+          target_staff?: number | null
           total_budget?: number | null
           updated_at?: string
           wedding_date?: string

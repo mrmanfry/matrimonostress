@@ -12,6 +12,7 @@ import { calculateExpenseAmount, ExpenseItem, ExpenseLineItem, GuestCounts } fro
 import { Button } from "@/components/ui/button";
 import { AddBudgetItemDialog } from "./AddBudgetItemDialog";
 import { AssignVendorDialog } from "./AssignVendorDialog";
+import { BudgetScenarioBar } from "./BudgetScenarioBar";
 
 interface BudgetRowData {
   id: string;
@@ -54,10 +55,10 @@ export function BudgetSpreadsheet() {
     queryFn: async () => {
       if (!weddingId) throw new Error("No wedding ID");
 
-      // 1. Fetch wedding per calculation_mode
+      // 1. Fetch wedding per calculation_mode e target ospiti
       const { data: wedding, error: weddingError } = await supabase
         .from("weddings")
-        .select("calculation_mode")
+        .select("calculation_mode, target_adults, target_children, target_staff")
         .eq("id", weddingId)
         .single();
 
@@ -130,9 +131,9 @@ export function BudgetSpreadsheet() {
         payments: payments || [],
         guestCounts: {
           planned: {
-            adults: 100, // Default se non specificato
-            children: 0,
-            staff: 0
+            adults: wedding.target_adults || 100,
+            children: wedding.target_children || 0,
+            staff: wedding.target_staff || 0
           },
           actual: {
             adults: actualAdults,
@@ -306,6 +307,8 @@ export function BudgetSpreadsheet() {
         </div>
         <AddBudgetItemDialog />
       </div>
+
+      <BudgetScenarioBar />
 
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">

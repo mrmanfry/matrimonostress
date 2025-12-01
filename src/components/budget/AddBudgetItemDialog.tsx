@@ -37,21 +37,22 @@ export function AddBudgetItemDialog() {
     enabled: !!weddingId,
   });
 
-  // Fetch Guest Count per preview
-  const { data: guestCount } = useQuery({
-    queryKey: ["guest-count-preview", weddingId],
+  // Fetch Wedding Targets per preview
+  const { data: weddingTargets } = useQuery({
+    queryKey: ["wedding-targets", weddingId],
     queryFn: async () => {
-      if (!weddingId) return 100;
-      const { count } = await supabase
-        .from("guests")
-        .select("*", { count: "exact", head: true })
-        .eq("wedding_id", weddingId)
-        .eq("is_child", false)
-        .eq("is_staff", false);
-      return count || 100;
+      if (!weddingId) return null;
+      const { data } = await supabase
+        .from("weddings")
+        .select("target_adults, target_children, target_staff")
+        .eq("id", weddingId)
+        .single();
+      return data;
     },
     enabled: !!weddingId,
   });
+
+  const guestCount = weddingTargets?.target_adults || 100;
 
   // Preview Calcolo Real-Time
   const previewTotal = type === "variable" 
@@ -75,9 +76,9 @@ export function AddBudgetItemDialog() {
           expense_type: type,
           estimated_amount: type === "fixed" ? numAmount : null,
           vendor_id: null, // PLACEHOLDER
-          planned_adults: guestCount || 100,
-          planned_children: 0,
-          planned_staff: 0,
+          planned_adults: weddingTargets?.target_adults || 100,
+          planned_children: weddingTargets?.target_children || 0,
+          planned_staff: weddingTargets?.target_staff || 0,
           calculation_mode: "planned",
         })
         .select()
