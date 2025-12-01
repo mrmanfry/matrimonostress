@@ -16,7 +16,7 @@ interface ExpenseItem {
   total_amount: number | null;
   amount_is_tax_inclusive: boolean;
   tax_rate: number | null;
-  calculation_mode: 'planned' | 'actual';
+  calculation_mode: 'planned' | 'expected' | 'confirmed';
   planned_adults: number;
   planned_children: number;
   planned_staff: number;
@@ -121,31 +121,20 @@ export function ExpenseItemsManager({ vendorId, categoryId }: ExpenseItemsManage
 
       if (!weddingData) return;
 
-      const { data: parties } = await supabase
-        .from("invite_parties")
-        .select("id, guests(*)")
-        .eq("wedding_id", weddingData.id)
-        .eq("rsvp_status", "Confermato");
+      // Load all guests to calculate both expected and confirmed
+      const { data: guests } = await supabase
+        .from("guests")
+        .select("is_child, is_staff, rsvp_status")
+        .eq("wedding_id", weddingData.id);
 
-      let adults = 0;
-      let children = 0;
-      let staff = 0;
+      // Confirmed counts (only confirmed RSVPs)
+      const confirmedAdults = guests?.filter(g => !g.is_child && !g.is_staff && g.rsvp_status === 'confirmed').length || 0;
+      const confirmedChildren = guests?.filter(g => g.is_child && g.rsvp_status === 'confirmed').length || 0;
+      const confirmedStaff = guests?.filter(g => g.is_staff && g.rsvp_status === 'confirmed').length || 0;
 
-      parties?.forEach((party: any) => {
-        party.guests?.forEach((guest: any) => {
-          if (guest.is_staff) {
-            staff++;
-          } else if (guest.is_child) {
-            children++;
-          } else {
-            adults++;
-          }
-        });
-      });
-
-      setActualAdults(adults);
-      setActualChildren(children);
-      setActualStaff(staff);
+      setActualAdults(confirmedAdults);
+      setActualChildren(confirmedChildren);
+      setActualStaff(confirmedStaff);
     } catch (error) {
       console.error("Error loading guest counts:", error);
     }
@@ -352,7 +341,12 @@ export function ExpenseItemsManager({ vendorId, categoryId }: ExpenseItemsManage
     
     const guestCounts = {
       planned: resolvedCounts,
-      actual: {
+      expected: {
+        adults: actualAdults,
+        children: actualChildren,
+        staff: actualStaff
+      },
+      confirmed: {
         adults: actualAdults,
         children: actualChildren,
         staff: actualStaff
@@ -370,7 +364,7 @@ export function ExpenseItemsManager({ vendorId, categoryId }: ExpenseItemsManage
         planned_staff: resolvedCounts.staff
       },
       itemLines,
-      globalMode as 'planned' | 'actual',
+      globalMode as 'planned' | 'expected' | 'confirmed',
       guestCounts
     );
   }, [lineItems, actualAdults, actualChildren, actualStaff, weddingTargets]);

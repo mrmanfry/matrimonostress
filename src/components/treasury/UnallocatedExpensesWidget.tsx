@@ -15,7 +15,7 @@ import { calculateExpenseAmount, resolveGuestCounts } from "@/lib/expenseCalcula
 
 interface UnallocatedExpensesWidgetProps {
   weddingId: string;
-  globalMode: 'planned' | 'actual';
+  globalMode: 'planned' | 'expected' | 'confirmed';
 }
 
 interface UnallocatedExpense {
@@ -49,7 +49,7 @@ export function UnallocatedExpensesWidget({ weddingId, globalMode }: Unallocated
         staff: wedding?.target_staff || 0,
       };
 
-      // 2. Fetch actual guest counts per calcolo "actual"
+      // 2. Fetch guest counts for expected (all - declined) and confirmed
       const { data: guestCounts, error: guestsError } = await supabase
         .from("guests")
         .select("is_child, is_staff, rsvp_status")
@@ -57,7 +57,13 @@ export function UnallocatedExpensesWidget({ weddingId, globalMode }: Unallocated
 
       if (guestsError) throw guestsError;
 
-      const actualCounts = {
+      const expectedCounts = {
+        adults: guestCounts?.filter(g => !g.is_child && !g.is_staff && g.rsvp_status !== 'declined').length || 0,
+        children: guestCounts?.filter(g => g.is_child && g.rsvp_status !== 'declined').length || 0,
+        staff: guestCounts?.filter(g => g.is_staff).length || 0,
+      };
+
+      const confirmedCounts = {
         adults: guestCounts?.filter(g => !g.is_child && !g.is_staff && g.rsvp_status === 'confirmed').length || 0,
         children: guestCounts?.filter(g => g.is_child && g.rsvp_status === 'confirmed').length || 0,
         staff: guestCounts?.filter(g => g.is_staff).length || 0,
@@ -98,9 +104,10 @@ export function UnallocatedExpensesWidget({ weddingId, globalMode }: Unallocated
           globalTargets
         );
 
-        const guestCounts = {
+        const allGuestCounts = {
           planned: plannedCounts,
-          actual: actualCounts,
+          expected: expectedCounts,
+          confirmed: confirmedCounts,
         };
 
         // Calcola total cost usando la libreria centralizzata
@@ -112,7 +119,7 @@ export function UnallocatedExpensesWidget({ weddingId, globalMode }: Unallocated
             quantity_range: (line.quantity_range || 'all') as 'all' | 'up_to' | 'over',
           })),
           globalMode,
-          guestCounts
+          allGuestCounts
         );
 
         // Sum all scheduled payments, accounting for tax
