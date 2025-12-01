@@ -4,15 +4,27 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Users, Baby, Briefcase } from "lucide-react";
+import { Users, Baby, Briefcase, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 
-export function BudgetScenarioBar() {
+interface BudgetScenarioBarProps {
+  currentMode: 'planned' | 'expected' | 'confirmed';
+  guestCounts: {
+    planned: { adults: number; children: number; staff: number };
+    expected: { adults: number; children: number; staff: number };
+    confirmed: { adults: number; children: number; staff: number };
+  };
+}
+
+export function BudgetScenarioBar({ currentMode, guestCounts }: BudgetScenarioBarProps) {
   const queryClient = useQueryClient();
   const { authState } = useAuth();
   const weddingId = authState.status === "authenticated" ? authState.weddingId : null;
 
+  const isReadOnly = currentMode !== 'planned';
+  
+  // Use current mode's counts if read-only, otherwise local editable state
   const [counts, setCounts] = useState({
     adults: 100,
     children: 0,
@@ -36,16 +48,16 @@ export function BudgetScenarioBar() {
     enabled: !!weddingId,
   });
 
-  // Initialize from DB
+  // Initialize from DB (only for planned mode)
   useEffect(() => {
-    if (wedding) {
+    if (wedding && currentMode === 'planned') {
       setCounts({
         adults: wedding.target_adults ?? 100,
         children: wedding.target_children ?? 0,
         staff: wedding.target_staff ?? 0,
       });
     }
-  }, [wedding]);
+  }, [wedding, currentMode]);
 
   // Update DB with debounced values
   const updateTargets = useMutation({
@@ -92,8 +104,22 @@ export function BudgetScenarioBar() {
   }, [counts, wedding, weddingId]);
 
   const handleChange = (field: keyof typeof counts, value: string) => {
+    if (isReadOnly) return; // Prevent changes when read-only
     const num = parseInt(value) || 0;
     setCounts({ ...counts, [field]: num });
+  };
+
+  // Get display values based on mode
+  const displayCounts = isReadOnly ? guestCounts[currentMode] : counts;
+  
+  const getModeLabel = (type: 'adults' | 'children' | 'staff') => {
+    if (currentMode === 'planned') {
+      return type === 'adults' ? 'Adulti Target' : type === 'children' ? 'Bambini' : 'Staff';
+    } else if (currentMode === 'expected') {
+      return type === 'adults' ? 'Adulti Previsti' : type === 'children' ? 'Bambini Previsti' : 'Staff Previsti';
+    } else {
+      return type === 'adults' ? 'Adulti Confermati' : type === 'children' ? 'Bambini Confermati' : 'Staff Confermati';
+    }
   };
 
   return (
@@ -104,16 +130,25 @@ export function BudgetScenarioBar() {
             <Users className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <Label className="text-xs font-semibold text-foreground/70 mb-1 block">
-              Adulti Target
-            </Label>
+            <div className="flex items-center gap-1 mb-1">
+              <Label className="text-xs font-semibold text-foreground/70">
+                {getModeLabel('adults')}
+              </Label>
+              {isReadOnly && <Lock className="w-3 h-3 text-muted-foreground" />}
+            </div>
             <Input
               type="number"
-              className="h-9 w-24 bg-background"
-              value={counts.adults}
+              className={isReadOnly 
+                ? "h-9 w-24 bg-muted/50 text-muted-foreground border-dashed cursor-not-allowed" 
+                : "h-9 w-24 bg-background"}
+              value={displayCounts.adults}
               onChange={(e) => handleChange("adults", e.target.value)}
+              disabled={isReadOnly}
               min="0"
             />
+            {isReadOnly && (
+              <span className="text-xs text-muted-foreground mt-1 block">Dato da RSVP</span>
+            )}
           </div>
         </div>
 
@@ -122,16 +157,25 @@ export function BudgetScenarioBar() {
             <Baby className="w-5 h-5 text-pink-600 dark:text-pink-400" />
           </div>
           <div>
-            <Label className="text-xs font-semibold text-foreground/70 mb-1 block">
-              Bambini
-            </Label>
+            <div className="flex items-center gap-1 mb-1">
+              <Label className="text-xs font-semibold text-foreground/70">
+                {getModeLabel('children')}
+              </Label>
+              {isReadOnly && <Lock className="w-3 h-3 text-muted-foreground" />}
+            </div>
             <Input
               type="number"
-              className="h-9 w-24 bg-background"
-              value={counts.children}
+              className={isReadOnly 
+                ? "h-9 w-24 bg-muted/50 text-muted-foreground border-dashed cursor-not-allowed" 
+                : "h-9 w-24 bg-background"}
+              value={displayCounts.children}
               onChange={(e) => handleChange("children", e.target.value)}
+              disabled={isReadOnly}
               min="0"
             />
+            {isReadOnly && (
+              <span className="text-xs text-muted-foreground mt-1 block">Dato da RSVP</span>
+            )}
           </div>
         </div>
 
@@ -140,21 +184,32 @@ export function BudgetScenarioBar() {
             <Briefcase className="w-5 h-5 text-amber-600 dark:text-amber-400" />
           </div>
           <div>
-            <Label className="text-xs font-semibold text-foreground/70 mb-1 block">
-              Staff
-            </Label>
+            <div className="flex items-center gap-1 mb-1">
+              <Label className="text-xs font-semibold text-foreground/70">
+                {getModeLabel('staff')}
+              </Label>
+              {isReadOnly && <Lock className="w-3 h-3 text-muted-foreground" />}
+            </div>
             <Input
               type="number"
-              className="h-9 w-24 bg-background"
-              value={counts.staff}
+              className={isReadOnly 
+                ? "h-9 w-24 bg-muted/50 text-muted-foreground border-dashed cursor-not-allowed" 
+                : "h-9 w-24 bg-background"}
+              value={displayCounts.staff}
               onChange={(e) => handleChange("staff", e.target.value)}
+              disabled={isReadOnly}
               min="0"
             />
+            {isReadOnly && (
+              <span className="text-xs text-muted-foreground mt-1 block">Dato da RSVP</span>
+            )}
           </div>
         </div>
 
         <div className="ml-auto text-sm text-muted-foreground italic">
-          Le spese variabili si aggiornano automaticamente in base a questi numeri
+          {isReadOnly 
+            ? "Numeri da RSVP (non modificabili)"
+            : "Le spese variabili si aggiornano automaticamente in base a questi numeri"}
         </div>
       </div>
     </Card>
