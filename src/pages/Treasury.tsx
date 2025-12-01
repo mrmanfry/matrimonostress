@@ -89,6 +89,11 @@ export default function Treasury() {
   const [expenseItems, setExpenseItems] = useState<ExpenseItem[]>([]);
   const [expenseLineItems, setExpenseLineItems] = useState<ExpenseLineItem[]>([]);
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
+  const [weddingTargets, setWeddingTargets] = useState<{ adults: number; children: number; staff: number }>({
+    adults: 100,
+    children: 0,
+    staff: 0
+  });
   const [timeFilter, setTimeFilter] = useState<"all" | "30" | "90" | "7">("all");
   const [dateFilter, setDateFilter] = useState<string | null>(null);
   const [paymentToMark, setPaymentToMark] = useState<Payment | null>(null);
@@ -224,17 +229,18 @@ export default function Treasury() {
       setExpenseLineItems(lineItems);
 
       // Load wedding targets for planned mode
-      const { data: weddingTargets } = await supabase
+      const { data: weddingTargetsData } = await supabase
         .from("weddings")
         .select("target_adults, target_children, target_staff")
         .eq("id", weddingId)
         .single();
 
       const targets = {
-        adults: weddingTargets?.target_adults || 100,
-        children: weddingTargets?.target_children || 0,
-        staff: weddingTargets?.target_staff || 0
+        adults: weddingTargetsData?.target_adults || 100,
+        children: weddingTargetsData?.target_children || 0,
+        staff: weddingTargetsData?.target_staff || 0
       };
+      setWeddingTargets(targets);
 
       // Load payments
       if (itemIds.length === 0) {
@@ -1009,7 +1015,7 @@ export default function Treasury() {
                             expenseItems,
                             expenseLineItems,
                             {
-                              planned: { adults: 0, children: 0, staff: 0 },
+                              planned: weddingTargets,
                               expected: { 
                                 adults: guestBreakdown.confirmed.adults + guestBreakdown.pending.adults,
                                 children: guestBreakdown.confirmed.children + guestBreakdown.pending.children,
@@ -1049,7 +1055,7 @@ export default function Treasury() {
           expenseItems,
           expenseLineItems,
           {
-            planned: { adults: 0, children: 0, staff: 0 },
+            planned: weddingTargets,
             expected: { 
               adults: guestBreakdown.confirmed.adults + guestBreakdown.pending.adults,
               children: guestBreakdown.confirmed.children + guestBreakdown.pending.children,
