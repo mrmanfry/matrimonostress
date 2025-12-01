@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -65,6 +66,7 @@ const statusConfig = {
   }
 };
 const Vendors = () => {
+  const navigate = useNavigate();
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -607,11 +609,15 @@ const Vendors = () => {
           {filteredVendors.map(vendor => {
         const hasContract = vendor.vendor_contracts && vendor.vendor_contracts.length > 0;
         const contract = hasContract ? vendor.vendor_contracts[0] : null;
-        return <Card key={vendor.id} className="hover:shadow-lg transition-shadow">
+        return <Card 
+                key={vendor.id} 
+                className="hover:shadow-lg transition-all cursor-pointer group"
+                onClick={() => navigate(`/app/vendors/${vendor.id}`)}
+              >
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="space-y-1 flex-1">
-                      <CardTitle className="text-lg">{vendor.name}</CardTitle>
+                      <CardTitle className="text-lg group-hover:text-primary transition-colors">{vendor.name}</CardTitle>
                       {vendor.category_name && <p className="text-sm text-muted-foreground">
                           {vendor.category_name}
                         </p>}
@@ -628,46 +634,12 @@ const Vendors = () => {
                     </div>}
                   {vendor.email && <div className="flex items-center gap-2 text-sm">
                       <Mail className="w-4 h-4 text-muted-foreground" />
-                      <a href={`mailto:${vendor.email}`} className="hover:underline">
-                        {vendor.email}
-                      </a>
+                      <span className="truncate">{vendor.email}</span>
                     </div>}
                   {vendor.phone && <div className="flex items-center gap-2 text-sm">
                       <Phone className="w-4 h-4 text-muted-foreground" />
-                      <a href={`tel:${vendor.phone}`} className="hover:underline">
-                        {vendor.phone}
-                      </a>
+                      <span>{vendor.phone}</span>
                     </div>}
-                  
-                  {/* Documents Section */}
-                  <div className="border-t pt-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-sm font-medium">Documenti</span>
-                      </div>
-                      <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={async () => {
-                  await loadVendorDocuments(vendor.id);
-                }}>
-                        Aggiorna
-                      </Button>
-                    </div>
-                    
-                    {hasContract && contract && <div className="pl-6 space-y-1">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-muted-foreground">Contratto analizzato</span>
-                          <div className="flex gap-1">
-                            <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => {
-                      setSelectedVendor(vendor);
-                      setContractViewOpen(true);
-                    }}>
-                              <Sparkles className="w-3 h-3 mr-1" />
-                              AI
-                            </Button>
-                          </div>
-                        </div>
-                      </div>}
-                  </div>
                   
                   {/* Total Expenses for Vendor */}
                   {vendor.expenses_total !== undefined && vendor.expenses_total > 0 && <div className="border-t pt-3">
@@ -679,37 +651,34 @@ const Vendors = () => {
                       </div>
                     </div>}
                   
-                  {vendor.notes && <p className="text-sm text-muted-foreground border-t pt-3">
+                  {vendor.notes && <p className="text-sm text-muted-foreground border-t pt-3 line-clamp-2">
                       {vendor.notes}
                     </p>}
 
-                  <div className="grid grid-cols-2 gap-2 pt-3 border-t">
-                    <Button onClick={async () => {
-                setSelectedVendor(vendor);
-                await loadVendorDocuments(vendor.id);
-                setDocumentsDialogOpen(true);
-              }} variant="outline" size="sm" className="w-full">
-                      <Eye className="w-4 h-4 mr-2" />
-                      Documenti
-                    </Button>
-                    <Button onClick={() => {
-                setSelectedVendor(vendor);
-                setExpensesDialogOpen(true);
-              }} variant="outline" size="sm" className="w-full">
-                      <Wallet className="w-4 h-4 mr-2" />
-                      Spese
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => {
-                setSelectedVendor(vendor);
-                setDialogOpen(true);
-              }}>
+                  <div className="flex gap-2 pt-3 border-t" onClick={(e) => e.stopPropagation()}>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedVendor(vendor);
+                        setDialogOpen(true);
+                      }}
+                      className="flex-1"
+                    >
                       <Edit className="w-4 h-4 mr-1" />
                       Modifica
                     </Button>
-                    <Button variant="outline" size="sm" onClick={() => {
-                setVendorToDelete(vendor.id);
-                setDeleteDialogOpen(true);
-              }}>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setVendorToDelete(vendor.id);
+                        setDeleteDialogOpen(true);
+                      }}
+                      className="flex-1"
+                    >
                       <Trash2 className="w-4 h-4 mr-1" />
                       Elimina
                     </Button>

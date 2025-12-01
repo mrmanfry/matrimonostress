@@ -23,6 +23,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Task {
   id: string;
@@ -32,6 +41,12 @@ interface Task {
   status: string;
   is_system_generated: boolean;
   created_at: string;
+  vendor_id: string | null;
+}
+
+interface Vendor {
+  id: string;
+  name: string;
 }
 
 interface Wedding {
@@ -47,6 +62,14 @@ const Checklist = () => {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
+  const [addTaskOpen, setAddTaskOpen] = useState(false);
+  const [newTask, setNewTask] = useState({
+    title: "",
+    description: "",
+    due_date: "",
+    vendor_id: "",
+  });
+  const [vendors, setVendors] = useState<Vendor[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -107,6 +130,15 @@ const Checklist = () => {
         .order("due_date", { ascending: true, nullsFirst: false });
 
       setTasks(tasksData || []);
+      
+      // Load vendors for task assignment
+      const { data: vendorsData } = await supabase
+        .from("vendors")
+        .select("id, name")
+        .eq("wedding_id", weddingData.id)
+        .order("name");
+      
+      setVendors(vendorsData || []);
     } catch (error) {
       console.error("Error loading checklist:", error);
     } finally {
@@ -186,6 +218,48 @@ const Checklist = () => {
     });
   };
 
+  const addTask = async () => {
+    if (!newTask.title.trim() || !wedding) {
+      toast({
+        title: "Errore",
+        description: "Inserisci almeno un titolo per il task",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("checklist_tasks")
+      .insert({
+        wedding_id: wedding.id,
+        title: newTask.title,
+        description: newTask.description || null,
+        due_date: newTask.due_date || null,
+        vendor_id: newTask.vendor_id || null,
+        status: "pending",
+      })
+      .select()
+      .single();
+
+    if (error) {
+      toast({
+        title: "Errore",
+        description: "Impossibile creare il task",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setTasks((prev) => [...prev, data]);
+    setNewTask({ title: "", description: "", due_date: "", vendor_id: "" });
+    setAddTaskOpen(false);
+    
+    toast({
+      title: "Creato!",
+      description: "Nuovo task aggiunto alla checklist",
+    });
+  };
+
   const getDaysUntilDue = (dueDate: string | null): number | null => {
     if (!dueDate) return null;
     const due = new Date(dueDate);
@@ -233,14 +307,20 @@ const Checklist = () => {
   return (
     <div className="p-4 lg:p-8 max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-3">
-          <CheckSquare className="w-8 h-8 text-accent" />
-          <h1 className="text-3xl font-bold">Checklist Matrimonio</h1>
+      <div className="flex items-center justify-between">
+        <div className="space-y-2">
+          <div className="flex items-center gap-3">
+            <CheckSquare className="w-8 h-8 text-accent" />
+            <h1 className="text-3xl font-bold">Checklist Matrimonio</h1>
+          </div>
+          <p className="text-muted-foreground">
+            Organizza tutte le attività necessarie per il tuo grande giorno
+          </p>
         </div>
-        <p className="text-muted-foreground">
-          Organizza tutte le attività necessarie per il tuo grande giorno
-        </p>
+        <Button onClick={() => setAddTaskOpen(true)} className="gap-2">
+          <Plus className="w-4 h-4" />
+          Nuovo Task
+        </Button>
       </div>
 
       {/* Stats Overview */}
@@ -392,6 +472,76 @@ const Checklist = () => {
           ))
         )}
       </div>
+
+      {/* Add Task Dialog */}
+      <Dialog open={addTaskOpen} onOpenChange={setAddTaskOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Crea Nuovo Task</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="title">Titolo *</Label>
+              <Input
+                id="title"
+                value={newTask.title}
+                onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+                placeholder="Es: Prenotare il fotografo"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="description">Descrizione</Label>
+              <Textarea
+                id="description"
+                value={newTask.description}
+                onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
+                placeholder="Aggiungi dettagli..."
+                rows={3}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="due_date">Scadenza</Label>
+              <Input
+                id="due_date"
+                type="date"
+                value={newTask.due_date}
+                onChange={(e) => setNewTask({ ...newTask, due_date: e.target.value })}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="vendor">Collega Fornitore (opzionale)</Label>
+              <Select
+                value={newTask.vendor_id}
+                onValueChange={(value) => setNewTask({ ...newTask, vendor_id: value })}
+              >
+                <SelectTrigger id="vendor">
+                  <SelectValue placeholder="Nessun fornitore" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Nessuno</SelectItem>
+                  {vendors.map((vendor) => (
+                    <SelectItem key={vendor.id} value={vendor.id}>
+                      {vendor.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Collegando un fornitore, il task apparirà anche nella sua scheda dedicata
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddTaskOpen(false)}>
+              Annulla
+            </Button>
+            <Button onClick={addTask}>Crea Task</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

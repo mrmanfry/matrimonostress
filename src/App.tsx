@@ -16,6 +16,7 @@ import Guests from "./pages/Guests";
 import BudgetLegacy from "./pages/BudgetLegacy";
 import Treasury from "./pages/Treasury";
 import Vendors from "./pages/Vendors";
+import VendorDetails from "./pages/VendorDetails";
 import Checklist from "./pages/Checklist";
 import Settings from "./pages/Settings";
 import Tables from "./pages/Tables";
@@ -62,6 +63,7 @@ const App = () => (
               <Route path="budget" element={<BudgetLegacy />} />
               <Route path="treasury" element={<Treasury />} />
               <Route path="vendors" element={<Vendors />} />
+              <Route path="vendors/:id" element={<VendorDetails />} />
               <Route path="checklist" element={<Checklist />} />
               <Route path="tables" element={<Tables />} />
               <Route path="timeline" element={<Timeline />} />

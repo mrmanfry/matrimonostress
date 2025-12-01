@@ -25,6 +25,7 @@ export type Database = {
           status: string | null
           title: string
           updated_at: string
+          vendor_id: string | null
           wedding_id: string
         }
         Insert: {
@@ -37,6 +38,7 @@ export type Database = {
           status?: string | null
           title: string
           updated_at?: string
+          vendor_id?: string | null
           wedding_id: string
         }
         Update: {
@@ -49,9 +51,17 @@ export type Database = {
           status?: string | null
           title?: string
           updated_at?: string
+          vendor_id?: string | null
           wedding_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "checklist_tasks_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "checklist_tasks_wedding_id_fkey"
             columns: ["wedding_id"]
