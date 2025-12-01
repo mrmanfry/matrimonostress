@@ -160,6 +160,32 @@ export function calculateBothModes(
 }
 
 // ============================================================================
+// EREDITARIETÀ: RISOLVI GUEST COUNTS (LOCALE vs GLOBALE)
+// ============================================================================
+/**
+ * Implementa la logica di ereditarietà: se l'item ha un valore locale (anche 0), usa quello.
+ * Altrimenti eredita dal target globale del wedding.
+ * 
+ * @param itemCounts - I conteggi locali dell'expense item (possono essere null)
+ * @param globalTargets - I target globali del wedding
+ * @returns I conteggi risolti da usare per il calcolo
+ */
+export function resolveGuestCounts(
+  itemCounts: { 
+    planned_adults?: number | null; 
+    planned_children?: number | null; 
+    planned_staff?: number | null 
+  },
+  globalTargets: { adults: number; children: number; staff: number }
+): { adults: number; children: number; staff: number } {
+  return {
+    adults: itemCounts.planned_adults ?? globalTargets.adults,
+    children: itemCounts.planned_children ?? globalTargets.children,
+    staff: itemCounts.planned_staff ?? globalTargets.staff,
+  };
+}
+
+// ============================================================================
 // UTILITY: FORMATTA VALUTA
 // ============================================================================
 export function formatCurrency(value: number): string {
