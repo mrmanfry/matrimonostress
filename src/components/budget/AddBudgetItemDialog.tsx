@@ -76,9 +76,9 @@ export function AddBudgetItemDialog() {
           expense_type: type,
           estimated_amount: type === "fixed" ? numAmount : null,
           vendor_id: null, // PLACEHOLDER
-          planned_adults: weddingTargets?.target_adults || 100,
-          planned_children: weddingTargets?.target_children || 0,
-          planned_staff: weddingTargets?.target_staff || 0,
+          planned_adults: null, // Eredita dal wedding.target_adults
+          planned_children: null,
+          planned_staff: null,
           calculation_mode: "planned",
         })
         .select()

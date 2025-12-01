@@ -88,9 +88,9 @@ export function ExpenseItemTabs({
           category_id: categoryId,
           description: "Nuova Spesa",
           calculation_mode: 'planned',
-          planned_adults: 100,
-          planned_children: 0,
-          planned_staff: 0,
+          planned_adults: null, // Eredita automaticamente dai target globali
+          planned_children: null,
+          planned_staff: null,
         })
         .select()
         .single();

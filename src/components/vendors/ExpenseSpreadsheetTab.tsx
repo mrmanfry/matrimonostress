@@ -51,14 +51,15 @@ export function ExpenseSpreadsheetTab({
   const [actualChildren, setActualChildren] = useState(0);
   const [actualStaff, setActualStaff] = useState(0);
   const [itemDescription, setItemDescription] = useState(expenseItem.description);
-  const [plannedAdults, setPlannedAdults] = useState(expenseItem.planned_adults);
-  const [plannedChildren, setPlannedChildren] = useState(expenseItem.planned_children);
-  const [plannedStaff, setPlannedStaff] = useState(expenseItem.planned_staff);
+  const [plannedAdults, setPlannedAdults] = useState<number | null>(expenseItem.planned_adults);
+  const [plannedChildren, setPlannedChildren] = useState<number | null>(expenseItem.planned_children);
+  const [plannedStaff, setPlannedStaff] = useState<number | null>(expenseItem.planned_staff);
+  const [weddingTargets, setWeddingTargets] = useState({ adults: 100, children: 0, staff: 0 });
   const { toast } = useToast();
 
-  // Load global calculation mode from wedding
+  // Load global calculation mode and targets from wedding
   useEffect(() => {
-    const loadGlobalMode = async () => {
+    const loadGlobalSettings = async () => {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) return;
 
@@ -72,15 +73,22 @@ export function ExpenseSpreadsheetTab({
 
       const { data: weddingData } = await supabase
         .from("weddings")
-        .select("calculation_mode")
+        .select("calculation_mode, target_adults, target_children, target_staff")
         .eq("id", userRole.wedding_id)
         .single();
 
-      if (weddingData && weddingData.calculation_mode) {
-        setGlobalMode(weddingData.calculation_mode as 'planned' | 'actual');
+      if (weddingData) {
+        if (weddingData.calculation_mode) {
+          setGlobalMode(weddingData.calculation_mode as 'planned' | 'actual');
+        }
+        setWeddingTargets({
+          adults: weddingData.target_adults || 100,
+          children: weddingData.target_children || 0,
+          staff: weddingData.target_staff || 0,
+        });
       }
     };
-    loadGlobalMode();
+    loadGlobalSettings();
   }, []);
 
   useEffect(() => {
@@ -278,17 +286,17 @@ export function ExpenseSpreadsheetTab({
     if (line.quantity_type === 'fixed') {
       quantity = line.quantity_fixed || 0;
     } else {
-      // Calculate base quantity
+      // Calculate base quantity - use global targets as fallback
       let baseQuantity = 0;
       if (line.quantity_type === 'adults') {
-        baseQuantity = mode === 'planned' ? plannedAdults : actualAdults;
+        baseQuantity = mode === 'planned' ? (plannedAdults ?? weddingTargets.adults) : actualAdults;
       } else if (line.quantity_type === 'children') {
-        baseQuantity = mode === 'planned' ? plannedChildren : actualChildren;
+        baseQuantity = mode === 'planned' ? (plannedChildren ?? weddingTargets.children) : actualChildren;
       } else if (line.quantity_type === 'staff') {
-        baseQuantity = mode === 'planned' ? plannedStaff : actualStaff;
+        baseQuantity = mode === 'planned' ? (plannedStaff ?? weddingTargets.staff) : actualStaff;
       } else if (line.quantity_type === 'total_guests') {
         baseQuantity = mode === 'planned' 
-          ? plannedAdults + plannedChildren + plannedStaff
+          ? (plannedAdults ?? weddingTargets.adults) + (plannedChildren ?? weddingTargets.children) + (plannedStaff ?? weddingTargets.staff)
           : actualAdults + actualChildren + actualStaff;
       }
 
@@ -364,33 +372,63 @@ export function ExpenseSpreadsheetTab({
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="planned_adults">N° Adulti Pianificati</Label>
-                <Input
-                  id="planned_adults"
-                  type="number"
-                  min="0"
-                  value={plannedAdults}
-                  onChange={(e) => setPlannedAdults(parseInt(e.target.value) || 0)}
-                />
+                <div className="relative">
+                  <Input
+                    id="planned_adults"
+                    type="number"
+                    min="0"
+                    value={plannedAdults ?? ''}
+                    placeholder={`Globale: ${weddingTargets.adults}`}
+                    className={plannedAdults === null ? "border-primary/40 bg-primary/5" : ""}
+                    onChange={(e) => setPlannedAdults(e.target.value === '' ? null : parseInt(e.target.value) || 0)}
+                  />
+                  {plannedAdults === null && (
+                    <Badge variant="outline" className="absolute -top-2 right-2 text-[10px] bg-background">
+                      Eredita globale
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Lascia vuoto per usare il target globale. Scrivi un numero per creare un'eccezione.
+                </p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="planned_children">N° Bambini Pianificati</Label>
-                <Input
-                  id="planned_children"
-                  type="number"
-                  min="0"
-                  value={plannedChildren}
-                  onChange={(e) => setPlannedChildren(parseInt(e.target.value) || 0)}
-                />
+                <div className="relative">
+                  <Input
+                    id="planned_children"
+                    type="number"
+                    min="0"
+                    value={plannedChildren ?? ''}
+                    placeholder={`Globale: ${weddingTargets.children}`}
+                    className={plannedChildren === null ? "border-primary/40 bg-primary/5" : ""}
+                    onChange={(e) => setPlannedChildren(e.target.value === '' ? null : parseInt(e.target.value) || 0)}
+                  />
+                  {plannedChildren === null && (
+                    <Badge variant="outline" className="absolute -top-2 right-2 text-[10px] bg-background">
+                      Eredita globale
+                    </Badge>
+                  )}
+                </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="planned_staff">N° Staff Pianificato</Label>
-                <Input
-                  id="planned_staff"
-                  type="number"
-                  min="0"
-                  value={plannedStaff}
-                  onChange={(e) => setPlannedStaff(parseInt(e.target.value) || 0)}
-                />
+                <div className="relative">
+                  <Input
+                    id="planned_staff"
+                    type="number"
+                    min="0"
+                    value={plannedStaff ?? ''}
+                    placeholder={`Globale: ${weddingTargets.staff}`}
+                    className={plannedStaff === null ? "border-primary/40 bg-primary/5" : ""}
+                    onChange={(e) => setPlannedStaff(e.target.value === '' ? null : parseInt(e.target.value) || 0)}
+                  />
+                  {plannedStaff === null && (
+                    <Badge variant="outline" className="absolute -top-2 right-2 text-[10px] bg-background">
+                      Eredita globale
+                    </Badge>
+                  )}
+                </div>
               </div>
             </div>
           )}
