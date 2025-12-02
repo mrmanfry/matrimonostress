@@ -68,7 +68,7 @@ const Checklist = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [filteredTasks, setFilteredTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterStatus, setFilterStatus] = useState<string>("pending");
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
   const [addTaskOpen, setAddTaskOpen] = useState(false);
