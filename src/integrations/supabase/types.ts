@@ -655,6 +655,7 @@ export type Database = {
           id: string
           last_name: string | null
           updated_at: string
+          wedding_role: string | null
         }
         Insert: {
           created_at?: string
@@ -662,6 +663,7 @@ export type Database = {
           id: string
           last_name?: string | null
           updated_at?: string
+          wedding_role?: string | null
         }
         Update: {
           created_at?: string
@@ -669,6 +671,7 @@ export type Database = {
           id?: string
           last_name?: string | null
           updated_at?: string
+          wedding_role?: string | null
         }
         Relationships: []
       }
@@ -898,6 +901,67 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "user_roles_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vendor_communications: {
+        Row: {
+          channel: string
+          created_at: string | null
+          id: string
+          message_content: string
+          outcome: string | null
+          sender_user_id: string
+          task_id: string | null
+          tone: string | null
+          vendor_id: string
+          wedding_id: string
+        }
+        Insert: {
+          channel: string
+          created_at?: string | null
+          id?: string
+          message_content: string
+          outcome?: string | null
+          sender_user_id: string
+          task_id?: string | null
+          tone?: string | null
+          vendor_id: string
+          wedding_id: string
+        }
+        Update: {
+          channel?: string
+          created_at?: string | null
+          id?: string
+          message_content?: string
+          outcome?: string | null
+          sender_user_id?: string
+          task_id?: string | null
+          tone?: string | null
+          vendor_id?: string
+          wedding_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_communications_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_communications_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_communications_wedding_id_fkey"
             columns: ["wedding_id"]
             isOneToOne: false
             referencedRelation: "weddings"
