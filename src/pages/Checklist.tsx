@@ -14,8 +14,10 @@ import {
   ChevronDown,
   ChevronUp,
   Trash2,
-  Sparkles
+  Sparkles,
+  MessageSquare
 } from "lucide-react";
+import { ContactVendorWizard } from "@/components/checklist/ContactVendorWizard";
 import {
   Select,
   SelectContent,
@@ -42,11 +44,18 @@ interface Task {
   is_system_generated: boolean;
   created_at: string;
   vendor_id: string | null;
+  wedding_id: string;
 }
 
 interface Vendor {
   id: string;
   name: string;
+  phone: string | null;
+  email: string | null;
+  category_id: string | null;
+  category?: {
+    name: string;
+  } | null;
 }
 
 interface Wedding {
@@ -70,6 +79,8 @@ const Checklist = () => {
     vendor_id: "",
   });
   const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [userProfile, setUserProfile] = useState<{ first_name: string | null; wedding_role: string | null } | null>(null);
+  const [contactVendorTask, setContactVendorTask] = useState<Task | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -114,6 +125,15 @@ const Checklist = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Load user profile
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("first_name, wedding_role")
+        .eq("id", user.id)
+        .single();
+      
+      setUserProfile(profileData);
+
       const { data: weddingData } = await supabase
         .from("weddings")
         .select("id, wedding_date")
@@ -131,10 +151,17 @@ const Checklist = () => {
 
       setTasks(tasksData || []);
       
-      // Load vendors for task assignment
+      // Load vendors with contact info for task assignment and communication
       const { data: vendorsData } = await supabase
         .from("vendors")
-        .select("id, name")
+        .select(`
+          id, 
+          name, 
+          phone, 
+          email, 
+          category_id,
+          category:expense_categories(name)
+        `)
         .eq("wedding_id", weddingData.id)
         .order("name");
       
@@ -461,9 +488,23 @@ const Checklist = () => {
                     </div>
                   </div>
 
-                  {expandedTask === task.id && task.description && (
-                    <div className="pt-2 border-t">
-                      <p className="text-sm text-muted-foreground">{task.description}</p>
+                  {expandedTask === task.id && (
+                    <div className="pt-2 border-t space-y-2">
+                      {task.description && (
+                        <p className="text-sm text-muted-foreground">{task.description}</p>
+                      )}
+                      
+                      {task.vendor_id && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setContactVendorTask(task)}
+                          className="mt-2"
+                        >
+                          <MessageSquare className="w-4 h-4 mr-2" />
+                          Contatta {vendors.find(v => v.id === task.vendor_id)?.name || 'Fornitore'}
+                        </Button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -542,6 +583,23 @@ const Checklist = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Contact Vendor Wizard */}
+      {contactVendorTask && wedding && (
+        <ContactVendorWizard
+          open={!!contactVendorTask}
+          onOpenChange={(open) => !open && setContactVendorTask(null)}
+          task={{
+            id: contactVendorTask.id,
+            title: contactVendorTask.title,
+            description: contactVendorTask.description,
+            wedding_id: wedding.id,
+          }}
+          vendor={vendors.find(v => v.id === contactVendorTask.vendor_id)!}
+          senderName={userProfile?.first_name || 'Un organizzatore'}
+          senderRole={userProfile?.wedding_role || 'other'}
+        />
+      )}
     </div>
   );
 };
