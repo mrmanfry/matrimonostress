@@ -262,7 +262,7 @@ const Checklist = () => {
         title: newTask.title,
         description: newTask.description || null,
         due_date: newTask.due_date || null,
-        vendor_id: newTask.vendor_id || null,
+        vendor_id: newTask.vendor_id === "none" ? null : newTask.vendor_id || null,
         status: "pending",
       })
       .select()
@@ -562,7 +562,7 @@ const Checklist = () => {
                   <SelectValue placeholder="Nessun fornitore" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Nessuno</SelectItem>
+                  <SelectItem value="none">Nessuno</SelectItem>
                   {vendors.map((vendor) => (
                     <SelectItem key={vendor.id} value={vendor.id}>
                       {vendor.name}
