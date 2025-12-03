@@ -71,21 +71,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const cachedWeddingId = previousWeddingId || weddingStorage.get();
     console.log('[AuthContext] Cached weddingId:', cachedWeddingId || 'none');
     
-    // Validate cached weddingId before using it
+    // Validate cached weddingId before using it (with timeout)
     if (cachedWeddingId) {
       try {
-        const { data: hasAccess } = await supabase
-          .from("user_roles")
-          .select("wedding_id")
-          .eq("user_id", userId)
-          .eq("wedding_id", cachedWeddingId)
-          .maybeSingle();
+        const validationResult = await fetchWithTimeout(
+          async () => {
+            const result = await supabase
+              .from("user_roles")
+              .select("wedding_id")
+              .eq("user_id", userId)
+              .eq("wedding_id", cachedWeddingId)
+              .maybeSingle();
+            return result;
+          },
+          5000, // 5 second timeout
+          null  // fallback if timeout
+        );
         
-        if (hasAccess) {
+        if (validationResult?.data) {
           console.log('[AuthContext] Cached weddingId validated:', cachedWeddingId);
           return cachedWeddingId;
         } else {
-          console.log('[AuthContext] Cached weddingId invalid for user, clearing cache');
+          console.log('[AuthContext] Cached weddingId invalid or timeout, clearing cache');
           weddingStorage.clear();
         }
       } catch (error) {
