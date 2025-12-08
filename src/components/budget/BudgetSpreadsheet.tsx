@@ -6,15 +6,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, AlertCircle, CheckCircle2, ChevronDown, ChevronRight } from "lucide-react";
+import { Loader2, CheckCircle2, ChevronDown, ChevronRight, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { calculateExpenseAmount, resolveGuestCounts, ExpenseItem, ExpenseLineItem, GuestCounts } from "@/lib/expenseCalculations";
 import { Button } from "@/components/ui/button";
 import { AddBudgetItemDialog } from "./AddBudgetItemDialog";
 import { AssignVendorDialog } from "./AssignVendorDialog";
-
-import { CalculationModeToggle } from "@/components/ui/calculation-mode-toggle";
 import { isDeclined, isConfirmed, isPending } from "@/lib/rsvpHelpers";
 
 interface BudgetRowData {
@@ -42,13 +39,16 @@ interface CategoryGroup {
   totalRemaining: number;
 }
 
-export function BudgetSpreadsheet() {
+interface BudgetSpreadsheetProps {
+  globalMode: 'planned' | 'expected' | 'confirmed';
+}
+
+export function BudgetSpreadsheet({ globalMode }: BudgetSpreadsheetProps) {
   const { authState } = useAuth();
   const queryClient = useQueryClient();
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<{ id: string; description: string } | null>(null);
-  const [globalMode, setGlobalMode] = useState<'planned' | 'expected' | 'confirmed'>('planned');
   const [guestBreakdown, setGuestBreakdown] = useState({ confirmed: 0, pending: 0, declined: 0 });
 
   const weddingId = authState.status === "authenticated" ? authState.weddingId : null;
@@ -165,40 +165,12 @@ export function BudgetSpreadsheet() {
     }
   });
 
-  // Sync global mode and breakdown with DB data
+  // Sync breakdown with DB data
   useEffect(() => {
-    if (budgetData?.wedding?.calculation_mode) {
-      setGlobalMode(budgetData.wedding.calculation_mode as any);
-    }
     if (budgetData?.guestBreakdown) {
       setGuestBreakdown(budgetData.guestBreakdown);
     }
   }, [budgetData]);
-
-  // Handler for mode change
-  const handleModeChange = async (newMode: 'planned' | 'expected' | 'confirmed') => {
-    setGlobalMode(newMode);
-    
-    if (!weddingId) return;
-    
-    const { error } = await supabase
-      .from("weddings")
-      .update({ calculation_mode: newMode })
-      .eq("id", weddingId);
-
-    if (error) {
-      toast.error("Errore nel cambiare modalità");
-      return;
-    }
-    
-    queryClient.invalidateQueries({ queryKey: ["budget-spreadsheet"] });
-    queryClient.invalidateQueries({ queryKey: ["treasury-data"] });
-    
-    toast.success(`Modalità cambiata: ${
-      newMode === 'planned' ? 'Pianificato' :
-      newMode === 'expected' ? 'Previsti' : 'Confermati'
-    }`);
-  };
 
   // Mutation per aggiornare estimated_amount (solo placeholder)
   const updateEstimate = useMutation({
@@ -385,27 +357,8 @@ export function BudgetSpreadsheet() {
           <h2 className="text-2xl font-bold tracking-tight">Budget Spreadsheet</h2>
           <p className="text-muted-foreground">Panoramica completa delle spese pianificate</p>
         </div>
-        <div className="flex items-center gap-4">
-          <CalculationModeToggle 
-            value={globalMode}
-            onValueChange={handleModeChange}
-            breakdown={guestBreakdown}
-          />
-          <AddBudgetItemDialog />
-        </div>
+        <AddBudgetItemDialog />
       </div>
-
-      {globalMode !== 'planned' && totalCurrentModeGuests === 0 && (
-        <Alert variant="destructive" className="border-orange-500 bg-orange-50 dark:bg-orange-950">
-          <AlertCircle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-          <AlertDescription className="text-orange-800 dark:text-orange-200">
-            Non hai ancora {globalMode === 'confirmed' ? 'ospiti confermati' : 'risposte RSVP'}. 
-            Le spese variabili mostrano €0,00. 
-            Passa a "Pianificato" per vedere i costi stimati.
-          </AlertDescription>
-        </Alert>
-      )}
-
 
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
