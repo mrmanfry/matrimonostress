@@ -541,7 +541,7 @@ export default function BudgetLegacy() {
             Vista dettagliata con budget stimato, costi effettivi e stato pagamenti. Clicca sulla colonna "Stimato" per modificare il budget target.
           </p>
         </div>
-        <BudgetSpreadsheet />
+        <BudgetSpreadsheet globalMode={globalMode} />
       </div>
 
       {/* Riepilogo Impegni per Fornitore (Legacy View) */}
