@@ -26,6 +26,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { format } from "date-fns";
+import { it } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 import { MACRO_CATEGORIES, inferCategoryFromTitle, mapVendorCategoryToMacro, TaskMacroCategory } from "@/lib/taskCategories";
 
 interface Task {
@@ -571,6 +576,28 @@ const Checklist = () => {
     });
   };
   
+  const updateTaskDueDate = async (taskId: string, dueDate: string | null) => {
+    const { error } = await supabase
+      .from("checklist_tasks")
+      .update({ due_date: dueDate })
+      .eq("id", taskId);
+      
+    if (error) {
+      toast({
+        title: "Errore",
+        description: "Impossibile aggiornare la scadenza",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, due_date: dueDate } : t));
+    toast({
+      title: "Scadenza aggiornata",
+      description: dueDate ? `Nuova scadenza: ${new Date(dueDate).toLocaleDateString("it-IT")}` : "Scadenza rimossa"
+    });
+  };
+  
   const updateTaskOwner = async (taskId: string, assigned_to: string) => {
     const value = assigned_to === "both" ? null : assigned_to;
     const {
@@ -674,13 +701,17 @@ const Checklist = () => {
     const daysUntil = getDaysUntilDue(dueDate);
     if (daysUntil === null) return null;
     if (daysUntil < 0) {
-      return <Badge variant="destructive">Scaduto</Badge>;
+      return <Badge variant="destructive" className="font-medium">Scaduto</Badge>;
     } else if (daysUntil === 0) {
-      return <Badge variant="destructive">Oggi!</Badge>;
+      return <Badge variant="destructive" className="font-medium animate-pulse">Oggi!</Badge>;
     } else if (daysUntil <= 7) {
-      return <Badge className="bg-orange-500">Urgente ({daysUntil}g)</Badge>;
+      return (
+        <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-medium">
+          ⏰ {daysUntil === 1 ? "Domani" : `${daysUntil} giorni`}
+        </Badge>
+      );
     } else if (daysUntil <= 30) {
-      return <Badge variant="secondary">Tra {daysUntil}g</Badge>;
+      return <Badge variant="secondary" className="font-normal">{daysUntil} giorni</Badge>;
     }
     return null;
   };
@@ -944,6 +975,51 @@ const Checklist = () => {
                                 ))}
                               </SelectContent>
                             </Select>
+                          </div>
+                          
+                          {/* Due Date Picker */}
+                          <div className="space-y-1.5">
+                            <Label className="text-xs">Scadenza</Label>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  className={cn(
+                                    "h-9 w-full justify-start text-left font-normal",
+                                    !task.due_date && "text-muted-foreground"
+                                  )}
+                                >
+                                  <Calendar className="mr-2 h-4 w-4" />
+                                  {task.due_date 
+                                    ? format(new Date(task.due_date), "d MMMM yyyy", { locale: it })
+                                    : "Nessuna scadenza"
+                                  }
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="start">
+                                <CalendarComponent
+                                  mode="single"
+                                  selected={task.due_date ? new Date(task.due_date) : undefined}
+                                  onSelect={(date) => updateTaskDueDate(task.id, date ? format(date, "yyyy-MM-dd") : null)}
+                                  initialFocus
+                                  locale={it}
+                                  className={cn("p-3 pointer-events-auto")}
+                                />
+                                {task.due_date && (
+                                  <div className="p-2 border-t">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="w-full text-destructive hover:text-destructive"
+                                      onClick={() => updateTaskDueDate(task.id, null)}
+                                    >
+                                      <X className="w-4 h-4 mr-2" />
+                                      Rimuovi scadenza
+                                    </Button>
+                                  </div>
+                                )}
+                              </PopoverContent>
+                            </Popover>
                           </div>
                         </div>
 
