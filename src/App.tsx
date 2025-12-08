@@ -22,6 +22,7 @@ import Settings from "./pages/Settings";
 import Tables from "./pages/Tables";
 import Timeline from "./pages/Timeline";
 import TimelinePublic from "./pages/TimelinePublic";
+import ProgressPublic from "./pages/ProgressPublic";
 import ContactSync from "./pages/ContactSync";
 import RSVPPublic from "./pages/RSVPPublic";
 import NotFound from "./pages/NotFound";
@@ -49,6 +50,7 @@ const App = () => (
               } 
             />
             <Route path="/timeline/:token" element={<TimelinePublic />} />
+            <Route path="/progress/:token" element={<ProgressPublic />} />
             <Route path="/sync/:token" element={<ContactSync />} />
             <Route path="/rsvp/:token" element={<RSVPPublic />} />
             <Route

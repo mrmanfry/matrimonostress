@@ -701,6 +701,53 @@ export type Database = {
         }
         Relationships: []
       }
+      progress_tokens: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          is_active: boolean
+          show_checklist: boolean
+          show_countdown: boolean
+          show_timeline: boolean
+          show_vendors: boolean
+          token: string
+          wedding_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          is_active?: boolean
+          show_checklist?: boolean
+          show_countdown?: boolean
+          show_timeline?: boolean
+          show_vendors?: boolean
+          token: string
+          wedding_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          is_active?: boolean
+          show_checklist?: boolean
+          show_countdown?: boolean
+          show_timeline?: boolean
+          show_vendors?: boolean
+          token?: string
+          wedding_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "progress_tokens_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rsvp_log: {
         Row: {
           created_at: string
@@ -1213,6 +1260,7 @@ export type Database = {
     }
     Functions: {
       cleanup_expired_sync_tokens: { Args: never; Returns: undefined }
+      generate_progress_token: { Args: never; Returns: string }
       get_user_email: { Args: { _user_id: string }; Returns: string }
       get_wedding_role: {
         Args: { _user_id: string; _wedding_id: string }
