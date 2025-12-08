@@ -19,12 +19,18 @@ import {
   StickyNote,
   Phone,
   Mail,
+  Link2,
+  Lock,
 } from "lucide-react";
 import { ContactVendorWizard } from "@/components/checklist/ContactVendorWizard";
 import { ChecklistProgressBar } from "@/components/checklist/ChecklistProgressBar";
 import { AttentionBox } from "@/components/checklist/AttentionBox";
 import { PriorityBadge } from "@/components/checklist/PriorityBadge";
 import { OwnerSelector, OwnerBadge } from "@/components/checklist/OwnerSelector";
+import { PaymentLinkSelector } from "@/components/checklist/PaymentLinkSelector";
+import { TaskDependencySelector, BlockedIndicator } from "@/components/checklist/TaskDependencySelector";
+import { PaymentSyncDialog } from "@/components/checklist/PaymentSyncDialog";
+import { BlockedTaskWarning } from "@/components/checklist/BlockedTaskWarning";
 import {
   Select,
   SelectContent,
@@ -62,6 +68,18 @@ interface Task {
   assigned_to?: string | null;
   blocked_by_task_id?: string | null;
   linked_payment_id?: string | null;
+}
+
+interface Payment {
+  id: string;
+  description: string;
+  amount: number;
+  status: string;
+  expense_item?: {
+    vendor?: {
+      name: string;
+    } | null;
+  } | null;
 }
 
 interface Vendor {
@@ -105,6 +123,21 @@ const Checklist = () => {
   const [contactVendorTask, setContactVendorTask] = useState<Task | null>(null);
   const [editingNotes, setEditingNotes] = useState<string | null>(null);
   const [tempNotes, setTempNotes] = useState("");
+  
+  // Payment sync dialog state
+  const [paymentSyncDialog, setPaymentSyncDialog] = useState<{
+    open: boolean;
+    taskId: string;
+    payment: Payment | null;
+  }>({ open: false, taskId: "", payment: null });
+  
+  // Blocked task warning state
+  const [blockedWarning, setBlockedWarning] = useState<{
+    open: boolean;
+    taskId: string;
+    blockingTaskTitle: string;
+  }>({ open: false, taskId: "", blockingTaskTitle: "" });
+  
   const { toast } = useToast();
 
   useEffect(() => {
@@ -125,13 +158,11 @@ const Checklist = () => {
             block: 'center'
           });
           
-          // Highlight animato (flash giallo)
           taskElement.classList.add('animate-pulse', 'bg-yellow-100', 'dark:bg-yellow-900/20');
           setTimeout(() => {
             taskElement.classList.remove('animate-pulse', 'bg-yellow-100', 'dark:bg-yellow-900/20');
           }, 2000);
           
-          // Espandi automaticamente
           setExpandedTask(taskId);
         }
       }, 300);
@@ -149,7 +180,6 @@ const Checklist = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Load user profile
       const { data: profileData } = await supabase
         .from("profiles")
         .select("first_name, wedding_role")
@@ -158,7 +188,6 @@ const Checklist = () => {
       
       setUserProfile(profileData);
 
-      // Get weddingId from user_roles first (safer than limit(1))
       const { data: roleData } = await supabase
         .from("user_roles")
         .select("wedding_id")
@@ -185,7 +214,6 @@ const Checklist = () => {
 
       setTasks(tasksData || []);
       
-      // Load vendors with contact info for task assignment and communication
       const { data: vendorsData } = await supabase
         .from("vendors")
         .select(`
@@ -210,12 +238,10 @@ const Checklist = () => {
   const applyFilters = () => {
     let filtered = [...tasks];
 
-    // Filter by status
     if (filterStatus !== "all") {
       filtered = filtered.filter((t) => t.status === filterStatus);
     }
 
-    // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
@@ -229,7 +255,54 @@ const Checklist = () => {
   };
 
   const toggleTaskStatus = async (taskId: string, currentStatus: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    // If completing a task, check if it's blocked
+    if (currentStatus === "pending" && task.blocked_by_task_id) {
+      const blockingTask = tasks.find(t => t.id === task.blocked_by_task_id);
+      if (blockingTask && blockingTask.status !== "completed") {
+        setBlockedWarning({
+          open: true,
+          taskId,
+          blockingTaskTitle: blockingTask.title,
+        });
+        return;
+      }
+    }
+
+    // If completing a task with linked payment, ask about sync
+    if (currentStatus === "pending" && task.linked_payment_id) {
+      const { data: paymentData } = await supabase
+        .from("payments")
+        .select(`
+          id,
+          description,
+          amount,
+          status,
+          expense_item:expense_items(
+            vendor:vendors(name)
+          )
+        `)
+        .eq("id", task.linked_payment_id)
+        .single();
+
+      if (paymentData && paymentData.status !== "Pagato") {
+        setPaymentSyncDialog({
+          open: true,
+          taskId,
+          payment: paymentData,
+        });
+        return;
+      }
+    }
+
+    await completeToggleTask(taskId, currentStatus);
+  };
+
+  const completeToggleTask = async (taskId: string, currentStatus: string, alsoMarkPayment = false) => {
     const newStatus = currentStatus === "completed" ? "pending" : "completed";
+    const task = tasks.find(t => t.id === taskId);
 
     const { error } = await supabase
       .from("checklist_tasks")
@@ -245,16 +318,62 @@ const Checklist = () => {
       return;
     }
 
+    // If also marking payment as paid
+    if (alsoMarkPayment && task?.linked_payment_id && newStatus === "completed") {
+      const { error: paymentError } = await supabase
+        .from("payments")
+        .update({ 
+          status: "Pagato",
+          paid_on_date: new Date().toISOString().split('T')[0]
+        })
+        .eq("id", task.linked_payment_id);
+
+      if (paymentError) {
+        toast({
+          title: "Attenzione",
+          description: "Task completato, ma errore nel segnare il pagamento",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Sincronizzato!",
+          description: "Task e pagamento segnati come completati",
+        });
+      }
+    } else {
+      toast({
+        title: newStatus === "completed" ? "Completato!" : "Ripristinato",
+        description: newStatus === "completed" 
+          ? "Task segnato come completato" 
+          : "Task rimesso in sospeso",
+      });
+    }
+
     setTasks((prev) =>
       prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t))
     );
+  };
 
-    toast({
-      title: newStatus === "completed" ? "Completato!" : "Ripristinato",
-      description: newStatus === "completed" 
-        ? "Task segnato come completato" 
-        : "Task rimesso in sospeso",
-    });
+  const handlePaymentSyncConfirm = () => {
+    const { taskId } = paymentSyncDialog;
+    setPaymentSyncDialog({ open: false, taskId: "", payment: null });
+    completeToggleTask(taskId, "pending", true);
+  };
+
+  const handlePaymentSyncSkip = () => {
+    const { taskId } = paymentSyncDialog;
+    setPaymentSyncDialog({ open: false, taskId: "", payment: null });
+    completeToggleTask(taskId, "pending", false);
+  };
+
+  const handleBlockedWarningConfirm = () => {
+    const { taskId } = blockedWarning;
+    setBlockedWarning({ open: false, taskId: "", blockingTaskTitle: "" });
+    completeToggleTask(taskId, "pending", false);
+  };
+
+  const handleBlockedWarningCancel = () => {
+    setBlockedWarning({ open: false, taskId: "", blockingTaskTitle: "" });
   };
 
   const deleteTask = async (taskId: string) => {
@@ -374,6 +493,60 @@ const Checklist = () => {
     );
   };
 
+  const updateTaskPaymentLink = async (taskId: string, paymentId: string | null) => {
+    const { error } = await supabase
+      .from("checklist_tasks")
+      .update({ linked_payment_id: paymentId })
+      .eq("id", taskId);
+
+    if (error) {
+      toast({
+        title: "Errore",
+        description: "Impossibile collegare il pagamento",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setTasks((prev) =>
+      prev.map((t) => (t.id === taskId ? { ...t, linked_payment_id: paymentId } : t))
+    );
+
+    toast({
+      title: paymentId ? "Collegato!" : "Scollegato",
+      description: paymentId 
+        ? "Task collegato al pagamento" 
+        : "Collegamento rimosso",
+    });
+  };
+
+  const updateTaskDependency = async (taskId: string, blockedByTaskId: string | null) => {
+    const { error } = await supabase
+      .from("checklist_tasks")
+      .update({ blocked_by_task_id: blockedByTaskId })
+      .eq("id", taskId);
+
+    if (error) {
+      toast({
+        title: "Errore",
+        description: "Impossibile aggiornare la dipendenza",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setTasks((prev) =>
+      prev.map((t) => (t.id === taskId ? { ...t, blocked_by_task_id: blockedByTaskId } : t))
+    );
+
+    toast({
+      title: blockedByTaskId ? "Dipendenza aggiunta" : "Dipendenza rimossa",
+      description: blockedByTaskId 
+        ? "Il task è ora bloccato" 
+        : "Il task non ha più dipendenze",
+    });
+  };
+
   const saveNotes = async (taskId: string) => {
     const { error } = await supabase
       .from("checklist_tasks")
@@ -424,6 +597,12 @@ const Checklist = () => {
       return <Badge variant="secondary">Tra {daysUntil}g</Badge>;
     }
     return null;
+  };
+
+  const isTaskBlocked = (task: Task): boolean => {
+    if (!task.blocked_by_task_id) return false;
+    const blockingTask = tasks.find(t => t.id === task.blocked_by_task_id);
+    return blockingTask ? blockingTask.status !== "completed" : false;
   };
 
   const stats = {
@@ -499,8 +678,7 @@ const Checklist = () => {
               <h3 className="font-semibold mb-1">Checklist Pre-Popolata</h3>
               <p className="text-sm text-muted-foreground">
                 Abbiamo generato automaticamente {tasks.filter((t) => t.is_system_generated).length} task
-                in base alla data del tuo matrimonio. Le scadenze sono calcolate a ritroso per aiutarti a
-                rispettare tutte le tempistiche!
+                in base alla data del tuo matrimonio.
               </p>
             </div>
           </div>
@@ -547,6 +725,7 @@ const Checklist = () => {
         ) : (
           filteredTasks.map((task) => {
             const vendor = vendors.find(v => v.id === task.vendor_id);
+            const blocked = isTaskBlocked(task);
             
             return (
               <Card
@@ -554,13 +733,14 @@ const Checklist = () => {
                 id={`task-${task.id}`}
                 className={`p-4 transition-all ${
                   task.status === "completed" ? "opacity-60" : ""
-                }`}
+                } ${blocked ? "border-amber-300 bg-amber-50/30 dark:bg-amber-900/10" : ""}`}
               >
                 <div className="flex items-start gap-4">
                   <div className="pt-1">
                     <Checkbox
                       checked={task.status === "completed"}
                       onCheckedChange={() => toggleTaskStatus(task.id, task.status)}
+                      disabled={blocked && task.status === "pending"}
                     />
                   </div>
 
@@ -568,14 +748,27 @@ const Checklist = () => {
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
+                          {blocked && (
+                            <Lock className="w-4 h-4 text-amber-600" />
+                          )}
                           <h3
                             className={`font-semibold ${
                               task.status === "completed" ? "line-through" : ""
-                            }`}
+                            } ${blocked ? "text-muted-foreground" : ""}`}
                           >
                             {task.title}
                           </h3>
                           <PriorityBadge priority={task.priority} size="sm" />
+                          <BlockedIndicator 
+                            blockedByTaskId={task.blocked_by_task_id} 
+                            allTasks={tasks} 
+                          />
+                          {task.linked_payment_id && (
+                            <Badge variant="outline" className="text-xs gap-1">
+                              <Link2 className="w-3 h-3" />
+                              Pagamento
+                            </Badge>
+                          )}
                           {task.notes && (
                             <StickyNote className="w-3.5 h-3.5 text-muted-foreground" />
                           )}
@@ -658,6 +851,23 @@ const Checklist = () => {
                             />
                           </div>
                         </div>
+
+                        {/* Payment Link */}
+                        {wedding && (
+                          <PaymentLinkSelector
+                            weddingId={wedding.id}
+                            currentPaymentId={task.linked_payment_id || null}
+                            onLink={(paymentId) => updateTaskPaymentLink(task.id, paymentId)}
+                          />
+                        )}
+
+                        {/* Task Dependency */}
+                        <TaskDependencySelector
+                          currentTaskId={task.id}
+                          blockedByTaskId={task.blocked_by_task_id || null}
+                          allTasks={tasks}
+                          onUpdate={(blockedBy) => updateTaskDependency(task.id, blockedBy)}
+                        />
 
                         {/* Notes Section */}
                         <Collapsible>
@@ -838,9 +1048,6 @@ const Checklist = () => {
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">
-                Collegando un fornitore, il task apparirà anche nella sua scheda dedicata
-              </p>
             </div>
 
             <div className="space-y-2">
@@ -862,6 +1069,34 @@ const Checklist = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Payment Sync Dialog */}
+      <PaymentSyncDialog
+        open={paymentSyncDialog.open}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPaymentSyncDialog({ open: false, taskId: "", payment: null });
+          }
+        }}
+        paymentDescription={paymentSyncDialog.payment?.description || ""}
+        paymentAmount={paymentSyncDialog.payment?.amount || 0}
+        vendorName={paymentSyncDialog.payment?.expense_item?.vendor?.name || "Fornitore"}
+        onConfirm={handlePaymentSyncConfirm}
+        onSkip={handlePaymentSyncSkip}
+      />
+
+      {/* Blocked Task Warning */}
+      <BlockedTaskWarning
+        open={blockedWarning.open}
+        onOpenChange={(open) => {
+          if (!open) {
+            setBlockedWarning({ open: false, taskId: "", blockingTaskTitle: "" });
+          }
+        }}
+        blockingTaskTitle={blockedWarning.blockingTaskTitle}
+        onConfirm={handleBlockedWarningConfirm}
+        onCancel={handleBlockedWarningCancel}
+      />
 
       {/* Contact Vendor Wizard */}
       {contactVendorTask && wedding && (
