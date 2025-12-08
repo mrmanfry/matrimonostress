@@ -26,7 +26,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { MACRO_CATEGORIES, inferCategoryFromTitle, TaskMacroCategory } from "@/lib/taskCategories";
+import { MACRO_CATEGORIES, inferCategoryFromTitle, mapVendorCategoryToMacro, TaskMacroCategory } from "@/lib/taskCategories";
 
 interface Task {
   id: string;
@@ -456,10 +456,21 @@ const Checklist = () => {
       });
       return;
     }
-    // Auto-infer category if not manually selected or is "altro"
-    const taskCategory = newTask.category === "altro" 
-      ? inferCategoryFromTitle(newTask.title)
-      : newTask.category;
+    // Determine category with priority: 1) Manual selection 2) Vendor category 3) Title inference
+    let taskCategory: TaskMacroCategory = newTask.category;
+    
+    if (newTask.category === "altro") {
+      // Check if a vendor is selected and use its category
+      const selectedVendorId = newTask.vendor_id === "none" ? null : newTask.vendor_id;
+      if (selectedVendorId) {
+        const selectedVendor = vendors.find(v => v.id === selectedVendorId);
+        const vendorCategoryName = selectedVendor?.category?.name;
+        taskCategory = mapVendorCategoryToMacro(vendorCategoryName);
+      } else {
+        // Fallback to title inference
+        taskCategory = inferCategoryFromTitle(newTask.title);
+      }
+    }
     
     const {
       data,
