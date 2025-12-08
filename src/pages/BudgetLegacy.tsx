@@ -487,6 +487,8 @@ export default function BudgetLegacy() {
                     labelLine={false}
                     label={({ name, percent }) => {
                       const percentValue = typeof percent === 'number' ? percent : 0;
+                      // Nascondi label se la percentuale è troppo bassa per evitare sovrapposizioni
+                      if (percentValue < 0.05) return null;
                       return `${name}: ${(percentValue * 100).toFixed(0)}%`;
                     }}
                     outerRadius={80}
@@ -496,7 +498,9 @@ export default function BudgetLegacy() {
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value: any) => formatCurrency(Number(value))} />
+                  <Tooltip 
+                    formatter={(value: any, name: any) => [formatCurrency(Number(value)), name]}
+                  />
                   <Legend />
                 </PieChart>
               </ResponsiveContainer>
