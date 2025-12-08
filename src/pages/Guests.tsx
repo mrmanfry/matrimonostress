@@ -102,7 +102,7 @@ const Guests = () => {
   }, [authState]);
 
   const loadData = async () => {
-    if (!authState.weddingId) {
+    if (authState.status !== "authenticated" || !authState.weddingId) {
       setLoading(false);
       return;
     }
