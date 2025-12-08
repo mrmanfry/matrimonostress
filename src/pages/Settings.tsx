@@ -5,9 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { UserPlus, Trash2, Users, Shield, Plus, Link2, Calendar, DollarSign, Heart } from "lucide-react";
+import { UserPlus, Trash2, Users, Shield, Plus, Link2, Calendar, DollarSign, Heart, Share2, ExternalLink } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { ShareProgressDialog } from "@/components/settings/ShareProgressDialog";
 import { z } from "zod";
 
 const emailSchema = z.string().trim().email("Email non valida").max(255);
@@ -38,6 +39,17 @@ interface PendingInvite {
   status: string;
 }
 
+interface ProgressToken {
+  id: string;
+  token: string;
+  expires_at: string;
+  is_active: boolean;
+  show_checklist: boolean;
+  show_vendors: boolean;
+  show_timeline: boolean;
+  show_countdown: boolean;
+}
+
 const Settings = () => {
   const [wedding, setWedding] = useState<any>(null);
   const [roles, setRoles] = useState<UserRole[]>([]);
@@ -50,6 +62,8 @@ const Settings = () => {
   const [newContributorTarget, setNewContributorTarget] = useState("");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [roleToDelete, setRoleToDelete] = useState<string | null>(null);
+  const [progressToken, setProgressToken] = useState<ProgressToken | null>(null);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
   
   // Wedding data edit states
   const [editMode, setEditMode] = useState(false);
@@ -168,6 +182,18 @@ const Settings = () => {
           setContributors(contributorsData);
         }
       }
+
+      // Load progress token
+      const { data: tokenData } = await supabase
+        .from("progress_tokens")
+        .select("*")
+        .eq("wedding_id", weddingData.id)
+        .eq("is_active", true)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      setProgressToken(tokenData);
     } catch (error) {
       console.error("Error loading data:", error);
     }
@@ -724,6 +750,81 @@ const Settings = () => {
           </p>
         </CardContent>
       </Card>
+
+      {/* Share Progress Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Share2 className="w-5 h-5 text-purple-500" />
+            Condividi Progresso
+          </CardTitle>
+          <CardDescription>
+            Crea un link pubblico per mostrare il progresso del matrimonio a parenti e amici
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {progressToken ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Input 
+                  value={`${window.location.origin}/progress/${progressToken.token}`} 
+                  readOnly 
+                  className="text-sm"
+                />
+                <Button 
+                  variant="outline"
+                  size="icon"
+                  onClick={() => {
+                    navigator.clipboard.writeText(`${window.location.origin}/progress/${progressToken.token}`);
+                    toast({
+                      title: "Copiato!",
+                      description: "Link copiato negli appunti",
+                    });
+                  }}
+                >
+                  <Link2 className="w-4 h-4" />
+                </Button>
+                <Button 
+                  variant="outline"
+                  size="icon"
+                  onClick={() => window.open(`${window.location.origin}/progress/${progressToken.token}`, "_blank")}
+                >
+                  <ExternalLink className="w-4 h-4" />
+                </Button>
+              </div>
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  Scade il: {new Date(progressToken.expires_at).toLocaleDateString("it-IT")}
+                </p>
+                <Button variant="outline" size="sm" onClick={() => setShareDialogOpen(true)}>
+                  Modifica Visibilità
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button onClick={() => setShareDialogOpen(true)} className="w-full md:w-auto gap-2">
+              <Share2 className="w-4 h-4" />
+              Crea Link Pubblico
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Share Progress Dialog */}
+      <ShareProgressDialog
+        open={shareDialogOpen}
+        onOpenChange={setShareDialogOpen}
+        weddingId={wedding?.id || ""}
+        existingToken={progressToken}
+        onTokenCreated={(token) => {
+          setProgressToken(token);
+          loadData();
+        }}
+        onTokenDeleted={() => {
+          setProgressToken(null);
+          setShareDialogOpen(false);
+        }}
+      />
 
       {/* Current Collaborators */}
       <Card className="p-6">
