@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { CheckSquare, Plus, Calendar, Filter, ChevronDown, ChevronUp, Trash2, Sparkles, MessageSquare, StickyNote, Phone, Mail, Link2, Lock, List, CalendarDays, ExternalLink, CalendarPlus, X } from "lucide-react";
+import { CheckSquare, Plus, Calendar, Filter, ChevronDown, ChevronUp, Trash2, Sparkles, MessageSquare, StickyNote, Phone, Mail, Link2, Lock, List, CalendarDays, ExternalLink, CalendarPlus, X, LayoutGrid } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ChecklistCalendarView } from "@/components/checklist/ChecklistCalendarView";
 import { ChecklistExportMenu } from "@/components/checklist/ChecklistExportMenu";
@@ -20,11 +20,14 @@ import { TaskDependencySelector, BlockedIndicator } from "@/components/checklist
 import { PaymentSyncDialog } from "@/components/checklist/PaymentSyncDialog";
 import { BlockedTaskWarning } from "@/components/checklist/BlockedTaskWarning";
 import { FollowUpDialog, FollowUpData } from "@/components/checklist/FollowUpDialog";
+import { CategoryGroupView } from "@/components/checklist/CategoryGroupView";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { MACRO_CATEGORIES, inferCategoryFromTitle, TaskMacroCategory } from "@/lib/taskCategories";
+
 interface Task {
   id: string;
   title: string;
@@ -40,6 +43,7 @@ interface Task {
   assigned_to?: string | null;
   blocked_by_task_id?: string | null;
   linked_payment_id?: string | null;
+  category?: string | null;
 }
 interface Payment {
   id: string;
@@ -75,10 +79,11 @@ const Checklist = () => {
   const [filteredTasks, setFilteredTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>("pending");
+  const [filterCategory, setFilterCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
   const [addTaskOpen, setAddTaskOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
+  const [viewMode, setViewMode] = useState<"list" | "calendar" | "category">("list");
   const [newTask, setNewTask] = useState({
     title: "",
     description: "",
@@ -86,7 +91,8 @@ const Checklist = () => {
     vendor_id: "",
     priority: "medium",
     notes: "",
-    assigned_to: "both"
+    assigned_to: "both",
+    category: "altro" as TaskMacroCategory
   });
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [userProfile, setUserProfile] = useState<{
@@ -159,7 +165,7 @@ const Checklist = () => {
   }, [loading, tasks]);
   useEffect(() => {
     applyFilters();
-  }, [tasks, filterStatus, searchQuery]);
+  }, [tasks, filterStatus, filterCategory, searchQuery]);
   const loadData = async () => {
     try {
       const {
@@ -209,6 +215,9 @@ const Checklist = () => {
     let filtered = [...tasks];
     if (filterStatus !== "all") {
       filtered = filtered.filter(t => t.status === filterStatus);
+    }
+    if (filterCategory !== "all") {
+      filtered = filtered.filter(t => (t.category || "altro") === filterCategory);
     }
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -447,6 +456,11 @@ const Checklist = () => {
       });
       return;
     }
+    // Auto-infer category if not manually selected or is "altro"
+    const taskCategory = newTask.category === "altro" 
+      ? inferCategoryFromTitle(newTask.title)
+      : newTask.category;
+    
     const {
       data,
       error
@@ -459,7 +473,8 @@ const Checklist = () => {
       status: "pending",
       priority: newTask.priority,
       notes: newTask.notes || null,
-      assigned_to: newTask.assigned_to === "both" ? null : newTask.assigned_to
+      assigned_to: newTask.assigned_to === "both" ? null : newTask.assigned_to,
+      category: taskCategory
     }).select().single();
     if (error) {
       toast({
@@ -477,7 +492,8 @@ const Checklist = () => {
       vendor_id: "",
       priority: "medium",
       notes: "",
-      assigned_to: "both"
+      assigned_to: "both",
+      category: "altro"
     });
     setAddTaskOpen(false);
     toast({
@@ -667,11 +683,15 @@ const Checklist = () => {
           <div className="flex border rounded-lg overflow-hidden">
             <Button variant={viewMode === "list" ? "default" : "ghost"} size="sm" onClick={() => setViewMode("list")} className="rounded-none gap-1">
               <List className="w-4 h-4" />
-              Lista
+              <span className="hidden sm:inline">Lista</span>
+            </Button>
+            <Button variant={viewMode === "category" ? "default" : "ghost"} size="sm" onClick={() => setViewMode("category")} className="rounded-none gap-1">
+              <LayoutGrid className="w-4 h-4" />
+              <span className="hidden sm:inline">Categoria</span>
             </Button>
             <Button variant={viewMode === "calendar" ? "default" : "ghost"} size="sm" onClick={() => setViewMode("calendar")} className="rounded-none gap-1">
               <CalendarDays className="w-4 h-4" />
-              Calendario
+              <span className="hidden sm:inline">Calendario</span>
             </Button>
           </div>
           
@@ -697,8 +717,9 @@ const Checklist = () => {
       {/* Calendar View */}
       {viewMode === "calendar" && <ChecklistCalendarView tasks={tasks} onTaskClick={handleAttentionTaskClick} />}
 
-      {/* List View */}
-      {viewMode === "list" && <>
+      {/* Category View */}
+      {viewMode === "category" && (
+        <>
           {/* Filters */}
           <Card className="p-4">
             <div className="flex flex-col lg:flex-row gap-4">
@@ -707,7 +728,7 @@ const Checklist = () => {
               </div>
               <div className="flex gap-2">
                 <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger className="w-[180px]">
+                  <SelectTrigger className="w-[150px]">
                     <Filter className="w-4 h-4 mr-2" />
                     <SelectValue />
                   </SelectTrigger>
@@ -715,6 +736,59 @@ const Checklist = () => {
                     <SelectItem value="all">Tutti</SelectItem>
                     <SelectItem value="pending">In Sospeso</SelectItem>
                     <SelectItem value="completed">Completati</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </Card>
+
+          <CategoryGroupView
+            tasks={filteredTasks}
+            allTasks={tasks}
+            vendors={vendors}
+            wedding={wedding}
+            expandedTask={expandedTask}
+            onExpandTask={setExpandedTask}
+            onToggleStatus={toggleTaskStatus}
+            onDeleteTask={deleteTask}
+            onNavigateToVendor={(vendorId) => navigate(`/app/vendors/${vendorId}`)}
+            getDueDateBadge={getDueDateBadge}
+            isTaskBlocked={isTaskBlocked}
+            renderTaskExpanded={(task, vendor) => null}
+          />
+        </>
+      )}
+
+      {/* List View */}
+      {viewMode === "list" && <>
+          {/* Filters */}
+          <Card className="p-4">
+            <div className="flex flex-col lg:flex-row gap-4">
+              <div className="flex-1">
+                <Input placeholder="Cerca task..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                <Select value={filterStatus} onValueChange={setFilterStatus}>
+                  <SelectTrigger className="w-[150px]">
+                    <Filter className="w-4 h-4 mr-2" />
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tutti</SelectItem>
+                    <SelectItem value="pending">In Sospeso</SelectItem>
+                    <SelectItem value="completed">Completati</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={filterCategory} onValueChange={setFilterCategory}>
+                  <SelectTrigger className="w-[160px]">
+                    <LayoutGrid className="w-4 h-4 mr-2" />
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tutte le aree</SelectItem>
+                    {MACRO_CATEGORIES.map(cat => (
+                      <SelectItem key={cat.id} value={cat.id}>{cat.label}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -923,6 +997,23 @@ const Checklist = () => {
               ...newTask,
               due_date: e.target.value
             })} />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="category">Area</Label>
+              <Select value={newTask.category} onValueChange={value => setNewTask({
+              ...newTask,
+              category: value as TaskMacroCategory
+            })}>
+                <SelectTrigger id="category">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {MACRO_CATEGORIES.map(cat => (
+                    <SelectItem key={cat.id} value={cat.id}>{cat.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             
             <div className="space-y-2">

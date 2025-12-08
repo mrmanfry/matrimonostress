@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           assigned_to: string | null
           blocked_by_task_id: string | null
+          category: string | null
           created_at: string
           description: string | null
           due_date: string | null
@@ -35,6 +36,7 @@ export type Database = {
         Insert: {
           assigned_to?: string | null
           blocked_by_task_id?: string | null
+          category?: string | null
           created_at?: string
           description?: string | null
           due_date?: string | null
@@ -52,6 +54,7 @@ export type Database = {
         Update: {
           assigned_to?: string | null
           blocked_by_task_id?: string | null
+          category?: string | null
           created_at?: string
           description?: string | null
           due_date?: string | null
