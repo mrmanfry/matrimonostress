@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { CheckSquare, Plus, Calendar, Filter, ChevronDown, ChevronUp, Trash2, Sparkles, MessageSquare, StickyNote, Phone, Mail, Link2, Lock, List, CalendarDays, ExternalLink } from "lucide-react";
+import { CheckSquare, Plus, Calendar, Filter, ChevronDown, ChevronUp, Trash2, Sparkles, MessageSquare, StickyNote, Phone, Mail, Link2, Lock, List, CalendarDays, ExternalLink, CalendarPlus, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ChecklistCalendarView } from "@/components/checklist/ChecklistCalendarView";
 import { ChecklistExportMenu } from "@/components/checklist/ChecklistExportMenu";
@@ -19,6 +19,7 @@ import { PaymentLinkSelector } from "@/components/checklist/PaymentLinkSelector"
 import { TaskDependencySelector, BlockedIndicator } from "@/components/checklist/TaskDependencySelector";
 import { PaymentSyncDialog } from "@/components/checklist/PaymentSyncDialog";
 import { BlockedTaskWarning } from "@/components/checklist/BlockedTaskWarning";
+import { FollowUpDialog, FollowUpData } from "@/components/checklist/FollowUpDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -117,6 +118,16 @@ const Checklist = () => {
     taskId: "",
     blockingTaskTitle: ""
   });
+
+  // Smart Follow-up state
+  const [followUpDialog, setFollowUpDialog] = useState<{
+    open: boolean;
+    task: Task | null;
+  }>({
+    open: false,
+    task: null
+  });
+
   const {
     toast
   } = useToast();
@@ -278,21 +289,96 @@ const Checklist = () => {
           variant: "destructive"
         });
       } else {
-        toast({
-          title: "Sincronizzato!",
-          description: "Task e pagamento segnati come completati"
-        });
+        // Show follow-up prompt via toast with action buttons
+        showFollowUpToast(task);
       }
+    } else if (newStatus === "completed" && task) {
+      // Show follow-up prompt for completed tasks
+      showFollowUpToast(task);
     } else {
       toast({
-        title: newStatus === "completed" ? "Completato!" : "Ripristinato",
-        description: newStatus === "completed" ? "Task segnato come completato" : "Task rimesso in sospeso"
+        title: "Ripristinato",
+        description: "Task rimesso in sospeso"
       });
     }
     setTasks(prev => prev.map(t => t.id === taskId ? {
       ...t,
       status: newStatus
     } : t));
+  };
+
+  // Smart Follow-up: show interactive toast when task is completed
+  const showFollowUpToast = (task: Task) => {
+    toast({
+      title: "Task completato!",
+      description: (
+        <div className="flex flex-col gap-3 mt-2">
+          <span className="text-sm text-muted-foreground">
+            Vuoi programmare un follow-up?
+          </span>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                // Just dismiss - the toast will auto-dismiss
+              }}
+              className="flex-1"
+            >
+              <X className="h-3 w-3 mr-1" />
+              No, grazie
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => {
+                setFollowUpDialog({ open: true, task });
+              }}
+              className="flex-1"
+            >
+              <CalendarPlus className="h-3 w-3 mr-1" />
+              Sì, crea
+            </Button>
+          </div>
+        </div>
+      ),
+      duration: 8000, // Give user time to decide
+    });
+  };
+
+  // Handle follow-up creation
+  const handleCreateFollowUp = async (followUpData: FollowUpData) => {
+    if (!wedding) return;
+
+    const { data, error } = await supabase
+      .from("checklist_tasks")
+      .insert({
+        wedding_id: wedding.id,
+        title: followUpData.title,
+        description: followUpData.description || null,
+        due_date: followUpData.due_date || null,
+        vendor_id: followUpData.vendor_id,
+        status: "pending",
+        priority: "medium",
+        assigned_to: followUpData.assigned_to,
+        blocked_by_task_id: followUpData.parent_task_id, // Link to parent task
+      })
+      .select()
+      .single();
+
+    if (error) {
+      toast({
+        title: "Errore",
+        description: "Impossibile creare il follow-up",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setTasks(prev => [...prev, data]);
+    toast({
+      title: "Follow-up creato!",
+      description: `"${followUpData.title}" aggiunto alla checklist`,
+    });
   };
   const handlePaymentSyncConfirm = () => {
     const {
@@ -895,6 +981,19 @@ const Checklist = () => {
         });
       }
     }} blockingTaskTitle={blockedWarning.blockingTaskTitle} onConfirm={handleBlockedWarningConfirm} onCancel={handleBlockedWarningCancel} />
+
+      {/* Smart Follow-up Dialog */}
+      <FollowUpDialog
+        open={followUpDialog.open}
+        onClose={() => setFollowUpDialog({ open: false, task: null })}
+        onConfirm={handleCreateFollowUp}
+        originalTask={{
+          id: followUpDialog.task?.id || "",
+          title: followUpDialog.task?.title || "",
+          vendor_id: followUpDialog.task?.vendor_id || null,
+          assigned_to: followUpDialog.task?.assigned_to || null,
+        }}
+      />
 
       {/* Contact Vendor Wizard */}
       {contactVendorTask && wedding && <ContactVendorWizard open={!!contactVendorTask} onOpenChange={open => !open && setContactVendorTask(null)} task={{
