@@ -664,6 +664,15 @@ export default function BudgetLegacy() {
                     );
                   })}
                 </tbody>
+                <tfoot>
+                  <tr className="border-t-2 bg-muted/50 font-semibold">
+                    <td className="py-3 px-2 text-sm">Totale</td>
+                    <td className="py-3 px-2 hidden md:table-cell"></td>
+                    <td className="py-3 px-2 text-right text-sm">{formatCurrency(getTotalCommitment())}</td>
+                    <td className="py-3 px-2 text-right hidden sm:table-cell text-sm text-green-600 dark:text-green-400">{formatCurrency(getTotalPaid())}</td>
+                    <td className="py-3 px-2 hidden lg:table-cell"></td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           )}
