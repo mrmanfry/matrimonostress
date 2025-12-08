@@ -35,9 +35,20 @@ interface Payment {
 }
 
 serve(async (req: Request): Promise<Response> => {
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Validate cron secret for scheduled invocations
+  const cronSecret = req.headers.get("X-Cron-Secret");
+  const expectedSecret = Deno.env.get("CRON_SECRET");
+  
+  if (!expectedSecret || cronSecret !== expectedSecret) {
+    console.error("Unauthorized cron request - invalid or missing secret");
+    return new Response(
+      JSON.stringify({ error: "Unauthorized" }),
+      { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 
   try {
@@ -45,14 +56,12 @@ serve(async (req: Request): Promise<Response> => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Calcola la data tra 7 giorni
     const targetDate = new Date();
     targetDate.setDate(targetDate.getDate() + 7);
     const formattedDate = targetDate.toISOString().split('T')[0];
 
     console.log(`📅 Checking for payments due on: ${formattedDate}`);
 
-    // Query pagamenti in scadenza tra 7 giorni
     const { data: payments, error } = await supabase
       .from("payments")
       .select(`
@@ -97,7 +106,6 @@ serve(async (req: Request): Promise<Response> => {
 
     let sentCount = 0;
 
-    // Invia email per ogni pagamento
     for (const payment of payments as unknown as Payment[]) {
       try {
         const wedding = payment.expenses.weddings;
@@ -108,8 +116,7 @@ serve(async (req: Request): Promise<Response> => {
           continue;
         }
 
-        // Email destinataria (in produzione useresti l'email vera del profilo)
-        const recipientEmail = "onboarding@resend.dev"; // Sostituisci con coPlanner.email quando disponibile
+        const recipientEmail = "onboarding@resend.dev";
 
         const emailHtml = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -125,7 +132,7 @@ serve(async (req: Request): Promise<Response> => {
             </div>
 
             <p>Accedi alla piattaforma per gestire i tuoi pagamenti:</p>
-            <a href="${supabaseUrl.replace('supabase.co', 'lovable.app')}/budget" 
+            <a href="https://stenders.cloud/app/budget" 
                style="display: inline-block; background: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 15px 0;">
               Vai al Budget
             </a>

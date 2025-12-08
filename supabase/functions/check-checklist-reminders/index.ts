@@ -38,12 +38,24 @@ interface RecipientTasks {
   firstName: string;
   personalTasks: ChecklistTask[];
   sharedTasks: ChecklistTask[];
-  partnerName: string; // Name of the other partner for "condivise con X"
+  partnerName: string;
 }
 
 serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Validate cron secret for scheduled invocations
+  const cronSecret = req.headers.get("X-Cron-Secret");
+  const expectedSecret = Deno.env.get("CRON_SECRET");
+  
+  if (!expectedSecret || cronSecret !== expectedSecret) {
+    console.error("Unauthorized cron request - invalid or missing secret");
+    return new Response(
+      JSON.stringify({ error: "Unauthorized" }),
+      { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 
   try {
@@ -55,7 +67,6 @@ serve(async (req: Request): Promise<Response> => {
 
     console.log(`Checking for checklist tasks due on: ${tomorrowDateString}`);
 
-    // Query tasks with assigned_to field
     const { data: tasks, error } = await supabase
       .from("checklist_tasks")
       .select(`
@@ -96,7 +107,6 @@ serve(async (req: Request): Promise<Response> => {
 
     let remindersSent = 0;
 
-    // Group tasks by wedding first
     const tasksByWedding = tasks.reduce((acc: { [key: string]: ChecklistTask[] }, task: any) => {
       const weddingId = task.wedding.id;
       if (!acc[weddingId]) {
@@ -106,14 +116,11 @@ serve(async (req: Request): Promise<Response> => {
       return acc;
     }, {});
 
-    // Process each wedding
     for (const [weddingId, weddingTasks] of Object.entries(tasksByWedding)) {
       const wedding = weddingTasks[0].wedding;
       
-      // Build map of partner name -> co-planner email and user info
       const partnerEmailMap: { [partnerKey: string]: { email: string; firstName: string } } = {};
       
-      // Get all co-planners for this wedding
       const coplanners = wedding.user_roles.filter(r => r.role === 'co_planner');
       
       for (const coplanner of coplanners) {
@@ -122,7 +129,6 @@ serve(async (req: Request): Promise<Response> => {
         
         const firstName = coplanner.profiles?.first_name || '';
         
-        // Match first_name to partner1_name or partner2_name
         if (firstName.toLowerCase() === wedding.partner1_name.toLowerCase()) {
           partnerEmailMap['partner1'] = { email: userAuth.user.email, firstName };
         } else if (firstName.toLowerCase() === wedding.partner2_name.toLowerCase()) {
@@ -132,11 +138,9 @@ serve(async (req: Request): Promise<Response> => {
 
       console.log(`Wedding ${weddingId} - Partner mapping:`, partnerEmailMap);
 
-      // If no co-planners found with matching names, fallback to sending to all co-planners
       if (Object.keys(partnerEmailMap).length === 0) {
         console.log(`No partner name matches found, falling back to all co-planners`);
         
-        // Fallback: send to all co-planners with generic email
         const recipients: string[] = [];
         for (const coplanner of coplanners) {
           const { data: userAuth } = await supabase.auth.admin.getUserById(coplanner.user_id);
@@ -152,12 +156,9 @@ serve(async (req: Request): Promise<Response> => {
         continue;
       }
 
-      // Build recipient-specific task lists
       const recipientTasks: { [email: string]: RecipientTasks } = {};
       
-      // Initialize recipients
       for (const [partnerKey, { email, firstName }] of Object.entries(partnerEmailMap)) {
-        const otherPartnerKey = partnerKey === 'partner1' ? 'partner2' : 'partner1';
         const otherPartnerName = partnerKey === 'partner1' ? wedding.partner2_name : wedding.partner1_name;
         
         recipientTasks[email] = {
@@ -169,23 +170,18 @@ serve(async (req: Request): Promise<Response> => {
         };
       }
 
-      // Categorize tasks
       for (const task of weddingTasks) {
         if (task.assigned_to === null) {
-          // Shared task - add to both partners' shared lists
           for (const email of Object.keys(recipientTasks)) {
             recipientTasks[email].sharedTasks.push(task);
           }
         } else if (task.assigned_to === 'partner1' && partnerEmailMap['partner1']) {
-          // Personal task for partner1
           recipientTasks[partnerEmailMap['partner1'].email].personalTasks.push(task);
         } else if (task.assigned_to === 'partner2' && partnerEmailMap['partner2']) {
-          // Personal task for partner2
           recipientTasks[partnerEmailMap['partner2'].email].personalTasks.push(task);
         }
       }
 
-      // Send personalized emails
       for (const [email, recipient] of Object.entries(recipientTasks)) {
         const totalTasks = recipient.personalTasks.length + recipient.sharedTasks.length;
         
@@ -248,7 +244,6 @@ function buildPersonalizedEmail(
   
   let tasksHtml = '';
   
-  // Personal tasks section
   if (personalTasks.length > 0) {
     tasksHtml += `
       <div style="margin-bottom: 20px;">
@@ -265,7 +260,6 @@ function buildPersonalizedEmail(
     `;
   }
   
-  // Shared tasks section
   if (sharedTasks.length > 0) {
     tasksHtml += `
       <div style="margin-bottom: 20px;">
