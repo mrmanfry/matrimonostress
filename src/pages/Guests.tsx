@@ -102,15 +102,17 @@ const Guests = () => {
   }, [authState]);
 
   const loadData = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+    if (!authState.weddingId) {
+      setLoading(false);
+      return;
+    }
 
+    try {
       const { data: weddingData } = await supabase
         .from("weddings")
         .select("id, partner1_name, partner2_name")
-        .limit(1)
-        .maybeSingle();
+        .eq("id", authState.weddingId)
+        .single();
 
       if (!weddingData) return;
       setWedding(weddingData);

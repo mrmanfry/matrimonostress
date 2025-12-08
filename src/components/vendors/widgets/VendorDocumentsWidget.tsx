@@ -32,18 +32,29 @@ export function VendorDocumentsWidget({ vendorId, vendorName }: VendorDocumentsW
   const [renamingDoc, setRenamingDoc] = useState<Document | null>(null);
   const [newFileName, setNewFileName] = useState("");
 
-  // Fetch wedding data for dialogs
+  // Fetch wedding data for dialogs (via user_roles for safety)
   const { data: wedding } = useQuery({
     queryKey: ["wedding-for-vendor"],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      // Get weddingId from user_roles first (safer than limit(1))
+      const { data: roleData, error: roleError } = await supabase
+        .from("user_roles")
+        .select("wedding_id")
+        .eq("user_id", user.id)
+        .limit(1)
+        .maybeSingle();
+
+      if (roleError) throw roleError;
+      if (!roleData?.wedding_id) return null;
+
       const { data, error } = await supabase
         .from("weddings")
         .select("id, wedding_date")
-        .limit(1)
-        .maybeSingle();
+        .eq("id", roleData.wedding_id)
+        .single();
       
       if (error) throw error;
       return data;
