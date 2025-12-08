@@ -23,7 +23,9 @@ import {
   Lock,
   List,
   CalendarDays,
+  ExternalLink,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { ChecklistCalendarView } from "@/components/checklist/ChecklistCalendarView";
 import { ChecklistExportMenu } from "@/components/checklist/ChecklistExportMenu";
 import { ContactVendorWizard } from "@/components/checklist/ContactVendorWizard";
@@ -105,6 +107,7 @@ interface Wedding {
 }
 
 const Checklist = () => {
+  const navigate = useNavigate();
   const [wedding, setWedding] = useState<Wedding | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [filteredTasks, setFilteredTasks] = useState<Task[]>([]);
@@ -825,9 +828,13 @@ const Checklist = () => {
                           )}
                         </div>
                         {vendor && (
-                          <p className="text-sm text-muted-foreground mt-0.5">
+                          <button 
+                            onClick={() => navigate(`/app/vendors/${vendor.id}`)}
+                            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors mt-0.5"
+                          >
                             {vendor.name}
-                          </p>
+                            <ExternalLink className="w-3 h-3" />
+                          </button>
                         )}
                         <div className="flex items-center gap-3 mt-1 flex-wrap">
                           {task.due_date && (
