@@ -824,6 +824,11 @@ const Checklist = () => {
                             <StickyNote className="w-3.5 h-3.5 text-muted-foreground" />
                           )}
                         </div>
+                        {vendor && (
+                          <p className="text-sm text-muted-foreground mt-0.5">
+                            {vendor.name}
+                          </p>
+                        )}
                         <div className="flex items-center gap-3 mt-1 flex-wrap">
                           {task.due_date && (
                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
