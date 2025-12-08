@@ -67,89 +67,88 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loadWeddingId = async (userId: string, previousWeddingId?: string | null): Promise<string | null> => {
     console.log('[AuthContext] Loading weddingId for user:', userId);
     
-    // Multi-layer fallback: previousWeddingId OR localStorage
+    // 1. Recupera ID dalla cache
     const cachedWeddingId = previousWeddingId || weddingStorage.get();
     console.log('[AuthContext] Cached weddingId:', cachedWeddingId || 'none');
     
-    // Validate cached weddingId before using it (with timeout)
-    if (cachedWeddingId) {
+    // Se non c'è cache, dobbiamo per forza aspettare il DB
+    if (!cachedWeddingId) {
+      console.log('[AuthContext] No cache, fetching from DB...');
       try {
-        const validationResult = await fetchWithTimeout(
-          async () => {
-            const result = await supabase
-              .from("user_roles")
-              .select("wedding_id")
-              .eq("user_id", userId)
-              .eq("wedding_id", cachedWeddingId)
-              .maybeSingle();
-            return result;
-          },
-          5000, // 5 second timeout
-          null  // fallback if timeout
-        );
+        const roleQuery = async () => {
+          const result = await supabase
+            .from("user_roles")
+            .select("wedding_id")
+            .eq("user_id", userId)
+            .maybeSingle();
+          console.log('[AuthContext] User role query completed:', result.data);
+          return result;
+        };
         
-        if (validationResult?.data) {
-          console.log('[AuthContext] Cached weddingId validated:', cachedWeddingId);
-          return cachedWeddingId;
-        } else {
-          console.log('[AuthContext] Cached weddingId invalid or timeout, clearing cache');
-          weddingStorage.clear();
+        const weddingQuery = async () => {
+          const result = await supabase
+            .from("weddings")
+            .select("id")
+            .eq("created_by", userId)
+            .maybeSingle();
+          console.log('[AuthContext] Wedding query completed:', result.data);
+          return result;
+        };
+        
+        // Timeout più rilassato (15s) per il primo caricamento
+        const [roleResult, weddingResult] = await Promise.all([
+          fetchWithTimeout(roleQuery, 15000, null),
+          fetchWithTimeout(weddingQuery, 15000, null)
+        ]);
+        
+        if (roleResult?.data?.wedding_id) {
+          console.log('[AuthContext] Found weddingId from role:', roleResult.data.wedding_id);
+          weddingStorage.set(roleResult.data.wedding_id);
+          return roleResult.data.wedding_id;
         }
+        
+        if (weddingResult?.data?.id) {
+          console.log('[AuthContext] Found weddingId from weddings:', weddingResult.data.id);
+          weddingStorage.set(weddingResult.data.id);
+          return weddingResult.data.id;
+        }
+        
+        console.log('[AuthContext] No weddingId found in DB queries');
+        return null;
       } catch (error) {
-        console.error('[AuthContext] Error validating cached weddingId:', error);
-        weddingStorage.clear();
+        console.error('[AuthContext] Error loading fresh wedding_id:', error);
+        return null;
       }
     }
     
+    // 2. Se ABBIAMO la cache, la verifichiamo in background ma SENZA bloccare
+    console.log('[AuthContext] Verifying cached weddingId:', cachedWeddingId);
     try {
-      // Execute BOTH queries in PARALLEL for faster loading
-      const roleQuery = async () => {
-        const result = await supabase
-          .from("user_roles")
-          .select("wedding_id")
-          .eq("user_id", userId)
-          .maybeSingle();
-        console.log('[AuthContext] User role query completed:', result.data);
-        return result;
-      };
-      
-      const weddingQuery = async () => {
-        const result = await supabase
-          .from("weddings")
-          .select("id")
-          .eq("created_by", userId)
-          .maybeSingle();
-        console.log('[AuthContext] Wedding query completed:', result.data);
-        return result;
-      };
-      
-      // Run both queries in parallel with 5s timeout each
-      const [roleResult, weddingResult] = await Promise.all([
-        fetchWithTimeout(roleQuery, 5000, null),
-        fetchWithTimeout(weddingQuery, 5000, null)
-      ]);
-      
-      // Check role result first (more specific)
-      if (roleResult?.data?.wedding_id) {
-        console.log('[AuthContext] Found weddingId from role:', roleResult.data.wedding_id);
-        weddingStorage.set(roleResult.data.wedding_id);
-        return roleResult.data.wedding_id;
+      // Query diretta senza timeout wrapper - se fallisce, ci fidiamo della cache
+      const { data, error } = await supabase
+        .from('weddings')
+        .select('id')
+        .eq('id', cachedWeddingId)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      // 3. Solo se il DB dice ESPLICITAMENTE "Non esiste" (data è null ma senza errori di rete)
+      // allora invalidiamo la cache.
+      if (!data) {
+        console.warn('[AuthContext] DB confirmed cached weddingId is invalid. Clearing cache.');
+        weddingStorage.clear();
+        // Tentiamo di ricaricare dal DB
+        return loadWeddingId(userId, null);
       }
-      
-      // Then check wedding result
-      if (weddingResult?.data?.id) {
-        console.log('[AuthContext] Found weddingId from weddings:', weddingResult.data.id);
-        weddingStorage.set(weddingResult.data.id);
-        return weddingResult.data.id;
-      }
-      
-      // No weddingId found in either query
-      console.log('[AuthContext] No weddingId found in DB queries');
-      return null;
-      
+
+      console.log('[AuthContext] Cached weddingId validated:', cachedWeddingId);
+      return cachedWeddingId;
+
     } catch (error) {
-      console.error('[AuthContext] Error loading wedding_id:', error);
-      return cachedWeddingId || null;
+      // 4. FIX SALVAVITA: Se c'è errore di rete/timeout, CI FIDIAMO DELLA CACHE
+      console.warn('[AuthContext] Verification failed (network/timeout), trusting cache:', error);
+      return cachedWeddingId; 
     }
   };
 
