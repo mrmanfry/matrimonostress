@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { CheckCircle2, Circle, Calendar, ListTodo, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import { PriorityBadge } from "@/components/checklist/PriorityBadge";
 
 interface ChecklistTask {
   id: string;
@@ -15,6 +16,7 @@ interface ChecklistTask {
   status: string;
   due_date: string | null;
   assigned_to: string | null;
+  priority?: string;
 }
 
 interface VendorChecklistWidgetProps {
@@ -137,13 +139,16 @@ export function VendorChecklistWidget({ vendorId }: VendorChecklistWidgetProps) 
                   />
                   
                   <div className="flex-1 min-w-0">
-                    <p
-                      className={`text-sm font-medium ${
-                        isCompleted ? "line-through text-muted-foreground" : "text-foreground"
-                      }`}
-                    >
-                      {task.title}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p
+                        className={`text-sm font-medium ${
+                          isCompleted ? "line-through text-muted-foreground" : "text-foreground"
+                        }`}
+                      >
+                        {task.title}
+                      </p>
+                      <PriorityBadge priority={task.priority} size="sm" />
+                    </div>
                     
                     {task.description && (
                       <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
