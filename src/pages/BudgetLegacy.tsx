@@ -408,7 +408,7 @@ export default function BudgetLegacy() {
       </Alert>
 
       {/* KPI Cards */}
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-5">
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-xs md:text-sm font-medium">Budget Totale Prefissato</CardTitle>
@@ -446,6 +446,16 @@ export default function BudgetLegacy() {
           <CardContent>
             <div className="text-xl md:text-2xl font-bold text-blue-600 dark:text-blue-400">{formatCurrency(getTotalPaid())}</div>
             <p className="text-xs text-muted-foreground mt-1">Pagamenti effettuati</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-xs md:text-sm font-medium">Da Pagare</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-xl md:text-2xl font-bold text-red-600 dark:text-red-400">{formatCurrency(getTotalCommitment() - getTotalPaid())}</div>
+            <p className="text-xs text-muted-foreground mt-1">Residuo da saldare</p>
           </CardContent>
         </Card>
       </div>
