@@ -42,10 +42,21 @@ serve(async (req: Request): Promise<Response> => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Validate cron secret for scheduled invocations
+  const cronSecret = req.headers.get("X-Cron-Secret");
+  const expectedSecret = Deno.env.get("CRON_SECRET");
+  
+  if (!expectedSecret || cronSecret !== expectedSecret) {
+    console.error("Unauthorized cron request - invalid or missing secret");
+    return new Response(
+      JSON.stringify({ error: "Unauthorized" }),
+      { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
   try {
     const supabase = createClient(supabaseUrl, supabaseKey);
     
-    // Get date ranges
     const today = new Date();
     const nextWeek = new Date();
     nextWeek.setDate(today.getDate() + 7);
@@ -55,7 +66,6 @@ serve(async (req: Request): Promise<Response> => {
 
     console.log(`Generating weekly digest for period: ${todayStr} to ${nextWeekStr}`);
 
-    // Get all active weddings with user roles
     const { data: weddings, error: weddingsError } = await supabase
       .from("weddings")
       .select(`
@@ -89,16 +99,13 @@ serve(async (req: Request): Promise<Response> => {
     let digestsSent = 0;
 
     for (const wedding of weddings) {
-      // Collect recipients (co-planners and managers)
       const recipients: string[] = [];
       
-      // Add wedding creator
       const { data: creatorAuth } = await supabase.auth.admin.getUserById(wedding.created_by);
       if (creatorAuth?.user?.email) {
         recipients.push(creatorAuth.user.email);
       }
 
-      // Add other co-planners and managers
       for (const role of wedding.user_roles || []) {
         if (role.role === 'co_planner' || role.role === 'manager') {
           const { data: userAuth } = await supabase.auth.admin.getUserById(role.user_id);
@@ -113,7 +120,6 @@ serve(async (req: Request): Promise<Response> => {
         continue;
       }
 
-      // Fetch pending tasks
       const { data: tasks } = await supabase
         .from("checklist_tasks")
         .select("id, title, due_date, status, priority")
@@ -121,7 +127,6 @@ serve(async (req: Request): Promise<Response> => {
         .eq("status", "pending")
         .order("due_date", { ascending: true });
 
-      // Fetch pending payments with expense info
       const { data: expenseItems } = await supabase
         .from("expense_items")
         .select("id")
@@ -142,7 +147,6 @@ serve(async (req: Request): Promise<Response> => {
         payments = paymentsData || [];
       }
 
-      // Calculate stats
       const overdueTasks = (tasks || []).filter(t => 
         t.due_date && new Date(t.due_date) < today
       );
@@ -158,18 +162,15 @@ serve(async (req: Request): Promise<Response> => {
         new Date(p.due_date) >= today && new Date(p.due_date) <= nextWeek
       );
 
-      // Skip if nothing to report
       if (overdueTasks.length === 0 && upcomingTasks.length === 0 && 
           overduePayments.length === 0 && upcomingPayments.length === 0) {
         console.log(`No items to report for wedding ${wedding.id}`);
         continue;
       }
 
-      // Calculate days until wedding
       const weddingDate = new Date(wedding.wedding_date);
       const daysUntilWedding = Math.ceil((weddingDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
-      // Build email HTML
       const weddingName = `${wedding.partner1_name} & ${wedding.partner2_name}`;
       const appUrl = Deno.env.get("APP_URL") || "https://stenders.cloud";
 
@@ -255,10 +256,8 @@ function buildDigestEmail({
     }
   };
 
-  // Build sections
   let sectionsHtml = '';
 
-  // Alert section for overdue items
   if (overdueTasks.length > 0 || overduePayments.length > 0) {
     sectionsHtml += `
       <div style="background: #FEE2E2; border-left: 4px solid #DC2626; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
@@ -273,13 +272,12 @@ function buildDigestEmail({
     `;
   }
 
-  // Tasks section
   if (upcomingTasks.length > 0 || overdueTasks.length > 0) {
     const allTasks = [...overdueTasks, ...upcomingTasks].slice(0, 10);
     sectionsHtml += `
       <div style="margin-bottom: 25px;">
         <h3 style="color: #374151; margin-bottom: 15px; border-bottom: 2px solid #E5E7EB; padding-bottom: 8px;">
-          ✅ Checklist (${(tasks => tasks.length)(allTasks)} attività)
+          ✅ Checklist (${allTasks.length} attività)
         </h3>
         <ul style="list-style: none; padding: 0; margin: 0;">
           ${allTasks.map(task => `
@@ -305,7 +303,6 @@ function buildDigestEmail({
     `;
   }
 
-  // Payments section
   if (upcomingPayments.length > 0 || overduePayments.length > 0) {
     const allPayments = [...overduePayments, ...upcomingPayments].slice(0, 8);
     const totalDue = allPayments.reduce((sum, p) => sum + p.amount, 0);
@@ -332,7 +329,6 @@ function buildDigestEmail({
     `;
   }
 
-  // Must-have priorities reminder
   if (mustTasks.length > 0 && mustTasks.length <= 5) {
     sectionsHtml += `
       <div style="background: #FEF3C7; border-left: 4px solid #F59E0B; padding: 15px; margin-bottom: 20px; border-radius: 4px;">

@@ -1,7 +1,10 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { Resend } from "https://esm.sh/resend@4.0.0";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,6 +14,7 @@ const corsHeaders = {
 
 interface InvitationEmailRequest {
   email: string;
+  weddingId: string;
   weddingNames: string;
   weddingDate: string;
   role: string;
@@ -24,9 +28,48 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { email, weddingNames, weddingDate, role, accessCode, inviterName }: InvitationEmailRequest = await req.json();
-    
-    console.log("Sending wedding invitation to:", email);
+    // Extract JWT token from Authorization header
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: "Missing authorization header" }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    const token = authHeader.replace("Bearer ", "");
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Verify the user's JWT and get user info
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      console.error("Auth error:", authError);
+      return new Response(
+        JSON.stringify({ error: "Invalid or expired token" }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    const { email, weddingId, weddingNames, weddingDate, role, accessCode, inviterName }: InvitationEmailRequest = await req.json();
+
+    // Verify the user is a co-planner for this wedding
+    const { data: roleData, error: roleError } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("wedding_id", weddingId)
+      .eq("role", "co_planner")
+      .maybeSingle();
+
+    if (roleError || !roleData) {
+      console.error("Role check error:", roleError);
+      return new Response(
+        JSON.stringify({ error: "You must be a co-planner to send invitations" }),
+        { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    console.log("Sending wedding invitation to:", email, "by user:", user.id);
     
     const roleLabel = role === 'co_planner' ? 'Co-Planner' : role === 'manager' ? 'Manager' : 'Guest';
 
