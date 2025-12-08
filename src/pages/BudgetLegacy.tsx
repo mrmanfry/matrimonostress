@@ -610,7 +610,7 @@ export default function BudgetLegacy() {
                     const itemPayments = payments.filter((p) => p.expense_item_id === item.id);
                     const paidPayments = itemPayments.filter((p) => p.status === "Pagato");
                     const totalPaid = paidPayments.reduce((sum, p) => sum + calculatePaymentTotal(p), 0);
-                    const totalCommitment = Number(item.total_amount || 0);
+                    const totalCommitment = calculateDynamicAmount(item, globalMode);
                     const categoryName = 
                       item.vendors?.expense_categories?.name || 
                       item.expense_categories?.name || 
