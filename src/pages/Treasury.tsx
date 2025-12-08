@@ -660,6 +660,7 @@ export default function Treasury() {
                   pending: guestBreakdown.pending.adults + guestBreakdown.pending.children + guestBreakdown.pending.staff,
                   declined: guestBreakdown.declined.adults + guestBreakdown.declined.children + guestBreakdown.declined.staff
                 }}
+                plannedCounts={weddingTargets}
               />
             </div>
           </CardContent>

@@ -376,6 +376,7 @@ export default function BudgetLegacy() {
           value={globalMode}
           onValueChange={handleModeChange}
           breakdown={guestBreakdown}
+          plannedCounts={guestCounts?.planned}
         />
       </div>
 

@@ -9,9 +9,14 @@ interface CalculationModeToggleProps {
     pending: number;
     declined: number;
   };
+  plannedCounts?: {
+    adults: number;
+    children: number;
+    staff: number;
+  };
 }
 
-export function CalculationModeToggle({ value, onValueChange, breakdown }: CalculationModeToggleProps) {
+export function CalculationModeToggle({ value, onValueChange, breakdown, plannedCounts }: CalculationModeToggleProps) {
   return (
     <div className="flex flex-col gap-2">
       <ToggleGroup 
@@ -45,6 +50,12 @@ export function CalculationModeToggle({ value, onValueChange, breakdown }: Calcu
           Confermati
         </ToggleGroupItem>
       </ToggleGroup>
+      
+      {plannedCounts && value === 'planned' && (
+        <p className="text-xs text-muted-foreground">
+          {plannedCounts.adults} adulti, {plannedCounts.children} bambini, {plannedCounts.staff} staff
+        </p>
+      )}
       
       {breakdown && value === 'expected' && (
         <p className="text-xs text-muted-foreground">
