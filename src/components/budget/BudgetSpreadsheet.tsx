@@ -494,7 +494,11 @@ export function BudgetSpreadsheet() {
                                 <p className="text-xs text-muted-foreground">{row.vendorName}</p>
                               )}
                               {row.isVariableExpense && (
-                                <Badge variant="outline" className="text-xs gap-1 h-5">
+                                <Badge 
+                                  variant="outline" 
+                                  className="text-xs gap-1 h-5 cursor-help"
+                                  title="Spesa variabile: l'importo dipende dal numero di invitati"
+                                >
                                   🔄 Variabile
                                 </Badge>
                               )}
