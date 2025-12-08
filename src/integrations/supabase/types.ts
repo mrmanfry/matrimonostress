@@ -17,11 +17,15 @@ export type Database = {
       checklist_tasks: {
         Row: {
           assigned_to: string | null
+          blocked_by_task_id: string | null
           created_at: string
           description: string | null
           due_date: string | null
           id: string
           is_system_generated: boolean | null
+          linked_payment_id: string | null
+          notes: string | null
+          priority: string | null
           status: string | null
           title: string
           updated_at: string
@@ -30,11 +34,15 @@ export type Database = {
         }
         Insert: {
           assigned_to?: string | null
+          blocked_by_task_id?: string | null
           created_at?: string
           description?: string | null
           due_date?: string | null
           id?: string
           is_system_generated?: boolean | null
+          linked_payment_id?: string | null
+          notes?: string | null
+          priority?: string | null
           status?: string | null
           title: string
           updated_at?: string
@@ -43,11 +51,15 @@ export type Database = {
         }
         Update: {
           assigned_to?: string | null
+          blocked_by_task_id?: string | null
           created_at?: string
           description?: string | null
           due_date?: string | null
           id?: string
           is_system_generated?: boolean | null
+          linked_payment_id?: string | null
+          notes?: string | null
+          priority?: string | null
           status?: string | null
           title?: string
           updated_at?: string
@@ -55,6 +67,20 @@ export type Database = {
           wedding_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "checklist_tasks_blocked_by_task_id_fkey"
+            columns: ["blocked_by_task_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_tasks_linked_payment_id_fkey"
+            columns: ["linked_payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "checklist_tasks_vendor_id_fkey"
             columns: ["vendor_id"]

@@ -15,9 +15,16 @@ import {
   ChevronUp,
   Trash2,
   Sparkles,
-  MessageSquare
+  MessageSquare,
+  StickyNote,
+  Phone,
+  Mail,
 } from "lucide-react";
 import { ContactVendorWizard } from "@/components/checklist/ContactVendorWizard";
+import { ChecklistProgressBar } from "@/components/checklist/ChecklistProgressBar";
+import { AttentionBox } from "@/components/checklist/AttentionBox";
+import { PriorityBadge } from "@/components/checklist/PriorityBadge";
+import { OwnerSelector, OwnerBadge } from "@/components/checklist/OwnerSelector";
 import {
   Select,
   SelectContent,
@@ -34,6 +41,11 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 interface Task {
   id: string;
@@ -45,6 +57,11 @@ interface Task {
   created_at: string;
   vendor_id: string | null;
   wedding_id: string;
+  priority?: string;
+  notes?: string | null;
+  assigned_to?: string | null;
+  blocked_by_task_id?: string | null;
+  linked_payment_id?: string | null;
 }
 
 interface Vendor {
@@ -61,6 +78,8 @@ interface Vendor {
 interface Wedding {
   id: string;
   wedding_date: string;
+  partner1_name: string;
+  partner2_name: string;
 }
 
 const Checklist = () => {
@@ -77,10 +96,15 @@ const Checklist = () => {
     description: "",
     due_date: "",
     vendor_id: "",
+    priority: "medium",
+    notes: "",
+    assigned_to: "both",
   });
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [userProfile, setUserProfile] = useState<{ first_name: string | null; wedding_role: string | null } | null>(null);
   const [contactVendorTask, setContactVendorTask] = useState<Task | null>(null);
+  const [editingNotes, setEditingNotes] = useState<string | null>(null);
+  const [tempNotes, setTempNotes] = useState("");
   const { toast } = useToast();
 
   useEffect(() => {
@@ -146,7 +170,7 @@ const Checklist = () => {
 
       const { data: weddingData } = await supabase
         .from("weddings")
-        .select("id, wedding_date")
+        .select("id, wedding_date, partner1_name, partner2_name")
         .eq("id", roleData.wedding_id)
         .single();
 
@@ -274,6 +298,9 @@ const Checklist = () => {
         due_date: newTask.due_date || null,
         vendor_id: newTask.vendor_id === "none" ? null : newTask.vendor_id || null,
         status: "pending",
+        priority: newTask.priority,
+        notes: newTask.notes || null,
+        assigned_to: newTask.assigned_to === "both" ? null : newTask.assigned_to,
       })
       .select()
       .single();
@@ -288,12 +315,87 @@ const Checklist = () => {
     }
 
     setTasks((prev) => [...prev, data]);
-    setNewTask({ title: "", description: "", due_date: "", vendor_id: "" });
+    setNewTask({ 
+      title: "", 
+      description: "", 
+      due_date: "", 
+      vendor_id: "", 
+      priority: "medium",
+      notes: "",
+      assigned_to: "both",
+    });
     setAddTaskOpen(false);
     
     toast({
       title: "Creato!",
       description: "Nuovo task aggiunto alla checklist",
+    });
+  };
+
+  const updateTaskPriority = async (taskId: string, priority: string) => {
+    const { error } = await supabase
+      .from("checklist_tasks")
+      .update({ priority })
+      .eq("id", taskId);
+
+    if (error) {
+      toast({
+        title: "Errore",
+        description: "Impossibile aggiornare la priorità",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setTasks((prev) =>
+      prev.map((t) => (t.id === taskId ? { ...t, priority } : t))
+    );
+  };
+
+  const updateTaskOwner = async (taskId: string, assigned_to: string) => {
+    const value = assigned_to === "both" ? null : assigned_to;
+    
+    const { error } = await supabase
+      .from("checklist_tasks")
+      .update({ assigned_to: value })
+      .eq("id", taskId);
+
+    if (error) {
+      toast({
+        title: "Errore",
+        description: "Impossibile aggiornare l'assegnazione",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setTasks((prev) =>
+      prev.map((t) => (t.id === taskId ? { ...t, assigned_to: value } : t))
+    );
+  };
+
+  const saveNotes = async (taskId: string) => {
+    const { error } = await supabase
+      .from("checklist_tasks")
+      .update({ notes: tempNotes || null })
+      .eq("id", taskId);
+
+    if (error) {
+      toast({
+        title: "Errore",
+        description: "Impossibile salvare le note",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setTasks((prev) =>
+      prev.map((t) => (t.id === taskId ? { ...t, notes: tempNotes || null } : t))
+    );
+    setEditingNotes(null);
+    toast({
+      title: "Salvato",
+      description: "Note aggiornate",
     });
   };
 
@@ -333,6 +435,21 @@ const Checklist = () => {
     ).length,
   };
 
+  const handleAttentionTaskClick = (taskId: string) => {
+    setFilterStatus("pending");
+    setExpandedTask(taskId);
+    setTimeout(() => {
+      const taskElement = document.getElementById(`task-${taskId}`);
+      if (taskElement) {
+        taskElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        taskElement.classList.add('animate-pulse', 'ring-2', 'ring-destructive');
+        setTimeout(() => {
+          taskElement.classList.remove('animate-pulse', 'ring-2', 'ring-destructive');
+        }, 2000);
+      }
+    }, 100);
+  };
+
   if (loading) {
     return (
       <div className="p-4 lg:p-8">
@@ -360,25 +477,18 @@ const Checklist = () => {
         </Button>
       </div>
 
-      {/* Stats Overview */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="p-4">
-          <div className="text-2xl font-bold text-accent">{stats.total}</div>
-          <div className="text-sm text-muted-foreground">Totali</div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-2xl font-bold text-green-600">{stats.completed}</div>
-          <div className="text-sm text-muted-foreground">Completati</div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-2xl font-bold text-blue-600">{stats.pending}</div>
-          <div className="text-sm text-muted-foreground">In Sospeso</div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-2xl font-bold text-red-600">{stats.overdue}</div>
-          <div className="text-sm text-muted-foreground">Scaduti</div>
-        </Card>
-      </div>
+      {/* Progress Bar */}
+      <ChecklistProgressBar 
+        completed={stats.completed}
+        pending={stats.pending}
+        overdue={stats.overdue}
+      />
+
+      {/* Attention Box */}
+      <AttentionBox 
+        tasks={tasks} 
+        onTaskClick={handleAttentionTaskClick}
+      />
 
       {/* Pre-populated Notice */}
       {tasks.some((t) => t.is_system_generated) && (
@@ -435,92 +545,211 @@ const Checklist = () => {
             </p>
           </Card>
         ) : (
-          filteredTasks.map((task) => (
-            <Card
-              key={task.id}
-              id={`task-${task.id}`}
-              className={`p-4 transition-all ${
-                task.status === "completed" ? "opacity-60" : ""
-              }`}
-            >
-              <div className="flex items-start gap-4">
-                <div className="pt-1">
-                  <Checkbox
-                    checked={task.status === "completed"}
-                    onCheckedChange={() => toggleTaskStatus(task.id, task.status)}
-                  />
-                </div>
-
-                <div className="flex-1 space-y-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1">
-                      <h3
-                        className={`font-semibold ${
-                          task.status === "completed" ? "line-through" : ""
-                        }`}
-                      >
-                        {task.title}
-                      </h3>
-                      {task.due_date && (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-                          <Calendar className="w-4 h-4" />
-                          {new Date(task.due_date).toLocaleDateString("it-IT")}
-                          {getDueDateBadge(task.due_date, task.status)}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {task.is_system_generated && (
-                        <div title="Generato automaticamente">
-                          <Sparkles className="w-4 h-4 text-accent" />
-                        </div>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() =>
-                          setExpandedTask(expandedTask === task.id ? null : task.id)
-                        }
-                      >
-                        {expandedTask === task.id ? (
-                          <ChevronUp className="w-4 h-4" />
-                        ) : (
-                          <ChevronDown className="w-4 h-4" />
-                        )}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => deleteTask(task.id)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
+          filteredTasks.map((task) => {
+            const vendor = vendors.find(v => v.id === task.vendor_id);
+            
+            return (
+              <Card
+                key={task.id}
+                id={`task-${task.id}`}
+                className={`p-4 transition-all ${
+                  task.status === "completed" ? "opacity-60" : ""
+                }`}
+              >
+                <div className="flex items-start gap-4">
+                  <div className="pt-1">
+                    <Checkbox
+                      checked={task.status === "completed"}
+                      onCheckedChange={() => toggleTaskStatus(task.id, task.status)}
+                    />
                   </div>
 
-                  {expandedTask === task.id && (
-                    <div className="pt-2 border-t space-y-2">
-                      {task.description && (
-                        <p className="text-sm text-muted-foreground">{task.description}</p>
-                      )}
-                      
-                      {task.vendor_id && (
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3
+                            className={`font-semibold ${
+                              task.status === "completed" ? "line-through" : ""
+                            }`}
+                          >
+                            {task.title}
+                          </h3>
+                          <PriorityBadge priority={task.priority} size="sm" />
+                          {task.notes && (
+                            <StickyNote className="w-3.5 h-3.5 text-muted-foreground" />
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 mt-1 flex-wrap">
+                          {task.due_date && (
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <Calendar className="w-4 h-4" />
+                              {new Date(task.due_date).toLocaleDateString("it-IT")}
+                              {getDueDateBadge(task.due_date, task.status)}
+                            </div>
+                          )}
+                          <OwnerBadge 
+                            owner={task.assigned_to} 
+                            partner1Name={wedding?.partner1_name}
+                            partner2Name={wedding?.partner2_name}
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {task.is_system_generated && (
+                          <div title="Generato automaticamente">
+                            <Sparkles className="w-4 h-4 text-accent" />
+                          </div>
+                        )}
                         <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setContactVendorTask(task)}
-                          className="mt-2"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() =>
+                            setExpandedTask(expandedTask === task.id ? null : task.id)
+                          }
                         >
-                          <MessageSquare className="w-4 h-4 mr-2" />
-                          Contatta {vendors.find(v => v.id === task.vendor_id)?.name || 'Fornitore'}
+                          {expandedTask === task.id ? (
+                            <ChevronUp className="w-4 h-4" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4" />
+                          )}
                         </Button>
-                      )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => deleteTask(task.id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
-                  )}
+
+                    {expandedTask === task.id && (
+                      <div className="pt-3 border-t space-y-4">
+                        {task.description && (
+                          <p className="text-sm text-muted-foreground">{task.description}</p>
+                        )}
+                        
+                        {/* Priority & Owner Controls */}
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-1.5">
+                            <Label className="text-xs">Priorità</Label>
+                            <Select
+                              value={task.priority || "medium"}
+                              onValueChange={(value) => updateTaskPriority(task.id, value)}
+                            >
+                              <SelectTrigger className="h-9">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="high">🔴 Alta</SelectItem>
+                                <SelectItem value="medium">🟡 Media</SelectItem>
+                                <SelectItem value="low">🟢 Bassa</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-xs">Assegnato a</Label>
+                            <OwnerSelector
+                              value={task.assigned_to}
+                              onChange={(value) => updateTaskOwner(task.id, value)}
+                              partner1Name={wedding?.partner1_name}
+                              partner2Name={wedding?.partner2_name}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Notes Section */}
+                        <Collapsible>
+                          <CollapsibleTrigger asChild>
+                            <Button variant="ghost" size="sm" className="gap-2 h-8">
+                              <StickyNote className="w-4 h-4" />
+                              {task.notes ? "Modifica Note" : "Aggiungi Note"}
+                            </Button>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent className="pt-2">
+                            {editingNotes === task.id ? (
+                              <div className="space-y-2">
+                                <Textarea
+                                  value={tempNotes}
+                                  onChange={(e) => setTempNotes(e.target.value)}
+                                  placeholder="Aggiungi note, link, dettagli..."
+                                  rows={3}
+                                />
+                                <div className="flex gap-2">
+                                  <Button size="sm" onClick={() => saveNotes(task.id)}>
+                                    Salva
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="ghost" 
+                                    onClick={() => setEditingNotes(null)}
+                                  >
+                                    Annulla
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div 
+                                className="p-3 bg-muted/50 rounded-md text-sm cursor-pointer hover:bg-muted transition-colors"
+                                onClick={() => {
+                                  setEditingNotes(task.id);
+                                  setTempNotes(task.notes || "");
+                                }}
+                              >
+                                {task.notes || <span className="text-muted-foreground italic">Clicca per aggiungere note...</span>}
+                              </div>
+                            )}
+                          </CollapsibleContent>
+                        </Collapsible>
+
+                        {/* Vendor Quick Actions */}
+                        {vendor && (
+                          <div className="pt-2 border-t">
+                            <Label className="text-xs text-muted-foreground">Fornitore: {vendor.name}</Label>
+                            <div className="flex gap-2 mt-2">
+                              {vendor.phone && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  asChild
+                                >
+                                  <a href={`tel:${vendor.phone}`}>
+                                    <Phone className="w-4 h-4 mr-2" />
+                                    Chiama
+                                  </a>
+                                </Button>
+                              )}
+                              {vendor.email && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  asChild
+                                >
+                                  <a href={`mailto:${vendor.email}`}>
+                                    <Mail className="w-4 h-4 mr-2" />
+                                    Email
+                                  </a>
+                                </Button>
+                              )}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setContactVendorTask(task)}
+                              >
+                                <MessageSquare className="w-4 h-4 mr-2" />
+                                Messaggio AI
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </Card>
-          ))
+              </Card>
+            );
+          })
         )}
       </div>
 
@@ -550,6 +779,35 @@ const Checklist = () => {
                 placeholder="Aggiungi dettagli..."
                 rows={3}
               />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="priority">Priorità</Label>
+                <Select
+                  value={newTask.priority}
+                  onValueChange={(value) => setNewTask({ ...newTask, priority: value })}
+                >
+                  <SelectTrigger id="priority">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="high">🔴 Alta</SelectItem>
+                    <SelectItem value="medium">🟡 Media</SelectItem>
+                    <SelectItem value="low">🟢 Bassa</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="assigned_to">Assegna a</Label>
+                <OwnerSelector
+                  value={newTask.assigned_to}
+                  onChange={(value) => setNewTask({ ...newTask, assigned_to: value })}
+                  partner1Name={wedding?.partner1_name}
+                  partner2Name={wedding?.partner2_name}
+                />
+              </div>
             </div>
             
             <div className="space-y-2">
@@ -583,6 +841,17 @@ const Checklist = () => {
               <p className="text-xs text-muted-foreground">
                 Collegando un fornitore, il task apparirà anche nella sua scheda dedicata
               </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="notes">Note</Label>
+              <Textarea
+                id="notes"
+                value={newTask.notes}
+                onChange={(e) => setNewTask({ ...newTask, notes: e.target.value })}
+                placeholder="Link, dettagli, appunti..."
+                rows={2}
+              />
             </div>
           </div>
           <DialogFooter>
