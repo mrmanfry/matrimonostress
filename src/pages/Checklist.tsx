@@ -21,7 +21,11 @@ import {
   Mail,
   Link2,
   Lock,
+  List,
+  CalendarDays,
 } from "lucide-react";
+import { ChecklistCalendarView } from "@/components/checklist/ChecklistCalendarView";
+import { ChecklistExportMenu } from "@/components/checklist/ChecklistExportMenu";
 import { ContactVendorWizard } from "@/components/checklist/ContactVendorWizard";
 import { ChecklistProgressBar } from "@/components/checklist/ChecklistProgressBar";
 import { AttentionBox } from "@/components/checklist/AttentionBox";
@@ -109,6 +113,7 @@ const Checklist = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
   const [addTaskOpen, setAddTaskOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [newTask, setNewTask] = useState({
     title: "",
     description: "",
@@ -640,7 +645,7 @@ const Checklist = () => {
   return (
     <div className="p-4 lg:p-8 max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div className="space-y-2">
           <div className="flex items-center gap-3">
             <CheckSquare className="w-8 h-8 text-accent" />
@@ -650,10 +655,45 @@ const Checklist = () => {
             Organizza tutte le attività necessarie per il tuo grande giorno
           </p>
         </div>
-        <Button onClick={() => setAddTaskOpen(true)} className="gap-2">
-          <Plus className="w-4 h-4" />
-          Nuovo Task
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* View Toggle */}
+          <div className="flex border rounded-lg overflow-hidden">
+            <Button
+              variant={viewMode === "list" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setViewMode("list")}
+              className="rounded-none gap-1"
+            >
+              <List className="w-4 h-4" />
+              Lista
+            </Button>
+            <Button
+              variant={viewMode === "calendar" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setViewMode("calendar")}
+              className="rounded-none gap-1"
+            >
+              <CalendarDays className="w-4 h-4" />
+              Calendario
+            </Button>
+          </div>
+          
+          {/* Export Menu */}
+          {wedding && (
+            <ChecklistExportMenu
+              tasks={tasks}
+              vendors={vendors}
+              weddingDate={wedding.wedding_date}
+              partner1Name={wedding.partner1_name}
+              partner2Name={wedding.partner2_name}
+            />
+          )}
+          
+          <Button onClick={() => setAddTaskOpen(true)} className="gap-2">
+            <Plus className="w-4 h-4" />
+            Nuovo Task
+          </Button>
+        </div>
       </div>
 
       {/* Progress Bar */}
@@ -685,44 +725,55 @@ const Checklist = () => {
         </Card>
       )}
 
-      {/* Filters */}
-      <Card className="p-4">
-        <div className="flex flex-col lg:flex-row gap-4">
-          <div className="flex-1">
-            <Input
-              placeholder="Cerca task..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          <div className="flex gap-2">
-            <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="w-[180px]">
-                <Filter className="w-4 h-4 mr-2" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tutti</SelectItem>
-                <SelectItem value="pending">In Sospeso</SelectItem>
-                <SelectItem value="completed">Completati</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      </Card>
+      {/* Calendar View */}
+      {viewMode === "calendar" && (
+        <ChecklistCalendarView
+          tasks={tasks}
+          onTaskClick={handleAttentionTaskClick}
+        />
+      )}
 
-      {/* Tasks List */}
-      <div className="space-y-3">
-        {filteredTasks.length === 0 ? (
-          <Card className="p-8 text-center">
-            <CheckSquare className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground">
-              {searchQuery || filterStatus !== "all"
-                ? "Nessun task trovato con questi filtri"
-                : "Nessun task presente"}
-            </p>
+      {/* List View */}
+      {viewMode === "list" && (
+        <>
+          {/* Filters */}
+          <Card className="p-4">
+            <div className="flex flex-col lg:flex-row gap-4">
+              <div className="flex-1">
+                <Input
+                  placeholder="Cerca task..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+              <div className="flex gap-2">
+                <Select value={filterStatus} onValueChange={setFilterStatus}>
+                  <SelectTrigger className="w-[180px]">
+                    <Filter className="w-4 h-4 mr-2" />
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tutti</SelectItem>
+                    <SelectItem value="pending">In Sospeso</SelectItem>
+                    <SelectItem value="completed">Completati</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </Card>
-        ) : (
+
+          {/* Tasks List */}
+          <div className="space-y-3">
+            {filteredTasks.length === 0 ? (
+              <Card className="p-8 text-center">
+                <CheckSquare className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground">
+                  {searchQuery || filterStatus !== "all"
+                    ? "Nessun task trovato con questi filtri"
+                    : "Nessun task presente"}
+                </p>
+              </Card>
+            ) : (
           filteredTasks.map((task) => {
             const vendor = vendors.find(v => v.id === task.vendor_id);
             const blocked = isTaskBlocked(task);
@@ -960,8 +1011,10 @@ const Checklist = () => {
               </Card>
             );
           })
-        )}
-      </div>
+            )}
+          </div>
+        </>
+      )}
 
       {/* Add Task Dialog */}
       <Dialog open={addTaskOpen} onOpenChange={setAddTaskOpen}>
