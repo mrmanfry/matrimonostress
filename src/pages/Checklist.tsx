@@ -531,6 +531,46 @@ const Checklist = () => {
       priority
     } : t));
   };
+  
+  const updateTaskVendor = async (taskId: string, vendorId: string | null) => {
+    const task = tasks.find(t => t.id === taskId);
+    
+    // Determine new category based on vendor
+    let newCategory = task?.category;
+    if (vendorId) {
+      const selectedVendor = vendors.find(v => v.id === vendorId);
+      newCategory = mapVendorCategoryToMacro(selectedVendor?.category?.name);
+    }
+    
+    const { error } = await supabase
+      .from("checklist_tasks")
+      .update({
+        vendor_id: vendorId,
+        category: newCategory
+      })
+      .eq("id", taskId);
+      
+    if (error) {
+      toast({
+        title: "Errore",
+        description: "Impossibile aggiornare il fornitore",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setTasks(prev => prev.map(t => t.id === taskId ? {
+      ...t,
+      vendor_id: vendorId,
+      category: newCategory
+    } : t));
+    
+    toast({
+      title: vendorId ? "Fornitore collegato" : "Fornitore rimosso",
+      description: vendorId ? "Task collegato al fornitore" : "Collegamento rimosso"
+    });
+  };
+  
   const updateTaskOwner = async (taskId: string, assigned_to: string) => {
     const value = assigned_to === "both" ? null : assigned_to;
     const {
@@ -849,6 +889,27 @@ const Checklist = () => {
                               {getDueDateBadge(task.due_date, task.status)}
                             </div>}
                           <OwnerBadge owner={task.assigned_to} partner1Name={wedding?.partner1_name} partner2Name={wedding?.partner2_name} />
+                        </div>
+
+                        {/* Vendor Selector */}
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Fornitore</Label>
+                          <Select 
+                            value={task.vendor_id || "none"} 
+                            onValueChange={value => updateTaskVendor(task.id, value === "none" ? null : value)}
+                          >
+                            <SelectTrigger className="h-9">
+                              <SelectValue placeholder="Nessun fornitore" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Nessun fornitore</SelectItem>
+                              {vendors.map(v => (
+                                <SelectItem key={v.id} value={v.id}>
+                                  {v.name} {v.category?.name && `(${v.category.name})`}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
