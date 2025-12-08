@@ -123,6 +123,76 @@ export function mapTemplateCategoryToMacro(templateCategory: string | undefined)
 }
 
 /**
+ * Maps a vendor expense category name to a macro-area
+ * Used when linking a task to a vendor
+ */
+export function mapVendorCategoryToMacro(categoryName: string | null | undefined): TaskMacroCategory {
+  if (!categoryName) return "fornitori"; // Default for vendors without category
+  
+  const lowerName = categoryName.toLowerCase();
+  
+  // Direct mappings for common vendor categories
+  const VENDOR_CATEGORY_MAP: Record<string, TaskMacroCategory> = {
+    // Ricevimento
+    "location": "ricevimento",
+    "catering": "ricevimento",
+    "musica": "ricevimento",
+    "intrattenimento": "ricevimento",
+    "fiori": "ricevimento",
+    "fiorista": "ricevimento",
+    "allestimenti": "ricevimento",
+    "decorazioni": "ricevimento",
+    "torta": "ricevimento",
+    "bomboniere": "ricevimento",
+    
+    // Look
+    "abiti": "look",
+    "abbigliamento": "look",
+    "trucco": "look",
+    "parrucco": "look",
+    "beauty": "look",
+    "gioielli": "look",
+    "accessori": "look",
+    
+    // Cerimonia
+    "cerimonia": "cerimonia",
+    "chiesa": "cerimonia",
+    "officiante": "cerimonia",
+    
+    // Fornitori (foto/video)
+    "fotografia": "fornitori",
+    "fotografo": "fornitori",
+    "video": "fornitori",
+    "videomaker": "fornitori",
+    
+    // Logistica
+    "trasporti": "logistica",
+    "auto": "logistica",
+    "hotel": "logistica",
+    "alloggi": "logistica",
+    "viaggio": "logistica",
+    "luna di miele": "logistica",
+    "partecipazioni": "logistica",
+    "inviti": "logistica",
+    
+    // Amministrativo
+    "assicurazione": "amministrativo",
+    "wedding planner": "amministrativo",
+    "coordinamento": "amministrativo",
+  };
+  
+  // Try exact match first
+  for (const [key, macro] of Object.entries(VENDOR_CATEGORY_MAP)) {
+    if (lowerName.includes(key)) {
+      return macro;
+    }
+  }
+  
+  // Default to "fornitori" for any vendor-related task
+  return "fornitori";
+}
+
+/**
  * Infers category from task title using keyword matching (AI-lite)
  */
 export function inferCategoryFromTitle(title: string): TaskMacroCategory {
