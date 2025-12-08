@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -6,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Loader2 } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 interface AssignVendorDialogProps {
@@ -18,6 +19,7 @@ interface AssignVendorDialogProps {
 
 export function AssignVendorDialog({ itemId, itemDescription, isOpen, onClose }: AssignVendorDialogProps) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { authState } = useAuth();
   const weddingId = authState.status === "authenticated" ? authState.weddingId : null;
   const [vendorId, setVendorId] = useState("");
@@ -54,6 +56,11 @@ export function AssignVendorDialog({ itemId, itemDescription, isOpen, onClose }:
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const handleCreateVendor = () => {
+    onClose();
+    navigate("/app/vendors?action=new");
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent>
@@ -62,7 +69,7 @@ export function AssignVendorDialog({ itemId, itemDescription, isOpen, onClose }:
         </DialogHeader>
         <div className="space-y-4 py-4">
           <p className="text-sm text-muted-foreground">
-            Collega la voce "<strong>{itemDescription}</strong>" a un fornitore esistente.
+            Collega la voce "<strong>{itemDescription}</strong>" a un fornitore esistente o creane uno nuovo.
           </p>
           
           <div className="space-y-2">
@@ -78,6 +85,15 @@ export function AssignVendorDialog({ itemId, itemDescription, isOpen, onClose }:
               </SelectContent>
             </Select>
           </div>
+
+          <Button 
+            variant="outline" 
+            onClick={handleCreateVendor}
+            className="w-full gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Crea nuovo fornitore
+          </Button>
 
           <div className="flex gap-2 pt-4">
             <Button variant="outline" onClick={onClose} className="flex-1">
