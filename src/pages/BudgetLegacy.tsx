@@ -15,6 +15,7 @@ import { calculateExpenseAmount, ExpenseItem as ExpenseItemCalc, ExpenseLineItem
 import { isDeclined, isConfirmed, isPending } from "@/lib/rsvpHelpers";
 import { toast } from "sonner";
 import { BudgetSpreadsheet } from "@/components/budget/BudgetSpreadsheet";
+import { BudgetScenarioBar } from "@/components/budget/BudgetScenarioBar";
 
 interface ExpenseItem {
   id: string;
@@ -379,6 +380,14 @@ export default function BudgetLegacy() {
           plannedCounts={guestCounts?.planned}
         />
       </div>
+
+      {/* Scenario Bar - Solo in modalità Pianificato */}
+      {globalMode === 'planned' && guestCounts && (
+        <BudgetScenarioBar 
+          currentMode={globalMode}
+          guestCounts={guestCounts}
+        />
+      )}
 
       {/* Zero Paradox Warning */}
       {globalMode !== 'planned' && totalCurrentModeGuests === 0 && (
