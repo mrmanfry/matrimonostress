@@ -134,11 +134,21 @@ const Checklist = () => {
       
       setUserProfile(profileData);
 
+      // Get weddingId from user_roles first (safer than limit(1))
+      const { data: roleData } = await supabase
+        .from("user_roles")
+        .select("wedding_id")
+        .eq("user_id", user.id)
+        .limit(1)
+        .maybeSingle();
+
+      if (!roleData?.wedding_id) return;
+
       const { data: weddingData } = await supabase
         .from("weddings")
         .select("id, wedding_date")
-        .limit(1)
-        .maybeSingle();
+        .eq("id", roleData.wedding_id)
+        .single();
 
       if (!weddingData) return;
       setWedding(weddingData);
