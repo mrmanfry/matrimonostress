@@ -263,7 +263,9 @@ export function BudgetSpreadsheet() {
       const categoryId = item.category_id || "uncategorized";
 
       const isPlaceholder = !item.vendor_id;
-      const isVariable = item.expense_type === "variable";
+      // Una spesa è variabile solo se ha righe con quantity_type diverso da 'fixed'
+      const hasVariableLineItems = itemLineItems.some((li: any) => li.quantity_type !== 'fixed');
+      const isVariable = hasVariableLineItems;
       
       // Calcola importo stimato (solo per placeholder)
       const estimatedAmount = Number(item.estimated_amount || 0);
