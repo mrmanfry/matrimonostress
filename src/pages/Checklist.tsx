@@ -890,27 +890,6 @@ const Checklist = () => {
                             </div>}
                           <OwnerBadge owner={task.assigned_to} partner1Name={wedding?.partner1_name} partner2Name={wedding?.partner2_name} />
                         </div>
-
-                        {/* Vendor Selector */}
-                        <div className="space-y-1.5">
-                          <Label className="text-xs">Fornitore</Label>
-                          <Select 
-                            value={task.vendor_id || "none"} 
-                            onValueChange={value => updateTaskVendor(task.id, value === "none" ? null : value)}
-                          >
-                            <SelectTrigger className="h-9">
-                              <SelectValue placeholder="Nessun fornitore" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="none">Nessun fornitore</SelectItem>
-                              {vendors.map(v => (
-                                <SelectItem key={v.id} value={v.id}>
-                                  {v.name} {v.category?.name && `(${v.category.name})`}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
                       </div>
                       <div className="flex items-center gap-2">
                         {task.is_system_generated && <div title="Generato automaticamente">
@@ -928,8 +907,8 @@ const Checklist = () => {
                     {expandedTask === task.id && <div className="pt-3 border-t space-y-4">
                         {task.description && <p className="text-sm text-muted-foreground">{task.description}</p>}
                         
-                        {/* Priority & Owner Controls */}
-                        <div className="grid grid-cols-2 gap-4">
+                        {/* Priority, Owner & Vendor Controls */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                           <div className="space-y-1.5">
                             <Label className="text-xs">Priorità</Label>
                             <Select value={task.priority || "medium"} onValueChange={value => updateTaskPriority(task.id, value)}>
@@ -946,6 +925,25 @@ const Checklist = () => {
                           <div className="space-y-1.5">
                             <Label className="text-xs">Assegnato a</Label>
                             <OwnerSelector value={task.assigned_to} onChange={value => updateTaskOwner(task.id, value)} partner1Name={wedding?.partner1_name} partner2Name={wedding?.partner2_name} />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-xs">Fornitore</Label>
+                            <Select 
+                              value={task.vendor_id || "none"} 
+                              onValueChange={value => updateTaskVendor(task.id, value === "none" ? null : value)}
+                            >
+                              <SelectTrigger className="h-9">
+                                <SelectValue placeholder="Nessun fornitore" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">Nessun fornitore</SelectItem>
+                                {vendors.map(v => (
+                                  <SelectItem key={v.id} value={v.id}>
+                                    {v.name} {v.category?.name && `(${v.category.name})`}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </div>
                         </div>
 
