@@ -1,4 +1,5 @@
 // Template di task pre-generati con scadenze relative alla data del matrimonio
+import { mapTemplateCategoryToMacro } from "@/lib/taskCategories";
 
 export interface TaskTemplate {
   title: string;
@@ -231,6 +232,7 @@ export const defaultTaskTemplates: TaskTemplate[] = [
 
 /**
  * Genera i task con le date effettive basate sulla data del matrimonio
+ * Ora include anche la categoria mappata alla macro-area
  */
 export function generateTasksForWedding(
   weddingDate: string,
@@ -242,6 +244,7 @@ export function generateTasksForWedding(
   due_date: string;
   status: string;
   is_system_generated: boolean;
+  category: string;
 }> {
   const weddingDateObj = new Date(weddingDate);
   
@@ -257,13 +260,17 @@ export function generateTasksForWedding(
       dueDate.setDate(dueDate.getDate() - daysToSubtract);
     }
     
+    // Map template category to macro-area
+    const macroCategory = mapTemplateCategoryToMacro(template.category);
+    
     return {
       wedding_id: weddingId,
       title: template.title,
       description: template.description,
       due_date: dueDate.toISOString().split('T')[0],
       status: 'pending',
-      is_system_generated: true
+      is_system_generated: true,
+      category: macroCategory
     };
   });
 }
