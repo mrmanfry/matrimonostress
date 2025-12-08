@@ -13,7 +13,7 @@ import { calculateExpenseAmount, resolveGuestCounts, ExpenseItem, ExpenseLineIte
 import { Button } from "@/components/ui/button";
 import { AddBudgetItemDialog } from "./AddBudgetItemDialog";
 import { AssignVendorDialog } from "./AssignVendorDialog";
-import { BudgetScenarioBar } from "./BudgetScenarioBar";
+
 import { CalculationModeToggle } from "@/components/ui/calculation-mode-toggle";
 import { isDeclined, isConfirmed, isPending } from "@/lib/rsvpHelpers";
 
@@ -406,14 +406,6 @@ export function BudgetSpreadsheet() {
         </Alert>
       )}
 
-      <BudgetScenarioBar 
-        currentMode={globalMode}
-        guestCounts={budgetData?.guestCounts || {
-          planned: { adults: 100, children: 0, staff: 0 },
-          expected: { adults: 0, children: 0, staff: 0 },
-          confirmed: { adults: 0, children: 0, staff: 0 },
-        }}
-      />
 
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
