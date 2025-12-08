@@ -749,7 +749,20 @@ export function PaymentPlanTab({
                               selected={payment.due_date || undefined}
                               onSelect={(date) => updatePayment(index, 'due_date', date)}
                               locale={it}
+                              className="pointer-events-auto"
                             />
+                            {payment.due_date && (
+                              <div className="p-2 border-t">
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="w-full text-destructive hover:text-destructive"
+                                  onClick={() => updatePayment(index, 'due_date', null)}
+                                >
+                                  Rimuovi data
+                                </Button>
+                              </div>
+                            )}
                           </PopoverContent>
                         </Popover>
                       </div>
