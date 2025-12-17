@@ -185,9 +185,10 @@ export const GuestNucleoCard = ({
                   </div>
                   <div className="flex items-center gap-2">
                     <div 
-                      className="flex items-center"
+                      className="flex items-center gap-1"
                       onClick={(e) => e.stopPropagation()}
                     >
+                      <span className="text-xs text-muted-foreground">+1</span>
                       <Switch
                         checked={guest.allow_plus_one || false}
                         onCheckedChange={(checked) => handleTogglePlusOne(guest.id, checked)}
