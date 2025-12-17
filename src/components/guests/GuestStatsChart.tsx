@@ -66,15 +66,15 @@ export const GuestStatsChart = ({ stats }: GuestStatsChartProps) => {
           <div className="space-y-1">
             <p className="text-2xl font-bold">{stats.total}</p>
             <p className="text-sm text-muted-foreground">Totale Invitati</p>
-            {(stats.plusOnes && stats.plusOnes > 0) || (stats.potentialPlusOnes && stats.potentialPlusOnes > 0) ? (
+            {(stats.plusOnes ?? 0) > 0 || (stats.potentialPlusOnes ?? 0) > 0 ? (
               <p className="text-xs text-muted-foreground mt-1">
-                {stats.plusOnes && stats.plusOnes > 0 && (
+                {(stats.plusOnes ?? 0) > 0 && (
                   <span className="text-purple-600">+1 confermati: {stats.plusOnes}</span>
                 )}
-                {stats.plusOnes && stats.plusOnes > 0 && stats.potentialPlusOnes && stats.potentialPlusOnes > 0 && (
+                {(stats.plusOnes ?? 0) > 0 && (stats.potentialPlusOnes ?? 0) > 0 && (
                   <span className="text-muted-foreground"> · </span>
                 )}
-                {stats.potentialPlusOnes && stats.potentialPlusOnes > 0 && (
+                {(stats.potentialPlusOnes ?? 0) > 0 && (
                   <span className="text-muted-foreground/70">+1 potenziali: {stats.potentialPlusOnes}</span>
                 )}
               </p>
