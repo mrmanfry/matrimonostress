@@ -501,10 +501,15 @@ const Guests = () => {
   const filteredItems = () => {
     let items: Array<{ type: 'single' | 'party'; data: Guest | InviteParty }> = [];
 
-    // Add parties (grouped guests)
+    // Add parties (grouped guests) - show single-member parties as singles
     if (groupingFilter !== "singles") {
       parties.forEach(party => {
-        items.push({ type: 'party', data: party });
+        if (party.guests.length === 1) {
+          // Single-member party: show as individual guest
+          items.push({ type: 'single', data: party.guests[0] });
+        } else {
+          items.push({ type: 'party', data: party });
+        }
       });
     }
 
