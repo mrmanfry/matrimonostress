@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { guestSchema, type GuestFormData } from "@/lib/validationSchemas";
 import {
   Dialog,
@@ -20,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Leaf } from "lucide-react";
 
 interface Guest {
   id?: string;
@@ -225,17 +227,46 @@ export function GuestDialog({
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="menu_choice">Scelta Menù</Label>
-            <Input
-              id="menu_choice"
-              {...register("menu_choice")}
-              placeholder="Es: Carne, Pesce, Vegetariano"
-              maxLength={200}
-            />
-            {errors.menu_choice && (
-              <p className="text-sm text-destructive">{errors.menu_choice.message}</p>
-            )}
+          {/* Preferenze Alimentari */}
+          <div className="space-y-3">
+            <Label className="flex items-center gap-2">
+              <Leaf className="w-4 h-4 text-primary" />
+              Preferenze alimentari
+            </Label>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="vegetarian"
+                  checked={watch("menu_choice") === "vegetariano"}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      setValue("menu_choice", "vegetariano");
+                    } else if (watch("menu_choice") === "vegetariano") {
+                      setValue("menu_choice", "");
+                    }
+                  }}
+                />
+                <Label htmlFor="vegetarian" className="text-sm font-normal cursor-pointer">
+                  Vegetariano/a
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="vegan"
+                  checked={watch("menu_choice") === "vegano"}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      setValue("menu_choice", "vegano");
+                    } else if (watch("menu_choice") === "vegano") {
+                      setValue("menu_choice", "");
+                    }
+                  }}
+                />
+                <Label htmlFor="vegan" className="text-sm font-normal cursor-pointer">
+                  Vegano/a
+                </Label>
+              </div>
+            </div>
           </div>
 
           <div className="space-y-2">
