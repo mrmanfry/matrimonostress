@@ -8,6 +8,7 @@ interface GuestStatsChartProps {
     pending: number;
     declined: number;
     plusOnes?: number;
+    potentialPlusOnes?: number;
   };
 }
 
@@ -66,9 +67,19 @@ export const GuestStatsChart = ({ stats }: GuestStatsChartProps) => {
             <p className="text-2xl font-bold">{stats.total}</p>
             <p className="text-sm text-muted-foreground">
               Totale Invitati
-              {stats.plusOnes && stats.plusOnes > 0 && (
-                <span className="text-purple-600 ml-1">(incl. {stats.plusOnes} +1)</span>
-              )}
+              {(stats.plusOnes && stats.plusOnes > 0) || (stats.potentialPlusOnes && stats.potentialPlusOnes > 0) ? (
+                <span className="block text-xs mt-1">
+                  {stats.plusOnes && stats.plusOnes > 0 && (
+                    <span className="text-purple-600">+{stats.plusOnes} confermati</span>
+                  )}
+                  {stats.plusOnes && stats.plusOnes > 0 && stats.potentialPlusOnes && stats.potentialPlusOnes > 0 && (
+                    <span className="text-muted-foreground"> · </span>
+                  )}
+                  {stats.potentialPlusOnes && stats.potentialPlusOnes > 0 && (
+                    <span className="text-muted-foreground/70">+{stats.potentialPlusOnes} potenziali</span>
+                  )}
+                </span>
+              ) : null}
             </p>
           </div>
           <div className="h-px bg-border" />
