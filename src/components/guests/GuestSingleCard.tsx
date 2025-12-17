@@ -2,9 +2,12 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Phone, Edit, UserPlus, Baby } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Phone, Edit, UserPlus, Baby, UserPlus2 } from "lucide-react";
 import { useState } from "react";
 import { GuestEditDialog } from "./GuestEditDialog";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface Guest {
   id: string;
@@ -13,6 +16,8 @@ interface Guest {
   phone?: string;
   is_child: boolean;
   rsvp_send_status: 'Non Inviato' | 'Inviato' | 'Fallito';
+  allow_plus_one?: boolean;
+  plus_one_name?: string;
 }
 
 interface GuestSingleCardProps {
@@ -33,6 +38,7 @@ export const GuestSingleCard = ({
   onGuestUpdate,
 }: GuestSingleCardProps) => {
   const [guestEditDialogOpen, setGuestEditDialogOpen] = useState(false);
+  const [togglingPlusOne, setTogglingPlusOne] = useState(false);
   
   const displayName = `${guest.first_name} ${guest.last_name}`;
 
@@ -42,6 +48,25 @@ export const GuestSingleCard = ({
 
   const handleGuestUpdateSuccess = () => {
     onGuestUpdate?.();
+  };
+
+  const handleTogglePlusOne = async (checked: boolean) => {
+    setTogglingPlusOne(true);
+    try {
+      const { error } = await supabase
+        .from("guests")
+        .update({ allow_plus_one: checked })
+        .eq("id", guest.id);
+
+      if (error) throw error;
+      
+      toast.success(checked ? "+1 abilitato" : "+1 disabilitato");
+      onGuestUpdate?.();
+    } catch (error: any) {
+      toast.error("Errore nell'aggiornamento");
+    } finally {
+      setTogglingPlusOne(false);
+    }
   };
 
   return (
@@ -64,6 +89,12 @@ export const GuestSingleCard = ({
                   <Badge variant="outline" className="text-xs">
                     <Baby className="w-3 h-3 mr-1" />
                     Bambino
+                  </Badge>
+                )}
+                {guest.allow_plus_one && (
+                  <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
+                    <UserPlus2 className="w-3 h-3 mr-1" />
+                    +1
                   </Badge>
                 )}
               </div>
@@ -112,9 +143,22 @@ export const GuestSingleCard = ({
             )}
           </div>
 
-          {/* Person count */}
-          <div className="text-xs text-muted-foreground mt-2">
-            ({guest.is_child ? '0 Adulti, 1 Bambino' : '1 Adulto, 0 Bambini'})
+          {/* Plus One Toggle & Person count */}
+          <div className="flex items-center justify-between mt-3 pt-2 border-t">
+            <div className="text-xs text-muted-foreground">
+              ({guest.is_child ? '0 Adulti, 1 Bambino' : '1 Adulto, 0 Bambini'})
+            </div>
+            {!guest.is_child && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Permetti +1</span>
+                <Switch
+                  checked={guest.allow_plus_one || false}
+                  onCheckedChange={handleTogglePlusOne}
+                  disabled={togglingPlusOne}
+                  className="scale-75"
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>

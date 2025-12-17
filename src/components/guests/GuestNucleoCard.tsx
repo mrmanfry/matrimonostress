@@ -2,9 +2,12 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Users, Phone, Edit, Send, Baby, Edit2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Users, Phone, Edit, Send, Baby, Edit2, UserPlus2 } from "lucide-react";
 import { useState } from "react";
 import { GuestEditDialog } from "./GuestEditDialog";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface Guest {
   id: string;
@@ -13,6 +16,8 @@ interface Guest {
   phone?: string;
   is_child: boolean;
   rsvp_send_status: 'Non Inviato' | 'Inviato' | 'Fallito';
+  allow_plus_one?: boolean;
+  plus_one_name?: string;
 }
 
 interface InviteParty {
@@ -41,6 +46,7 @@ export const GuestNucleoCard = ({
 }: GuestNucleoCardProps) => {
   const [editingGuest, setEditingGuest] = useState<Guest | null>(null);
   const [guestEditDialogOpen, setGuestEditDialogOpen] = useState(false);
+  const [togglingPlusOne, setTogglingPlusOne] = useState<string | null>(null);
 
   const handleEditGuest = (guest: Guest) => {
     setEditingGuest(guest);
@@ -50,6 +56,26 @@ export const GuestNucleoCard = ({
   const handleGuestUpdateSuccess = () => {
     onGuestUpdate?.();
   };
+
+  const handleTogglePlusOne = async (guestId: string, checked: boolean) => {
+    setTogglingPlusOne(guestId);
+    try {
+      const { error } = await supabase
+        .from("guests")
+        .update({ allow_plus_one: checked })
+        .eq("id", guestId);
+
+      if (error) throw error;
+      
+      toast.success(checked ? "+1 abilitato" : "+1 disabilitato");
+      onGuestUpdate?.();
+    } catch (error: any) {
+      toast.error("Errore nell'aggiornamento");
+    } finally {
+      setTogglingPlusOne(null);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'Confermato':
@@ -77,6 +103,7 @@ export const GuestNucleoCard = ({
   const guestsWithPhone = party.guests.filter(g => g.phone).length;
   const totalGuests = party.guests.length;
   const allSent = party.guests.every(g => g.rsvp_send_status === 'Inviato');
+  const guestsWithPlusOne = party.guests.filter(g => g.allow_plus_one).length;
 
   return (
     <Card className={`p-4 hover:shadow-md transition-all ${selected ? 'ring-2 ring-primary' : ''}`}>
@@ -93,9 +120,15 @@ export const GuestNucleoCard = ({
           {/* Header */}
           <div className="flex items-start justify-between gap-2 mb-3">
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
                 <Users className="w-4 h-4 text-primary flex-shrink-0" />
                 <h3 className="font-semibold truncate">Nucleo: {party.party_name}</h3>
+                {guestsWithPlusOne > 0 && (
+                  <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
+                    <UserPlus2 className="w-3 h-3 mr-1" />
+                    {guestsWithPlusOne} +1
+                  </Badge>
+                )}
               </div>
               <div className="flex items-center gap-2 flex-wrap text-xs">
                 {getStatusBadge(party.rsvp_status)}
@@ -132,11 +165,16 @@ export const GuestNucleoCard = ({
           {/* Members List */}
           <div className="space-y-1">
             <h4 className="text-xs font-medium text-muted-foreground mb-2">👥 Membri:</h4>
-            <div className="space-y-1 pl-3">
+            <div className="space-y-2 pl-3">
               {adults.map(guest => (
                 <div key={guest.id} className="flex items-center justify-between text-sm group">
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     <span className="truncate">{guest.first_name} {guest.last_name}</span>
+                    {guest.allow_plus_one && (
+                      <Badge variant="outline" className="text-[10px] py-0 px-1 bg-purple-50 border-purple-200 text-purple-600 dark:bg-purple-900/20 dark:border-purple-700 dark:text-purple-300">
+                        +1
+                      </Badge>
+                    )}
                     {guest.phone ? (
                       <span className="text-muted-foreground text-xs truncate">
                         ({guest.phone})
@@ -145,7 +183,14 @@ export const GuestNucleoCard = ({
                       <span className="text-orange-600 text-xs">(nessun numero)</span>
                     )}
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={guest.allow_plus_one || false}
+                      onCheckedChange={(checked) => handleTogglePlusOne(guest.id, checked)}
+                      disabled={togglingPlusOne === guest.id}
+                      className="scale-[0.6]"
+                      title="Permetti +1"
+                    />
                     {getSendStatusIcon(guest.rsvp_send_status)}
                     <Button
                       variant="ghost"
