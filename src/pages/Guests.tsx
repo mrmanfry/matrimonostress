@@ -34,6 +34,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { GuestSingleCard } from "@/components/guests/GuestSingleCard";
 import { GuestNucleoCard } from "@/components/guests/GuestNucleoCard";
 import { SelectionToolbar } from "@/components/guests/SelectionToolbar";
+import { generateCateringReport } from "@/utils/pdfHelpers";
 
 interface Guest {
   id: string;
@@ -569,11 +570,57 @@ const Guests = () => {
     });
   };
 
-  const handleExportCateringPDF = () => {
-    toast({
-      title: "Funzionalità in arrivo",
-      description: "Il report catering sarà disponibile a breve.",
-    });
+  const handleExportCateringPDF = async () => {
+    if (allGuests.length === 0) {
+      toast({
+        title: "Nessun ospite",
+        description: "Aggiungi prima alcuni invitati per generare il report.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Carica assegnazioni tavoli
+      const { data: tableAssignments } = await supabase
+        .from("table_assignments")
+        .select(`
+          guest_id,
+          tables!inner(name)
+        `);
+
+      // Mappa guest_id -> table_name
+      const tableMap: Record<string, string> = {};
+      tableAssignments?.forEach((assignment: any) => {
+        tableMap[assignment.guest_id] = assignment.tables?.name || "";
+      });
+
+      // Prepara dati per il PDF
+      const cateringGuests = allGuests.map(guest => ({
+        first_name: guest.first_name,
+        last_name: guest.last_name,
+        menu_choice: guest.menu_choice || null,
+        dietary_restrictions: guest.dietary_restrictions || null,
+        notes: guest.notes || null,
+        adults_count: guest.adults_count,
+        children_count: guest.children_count,
+        is_child: guest.is_child,
+        table_name: tableMap[guest.id] || undefined,
+      }));
+
+      generateCateringReport(cateringGuests);
+      
+      toast({
+        title: "Report Generato!",
+        description: "Il PDF del catering è stato scaricato.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Errore",
+        description: "Impossibile generare il report.",
+        variant: "destructive",
+      });
+    }
   };
 
   if (loading) {

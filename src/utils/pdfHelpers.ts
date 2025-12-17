@@ -8,6 +8,8 @@ interface CateringGuest {
   notes: string | null;
   adults_count: number;
   children_count: number;
+  is_child: boolean;
+  table_name?: string;
 }
 
 interface TableGuest {
@@ -26,8 +28,9 @@ interface Table {
 
 /**
  * Genera un report PDF professionale per il catering
- * Sezione 1: Riepilogo Numerico
- * Sezione 2: Note Speciali (allergie, esigenze)
+ * Sezione 1: Riepilogo Numerico (Totali, Vegetariani, Vegani, Allergie)
+ * Sezione 2: Tabella Ospiti con Dieta e Allergie
+ * Sezione 3: Alert Allergie Evidenziati
  */
 export const generateCateringReport = (guests: CateringGuest[]): void => {
   const doc = new jsPDF();
@@ -53,131 +56,161 @@ export const generateCateringReport = (guests: CateringGuest[]): void => {
   y += 8;
   
   // Calcola totali
-  const totalAdults = guests.reduce((sum, g) => sum + g.adults_count, 0);
-  const totalChildren = guests.reduce((sum, g) => sum + g.children_count, 0);
-  const totalCovers = totalAdults + totalChildren;
-  
-  const menuCounts: Record<string, number> = {};
-  guests.forEach(g => {
-    const menu = g.menu_choice || "Non specificato";
-    menuCounts[menu] = (menuCounts[menu] || 0) + g.adults_count;
-  });
+  const totalGuests = guests.length;
+  const totalAdults = guests.filter(g => !g.is_child).length;
+  const totalChildren = guests.filter(g => g.is_child).length;
+  const vegetarians = guests.filter(g => g.menu_choice === "vegetariano").length;
+  const vegans = guests.filter(g => g.menu_choice === "vegano").length;
+  const withAllergies = guests.filter(g => g.dietary_restrictions && g.dietary_restrictions.trim()).length;
   
   doc.setFontSize(12);
   doc.setFont("helvetica", "normal");
   
   // Box con i totali
   doc.setFillColor(240, 240, 240);
-  doc.rect(20, y, 170, 60, "F");
+  doc.rect(20, y, 170, 50, "F");
   
-  y += 10;
+  y += 12;
   doc.setFont("helvetica", "bold");
-  doc.text(`Totale Coperti: ${totalCovers}`, 30, y);
+  doc.text(`Totale Ospiti: ${totalGuests}`, 30, y);
   
   y += 10;
   doc.setFont("helvetica", "normal");
   doc.text(`• Adulti: ${totalAdults}`, 40, y);
-  
-  y += 8;
+  y += 7;
   doc.text(`• Bambini: ${totalChildren}`, 40, y);
   
-  y += 12;
+  y += 10;
   doc.setFont("helvetica", "bold");
-  doc.text("Scelte di Menù:", 30, y);
+  doc.text("Preferenze Alimentari:", 30, y);
   
   y += 8;
   doc.setFont("helvetica", "normal");
-  Object.entries(menuCounts).forEach(([menu, count]) => {
-    doc.text(`• ${menu}: ${count}`, 40, y);
-    y += 8;
-  });
+  doc.setTextColor(34, 139, 34); // Verde per vegetariani
+  doc.text(`• Vegetariani: ${vegetarians}`, 40, y);
+  y += 7;
+  doc.setTextColor(0, 128, 0); // Verde scuro per vegani
+  doc.text(`• Vegani: ${vegans}`, 40, y);
+  y += 7;
+  doc.setTextColor(220, 38, 38); // Rosso per allergie
+  doc.text(`• Con Allergie/Intolleranze: ${withAllergies}`, 40, y);
+  doc.setTextColor(0, 0, 0);
   
-  // Sezione 2: Note Speciali
-  y += 15;
+  // Sezione 2: Tabella Ospiti
+  y += 20;
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
-  doc.text("Note Speciali e Restrizioni", 20, y);
+  doc.text("Lista Ospiti Dettagliata", 20, y);
   
   y += 10;
   doc.line(20, y, 190, y);
-  y += 10;
+  y += 8;
   
-  // Raccogli allergie
-  const allergies: string[] = [];
-  const otherNotes: string[] = [];
+  // Header tabella
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.setFillColor(230, 230, 230);
+  doc.rect(20, y - 5, 170, 8, "F");
+  doc.text("Nome", 25, y);
+  doc.text("Tavolo", 85, y);
+  doc.text("Dieta", 115, y);
+  doc.text("Allergie", 145, y);
   
-  guests.forEach(g => {
-    const fullName = `${g.first_name} ${g.last_name}`;
-    
-    if (g.dietary_restrictions) {
-      const restrictions = g.dietary_restrictions.toLowerCase();
-      if (restrictions.includes("allergi") || restrictions.includes("intolleran")) {
-        allergies.push(`${fullName}: ${g.dietary_restrictions}`);
-      } else {
-        otherNotes.push(`${fullName}: ${g.dietary_restrictions}`);
-      }
+  y += 8;
+  doc.setFont("helvetica", "normal");
+  
+  // Righe tabella
+  guests.forEach((guest) => {
+    if (y > 270) {
+      doc.addPage();
+      y = 20;
+      
+      // Re-draw header
+      doc.setFont("helvetica", "bold");
+      doc.setFillColor(230, 230, 230);
+      doc.rect(20, y - 5, 170, 8, "F");
+      doc.text("Nome", 25, y);
+      doc.text("Tavolo", 85, y);
+      doc.text("Dieta", 115, y);
+      doc.text("Allergie", 145, y);
+      y += 8;
+      doc.setFont("helvetica", "normal");
     }
     
-    if (g.notes && g.notes.trim()) {
-      otherNotes.push(`${fullName}: ${g.notes}`);
-    }
-  });
-  
-  doc.setFontSize(12);
-  
-  // Allergie e Intolleranze (in rosso per evidenza)
-  if (allergies.length > 0) {
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(220, 38, 38); // Rosso
-    doc.text("⚠ ALLERGIE E INTOLLERANZE:", 20, y);
-    y += 8;
+    const fullName = `${guest.first_name} ${guest.last_name}`;
+    const tableName = guest.table_name || "-";
+    let diet = "-";
     
-    doc.setFont("helvetica", "normal");
+    if (guest.menu_choice === "vegetariano") {
+      diet = "Vegetariano";
+    } else if (guest.menu_choice === "vegano") {
+      diet = "Vegano";
+    }
+    
+    const allergies = guest.dietary_restrictions?.trim() || "-";
+    
+    // Tronca nomi lunghi
+    const truncatedName = fullName.length > 25 ? fullName.substring(0, 22) + "..." : fullName;
+    const truncatedAllergies = allergies.length > 20 ? allergies.substring(0, 17) + "..." : allergies;
+    
+    doc.text(truncatedName, 25, y);
+    doc.text(tableName, 85, y);
+    
+    // Colora la dieta
+    if (diet !== "-") {
+      doc.setTextColor(34, 139, 34);
+    }
+    doc.text(diet, 115, y);
     doc.setTextColor(0, 0, 0);
     
-    allergies.forEach(allergy => {
-      if (y > 270) {
-        doc.addPage();
-        y = 20;
-      }
-      const lines = doc.splitTextToSize(`• ${allergy}`, 170);
-      doc.text(lines, 25, y);
-      y += lines.length * 7;
-    });
+    // Colora le allergie
+    if (allergies !== "-") {
+      doc.setTextColor(220, 38, 38);
+    }
+    doc.text(truncatedAllergies, 145, y);
+    doc.setTextColor(0, 0, 0);
     
-    y += 5;
-  }
+    y += 7;
+  });
   
-  // Altre Note
-  if (otherNotes.length > 0) {
-    if (y > 250) {
+  // Sezione 3: Allergie in Evidenza
+  const allergiesDetails = guests.filter(g => g.dietary_restrictions && g.dietary_restrictions.trim());
+  
+  if (allergiesDetails.length > 0) {
+    y += 15;
+    
+    if (y > 240) {
       doc.addPage();
       y = 20;
     }
     
+    doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
+    doc.setTextColor(220, 38, 38);
+    doc.text("⚠ ALLERGIE E INTOLLERANZE - ATTENZIONE CUCINA", 20, y);
     doc.setTextColor(0, 0, 0);
-    doc.text("ALTRE ESIGENZE:", 20, y);
-    y += 8;
     
-    doc.setFont("helvetica", "normal");
+    y += 10;
+    doc.line(20, y, 190, y);
+    y += 10;
     
-    otherNotes.forEach(note => {
+    doc.setFontSize(11);
+    
+    allergiesDetails.forEach(guest => {
       if (y > 270) {
         doc.addPage();
         y = 20;
       }
-      const lines = doc.splitTextToSize(`• ${note}`, 170);
-      doc.text(lines, 25, y);
-      y += lines.length * 7;
+      
+      const fullName = `${guest.first_name} ${guest.last_name}`;
+      doc.setFont("helvetica", "bold");
+      doc.text(`${fullName}:`, 25, y);
+      
+      doc.setFont("helvetica", "normal");
+      const lines = doc.splitTextToSize(guest.dietary_restrictions || "", 130);
+      doc.text(lines, 70, y);
+      y += lines.length * 6 + 4;
     });
-  }
-  
-  // Se non ci sono note speciali
-  if (allergies.length === 0 && otherNotes.length === 0) {
-    doc.setFont("helvetica", "italic");
-    doc.setTextColor(100, 100, 100);
-    doc.text("Nessuna nota speciale o restrizione alimentare segnalata.", 20, y);
   }
   
   // Footer

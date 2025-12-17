@@ -5,10 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Loader2, CheckCircle, XCircle } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, Leaf } from "lucide-react";
 
 interface GuestMember {
   id: string;
@@ -46,7 +46,7 @@ export default function RSVPPublic() {
   const [submitted, setSubmitted] = useState(false);
   const [rsvpData, setRsvpData] = useState<RSVPData | null>(null);
   const [partyStatus, setPartyStatus] = useState<string>("Confermato");
-  const [memberData, setMemberData] = useState<Record<string, { menuChoice: string; dietaryRestrictions: string; rsvpStatus: string }>>({});
+  const [memberData, setMemberData] = useState<Record<string, { isVegetarian: boolean; isVegan: boolean; dietaryRestrictions: string; rsvpStatus: string }>>({});
 
   useEffect(() => {
     if (!token) {
@@ -75,7 +75,8 @@ export default function RSVPPublic() {
         const initialMemberData: Record<string, any> = {};
         data.party.members.forEach((member: GuestMember) => {
           initialMemberData[member.id] = {
-            menuChoice: member.menu_choice || "",
+            isVegetarian: member.menu_choice === "vegetariano",
+            isVegan: member.menu_choice === "vegano",
             dietaryRestrictions: member.dietary_restrictions || "",
             rsvpStatus: member.rsvp_status || "pending",
           };
@@ -98,12 +99,19 @@ export default function RSVPPublic() {
     setSubmitting(true);
 
     try {
-      const members = rsvpData!.party.members.map((member) => ({
-        id: member.id,
-        rsvpStatus: memberData[member.id]?.rsvpStatus || "pending",
-        menuChoice: memberData[member.id]?.menuChoice || null,
-        dietaryRestrictions: memberData[member.id]?.dietaryRestrictions || null,
-      }));
+      const members = rsvpData!.party.members.map((member) => {
+        const data = memberData[member.id];
+        let menuChoice: string | null = null;
+        if (data?.isVegan) menuChoice = "vegano";
+        else if (data?.isVegetarian) menuChoice = "vegetariano";
+        
+        return {
+          id: member.id,
+          rsvpStatus: data?.rsvpStatus || "pending",
+          menuChoice,
+          dietaryRestrictions: data?.dietaryRestrictions || null,
+        };
+      });
 
       const { data, error } = await supabase.functions.invoke("rsvp-handler", {
         method: "POST",
@@ -230,32 +238,69 @@ export default function RSVPPublic() {
                           </span>
                         )}
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor={`menu-${member.id}`} className="text-sm">
-                          Scelta menù
+                      
+                      {/* Preferenze alimentari */}
+                      <div className="space-y-3">
+                        <Label className="text-sm flex items-center gap-2">
+                          <Leaf className="w-4 h-4 text-primary" />
+                          Preferenze alimentari
                         </Label>
-                        <Input
-                          id={`menu-${member.id}`}
-                          placeholder="Es: Menu carne, Menu pesce, Menu vegetariano"
-                          value={memberData[member.id]?.menuChoice || ""}
-                          onChange={(e) =>
-                            setMemberData({
-                              ...memberData,
-                              [member.id]: {
-                                ...memberData[member.id],
-                                menuChoice: e.target.value,
-                              },
-                            })
-                          }
-                        />
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`vegetarian-${member.id}`}
+                              checked={memberData[member.id]?.isVegetarian || false}
+                              onCheckedChange={(checked) => {
+                                setMemberData({
+                                  ...memberData,
+                                  [member.id]: {
+                                    ...memberData[member.id],
+                                    isVegetarian: !!checked,
+                                    isVegan: checked ? false : memberData[member.id]?.isVegan,
+                                  },
+                                });
+                              }}
+                            />
+                            <Label 
+                              htmlFor={`vegetarian-${member.id}`} 
+                              className="text-sm font-normal cursor-pointer"
+                            >
+                              Sono vegetariano/a
+                            </Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`vegan-${member.id}`}
+                              checked={memberData[member.id]?.isVegan || false}
+                              onCheckedChange={(checked) => {
+                                setMemberData({
+                                  ...memberData,
+                                  [member.id]: {
+                                    ...memberData[member.id],
+                                    isVegan: !!checked,
+                                    isVegetarian: checked ? false : memberData[member.id]?.isVegetarian,
+                                  },
+                                });
+                              }}
+                            />
+                            <Label 
+                              htmlFor={`vegan-${member.id}`} 
+                              className="text-sm font-normal cursor-pointer"
+                            >
+                              Sono vegano/a
+                            </Label>
+                          </div>
+                        </div>
                       </div>
+
+                      {/* Allergie */}
                       <div className="space-y-2">
                         <Label htmlFor={`dietary-${member.id}`} className="text-sm">
                           Allergie o intolleranze
                         </Label>
                         <Textarea
                           id={`dietary-${member.id}`}
-                          placeholder="Specificare eventuali allergie o restrizioni alimentari"
+                          placeholder="Es: Celiaco, intolleranza al lattosio, allergia alle noci..."
                           value={memberData[member.id]?.dietaryRestrictions || ""}
                           onChange={(e) =>
                             setMemberData({
