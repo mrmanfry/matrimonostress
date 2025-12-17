@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { VendorDialog } from "@/components/vendors/VendorDialog";
 import { VendorExpensesDialog } from "@/components/vendors/VendorExpensesDialog";
-import { Plus, Phone, Mail, User, Trash2, Edit, Heart, Wallet, FileText, FileUp, Eye, Sparkles } from "lucide-react";
+import { Plus, Phone, Mail, User, Trash2, Edit, Heart, Wallet, FileText, FileUp, Eye, Sparkles, ChevronRight } from "lucide-react";
 import { ContractUploadDialog } from "@/components/vendors/ContractUploadDialog";
 import { ContractReviewDialog } from "@/components/vendors/ContractReviewDialog";
 import ContractViewDialog from "@/components/vendors/ContractViewDialog";
@@ -616,13 +616,16 @@ const Vendors = () => {
         const contract = hasContract ? vendor.vendor_contracts[0] : null;
         return <Card 
                 key={vendor.id} 
-                className="hover:shadow-lg transition-all cursor-pointer group"
+                className="hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer group"
                 onClick={() => navigate(`/app/vendors/${vendor.id}`)}
               >
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="space-y-1 flex-1">
-                      <CardTitle className="text-lg group-hover:text-primary transition-colors">{vendor.name}</CardTitle>
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-lg group-hover:text-primary group-hover:underline transition-colors">{vendor.name}</CardTitle>
+                        <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
                       {vendor.category_name && <p className="text-sm text-muted-foreground">
                           {vendor.category_name}
                         </p>}
