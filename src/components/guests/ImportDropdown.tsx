@@ -3,12 +3,14 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Download, Upload, Sparkles, FileText } from "lucide-react";
+import { Download, Upload, Sparkles, FileText, RefreshCw } from "lucide-react";
 
 interface ImportDropdownProps {
   onSmartImport: () => void;
+  onSmartDiff: () => void;
   onDownloadTemplate: () => void;
   onImportCSV: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onExportCSV: () => void;
@@ -19,6 +21,7 @@ interface ImportDropdownProps {
 
 export const ImportDropdown = ({
   onSmartImport,
+  onSmartDiff,
   onDownloadTemplate,
   onImportCSV,
   onExportCSV,
@@ -43,6 +46,16 @@ export const ImportDropdown = ({
           </div>
         </DropdownMenuItem>
         
+        <DropdownMenuItem onClick={onSmartDiff} disabled={!hasGuests}>
+          <RefreshCw className="w-4 h-4 mr-2 text-primary" />
+          <div className="flex-1">
+            <div className="font-medium">🔄 Verifica Modifiche</div>
+            <div className="text-xs text-muted-foreground">Confronta con lista esterna</div>
+          </div>
+        </DropdownMenuItem>
+
+        <DropdownMenuSeparator />
+        
         <DropdownMenuItem asChild>
           <label className="flex items-center cursor-pointer w-full">
             <Upload className="w-4 h-4 mr-2" />
@@ -60,6 +73,8 @@ export const ImportDropdown = ({
           <Download className="w-4 h-4 mr-2" />
           📄 Scarica Template CSV
         </DropdownMenuItem>
+
+        <DropdownMenuSeparator />
 
         <DropdownMenuItem 
           onClick={onExportCSV} 

@@ -30,6 +30,7 @@ import { ContactSyncDialog } from "@/components/guests/ContactSyncDialog";
 import { RSVPCampaignDialog } from "@/components/guests/RSVPCampaignDialog";
 import { GuestStatsChart } from "@/components/guests/GuestStatsChart";
 import { ImportDropdown } from "@/components/guests/ImportDropdown";
+import { GuestDiffDialog } from "@/components/guests/GuestDiffDialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { GuestSingleCard } from "@/components/guests/GuestSingleCard";
 import { GuestNucleoCard } from "@/components/guests/GuestNucleoCard";
@@ -88,6 +89,7 @@ const Guests = () => {
   const [editingParty, setEditingParty] = useState<InviteParty | undefined>();
   const [smartGrouperOpen, setSmartGrouperOpen] = useState(false);
   const [smartImportOpen, setSmartImportOpen] = useState(false);
+  const [smartDiffOpen, setSmartDiffOpen] = useState(false);
   const [contactSyncOpen, setContactSyncOpen] = useState(false);
   const [rsvpCampaignOpen, setRsvpCampaignOpen] = useState(false);
   const [selectedPartiesForRSVP, setSelectedPartiesForRSVP] = useState<InviteParty[]>([]);
@@ -654,6 +656,7 @@ const Guests = () => {
           <div className="flex gap-2">
             <ImportDropdown
               onSmartImport={() => setSmartImportOpen(true)}
+              onSmartDiff={() => setSmartDiffOpen(true)}
               onDownloadTemplate={handleDownloadTemplate}
               onImportCSV={handleImportCSV}
               onExportCSV={handleExportCSV}
@@ -693,6 +696,7 @@ const Guests = () => {
             <div className="flex justify-center gap-2">
               <ImportDropdown
                 onSmartImport={() => setSmartImportOpen(true)}
+                onSmartDiff={() => setSmartDiffOpen(true)}
                 onDownloadTemplate={handleDownloadTemplate}
                 onImportCSV={handleImportCSV}
                 onExportCSV={handleExportCSV}
@@ -970,6 +974,13 @@ const Guests = () => {
         selectedParties={selectedPartiesForRSVP}
         weddingId={wedding?.id || ""}
         coupleName={wedding ? `${wedding.partner1_name} & ${wedding.partner2_name}` : ""}
+      />
+
+      <GuestDiffDialog
+        open={smartDiffOpen}
+        onOpenChange={setSmartDiffOpen}
+        weddingId={wedding?.id || ""}
+        onSuccess={loadData}
       />
     </div>
   );
