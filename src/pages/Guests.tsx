@@ -732,10 +732,20 @@ const Guests = () => {
               <div className="text-3xl font-bold">{totalGuests}</div>
               <div className="text-xs text-muted-foreground mt-1">
                 {totalAdults} Adult{totalAdults !== 1 ? 'i' : 'o'}, {totalChildren} Bambin{totalChildren !== 1 ? 'i' : 'o'}
-                {confirmedPlusOnes > 0 && (
-                  <span className="text-purple-600 ml-1">(incl. {confirmedPlusOnes} +1)</span>
-                )}
               </div>
+              {(confirmedPlusOnes > 0 || potentialPlusOnes > 0) && (
+                <div className="text-xs mt-1">
+                  {confirmedPlusOnes > 0 && (
+                    <span className="text-purple-600">+1 confermati: {confirmedPlusOnes}</span>
+                  )}
+                  {confirmedPlusOnes > 0 && potentialPlusOnes > 0 && (
+                    <span className="text-muted-foreground"> · </span>
+                  )}
+                  {potentialPlusOnes > 0 && (
+                    <span className="text-muted-foreground/70">+1 potenziali: {potentialPlusOnes}</span>
+                  )}
+                </div>
+              )}
             </Card>
             <Card className="p-4">
               <div className="text-sm text-muted-foreground">Nuclei di Invito</div>
