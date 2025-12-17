@@ -52,6 +52,8 @@ interface Guest {
   notes?: string;
   adults_count: number;
   children_count: number;
+  allow_plus_one?: boolean;
+  plus_one_name?: string;
 }
 
 interface InviteParty {

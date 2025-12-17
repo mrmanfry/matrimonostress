@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { User } from "lucide-react";
+import { User, UserPlus2 } from "lucide-react";
 
 interface Guest {
   id: string;
@@ -14,6 +14,7 @@ interface Guest {
   last_name: string;
   phone?: string;
   is_child: boolean;
+  allow_plus_one?: boolean;
 }
 
 interface GuestEditDialogProps {
@@ -33,6 +34,7 @@ export const GuestEditDialog = ({
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
   const [isChild, setIsChild] = useState(false);
+  const [allowPlusOne, setAllowPlusOne] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -41,6 +43,7 @@ export const GuestEditDialog = ({
       setLastName(guest.last_name);
       setPhone(guest.phone || "");
       setIsChild(guest.is_child);
+      setAllowPlusOne(guest.allow_plus_one || false);
     }
   }, [open, guest]);
 
@@ -57,6 +60,7 @@ export const GuestEditDialog = ({
           last_name: lastName.trim(),
           phone: phone.trim() || null,
           is_child: isChild,
+          allow_plus_one: isChild ? false : allowPlusOne,
         })
         .eq("id", guest.id);
 
@@ -125,9 +129,33 @@ export const GuestEditDialog = ({
             <Switch
               id="is-child"
               checked={isChild}
-              onCheckedChange={setIsChild}
+              onCheckedChange={(checked) => {
+                setIsChild(checked);
+                if (checked) setAllowPlusOne(false);
+              }}
             />
           </div>
+
+          {!isChild && (
+            <div className="flex items-center justify-between py-2 px-3 rounded-lg border border-border bg-muted/30">
+              <div className="flex items-center gap-2">
+                <UserPlus2 className="w-4 h-4 text-purple-600" />
+                <div>
+                  <Label htmlFor="allow-plus-one" className="cursor-pointer font-medium">
+                    Permetti +1
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    L'invitato potrà indicare un accompagnatore
+                  </p>
+                </div>
+              </div>
+              <Switch
+                id="allow-plus-one"
+                checked={allowPlusOne}
+                onCheckedChange={setAllowPlusOne}
+              />
+            </div>
+          )}
 
           <div className="flex justify-end gap-2 pt-4">
             <Button
