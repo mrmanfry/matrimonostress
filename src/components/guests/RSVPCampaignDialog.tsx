@@ -7,8 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Sparkles, Send, SkipForward, Upload, X, Filter, Phone, AlertCircle, Users, CheckCircle, Clock, PhoneOff } from "lucide-react";
+import { Sparkles, Send, SkipForward, Upload, X, Filter, Phone, AlertCircle, Users, CheckCircle, PhoneOff, Settings, Link2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useNavigate } from "react-router-dom";
 
 interface Guest {
   id: string;
@@ -18,6 +20,7 @@ interface Guest {
   unique_rsvp_token: string | null;
   rsvp_invitation_sent: string | null;
   party_id: string | null;
+  group_id: string | null;
   is_child: boolean;
 }
 
@@ -25,6 +28,18 @@ interface InviteParty {
   id: string;
   party_name: string;
   rsvp_status?: string;
+}
+
+interface GuestGroup {
+  id: string;
+  name: string;
+}
+
+interface RSVPConfig {
+  hero_image_url?: string | null;
+  welcome_title?: string;
+  welcome_text?: string;
+  deadline_date?: string | null;
 }
 
 interface RSVPCampaignDialogProps {
@@ -44,6 +59,7 @@ export function RSVPCampaignDialog({
   weddingId,
   coupleName,
 }: RSVPCampaignDialogProps) {
+  const navigate = useNavigate();
   const [step, setStep] = useState<"filter" | "template" | "sending">("filter");
   const [activeFilter, setActiveFilter] = useState<FilterType>("to_send");
   const [messageTemplate, setMessageTemplate] = useState(
@@ -56,6 +72,11 @@ export function RSVPCampaignDialog({
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [whatsappOpened, setWhatsappOpened] = useState(false);
   const [allParties, setAllParties] = useState<InviteParty[]>([]);
+  const [allGroups, setAllGroups] = useState<GuestGroup[]>([]);
+  const [selectedPartyId, setSelectedPartyId] = useState<string | null>(null);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [rsvpConfig, setRsvpConfig] = useState<RSVPConfig | null>(null);
+  const [isRsvpConfigured, setIsRsvpConfigured] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -63,6 +84,8 @@ export function RSVPCampaignDialog({
     } else {
       setStep("filter");
       setActiveFilter("to_send");
+      setSelectedPartyId(null);
+      setSelectedGroupId(null);
     }
   }, [open, weddingId]);
 
@@ -73,6 +96,31 @@ export function RSVPCampaignDialog({
       .select("id, party_name, rsvp_status")
       .eq("wedding_id", weddingId);
     setAllParties(parties || []);
+
+    // Load all groups
+    const { data: groups } = await supabase
+      .from("guest_groups")
+      .select("id, name")
+      .eq("wedding_id", weddingId)
+      .order("name");
+    setAllGroups(groups || []);
+
+    // Load RSVP config from wedding
+    const { data: wedding } = await supabase
+      .from("weddings")
+      .select("rsvp_config")
+      .eq("id", weddingId)
+      .single();
+    
+    if (wedding?.rsvp_config) {
+      const config = wedding.rsvp_config as RSVPConfig;
+      setRsvpConfig(config);
+      // Consider RSVP configured if it has at least a welcome title or welcome text
+      setIsRsvpConfigured(Boolean(config.welcome_title || config.welcome_text));
+    } else {
+      setRsvpConfig(null);
+      setIsRsvpConfigured(false);
+    }
 
     // Load ALL guests for the wedding (not filtered by party)
     const { data, error } = await supabase
@@ -91,12 +139,27 @@ export function RSVPCampaignDialog({
     setAllGuests(data || []);
   };
 
-  // Filter stats
+  // Apply party and group filters first
+  const preFilteredGuests = useMemo(() => {
+    let result = allGuests;
+    
+    if (selectedPartyId) {
+      result = result.filter(g => g.party_id === selectedPartyId);
+    }
+    
+    if (selectedGroupId) {
+      result = result.filter(g => g.group_id === selectedGroupId);
+    }
+    
+    return result;
+  }, [allGuests, selectedPartyId, selectedGroupId]);
+
+  // Filter stats based on pre-filtered guests
   const filterStats = useMemo(() => {
-    const withPhone = allGuests.filter(g => g.phone && g.phone.trim() !== "");
+    const withPhone = preFilteredGuests.filter(g => g.phone && g.phone.trim() !== "");
     const toSend = withPhone.filter(g => !g.rsvp_invitation_sent);
     const alreadySent = withPhone.filter(g => !!g.rsvp_invitation_sent);
-    const noPhone = allGuests.filter(g => !g.phone || g.phone.trim() === "");
+    const noPhone = preFilteredGuests.filter(g => !g.phone || g.phone.trim() === "");
     
     return {
       to_send: toSend.length,
@@ -104,25 +167,25 @@ export function RSVPCampaignDialog({
       no_phone: noPhone.length,
       total_with_phone: withPhone.length,
     };
-  }, [allGuests]);
+  }, [preFilteredGuests]);
 
-  // Apply filter
+  // Apply status filter on top of party/group filters
   const filteredGuests = useMemo(() => {
     switch (activeFilter) {
       case "to_send":
-        return allGuests.filter(g => 
+        return preFilteredGuests.filter(g => 
           g.phone && g.phone.trim() !== "" && !g.rsvp_invitation_sent
         );
       case "already_sent":
-        return allGuests.filter(g => 
+        return preFilteredGuests.filter(g => 
           g.phone && g.phone.trim() !== "" && !!g.rsvp_invitation_sent
         );
       case "no_phone":
-        return allGuests.filter(g => !g.phone || g.phone.trim() === "");
+        return preFilteredGuests.filter(g => !g.phone || g.phone.trim() === "");
       default:
         return [];
     }
-  }, [allGuests, activeFilter]);
+  }, [preFilteredGuests, activeFilter]);
 
   const generateAIMessage = async () => {
     setIsGeneratingAI(true);
@@ -158,6 +221,19 @@ export function RSVPCampaignDialog({
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleContinueToTemplate = () => {
+    if (!isRsvpConfigured) {
+      // Don't proceed if RSVP is not configured
+      return;
+    }
+    setStep("template");
+  };
+
+  const goToSettings = () => {
+    onOpenChange(false);
+    navigate("/app/settings");
   };
 
   const startSending = () => {
@@ -228,6 +304,7 @@ export function RSVPCampaignDialog({
 
   const currentGuest = guests[currentIndex];
   const progress = guests.length > 0 ? ((currentIndex / guests.length) * 100) : 0;
+  const rsvpDomain = `${window.location.origin}/rsvp/`;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -256,6 +333,22 @@ export function RSVPCampaignDialog({
                   Passo 1: Seleziona Chi Contattare
                 </h3>
 
+                {/* RSVP Configuration Warning */}
+                {!isRsvpConfigured && (
+                  <Alert variant="destructive" className="mb-4">
+                    <Settings className="h-4 w-4" />
+                    <AlertDescription className="flex items-center justify-between">
+                      <span>
+                        La pagina RSVP non è ancora configurata. Vai nelle Impostazioni per personalizzare il messaggio di benvenuto.
+                      </span>
+                      <Button variant="outline" size="sm" onClick={goToSettings} className="ml-4 shrink-0">
+                        <Settings className="w-4 h-4 mr-2" />
+                        Vai a Impostazioni
+                      </Button>
+                    </AlertDescription>
+                  </Alert>
+                )}
+
                 {/* Alert if no guests have phone */}
                 {filterStats.total_with_phone === 0 && (
                   <Alert variant="destructive" className="mb-4">
@@ -265,6 +358,72 @@ export function RSVPCampaignDialog({
                     </AlertDescription>
                   </Alert>
                 )}
+
+                {/* Filters for Party and Group */}
+                <div className="bg-muted/50 rounded-lg p-4 mb-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Filter className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">Filtra per</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Nucleo Familiare</label>
+                      <Select 
+                        value={selectedPartyId || "all"} 
+                        onValueChange={(v) => setSelectedPartyId(v === "all" ? null : v)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Tutti i nuclei" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Tutti i nuclei</SelectItem>
+                          {allParties.map((party) => (
+                            <SelectItem key={party.id} value={party.id}>
+                              {party.party_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Gruppo</label>
+                      <Select 
+                        value={selectedGroupId || "all"} 
+                        onValueChange={(v) => setSelectedGroupId(v === "all" ? null : v)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Tutti i gruppi" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Tutti i gruppi</SelectItem>
+                          {allGroups.map((group) => (
+                            <SelectItem key={group.id} value={group.id}>
+                              {group.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  {(selectedPartyId || selectedGroupId) && (
+                    <div className="mt-3 flex items-center gap-2">
+                      <Badge variant="secondary" className="text-xs">
+                        {preFilteredGuests.length} invitati filtrati
+                      </Badge>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-6 text-xs"
+                        onClick={() => {
+                          setSelectedPartyId(null);
+                          setSelectedGroupId(null);
+                        }}
+                      >
+                        Rimuovi filtri
+                      </Button>
+                    </div>
+                  )}
+                </div>
                 
                 <Tabs value={activeFilter} onValueChange={(v) => setActiveFilter(v as FilterType)}>
                   <TabsList className="grid grid-cols-3 w-full">
@@ -335,12 +494,14 @@ export function RSVPCampaignDialog({
               </div>
 
               <Button 
-                onClick={() => setStep("template")} 
+                onClick={handleContinueToTemplate} 
                 size="lg" 
                 className="w-full"
-                disabled={filteredGuests.length === 0 || activeFilter === "no_phone" || activeFilter === "already_sent"}
+                disabled={filteredGuests.length === 0 || activeFilter === "no_phone" || activeFilter === "already_sent" || !isRsvpConfigured}
               >
-                {activeFilter === "already_sent" 
+                {!isRsvpConfigured
+                  ? "⚠️ Configura prima la pagina RSVP"
+                  : activeFilter === "already_sent" 
                   ? "Seleziona 'Da Inviare' per continuare"
                   : activeFilter === "no_phone"
                   ? "Aggiungi numeri di telefono per continuare"
@@ -405,6 +566,23 @@ export function RSVPCampaignDialog({
                     </Button>
                   </div>
                 )}
+
+                {/* RSVP Link Preview */}
+                <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 space-y-2">
+                  <div className="flex items-center gap-2 text-primary">
+                    <Link2 className="w-4 h-4" />
+                    <span className="font-medium text-sm">Link RSVP Personalizzato</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Ogni invitato riceverà un link unico alla pagina RSVP che hai configurato:
+                  </p>
+                  <code className="block text-xs bg-background/80 p-2 rounded border font-mono">
+                    {rsvpDomain}<span className="text-primary">[token-univoco]</span>
+                  </code>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    ℹ️ La variabile <code className="bg-background px-1 rounded">[LINK_RSVP]</code> nel messaggio verrà sostituita automaticamente con il link corretto per ogni invitato.
+                  </p>
+                </div>
 
                 <div className="bg-muted p-4 rounded-lg space-y-2">
                   <p className="font-medium">📋 Variabili disponibili:</p>
