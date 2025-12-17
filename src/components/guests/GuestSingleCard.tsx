@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
-import { Phone, Edit, UserPlus, Baby, UserPlus2 } from "lucide-react";
+import { Phone, Edit, UserPlus, Baby, UserPlus2, Heart } from "lucide-react";
 import { useState } from "react";
 import { GuestEditDialog } from "./GuestEditDialog";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,6 +18,9 @@ interface Guest {
   rsvp_send_status: 'Non Inviato' | 'Inviato' | 'Fallito';
   allow_plus_one?: boolean;
   plus_one_name?: string;
+  is_couple_member?: boolean;
+  menu_choice?: string;
+  dietary_restrictions?: string;
 }
 
 interface GuestSingleCardProps {
@@ -70,28 +73,38 @@ export const GuestSingleCard = ({
   };
 
   return (
-    <Card className={`p-4 hover:shadow-md transition-all ${selected ? 'ring-2 ring-primary' : ''}`}>
+    <Card className={`p-4 hover:shadow-md transition-all ${selected ? 'ring-2 ring-primary' : ''} ${guest.is_couple_member ? 'border-pink-200 dark:border-pink-900/50 bg-pink-50/30 dark:bg-pink-950/10' : ''}`}>
       <div className="flex items-start gap-3">
-        {/* Checkbox */}
-        <Checkbox
-          checked={selected}
-          onCheckedChange={() => onToggleSelect(guest.id)}
-          className="mt-1"
-        />
+        {/* Checkbox - hidden for couple members */}
+        {!guest.is_couple_member && (
+          <Checkbox
+            checked={selected}
+            onCheckedChange={() => onToggleSelect(guest.id)}
+            className="mt-1"
+          />
+        )}
 
         {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2 mb-2">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
+                {guest.is_couple_member && (
+                  <Heart className="w-4 h-4 text-pink-500 fill-pink-500" />
+                )}
                 <h3 className="font-semibold truncate">{displayName}</h3>
+                {guest.is_couple_member && (
+                  <Badge className="text-xs bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300 border-0">
+                    Sposo/a
+                  </Badge>
+                )}
                 {guest.is_child && (
                   <Badge variant="outline" className="text-xs">
                     <Baby className="w-3 h-3 mr-1" />
                     Bambino
                   </Badge>
                 )}
-                {guest.allow_plus_one && (
+                {guest.allow_plus_one && !guest.is_couple_member && (
                   <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
                     <UserPlus2 className="w-3 h-3 mr-1" />
                     +1
@@ -112,19 +125,21 @@ export const GuestSingleCard = ({
                 size="icon"
                 className="h-8 w-8"
                 onClick={handleEditClick}
-                title="Modifica dettagli invitato"
+                title={guest.is_couple_member ? "Modifica preferenze alimentari" : "Modifica dettagli invitato"}
               >
                 <Edit className="w-4 h-4" />
               </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => onAddToParty(guest.id)}
-                title="Aggiungi a nucleo"
-              >
-                <UserPlus className="w-4 h-4" />
-              </Button>
+              {!guest.is_couple_member && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => onAddToParty(guest.id)}
+                  title="Aggiungi a nucleo"
+                >
+                  <UserPlus className="w-4 h-4" />
+                </Button>
+              )}
             </div>
           </div>
 
@@ -146,9 +161,13 @@ export const GuestSingleCard = ({
           {/* Plus One Toggle & Person count */}
           <div className="flex items-center justify-between mt-3 pt-2 border-t">
             <div className="text-xs text-muted-foreground">
-              ({guest.is_child ? '0 Adulti, 1 Bambino' : '1 Adulto, 0 Bambini'})
+              {guest.is_couple_member ? (
+                <span className="text-pink-600 dark:text-pink-400">Confermato</span>
+              ) : (
+                guest.is_child ? '0 Adulti, 1 Bambino' : '1 Adulto, 0 Bambini'
+              )}
             </div>
-            {!guest.is_child && (
+            {!guest.is_child && !guest.is_couple_member && (
               <div 
                 className="flex items-center gap-2"
                 onClick={(e) => e.stopPropagation()}
