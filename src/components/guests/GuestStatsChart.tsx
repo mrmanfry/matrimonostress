@@ -7,6 +7,7 @@ interface GuestStatsChartProps {
     confirmed: number;
     pending: number;
     declined: number;
+    plusOnes?: number;
   };
 }
 
@@ -63,7 +64,12 @@ export const GuestStatsChart = ({ stats }: GuestStatsChartProps) => {
         <div className="space-y-3 md:min-w-[200px]">
           <div className="space-y-1">
             <p className="text-2xl font-bold">{stats.total}</p>
-            <p className="text-sm text-muted-foreground">Totale Invitati</p>
+            <p className="text-sm text-muted-foreground">
+              Totale Invitati
+              {stats.plusOnes && stats.plusOnes > 0 && (
+                <span className="text-purple-600 ml-1">(incl. {stats.plusOnes} +1)</span>
+              )}
+            </p>
           </div>
           <div className="h-px bg-border" />
           <div className="space-y-2">

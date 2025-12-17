@@ -149,7 +149,10 @@ export const GuestSingleCard = ({
               ({guest.is_child ? '0 Adulti, 1 Bambino' : '1 Adulto, 0 Bambini'})
             </div>
             {!guest.is_child && (
-              <div className="flex items-center gap-2">
+              <div 
+                className="flex items-center gap-2"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <span className="text-xs text-muted-foreground">Permetti +1</span>
                 <Switch
                   checked={guest.allow_plus_one || false}

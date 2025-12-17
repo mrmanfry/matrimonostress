@@ -184,13 +184,18 @@ export const GuestNucleoCard = ({
                     )}
                   </div>
                   <div className="flex items-center gap-2">
-                    <Switch
-                      checked={guest.allow_plus_one || false}
-                      onCheckedChange={(checked) => handleTogglePlusOne(guest.id, checked)}
-                      disabled={togglingPlusOne === guest.id}
-                      className="scale-[0.6]"
-                      title="Permetti +1"
-                    />
+                    <div 
+                      className="flex items-center"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Switch
+                        checked={guest.allow_plus_one || false}
+                        onCheckedChange={(checked) => handleTogglePlusOne(guest.id, checked)}
+                        disabled={togglingPlusOne === guest.id}
+                        className="scale-[0.6]"
+                        title="Permetti +1"
+                      />
+                    </div>
                     {getSendStatusIcon(guest.rsvp_send_status)}
                     <Button
                       variant="ghost"
