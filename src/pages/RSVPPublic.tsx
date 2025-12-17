@@ -63,6 +63,7 @@ export default function RSVPPublic() {
   const [submitted, setSubmitted] = useState(false);
   const [rsvpData, setRsvpData] = useState<RSVPData | null>(null);
   const [partyStatus, setPartyStatus] = useState<string>("Confermato");
+  const [isPreview, setIsPreview] = useState(false);
   const [memberData, setMemberData] = useState<Record<string, {
     isVegetarian: boolean;
     isVegan: boolean;
@@ -79,52 +80,168 @@ export default function RSVPPublic() {
       return;
     }
 
-    const fetchRSVPData = async () => {
-      try {
-        const { data, error } = await supabase.functions.invoke("rsvp-handler", {
-          method: "GET",
-          body: { token },
-        });
-
-        if (error) throw error;
-
-        if (data.error) {
-          toast.error(data.error === "Token not found" ? "Link RSVP non valido o scaduto" : "Errore nel caricamento");
-          navigate("/404");
-          return;
-        }
-
-        setRsvpData(data);
-        setPartyStatus(data.party.status);
-
-        const initialMemberData: Record<string, any> = {};
-        data.party.members.forEach((member: GuestMember) => {
-          initialMemberData[member.id] = {
-            isVegetarian: member.menu_choice === "vegetariano",
-            isVegan: member.menu_choice === "vegano",
-            dietaryRestrictions: member.dietary_restrictions || "",
-            rsvpStatus: member.rsvp_status || "pending",
-            hasPlusOne: !!member.plus_one_name,
-            plusOneName: member.plus_one_name || "",
-            plusOneMenu: member.plus_one_menu || "",
-          };
-        });
-        setMemberData(initialMemberData);
-      } catch (error) {
-        console.error("Error fetching RSVP data:", error);
-        toast.error("Errore nel caricamento dell'invito");
-        navigate("/404");
-      } finally {
-        setLoading(false);
-      }
-    };
+    // Handle preview mode
+    if (token === "preview") {
+      setIsPreview(true);
+      fetchPreviewData();
+      return;
+    }
 
     fetchRSVPData();
   }, [token, navigate]);
 
+  const fetchPreviewData = async () => {
+    try {
+      // Get current user's wedding for preview
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("Devi essere loggato per vedere l'anteprima");
+        navigate("/auth");
+        return;
+      }
+
+      // Get wedding data
+      const { data: wedding, error } = await supabase
+        .from("weddings")
+        .select("*")
+        .eq("created_by", user.id)
+        .maybeSingle();
+
+      if (error || !wedding) {
+        toast.error("Matrimonio non trovato");
+        navigate("/app/settings");
+        return;
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rawConfig = wedding.rsvp_config as any;
+      const config: RSVPConfig = {
+        hero_image_url: rawConfig?.hero_image_url || null,
+        welcome_title: rawConfig?.welcome_title || "Benvenuti al nostro Matrimonio",
+        welcome_text: rawConfig?.welcome_text || "Non vediamo l'ora di festeggiare con voi!",
+        deadline_date: rawConfig?.deadline_date || null,
+      };
+
+      // Create demo data
+      const demoData: RSVPData = {
+        guest: {
+          id: "demo-guest",
+          firstName: "Mario",
+          lastName: "Rossi",
+        },
+        party: {
+          id: "demo-party",
+          name: "Famiglia Rossi",
+          status: "In attesa",
+          members: [
+            {
+              id: "demo-member-1",
+              first_name: "Mario",
+              last_name: "Rossi",
+              rsvp_status: "pending",
+              menu_choice: null,
+              dietary_restrictions: null,
+              is_child: false,
+              allow_plus_one: true,
+              plus_one_name: null,
+              plus_one_menu: null,
+            },
+            {
+              id: "demo-member-2",
+              first_name: "Laura",
+              last_name: "Rossi",
+              rsvp_status: "pending",
+              menu_choice: null,
+              dietary_restrictions: null,
+              is_child: false,
+              allow_plus_one: false,
+              plus_one_name: null,
+              plus_one_menu: null,
+            },
+          ],
+          lastEditorName: null,
+          lastUpdatedAt: null,
+        },
+        wedding: {
+          couple: `${wedding.partner1_name} & ${wedding.partner2_name}`,
+          date: wedding.wedding_date,
+        },
+        config,
+        isReadOnly: false,
+      };
+
+      setRsvpData(demoData);
+      setPartyStatus(demoData.party.status);
+
+      const initialMemberData: Record<string, any> = {};
+      demoData.party.members.forEach((member) => {
+        initialMemberData[member.id] = {
+          isVegetarian: false,
+          isVegan: false,
+          dietaryRestrictions: "",
+          rsvpStatus: "pending",
+          hasPlusOne: false,
+          plusOneName: "",
+          plusOneMenu: "",
+        };
+      });
+      setMemberData(initialMemberData);
+    } catch (error) {
+      console.error("Error fetching preview data:", error);
+      toast.error("Errore nel caricamento anteprima");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchRSVPData = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke("rsvp-handler", {
+        method: "GET",
+        body: { token },
+      });
+
+      if (error) throw error;
+
+      if (data.error) {
+        toast.error(data.error === "Token not found" ? "Link RSVP non valido o scaduto" : "Errore nel caricamento");
+        navigate("/404");
+        return;
+      }
+
+      setRsvpData(data);
+      setPartyStatus(data.party.status);
+
+      const initialMemberData: Record<string, any> = {};
+      data.party.members.forEach((member: GuestMember) => {
+        initialMemberData[member.id] = {
+          isVegetarian: member.menu_choice === "vegetariano",
+          isVegan: member.menu_choice === "vegano",
+          dietaryRestrictions: member.dietary_restrictions || "",
+          rsvpStatus: member.rsvp_status || "pending",
+          hasPlusOne: !!member.plus_one_name,
+          plusOneName: member.plus_one_name || "",
+          plusOneMenu: member.plus_one_menu || "",
+        };
+      });
+      setMemberData(initialMemberData);
+    } catch (error) {
+      console.error("Error fetching RSVP data:", error);
+      toast.error("Errore nel caricamento dell'invito");
+      navigate("/404");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Block submission in preview mode
+    if (isPreview) {
+      toast.info("Questa è solo un'anteprima. Il form non può essere inviato.");
+      return;
+    }
     if (rsvpData?.isReadOnly) {
       toast.error("Il termine per rispondere è scaduto");
       return;
@@ -220,6 +337,13 @@ export default function RSVPPublic() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5">
+      {/* Preview Banner */}
+      {isPreview && (
+        <div className="bg-yellow-500 text-yellow-950 text-center py-2 px-4 font-medium text-sm sticky top-0 z-50">
+          ⚠️ ANTEPRIMA - Questa è una simulazione di come vedranno la pagina i tuoi invitati
+        </div>
+      )}
+      
       {/* Hero Section */}
       {config.hero_image_url && (
         <div className="relative h-48 md:h-64 w-full overflow-hidden">
