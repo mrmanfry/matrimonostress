@@ -99,6 +99,7 @@ export const guestSchema = z.object({
     .optional()
     .or(z.literal("")),
   group_id: z.string().nullable().optional(),
+  allow_plus_one: z.boolean().optional(),
 });
 
 // Schema per Payment

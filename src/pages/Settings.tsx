@@ -5,10 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { UserPlus, Trash2, Users, Shield, Plus, Link2, Calendar, DollarSign, Heart, Share2, ExternalLink } from "lucide-react";
+import { UserPlus, Trash2, Users, Shield, Plus, Link2, Calendar, DollarSign, Heart, Share2, ExternalLink, Mail } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ShareProgressDialog } from "@/components/settings/ShareProgressDialog";
+import { RSVPConfigDialog } from "@/components/settings/RSVPConfigDialog";
 import { z } from "zod";
 
 const emailSchema = z.string().trim().email("Email non valida").max(255);
@@ -64,6 +65,7 @@ const Settings = () => {
   const [roleToDelete, setRoleToDelete] = useState<string | null>(null);
   const [progressToken, setProgressToken] = useState<ProgressToken | null>(null);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [rsvpConfigDialogOpen, setRsvpConfigDialogOpen] = useState(false);
   
   // Wedding data edit states
   const [editMode, setEditMode] = useState(false);
@@ -824,6 +826,34 @@ const Settings = () => {
           setProgressToken(null);
           setShareDialogOpen(false);
         }}
+      />
+
+      {/* RSVP Landing Page Config */}
+      <Card className="p-6">
+        <CardHeader className="p-0 pb-4">
+          <CardTitle className="text-xl font-semibold flex items-center gap-2">
+            <Mail className="w-5 h-5" />
+            Pagina RSVP
+          </CardTitle>
+          <CardDescription>
+            Personalizza la pagina pubblica che vedranno i tuoi invitati quando rispondono all'invito
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Button onClick={() => setRsvpConfigDialogOpen(true)} className="w-full md:w-auto gap-2">
+            <Heart className="w-4 h-4" />
+            Configura Pagina RSVP
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* RSVP Config Dialog */}
+      <RSVPConfigDialog
+        open={rsvpConfigDialogOpen}
+        onOpenChange={setRsvpConfigDialogOpen}
+        weddingId={wedding?.id || ""}
+        currentConfig={(wedding?.rsvp_config as any) || null}
+        onSave={() => loadData()}
       />
 
       {/* Current Collaborators */}
