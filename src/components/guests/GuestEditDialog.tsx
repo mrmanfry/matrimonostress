@@ -6,7 +6,9 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { User, UserPlus2 } from "lucide-react";
+import { User, UserPlus2, Leaf, Heart } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface Guest {
   id: string;
@@ -15,6 +17,9 @@ interface Guest {
   phone?: string;
   is_child: boolean;
   allow_plus_one?: boolean;
+  menu_choice?: string;
+  dietary_restrictions?: string;
+  is_couple_member?: boolean;
 }
 
 interface GuestEditDialogProps {
@@ -35,6 +40,8 @@ export const GuestEditDialog = ({
   const [phone, setPhone] = useState("");
   const [isChild, setIsChild] = useState(false);
   const [allowPlusOne, setAllowPlusOne] = useState(false);
+  const [menuChoice, setMenuChoice] = useState<string | null>(null);
+  const [dietaryRestrictions, setDietaryRestrictions] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -44,6 +51,8 @@ export const GuestEditDialog = ({
       setPhone(guest.phone || "");
       setIsChild(guest.is_child);
       setAllowPlusOne(guest.allow_plus_one || false);
+      setMenuChoice(guest.menu_choice || null);
+      setDietaryRestrictions(guest.dietary_restrictions || "");
     }
   }, [open, guest]);
 
@@ -61,6 +70,8 @@ export const GuestEditDialog = ({
           phone: phone.trim() || null,
           is_child: isChild,
           allow_plus_one: isChild ? false : allowPlusOne,
+          menu_choice: menuChoice,
+          dietary_restrictions: dietaryRestrictions.trim() || null,
         })
         .eq("id", guest.id);
 
@@ -81,8 +92,12 @@ export const GuestEditDialog = ({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <User className="w-5 h-5" />
-            Modifica Invitato
+            {guest?.is_couple_member ? (
+              <Heart className="w-5 h-5 text-pink-500" />
+            ) : (
+              <User className="w-5 h-5" />
+            )}
+            {guest?.is_couple_member ? "Modifica Sposo/a" : "Modifica Invitato"}
           </DialogTitle>
         </DialogHeader>
 
@@ -136,7 +151,7 @@ export const GuestEditDialog = ({
             />
           </div>
 
-          {!isChild && (
+          {!isChild && !guest?.is_couple_member && (
             <div className="flex items-center justify-between py-2 px-3 rounded-lg border border-border bg-muted/30">
               <div className="flex items-center gap-2">
                 <UserPlus2 className="w-4 h-4 text-purple-600" />
@@ -156,6 +171,63 @@ export const GuestEditDialog = ({
               />
             </div>
           )}
+
+          {/* Dietary Preferences Section */}
+          <div className="space-y-3 pt-2 border-t">
+            <div className="flex items-center gap-2">
+              <Leaf className="w-4 h-4 text-green-600" />
+              <Label className="font-medium">Preferenze Alimentari</Label>
+            </div>
+            
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="vegetarian"
+                  checked={menuChoice === 'vegetariano'}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      setMenuChoice('vegetariano');
+                    } else {
+                      setMenuChoice(null);
+                    }
+                  }}
+                />
+                <Label htmlFor="vegetarian" className="cursor-pointer text-sm">
+                  Sono vegetariano/a
+                </Label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="vegan"
+                  checked={menuChoice === 'vegano'}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      setMenuChoice('vegano');
+                    } else {
+                      setMenuChoice(null);
+                    }
+                  }}
+                />
+                <Label htmlFor="vegan" className="cursor-pointer text-sm">
+                  Sono vegano/a
+                </Label>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="dietary-restrictions" className="text-sm">
+                Allergie o intolleranze (opzionale)
+              </Label>
+              <Textarea
+                id="dietary-restrictions"
+                placeholder="Es: lattosio, glutine, frutta a guscio..."
+                value={dietaryRestrictions}
+                onChange={(e) => setDietaryRestrictions(e.target.value)}
+                rows={2}
+              />
+            </div>
+          </div>
 
           <div className="flex justify-end gap-2 pt-4">
             <Button

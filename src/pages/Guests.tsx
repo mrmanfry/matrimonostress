@@ -54,6 +54,8 @@ interface Guest {
   children_count: number;
   allow_plus_one?: boolean;
   plus_one_name?: string;
+  is_couple_member?: boolean;
+  rsvp_status?: string;
 }
 
 interface InviteParty {
@@ -122,6 +124,9 @@ const Guests = () => {
       if (!weddingData) return;
       setWedding(weddingData);
 
+      // Check if couple members exist, if not create them
+      await ensureCoupleMembersExist(weddingData);
+
       await Promise.all([
         loadParties(weddingData.id),
         loadAllGuests(weddingData.id)
@@ -130,6 +135,66 @@ const Guests = () => {
       console.error("Error loading data:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const ensureCoupleMembersExist = async (weddingData: Wedding) => {
+    // Check if couple members already exist
+    const { data: existingCouple } = await supabase
+      .from("guests")
+      .select("id")
+      .eq("wedding_id", weddingData.id)
+      .eq("is_couple_member", true);
+
+    if (existingCouple && existingCouple.length >= 2) {
+      return; // Couple already exists
+    }
+
+    // Parse partner names (handle "Nome Cognome" format)
+    const parsePartnerName = (fullName: string) => {
+      const parts = fullName.trim().split(" ");
+      if (parts.length === 1) {
+        return { firstName: parts[0], lastName: "" };
+      }
+      return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
+    };
+
+    const partner1 = parsePartnerName(weddingData.partner1_name);
+    const partner2 = parsePartnerName(weddingData.partner2_name);
+
+    // Create couple members if they don't exist
+    const coupleGuests = [];
+    
+    if (!existingCouple || existingCouple.length === 0) {
+      coupleGuests.push(
+        {
+          wedding_id: weddingData.id,
+          first_name: partner1.firstName,
+          last_name: partner1.lastName,
+          is_child: false,
+          is_couple_member: true,
+          rsvp_status: 'confirmed',
+          adults_count: 1,
+          children_count: 0,
+        },
+        {
+          wedding_id: weddingData.id,
+          first_name: partner2.firstName,
+          last_name: partner2.lastName,
+          is_child: false,
+          is_couple_member: true,
+          rsvp_status: 'confirmed',
+          adults_count: 1,
+          children_count: 0,
+        }
+      );
+    }
+
+    if (coupleGuests.length > 0) {
+      const { error } = await supabase.from("guests").insert(coupleGuests);
+      if (error) {
+        console.error("Error creating couple members:", error);
+      }
     }
   };
 
@@ -168,13 +233,16 @@ const Guests = () => {
       .from("guests")
       .select("*")
       .eq("wedding_id", weddingId)
+      .order("is_couple_member", { ascending: false }) // Couple members first
       .order("last_name");
 
     if (guestsData) {
       setAllGuests(guestsData);
-      // Filtra gli invitati non raggruppati
-      const ungrouped = guestsData.filter((g: Guest) => !g.party_id);
-      setUngroupedGuests(ungrouped);
+      // Filter ungrouped guests (excluding couple members from ungrouped since they're special)
+      const ungrouped = guestsData.filter((g: Guest) => !g.party_id && !g.is_couple_member);
+      // Add couple members at the start of ungrouped for display
+      const coupleMembers = guestsData.filter((g: Guest) => g.is_couple_member);
+      setUngroupedGuests([...coupleMembers, ...ungrouped]);
     }
   };
 

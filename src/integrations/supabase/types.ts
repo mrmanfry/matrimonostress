@@ -426,6 +426,7 @@ export type Database = {
           group_id: string | null
           id: string
           is_child: boolean
+          is_couple_member: boolean
           is_staff: boolean | null
           last_name: string
           menu_choice: string | null
@@ -451,6 +452,7 @@ export type Database = {
           group_id?: string | null
           id?: string
           is_child?: boolean
+          is_couple_member?: boolean
           is_staff?: boolean | null
           last_name: string
           menu_choice?: string | null
@@ -476,6 +478,7 @@ export type Database = {
           group_id?: string | null
           id?: string
           is_child?: boolean
+          is_couple_member?: boolean
           is_staff?: boolean | null
           last_name?: string
           menu_choice?: string | null
