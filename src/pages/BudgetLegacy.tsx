@@ -181,8 +181,8 @@ export default function BudgetLegacy() {
 
       setGuestCounts(counts);
 
-      // Generate category breakdown with current mode
-      generateCategoryData(items || [], (wedding?.calculation_mode as any) || 'planned');
+      // Generate category breakdown with current mode - pass counts directly
+      generateCategoryData(items || [], (wedding?.calculation_mode as any) || 'planned', counts, lineItemsData);
     } catch (error) {
       console.error("Error loading budget data:", error);
     } finally {
@@ -239,7 +239,12 @@ export default function BudgetLegacy() {
     }).format(value);
   };
 
-  const generateCategoryData = (items: ExpenseItem[], mode: 'planned' | 'expected' | 'confirmed') => {
+  const generateCategoryData = (
+    items: ExpenseItem[], 
+    mode: 'planned' | 'expected' | 'confirmed',
+    counts: GuestCounts,
+    lineItems: Record<string, ExpenseLineItem[]>
+  ) => {
     const colors = [
       "hsl(221.2 83.2% 53.3%)", // blue
       "hsl(142.1 76.2% 36.3%)", // green
@@ -257,8 +262,19 @@ export default function BudgetLegacy() {
         item.expense_categories?.name || 
         "Senza Categoria";
       
-      // Use dynamic calculation based on mode
-      const amount = calculateDynamicAmount(item, mode);
+      // Use dynamic calculation based on mode - use passed counts directly
+      const itemLineItems = lineItems[item.id] || [];
+      const expenseItemCalc: ExpenseItemCalc = {
+        id: item.id,
+        expense_type: (item.expense_type || 'fixed') as 'fixed' | 'variable' | 'mixed',
+        fixed_amount: item.fixed_amount || null,
+        planned_adults: item.planned_adults || 0,
+        planned_children: item.planned_children || 0,
+        planned_staff: item.planned_staff || 0,
+        tax_rate: null,
+        amount_is_tax_inclusive: true
+      };
+      const amount = calculateExpenseAmount(expenseItemCalc, itemLineItems, mode, counts);
       categoryAmounts[categoryName] = (categoryAmounts[categoryName] || 0) + amount;
     });
 
@@ -286,7 +302,9 @@ export default function BudgetLegacy() {
       .eq("id", authState.weddingId);
     
     // Regenerate category data with new mode
-    generateCategoryData(expenseItems, newMode);
+    if (guestCounts) {
+      generateCategoryData(expenseItems, newMode, guestCounts, lineItemsMap);
+    }
     
     toast.success(`Modalità cambiata a: ${
       newMode === 'planned' ? 'Pianificato' :
