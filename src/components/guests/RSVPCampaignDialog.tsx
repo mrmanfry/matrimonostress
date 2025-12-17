@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Sparkles, Send, SkipForward, Upload, X, Filter, Phone, AlertCircle, Users, Baby, CheckCircle } from "lucide-react";
+import { Sparkles, Send, SkipForward, Upload, X, Filter, Phone, AlertCircle, Users, CheckCircle, Clock, PhoneOff } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Guest {
@@ -34,7 +35,7 @@ interface RSVPCampaignDialogProps {
   coupleName: string;
 }
 
-type FilterType = "all" | "pending" | "with_children" | "no_phone";
+type FilterType = "to_send" | "already_sent" | "no_phone";
 
 export function RSVPCampaignDialog({
   open,
@@ -44,7 +45,7 @@ export function RSVPCampaignDialog({
   coupleName,
 }: RSVPCampaignDialogProps) {
   const [step, setStep] = useState<"filter" | "template" | "sending">("filter");
-  const [activeFilter, setActiveFilter] = useState<FilterType>("pending");
+  const [activeFilter, setActiveFilter] = useState<FilterType>("to_send");
   const [messageTemplate, setMessageTemplate] = useState(
     `Ciao [NomeInvitato]! 👋\n\nSiamo felici di invitarti al matrimonio di [NomeCoppia]! 💍\n\nConferma la tua presenza tramite questo link:\n[LINK_RSVP]\n\nGrazie! ❤️`
   );
@@ -61,38 +62,25 @@ export function RSVPCampaignDialog({
       loadAllData();
     } else {
       setStep("filter");
-      setActiveFilter("pending");
+      setActiveFilter("to_send");
     }
   }, [open, weddingId]);
 
   const loadAllData = async () => {
-    // Load all parties if none selected
-    if (selectedParties.length === 0) {
-      const { data: parties } = await supabase
-        .from("invite_parties")
-        .select("id, party_name, rsvp_status")
-        .eq("wedding_id", weddingId);
-      setAllParties(parties || []);
-    } else {
-      setAllParties(selectedParties);
-    }
+    // Load all parties
+    const { data: parties } = await supabase
+      .from("invite_parties")
+      .select("id, party_name, rsvp_status")
+      .eq("wedding_id", weddingId);
+    setAllParties(parties || []);
 
-    // Load all guests for filtering
-    const partyIds = selectedParties.length > 0 
-      ? selectedParties.map(p => p.id)
-      : undefined;
-
-    let query = supabase
+    // Load ALL guests for the wedding (not filtered by party)
+    const { data, error } = await supabase
       .from("guests")
       .select("*")
       .eq("wedding_id", weddingId)
-      .order("party_id");
-
-    if (partyIds) {
-      query = query.in("party_id", partyIds);
-    }
-
-    const { data, error } = await query;
+      .eq("is_child", false) // Only adults can receive messages
+      .order("first_name");
 
     if (error) {
       toast.error("Errore nel caricamento degli invitati");
@@ -105,41 +93,35 @@ export function RSVPCampaignDialog({
 
   // Filter stats
   const filterStats = useMemo(() => {
-    const pending = allGuests.filter(g => 
-      g.phone && !g.rsvp_invitation_sent
-    );
-    const withChildren = allGuests.filter(g => 
-      g.phone && !g.rsvp_invitation_sent && g.is_child
-    );
-    const noPhone = allGuests.filter(g => !g.phone);
+    const withPhone = allGuests.filter(g => g.phone && g.phone.trim() !== "");
+    const toSend = withPhone.filter(g => !g.rsvp_invitation_sent);
+    const alreadySent = withPhone.filter(g => !!g.rsvp_invitation_sent);
+    const noPhone = allGuests.filter(g => !g.phone || g.phone.trim() === "");
     
     return {
-      all: allGuests.filter(g => g.phone && !g.rsvp_invitation_sent).length,
-      pending: pending.length,
-      with_children: withChildren.length,
+      to_send: toSend.length,
+      already_sent: alreadySent.length,
       no_phone: noPhone.length,
+      total_with_phone: withPhone.length,
     };
   }, [allGuests]);
 
   // Apply filter
   const filteredGuests = useMemo(() => {
-    let filtered = allGuests.filter(g => g.phone && !g.rsvp_invitation_sent);
-    
     switch (activeFilter) {
-      case "with_children":
-        // Get parties that have children
-        const partiesWithChildren = new Set(
-          allGuests.filter(g => g.is_child).map(g => g.party_id)
+      case "to_send":
+        return allGuests.filter(g => 
+          g.phone && g.phone.trim() !== "" && !g.rsvp_invitation_sent
         );
-        filtered = filtered.filter(g => partiesWithChildren.has(g.party_id));
-        break;
+      case "already_sent":
+        return allGuests.filter(g => 
+          g.phone && g.phone.trim() !== "" && !!g.rsvp_invitation_sent
+        );
       case "no_phone":
-        filtered = allGuests.filter(g => !g.phone);
-        break;
-      // "all" and "pending" show same (those not sent yet with phone)
+        return allGuests.filter(g => !g.phone || g.phone.trim() === "");
+      default:
+        return [];
     }
-    
-    return filtered;
   }, [allGuests, activeFilter]);
 
   const generateAIMessage = async () => {
@@ -273,26 +255,31 @@ export function RSVPCampaignDialog({
                   <Filter className="w-5 h-5" />
                   Passo 1: Seleziona Chi Contattare
                 </h3>
+
+                {/* Alert if no guests have phone */}
+                {filterStats.total_with_phone === 0 && (
+                  <Alert variant="destructive" className="mb-4">
+                    <PhoneOff className="h-4 w-4" />
+                    <AlertDescription>
+                      Nessun invitato ha un numero di telefono registrato. Aggiungi i numeri dalla pagina Invitati prima di avviare la campagna.
+                    </AlertDescription>
+                  </Alert>
+                )}
                 
                 <Tabs value={activeFilter} onValueChange={(v) => setActiveFilter(v as FilterType)}>
-                  <TabsList className="grid grid-cols-4 w-full">
-                    <TabsTrigger value="pending" className="flex items-center gap-2">
+                  <TabsList className="grid grid-cols-3 w-full">
+                    <TabsTrigger value="to_send" className="flex items-center gap-2">
+                      <Send className="w-4 h-4" />
+                      Da Inviare
+                      <Badge variant="secondary" className="ml-1">{filterStats.to_send}</Badge>
+                    </TabsTrigger>
+                    <TabsTrigger value="already_sent" className="flex items-center gap-2">
                       <CheckCircle className="w-4 h-4" />
-                      In Attesa
-                      <Badge variant="secondary" className="ml-1">{filterStats.pending}</Badge>
-                    </TabsTrigger>
-                    <TabsTrigger value="all" className="flex items-center gap-2">
-                      <Users className="w-4 h-4" />
-                      Tutti
-                      <Badge variant="secondary" className="ml-1">{filterStats.all}</Badge>
-                    </TabsTrigger>
-                    <TabsTrigger value="with_children" className="flex items-center gap-2">
-                      <Baby className="w-4 h-4" />
-                      Con Bambini
-                      <Badge variant="secondary" className="ml-1">{filterStats.with_children}</Badge>
+                      Già Inviati
+                      <Badge variant="secondary" className="ml-1">{filterStats.already_sent}</Badge>
                     </TabsTrigger>
                     <TabsTrigger value="no_phone" className="flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4" />
+                      <PhoneOff className="w-4 h-4" />
                       Senza Tel.
                       <Badge variant="destructive" className="ml-1">{filterStats.no_phone}</Badge>
                     </TabsTrigger>
@@ -304,8 +291,10 @@ export function RSVPCampaignDialog({
                   {filteredGuests.length === 0 ? (
                     <div className="p-8 text-center text-muted-foreground">
                       {activeFilter === "no_phone" 
-                        ? "Questi invitati non hanno un numero di telefono registrato"
-                        : "Nessun invitato corrisponde a questo filtro"}
+                        ? "Ottimo! Tutti gli invitati hanno un numero di telefono."
+                        : activeFilter === "to_send"
+                        ? "Tutti gli invitati con telefono hanno già ricevuto l'invito!"
+                        : "Nessun invito è stato ancora inviato."}
                     </div>
                   ) : (
                     <div className="divide-y">
@@ -313,8 +302,11 @@ export function RSVPCampaignDialog({
                         <div key={guest.id} className="p-3 flex items-center justify-between hover:bg-muted/50">
                           <div>
                             <span className="font-medium">{guest.first_name} {guest.last_name}</span>
-                            {guest.is_child && (
-                              <Badge variant="outline" className="ml-2 text-xs">Bambino</Badge>
+                            {guest.rsvp_invitation_sent && (
+                              <Badge variant="outline" className="ml-2 text-xs text-green-600">
+                                <CheckCircle className="w-3 h-3 mr-1" />
+                                Inviato
+                              </Badge>
                             )}
                           </div>
                           <div className="flex items-center gap-2">
@@ -346,9 +338,13 @@ export function RSVPCampaignDialog({
                 onClick={() => setStep("template")} 
                 size="lg" 
                 className="w-full"
-                disabled={filteredGuests.length === 0 || activeFilter === "no_phone"}
+                disabled={filteredGuests.length === 0 || activeFilter === "no_phone" || activeFilter === "already_sent"}
               >
-                Continua con {filteredGuests.length} invitati
+                {activeFilter === "already_sent" 
+                  ? "Seleziona 'Da Inviare' per continuare"
+                  : activeFilter === "no_phone"
+                  ? "Aggiungi numeri di telefono per continuare"
+                  : `Continua con ${filteredGuests.length} invitati`}
               </Button>
             </div>
           )}
