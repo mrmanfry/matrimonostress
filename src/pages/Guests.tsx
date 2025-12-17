@@ -523,6 +523,8 @@ const Guests = () => {
   // Calcola statistiche (riorganizzate per la nuova UI)
   // Conta anche i +1 confermati (quelli con plus_one_name compilato)
   const confirmedPlusOnes = allGuests.filter(g => g.plus_one_name && g.plus_one_name.trim() !== '').length;
+  // +1 potenziali: hanno il permesso ma non ancora confermato il nome
+  const potentialPlusOnes = allGuests.filter(g => g.allow_plus_one && (!g.plus_one_name || g.plus_one_name.trim() === '')).length;
   const totalGuests = allGuests.length + confirmedPlusOnes;
   const totalAdults = allGuests.reduce((sum, g) => sum + (g.is_child ? 0 : 1), 0) + confirmedPlusOnes;
   const totalChildren = allGuests.reduce((sum, g) => sum + (g.is_child ? 1 : 0), 0);
@@ -557,6 +559,7 @@ const Guests = () => {
     pending: pendingGuests.length,
     declined: declinedGuests.length,
     plusOnes: confirmedPlusOnes,
+    potentialPlusOnes: potentialPlusOnes,
   };
 
   // Funzioni per ImportDropdown (placeholder per ora)
