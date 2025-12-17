@@ -521,8 +521,10 @@ const Guests = () => {
   const hybridList = filteredItems();
 
   // Calcola statistiche (riorganizzate per la nuova UI)
-  const totalGuests = allGuests.length;
-  const totalAdults = allGuests.reduce((sum, g) => sum + (g.is_child ? 0 : 1), 0);
+  // Conta anche i +1 confermati (quelli con plus_one_name compilato)
+  const confirmedPlusOnes = allGuests.filter(g => g.plus_one_name && g.plus_one_name.trim() !== '').length;
+  const totalGuests = allGuests.length + confirmedPlusOnes;
+  const totalAdults = allGuests.reduce((sum, g) => sum + (g.is_child ? 0 : 1), 0) + confirmedPlusOnes;
   const totalChildren = allGuests.reduce((sum, g) => sum + (g.is_child ? 1 : 0), 0);
   
   // "Nuclei di Invito" = parties + ungrouped (ogni single è un nucleo di 1)
@@ -530,12 +532,16 @@ const Guests = () => {
   
   const guestsWithoutPhone = allGuests.filter(g => !g.phone).length;
   const confirmedParties = parties.filter(p => p.rsvp_status === 'Confermato').length;
+  const guestsWithPlusOneEnabled = allGuests.filter(g => g.allow_plus_one).length;
 
-  // Calcola stats RSVP
+  // Calcola stats RSVP (include +1 nei confermati)
   const confirmedGuests = allGuests.filter(g => {
     const party = parties.find(p => p.id === g.party_id);
     return party?.rsvp_status === 'Confermato';
   });
+  // Aggiungi i +1 confermati ai confermati
+  const confirmedPlusOnesCount = confirmedGuests.filter(g => g.plus_one_name && g.plus_one_name.trim() !== '').length;
+  
   const pendingGuests = allGuests.filter(g => {
     const party = parties.find(p => p.id === g.party_id);
     return !party || party.rsvp_status === 'In attesa';
@@ -546,10 +552,11 @@ const Guests = () => {
   });
 
   const stats = {
-    total: allGuests.length,
-    confirmed: confirmedGuests.length,
+    total: allGuests.length + confirmedPlusOnes,
+    confirmed: confirmedGuests.length + confirmedPlusOnesCount,
     pending: pendingGuests.length,
     declined: declinedGuests.length,
+    plusOnes: confirmedPlusOnes,
   };
 
   // Funzioni per ImportDropdown (placeholder per ora)
@@ -722,6 +729,9 @@ const Guests = () => {
               <div className="text-3xl font-bold">{totalGuests}</div>
               <div className="text-xs text-muted-foreground mt-1">
                 {totalAdults} Adult{totalAdults !== 1 ? 'i' : 'o'}, {totalChildren} Bambin{totalChildren !== 1 ? 'i' : 'o'}
+                {confirmedPlusOnes > 0 && (
+                  <span className="text-purple-600 ml-1">(incl. {confirmedPlusOnes} +1)</span>
+                )}
               </div>
             </Card>
             <Card className="p-4">
