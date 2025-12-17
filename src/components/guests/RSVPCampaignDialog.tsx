@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { Sparkles, Send, SkipForward, Upload, X, Filter, Phone, AlertCircle, Users, CheckCircle, PhoneOff, Settings, Link2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useNavigate } from "react-router-dom";
 
 interface Guest {
@@ -77,6 +78,7 @@ export function RSVPCampaignDialog({
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [rsvpConfig, setRsvpConfig] = useState<RSVPConfig | null>(null);
   const [isRsvpConfigured, setIsRsvpConfigured] = useState(false);
+  const [selectedGuestIds, setSelectedGuestIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (open) {
@@ -86,8 +88,14 @@ export function RSVPCampaignDialog({
       setActiveFilter("to_send");
       setSelectedPartyId(null);
       setSelectedGroupId(null);
+      setSelectedGuestIds(new Set());
     }
   }, [open, weddingId]);
+
+  // Reset selection when filters change
+  useEffect(() => {
+    setSelectedGuestIds(new Set());
+  }, [activeFilter, selectedPartyId, selectedGroupId]);
 
   const loadAllData = async () => {
     // Load all parties
@@ -225,7 +233,10 @@ export function RSVPCampaignDialog({
 
   const handleContinueToTemplate = () => {
     if (!isRsvpConfigured) {
-      // Don't proceed if RSVP is not configured
+      return;
+    }
+    if (selectedGuestIds.size === 0) {
+      toast.error("Seleziona almeno un invitato");
       return;
     }
     setStep("template");
@@ -236,12 +247,36 @@ export function RSVPCampaignDialog({
     navigate("/app/settings");
   };
 
+  const toggleGuestSelection = (guestId: string) => {
+    setSelectedGuestIds(prev => {
+      const next = new Set(prev);
+      if (next.has(guestId)) {
+        next.delete(guestId);
+      } else {
+        next.add(guestId);
+      }
+      return next;
+    });
+  };
+
+  const selectAllGuests = () => {
+    setSelectedGuestIds(new Set(filteredGuests.map(g => g.id)));
+  };
+
+  const deselectAllGuests = () => {
+    setSelectedGuestIds(new Set());
+  };
+
+  const selectedGuests = useMemo(() => {
+    return filteredGuests.filter(g => selectedGuestIds.has(g.id));
+  }, [filteredGuests, selectedGuestIds]);
+
   const startSending = () => {
-    setGuests(filteredGuests);
-    if (filteredGuests.length === 0) {
-      toast.error("Nessun invitato da contattare con il filtro selezionato");
+    if (selectedGuests.length === 0) {
+      toast.error("Nessun invitato selezionato");
       return;
     }
+    setGuests(selectedGuests);
     setStep("sending");
     setCurrentIndex(0);
     setWhatsappOpened(false);
@@ -445,6 +480,33 @@ export function RSVPCampaignDialog({
                   </TabsList>
                 </Tabs>
 
+                {/* Selection Controls */}
+                {filteredGuests.length > 0 && activeFilter === "to_send" && (
+                  <div className="mt-4 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={selectAllGuests}
+                        disabled={selectedGuestIds.size === filteredGuests.length}
+                      >
+                        Seleziona tutti
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={deselectAllGuests}
+                        disabled={selectedGuestIds.size === 0}
+                      >
+                        Deseleziona tutti
+                      </Button>
+                    </div>
+                    <Badge variant="secondary">
+                      {selectedGuestIds.size} / {filteredGuests.length} selezionati
+                    </Badge>
+                  </div>
+                )}
+
                 {/* Guest List Preview */}
                 <div className="mt-4 border rounded-lg max-h-[300px] overflow-y-auto">
                   {filteredGuests.length === 0 ? (
@@ -457,37 +519,47 @@ export function RSVPCampaignDialog({
                     </div>
                   ) : (
                     <div className="divide-y">
-                      {filteredGuests.slice(0, 20).map((guest) => (
-                        <div key={guest.id} className="p-3 flex items-center justify-between hover:bg-muted/50">
-                          <div>
-                            <span className="font-medium">{guest.first_name} {guest.last_name}</span>
-                            {guest.rsvp_invitation_sent && (
-                              <Badge variant="outline" className="ml-2 text-xs text-green-600">
-                                <CheckCircle className="w-3 h-3 mr-1" />
-                                Inviato
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {guest.phone ? (
-                              <span className="text-sm text-muted-foreground flex items-center gap-1">
-                                <Phone className="w-3 h-3" />
-                                {guest.phone}
-                              </span>
-                            ) : (
-                              <Badge variant="destructive" className="text-xs">
-                                <AlertCircle className="w-3 h-3 mr-1" />
-                                No telefono
-                              </Badge>
-                            )}
+                      {filteredGuests.map((guest) => (
+                        <div 
+                          key={guest.id} 
+                          className={`p-3 flex items-center gap-3 hover:bg-muted/50 cursor-pointer ${
+                            selectedGuestIds.has(guest.id) ? 'bg-primary/5' : ''
+                          }`}
+                          onClick={() => activeFilter === "to_send" && toggleGuestSelection(guest.id)}
+                        >
+                          {activeFilter === "to_send" && (
+                            <Checkbox 
+                              checked={selectedGuestIds.has(guest.id)}
+                              onCheckedChange={() => toggleGuestSelection(guest.id)}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          )}
+                          <div className="flex-1 flex items-center justify-between">
+                            <div>
+                              <span className="font-medium">{guest.first_name} {guest.last_name}</span>
+                              {guest.rsvp_invitation_sent && (
+                                <Badge variant="outline" className="ml-2 text-xs text-green-600">
+                                  <CheckCircle className="w-3 h-3 mr-1" />
+                                  Inviato
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {guest.phone ? (
+                                <span className="text-sm text-muted-foreground flex items-center gap-1">
+                                  <Phone className="w-3 h-3" />
+                                  {guest.phone}
+                                </span>
+                              ) : (
+                                <Badge variant="destructive" className="text-xs">
+                                  <AlertCircle className="w-3 h-3 mr-1" />
+                                  No telefono
+                                </Badge>
+                              )}
+                            </div>
                           </div>
                         </div>
                       ))}
-                      {filteredGuests.length > 20 && (
-                        <div className="p-3 text-center text-sm text-muted-foreground">
-                          ... e altri {filteredGuests.length - 20} invitati
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>
@@ -497,7 +569,7 @@ export function RSVPCampaignDialog({
                 onClick={handleContinueToTemplate} 
                 size="lg" 
                 className="w-full"
-                disabled={filteredGuests.length === 0 || activeFilter === "no_phone" || activeFilter === "already_sent" || !isRsvpConfigured}
+                disabled={selectedGuestIds.size === 0 || activeFilter === "no_phone" || activeFilter === "already_sent" || !isRsvpConfigured}
               >
                 {!isRsvpConfigured
                   ? "⚠️ Configura prima la pagina RSVP"
@@ -505,7 +577,9 @@ export function RSVPCampaignDialog({
                   ? "Seleziona 'Da Inviare' per continuare"
                   : activeFilter === "no_phone"
                   ? "Aggiungi numeri di telefono per continuare"
-                  : `Continua con ${filteredGuests.length} invitati`}
+                  : selectedGuestIds.size === 0
+                  ? "Seleziona almeno un invitato"
+                  : `Continua con ${selectedGuestIds.size} invitati`}
               </Button>
             </div>
           )}
@@ -599,7 +673,7 @@ export function RSVPCampaignDialog({
                   ← Indietro
                 </Button>
                 <Button onClick={startSending} size="lg" className="flex-1">
-                  Avvia Invii ({filteredGuests.length} messaggi)
+                  Avvia Invii ({selectedGuests.length} messaggi)
                 </Button>
               </div>
             </>
