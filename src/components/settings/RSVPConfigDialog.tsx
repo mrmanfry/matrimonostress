@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Upload, X, Image as ImageIcon, Calendar, Type, MessageSquare } from "lucide-react";
+import { Loader2, Upload, X, Image as ImageIcon, Calendar, Type, MessageSquare, Eye } from "lucide-react";
 
 interface RSVPConfig {
   hero_image_url: string | null;
@@ -253,6 +253,15 @@ export function RSVPConfigDialog({
                 </p>
               )}
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.open("/rsvp/preview", "_blank")}
+              className="mt-2"
+            >
+              <Eye className="w-4 h-4 mr-2" />
+              Vedi Anteprima Completa
+            </Button>
           </div>
         </div>
 
