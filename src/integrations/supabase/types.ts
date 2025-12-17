@@ -418,6 +418,7 @@ export type Database = {
       guests: {
         Row: {
           adults_count: number | null
+          allow_plus_one: boolean | null
           children_count: number | null
           created_at: string
           dietary_restrictions: string | null
@@ -431,6 +432,8 @@ export type Database = {
           notes: string | null
           party_id: string | null
           phone: string | null
+          plus_one_menu: string | null
+          plus_one_name: string | null
           rsvp_invitation_sent: string | null
           rsvp_send_status: Database["public"]["Enums"]["send_status_enum"]
           rsvp_status: string | null
@@ -440,6 +443,7 @@ export type Database = {
         }
         Insert: {
           adults_count?: number | null
+          allow_plus_one?: boolean | null
           children_count?: number | null
           created_at?: string
           dietary_restrictions?: string | null
@@ -453,6 +457,8 @@ export type Database = {
           notes?: string | null
           party_id?: string | null
           phone?: string | null
+          plus_one_menu?: string | null
+          plus_one_name?: string | null
           rsvp_invitation_sent?: string | null
           rsvp_send_status?: Database["public"]["Enums"]["send_status_enum"]
           rsvp_status?: string | null
@@ -462,6 +468,7 @@ export type Database = {
         }
         Update: {
           adults_count?: number | null
+          allow_plus_one?: boolean | null
           children_count?: number | null
           created_at?: string
           dietary_restrictions?: string | null
@@ -475,6 +482,8 @@ export type Database = {
           notes?: string | null
           party_id?: string | null
           phone?: string | null
+          plus_one_menu?: string | null
+          plus_one_name?: string | null
           rsvp_invitation_sent?: string | null
           rsvp_send_status?: Database["public"]["Enums"]["send_status_enum"]
           rsvp_status?: string | null
@@ -512,6 +521,8 @@ export type Database = {
           created_at: string
           id: string
           last_rsvp_log_id: string | null
+          last_updated_at: string | null
+          last_updated_by_guest_id: string | null
           party_name: string
           rsvp_status: Database["public"]["Enums"]["rsvp_status_enum"]
           updated_at: string
@@ -522,6 +533,8 @@ export type Database = {
           created_at?: string
           id?: string
           last_rsvp_log_id?: string | null
+          last_updated_at?: string | null
+          last_updated_by_guest_id?: string | null
           party_name: string
           rsvp_status?: Database["public"]["Enums"]["rsvp_status_enum"]
           updated_at?: string
@@ -532,6 +545,8 @@ export type Database = {
           created_at?: string
           id?: string
           last_rsvp_log_id?: string | null
+          last_updated_at?: string | null
+          last_updated_by_guest_id?: string | null
           party_name?: string
           rsvp_status?: Database["public"]["Enums"]["rsvp_status_enum"]
           updated_at?: string
@@ -548,6 +563,13 @@ export type Database = {
           {
             foreignKeyName: "invite_parties_confirmed_by_guest_id_fkey"
             columns: ["confirmed_by_guest_id"]
+            isOneToOne: false
+            referencedRelation: "guests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invite_parties_last_updated_by_guest_id_fkey"
+            columns: ["last_updated_by_guest_id"]
             isOneToOne: false
             referencedRelation: "guests"
             referencedColumns: ["id"]
@@ -1218,6 +1240,7 @@ export type Database = {
           id: string
           partner1_name: string
           partner2_name: string
+          rsvp_config: Json | null
           target_adults: number | null
           target_children: number | null
           target_staff: number | null
@@ -1233,6 +1256,7 @@ export type Database = {
           id?: string
           partner1_name: string
           partner2_name: string
+          rsvp_config?: Json | null
           target_adults?: number | null
           target_children?: number | null
           target_staff?: number | null
@@ -1248,6 +1272,7 @@ export type Database = {
           id?: string
           partner1_name?: string
           partner2_name?: string
+          rsvp_config?: Json | null
           target_adults?: number | null
           target_children?: number | null
           target_staff?: number | null

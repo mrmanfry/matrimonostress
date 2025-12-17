@@ -34,6 +34,7 @@ interface Guest {
   dietary_restrictions: string;
   notes: string;
   group_id: string | null;
+  allow_plus_one?: boolean;
 }
 
 interface GuestDialogProps {
@@ -54,6 +55,7 @@ const emptyGuest = {
   dietary_restrictions: "",
   notes: "",
   group_id: undefined,
+  allow_plus_one: false,
 };
 
 export function GuestDialog({
@@ -94,6 +96,7 @@ export function GuestDialog({
         dietary_restrictions: guest.dietary_restrictions || "",
         notes: guest.notes || "",
         group_id: guest.group_id || undefined,
+        allow_plus_one: guest.allow_plus_one || false,
       });
     } else {
       reset(emptyGuest);
@@ -114,6 +117,7 @@ export function GuestDialog({
         dietary_restrictions: data.dietary_restrictions || "",
         notes: data.notes || "",
         group_id: data.group_id || null,
+        allow_plus_one: data.allow_plus_one || false,
       };
       await onSave(guestData as Guest);
       onOpenChange(false);
@@ -283,6 +287,25 @@ export function GuestDialog({
             {errors.dietary_restrictions && (
               <p className="text-sm text-destructive">{errors.dietary_restrictions.message}</p>
             )}
+          </div>
+
+          {/* Plus One Permission */}
+          <div className="flex items-center space-x-3 p-3 rounded-lg border border-border bg-muted/30">
+            <Checkbox
+              id="allow_plus_one"
+              checked={watch("allow_plus_one") || false}
+              onCheckedChange={(checked) => {
+                setValue("allow_plus_one", !!checked);
+              }}
+            />
+            <div className="flex-1">
+              <Label htmlFor="allow_plus_one" className="cursor-pointer font-medium">
+                Permetti +1 (accompagnatore)
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                L'invitato potrà indicare un accompagnatore nel form RSVP
+              </p>
+            </div>
           </div>
 
           <div className="space-y-2">

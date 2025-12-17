@@ -5,6 +5,13 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+interface RSVPConfig {
+  hero_image_url: string | null;
+  welcome_title: string;
+  welcome_text: string;
+  deadline_date: string | null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -41,9 +48,9 @@ Deno.serve(async (req) => {
         .from("guests")
         .select(`
           id, first_name, last_name, rsvp_status, menu_choice, dietary_restrictions,
-          party_id,
+          party_id, allow_plus_one, plus_one_name, plus_one_menu,
           invite_parties (
-            id, party_name, rsvp_status, wedding_id
+            id, party_name, rsvp_status, wedding_id, last_updated_by_guest_id, last_updated_at
           )
         `)
         .eq("unique_rsvp_token", token)
@@ -61,14 +68,38 @@ Deno.serve(async (req) => {
 
       const { data: wedding } = await supabase
         .from("weddings")
-        .select("partner1_name, partner2_name, wedding_date")
+        .select("partner1_name, partner2_name, wedding_date, rsvp_config")
         .eq("id", party.wedding_id)
         .single();
 
       const { data: partyMembers } = await supabase
         .from("guests")
-        .select("id, first_name, last_name, rsvp_status, menu_choice, dietary_restrictions, is_child")
+        .select("id, first_name, last_name, rsvp_status, menu_choice, dietary_restrictions, is_child, allow_plus_one, plus_one_name, plus_one_menu")
         .eq("party_id", guestData.party_id);
+
+      // Get last editor name if someone else responded
+      let lastEditorName: string | null = null;
+      if (party.last_updated_by_guest_id && party.last_updated_by_guest_id !== guestData.id) {
+        const { data: editor } = await supabase
+          .from("guests")
+          .select("first_name")
+          .eq("id", party.last_updated_by_guest_id)
+          .single();
+        lastEditorName = editor?.first_name || null;
+      }
+
+      // Parse rsvp_config
+      const rsvpConfig: RSVPConfig = wedding?.rsvp_config || {
+        hero_image_url: null,
+        welcome_title: "Benvenuti al nostro Matrimonio",
+        welcome_text: "Non vediamo l'ora di festeggiare con voi!",
+        deadline_date: null,
+      };
+
+      // Check if deadline has passed
+      const isReadOnly = rsvpConfig.deadline_date 
+        ? new Date(rsvpConfig.deadline_date) < new Date() 
+        : false;
 
       console.log(`RSVP data fetched for guest ${guestData.id}, party ${guestData.party_id}`);
 
@@ -83,11 +114,15 @@ Deno.serve(async (req) => {
           name: party.party_name,
           status: party.rsvp_status,
           members: partyMembers,
+          lastEditorName,
+          lastUpdatedAt: party.last_updated_at,
         },
         wedding: {
           couple: wedding ? `${wedding.partner1_name} & ${wedding.partner2_name}` : "",
           date: wedding?.wedding_date || "",
         },
+        config: rsvpConfig,
+        isReadOnly,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -106,7 +141,7 @@ Deno.serve(async (req) => {
 
       const { data: validGuest, error: validateError } = await supabase
         .from("guests")
-        .select("id, party_id")
+        .select("id, party_id, invite_parties(wedding_id)")
         .eq("unique_rsvp_token", token)
         .single();
 
@@ -118,22 +153,52 @@ Deno.serve(async (req) => {
         });
       }
 
+      // Check deadline
+      const party = validGuest.invite_parties as any;
+      if (party?.wedding_id) {
+        const { data: wedding } = await supabase
+          .from("weddings")
+          .select("rsvp_config")
+          .eq("id", party.wedding_id)
+          .single();
+
+        const rsvpConfig = wedding?.rsvp_config as RSVPConfig | null;
+        if (rsvpConfig?.deadline_date && new Date(rsvpConfig.deadline_date) < new Date()) {
+          return new Response(JSON.stringify({ error: "RSVP deadline passed" }), {
+            status: 403,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
+
       await supabase
         .from("invite_parties")
         .update({ 
           rsvp_status: partyStatus,
           confirmed_by_guest_id: validGuest.id,
+          last_updated_by_guest_id: validGuest.id,
+          last_updated_at: new Date().toISOString(),
         })
         .eq("id", validGuest.party_id);
 
       for (const member of members) {
+        const updateData: any = {
+          rsvp_status: member.rsvpStatus,
+          menu_choice: member.menuChoice,
+          dietary_restrictions: member.dietaryRestrictions,
+        };
+
+        // Handle plus-one data
+        if (member.plusOneName !== undefined) {
+          updateData.plus_one_name = member.plusOneName || null;
+        }
+        if (member.plusOneMenu !== undefined) {
+          updateData.plus_one_menu = member.plusOneMenu || null;
+        }
+
         await supabase
           .from("guests")
-          .update({
-            rsvp_status: member.rsvpStatus,
-            menu_choice: member.menuChoice,
-            dietary_restrictions: member.dietaryRestrictions,
-          })
+          .update(updateData)
           .eq("id", member.id)
           .eq("party_id", validGuest.party_id);
       }

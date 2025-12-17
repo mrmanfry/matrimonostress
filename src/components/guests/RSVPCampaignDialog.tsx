@@ -1,11 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Sparkles, Send, SkipForward, Upload, X } from "lucide-react";
+import { Sparkles, Send, SkipForward, Upload, X, Filter, Phone, AlertCircle, Users, Baby, CheckCircle } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Guest {
   id: string;
@@ -15,11 +17,13 @@ interface Guest {
   unique_rsvp_token: string | null;
   rsvp_invitation_sent: string | null;
   party_id: string | null;
+  is_child: boolean;
 }
 
 interface InviteParty {
   id: string;
   party_name: string;
+  rsvp_status?: string;
 }
 
 interface RSVPCampaignDialogProps {
@@ -30,6 +34,8 @@ interface RSVPCampaignDialogProps {
   coupleName: string;
 }
 
+type FilterType = "all" | "pending" | "with_children" | "no_phone";
+
 export function RSVPCampaignDialog({
   open,
   onOpenChange,
@@ -37,34 +43,56 @@ export function RSVPCampaignDialog({
   weddingId,
   coupleName,
 }: RSVPCampaignDialogProps) {
-  const [step, setStep] = useState<"template" | "sending">("template");
+  const [step, setStep] = useState<"filter" | "template" | "sending">("filter");
+  const [activeFilter, setActiveFilter] = useState<FilterType>("pending");
   const [messageTemplate, setMessageTemplate] = useState(
     `Ciao [NomeInvitato]! 👋\n\nSiamo felici di invitarti al matrimonio di [NomeCoppia]! 💍\n\nConferma la tua presenza tramite questo link:\n[LINK_RSVP]\n\nGrazie! ❤️`
   );
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [allGuests, setAllGuests] = useState<Guest[]>([]);
   const [guests, setGuests] = useState<Guest[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [whatsappOpened, setWhatsappOpened] = useState(false);
+  const [allParties, setAllParties] = useState<InviteParty[]>([]);
 
   useEffect(() => {
     if (open) {
-      loadGuestsForCampaign();
+      loadAllData();
+    } else {
+      setStep("filter");
+      setActiveFilter("pending");
     }
-  }, [open, selectedParties]);
+  }, [open, weddingId]);
 
-  const loadGuestsForCampaign = async () => {
-    if (selectedParties.length === 0) return;
+  const loadAllData = async () => {
+    // Load all parties if none selected
+    if (selectedParties.length === 0) {
+      const { data: parties } = await supabase
+        .from("invite_parties")
+        .select("id, party_name, rsvp_status")
+        .eq("wedding_id", weddingId);
+      setAllParties(parties || []);
+    } else {
+      setAllParties(selectedParties);
+    }
 
-    const partyIds = selectedParties.map((p) => p.id);
+    // Load all guests for filtering
+    const partyIds = selectedParties.length > 0 
+      ? selectedParties.map(p => p.id)
+      : undefined;
 
-    const { data, error } = await supabase
+    let query = supabase
       .from("guests")
       .select("*")
-      .in("party_id", partyIds)
-      .not("phone", "is", null)
-      .is("rsvp_invitation_sent", null)
+      .eq("wedding_id", weddingId)
       .order("party_id");
+
+    if (partyIds) {
+      query = query.in("party_id", partyIds);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       toast.error("Errore nel caricamento degli invitati");
@@ -72,9 +100,47 @@ export function RSVPCampaignDialog({
       return;
     }
 
-    setGuests(data || []);
-    setCurrentIndex(0);
+    setAllGuests(data || []);
   };
+
+  // Filter stats
+  const filterStats = useMemo(() => {
+    const pending = allGuests.filter(g => 
+      g.phone && !g.rsvp_invitation_sent
+    );
+    const withChildren = allGuests.filter(g => 
+      g.phone && !g.rsvp_invitation_sent && g.is_child
+    );
+    const noPhone = allGuests.filter(g => !g.phone);
+    
+    return {
+      all: allGuests.filter(g => g.phone && !g.rsvp_invitation_sent).length,
+      pending: pending.length,
+      with_children: withChildren.length,
+      no_phone: noPhone.length,
+    };
+  }, [allGuests]);
+
+  // Apply filter
+  const filteredGuests = useMemo(() => {
+    let filtered = allGuests.filter(g => g.phone && !g.rsvp_invitation_sent);
+    
+    switch (activeFilter) {
+      case "with_children":
+        // Get parties that have children
+        const partiesWithChildren = new Set(
+          allGuests.filter(g => g.is_child).map(g => g.party_id)
+        );
+        filtered = filtered.filter(g => partiesWithChildren.has(g.party_id));
+        break;
+      case "no_phone":
+        filtered = allGuests.filter(g => !g.phone);
+        break;
+      // "all" and "pending" show same (those not sent yet with phone)
+    }
+    
+    return filtered;
+  }, [allGuests, activeFilter]);
 
   const generateAIMessage = async () => {
     setIsGeneratingAI(true);
@@ -113,8 +179,9 @@ export function RSVPCampaignDialog({
   };
 
   const startSending = () => {
-    if (guests.length === 0) {
-      toast.error("Nessun invitato da contattare");
+    setGuests(filteredGuests);
+    if (filteredGuests.length === 0) {
+      toast.error("Nessun invitato da contattare con il filtro selezionato");
       return;
     }
     setStep("sending");
@@ -168,19 +235,6 @@ export function RSVPCampaignDialog({
   };
 
   const skipGuest = async () => {
-    const currentGuest = guests[currentIndex];
-    if (!currentGuest) return;
-
-    // Mark as sent but with a special note (we could add a field for this)
-    const { error } = await supabase
-      .from("guests")
-      .update({ rsvp_invitation_sent: new Date().toISOString() })
-      .eq("id", currentGuest.id);
-
-    if (error) {
-      console.error(error);
-    }
-
     if (currentIndex < guests.length - 1) {
       setCurrentIndex(currentIndex + 1);
       setWhatsappOpened(false);
@@ -202,20 +256,109 @@ export function RSVPCampaignDialog({
 
         <div className="flex-1 overflow-y-auto space-y-6">
           {/* Progress */}
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm text-muted-foreground">
-              <span>{currentIndex} / {guests.length} messaggi preparati</span>
-              <span>{Math.round(progress)}%</span>
+          {step === "sending" && (
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span>{currentIndex} / {guests.length} messaggi preparati</span>
+                <span>{Math.round(progress)}%</span>
+              </div>
+              <Progress value={progress} />
             </div>
-            <Progress value={progress} />
-          </div>
+          )}
+
+          {step === "filter" && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <Filter className="w-5 h-5" />
+                  Passo 1: Seleziona Chi Contattare
+                </h3>
+                
+                <Tabs value={activeFilter} onValueChange={(v) => setActiveFilter(v as FilterType)}>
+                  <TabsList className="grid grid-cols-4 w-full">
+                    <TabsTrigger value="pending" className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4" />
+                      In Attesa
+                      <Badge variant="secondary" className="ml-1">{filterStats.pending}</Badge>
+                    </TabsTrigger>
+                    <TabsTrigger value="all" className="flex items-center gap-2">
+                      <Users className="w-4 h-4" />
+                      Tutti
+                      <Badge variant="secondary" className="ml-1">{filterStats.all}</Badge>
+                    </TabsTrigger>
+                    <TabsTrigger value="with_children" className="flex items-center gap-2">
+                      <Baby className="w-4 h-4" />
+                      Con Bambini
+                      <Badge variant="secondary" className="ml-1">{filterStats.with_children}</Badge>
+                    </TabsTrigger>
+                    <TabsTrigger value="no_phone" className="flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4" />
+                      Senza Tel.
+                      <Badge variant="destructive" className="ml-1">{filterStats.no_phone}</Badge>
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+
+                {/* Guest List Preview */}
+                <div className="mt-4 border rounded-lg max-h-[300px] overflow-y-auto">
+                  {filteredGuests.length === 0 ? (
+                    <div className="p-8 text-center text-muted-foreground">
+                      {activeFilter === "no_phone" 
+                        ? "Questi invitati non hanno un numero di telefono registrato"
+                        : "Nessun invitato corrisponde a questo filtro"}
+                    </div>
+                  ) : (
+                    <div className="divide-y">
+                      {filteredGuests.slice(0, 20).map((guest) => (
+                        <div key={guest.id} className="p-3 flex items-center justify-between hover:bg-muted/50">
+                          <div>
+                            <span className="font-medium">{guest.first_name} {guest.last_name}</span>
+                            {guest.is_child && (
+                              <Badge variant="outline" className="ml-2 text-xs">Bambino</Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {guest.phone ? (
+                              <span className="text-sm text-muted-foreground flex items-center gap-1">
+                                <Phone className="w-3 h-3" />
+                                {guest.phone}
+                              </span>
+                            ) : (
+                              <Badge variant="destructive" className="text-xs">
+                                <AlertCircle className="w-3 h-3 mr-1" />
+                                No telefono
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                      {filteredGuests.length > 20 && (
+                        <div className="p-3 text-center text-sm text-muted-foreground">
+                          ... e altri {filteredGuests.length - 20} invitati
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <Button 
+                onClick={() => setStep("template")} 
+                size="lg" 
+                className="w-full"
+                disabled={filteredGuests.length === 0 || activeFilter === "no_phone"}
+              >
+                Continua con {filteredGuests.length} invitati
+              </Button>
+            </div>
+          )}
 
           {step === "template" && (
             <>
               <div className="space-y-4">
                 <div>
                   <label className="text-sm font-medium mb-2 block">
-                    📝 Passo 1: Scrivi il Messaggio (Una Sola Volta)
+                    📝 Passo 2: Scrivi il Messaggio
                   </label>
                   <div className="space-y-2">
                     <Textarea
@@ -277,12 +420,12 @@ export function RSVPCampaignDialog({
                 </div>
               </div>
 
-              <div>
-                <label className="text-sm font-medium mb-2 block">
-                  🚀 Passo 2: Avvia la Coda di Invio
-                </label>
-                <Button onClick={startSending} size="lg" className="w-full">
-                  Avvia Invii ({guests.length} messaggi)
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setStep("filter")}>
+                  ← Indietro
+                </Button>
+                <Button onClick={startSending} size="lg" className="flex-1">
+                  Avvia Invii ({filteredGuests.length} messaggi)
                 </Button>
               </div>
             </>
