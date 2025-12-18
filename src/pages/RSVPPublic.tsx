@@ -197,8 +197,7 @@ export default function RSVPPublic() {
   const fetchRSVPData = async () => {
     try {
       const { data, error } = await supabase.functions.invoke("rsvp-handler", {
-        method: "GET",
-        body: { token },
+        body: { action: "fetch", token },
       });
 
       if (error) throw error;

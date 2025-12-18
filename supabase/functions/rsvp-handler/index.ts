@@ -22,20 +22,11 @@ Deno.serve(async (req) => {
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
   try {
-    if (req.method === "GET") {
-      const url = new URL(req.url);
-      let token = url.searchParams.get("token");
-      
-      // If no token in query params, try to get it from body
-      if (!token) {
-        try {
-          const body = await req.json();
-          token = body.token;
-        } catch {
-          // Body is empty or not JSON
-        }
-      }
-      
+    if (req.method === "POST") {
+      const body = await req.json();
+      const { action, token, partyStatus, members } = body;
+
+      // Validate token
       if (!token || token.length < 20) {
         console.log("Invalid token format received");
         return new Response(JSON.stringify({ error: "Invalid token" }), {
@@ -44,190 +35,194 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Query 1: Find guest by token
-      const { data: guestData, error: guestError } = await supabase
-        .from("guests")
-        .select("id, first_name, last_name, rsvp_status, menu_choice, dietary_restrictions, party_id, allow_plus_one, plus_one_name, plus_one_menu")
-        .eq("unique_rsvp_token", token)
-        .single();
-
-      if (guestError || !guestData) {
-        console.log("Guest not found for token:", token.substring(0, 8) + "...");
-        return new Response(JSON.stringify({ error: "Token not found" }), {
-          status: 404,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      if (!guestData.party_id) {
-        console.log("Guest has no party_id:", guestData.id);
-        return new Response(JSON.stringify({ error: "Guest not in a party" }), {
-          status: 404,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      // Query 2: Find party by ID
-      const { data: party, error: partyError } = await supabase
-        .from("invite_parties")
-        .select("id, party_name, rsvp_status, wedding_id, last_updated_by_guest_id, last_updated_at")
-        .eq("id", guestData.party_id)
-        .single();
-
-      if (partyError || !party) {
-        console.log("Party not found for guest:", guestData.id);
-        return new Response(JSON.stringify({ error: "Party not found" }), {
-          status: 404,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const { data: wedding } = await supabase
-        .from("weddings")
-        .select("partner1_name, partner2_name, wedding_date, rsvp_config")
-        .eq("id", party.wedding_id)
-        .single();
-
-      const { data: partyMembers } = await supabase
-        .from("guests")
-        .select("id, first_name, last_name, rsvp_status, menu_choice, dietary_restrictions, is_child, allow_plus_one, plus_one_name, plus_one_menu")
-        .eq("party_id", guestData.party_id);
-
-      // Get last editor name if someone else responded
-      let lastEditorName: string | null = null;
-      if (party.last_updated_by_guest_id && party.last_updated_by_guest_id !== guestData.id) {
-        const { data: editor } = await supabase
+      // Handle FETCH action (retrieve RSVP data)
+      if (action === "fetch") {
+        // Query 1: Find guest by token
+        const { data: guestData, error: guestError } = await supabase
           .from("guests")
-          .select("first_name")
-          .eq("id", party.last_updated_by_guest_id)
+          .select("id, first_name, last_name, rsvp_status, menu_choice, dietary_restrictions, party_id, allow_plus_one, plus_one_name, plus_one_menu")
+          .eq("unique_rsvp_token", token)
           .single();
-        lastEditorName = editor?.first_name || null;
-      }
 
-      // Parse rsvp_config
-      const rsvpConfig: RSVPConfig = wedding?.rsvp_config || {
-        hero_image_url: null,
-        welcome_title: "Benvenuti al nostro Matrimonio",
-        welcome_text: "Non vediamo l'ora di festeggiare con voi!",
-        deadline_date: null,
-      };
+        if (guestError || !guestData) {
+          console.log("Guest not found for token:", token.substring(0, 8) + "...");
+          return new Response(JSON.stringify({ error: "Token not found" }), {
+            status: 404,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
 
-      // Check if deadline has passed
-      const isReadOnly = rsvpConfig.deadline_date 
-        ? new Date(rsvpConfig.deadline_date) < new Date() 
-        : false;
+        if (!guestData.party_id) {
+          console.log("Guest has no party_id:", guestData.id);
+          return new Response(JSON.stringify({ error: "Guest not in a party" }), {
+            status: 404,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
 
-      console.log(`RSVP data fetched for guest ${guestData.id}, party ${guestData.party_id}`);
+        // Query 2: Find party by ID
+        const { data: party, error: partyError } = await supabase
+          .from("invite_parties")
+          .select("id, party_name, rsvp_status, wedding_id, last_updated_by_guest_id, last_updated_at")
+          .eq("id", guestData.party_id)
+          .single();
 
-      return new Response(JSON.stringify({
-        guest: {
-          id: guestData.id,
-          firstName: guestData.first_name,
-          lastName: guestData.last_name,
-        },
-        party: {
-          id: party.id,
-          name: party.party_name,
-          status: party.rsvp_status,
-          members: partyMembers,
-          lastEditorName,
-          lastUpdatedAt: party.last_updated_at,
-        },
-        wedding: {
-          couple: wedding ? `${wedding.partner1_name} & ${wedding.partner2_name}` : "",
-          date: wedding?.wedding_date || "",
-        },
-        config: rsvpConfig,
-        isReadOnly,
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+        if (partyError || !party) {
+          console.log("Party not found for guest:", guestData.id);
+          return new Response(JSON.stringify({ error: "Party not found" }), {
+            status: 404,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
 
-    if (req.method === "POST") {
-      const { token, partyStatus, members } = await req.json();
-
-      if (!token || token.length < 20) {
-        console.log("Invalid token in POST request");
-        return new Response(JSON.stringify({ error: "Invalid token" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const { data: validGuest, error: validateError } = await supabase
-        .from("guests")
-        .select("id, party_id, invite_parties(wedding_id)")
-        .eq("unique_rsvp_token", token)
-        .single();
-
-      if (validateError || !validGuest) {
-        console.log("Invalid token validation failed");
-        return new Response(JSON.stringify({ error: "Invalid token" }), {
-          status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      // Check deadline
-      const party = validGuest.invite_parties as any;
-      if (party?.wedding_id) {
         const { data: wedding } = await supabase
           .from("weddings")
-          .select("rsvp_config")
+          .select("partner1_name, partner2_name, wedding_date, rsvp_config")
           .eq("id", party.wedding_id)
           .single();
 
-        const rsvpConfig = wedding?.rsvp_config as RSVPConfig | null;
-        if (rsvpConfig?.deadline_date && new Date(rsvpConfig.deadline_date) < new Date()) {
-          return new Response(JSON.stringify({ error: "RSVP deadline passed" }), {
+        const { data: partyMembers } = await supabase
+          .from("guests")
+          .select("id, first_name, last_name, rsvp_status, menu_choice, dietary_restrictions, is_child, allow_plus_one, plus_one_name, plus_one_menu")
+          .eq("party_id", guestData.party_id);
+
+        // Get last editor name if someone else responded
+        let lastEditorName: string | null = null;
+        if (party.last_updated_by_guest_id && party.last_updated_by_guest_id !== guestData.id) {
+          const { data: editor } = await supabase
+            .from("guests")
+            .select("first_name")
+            .eq("id", party.last_updated_by_guest_id)
+            .single();
+          lastEditorName = editor?.first_name || null;
+        }
+
+        // Parse rsvp_config
+        const rsvpConfig: RSVPConfig = wedding?.rsvp_config || {
+          hero_image_url: null,
+          welcome_title: "Benvenuti al nostro Matrimonio",
+          welcome_text: "Non vediamo l'ora di festeggiare con voi!",
+          deadline_date: null,
+        };
+
+        // Check if deadline has passed
+        const isReadOnly = rsvpConfig.deadline_date 
+          ? new Date(rsvpConfig.deadline_date) < new Date() 
+          : false;
+
+        console.log(`RSVP data fetched for guest ${guestData.id}, party ${guestData.party_id}`);
+
+        return new Response(JSON.stringify({
+          guest: {
+            id: guestData.id,
+            firstName: guestData.first_name,
+            lastName: guestData.last_name,
+          },
+          party: {
+            id: party.id,
+            name: party.party_name,
+            status: party.rsvp_status,
+            members: partyMembers,
+            lastEditorName,
+            lastUpdatedAt: party.last_updated_at,
+          },
+          wedding: {
+            couple: wedding ? `${wedding.partner1_name} & ${wedding.partner2_name}` : "",
+            date: wedding?.wedding_date || "",
+          },
+          config: rsvpConfig,
+          isReadOnly,
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Handle SUBMIT action (save RSVP response)
+      if (partyStatus && members) {
+        const { data: validGuest, error: validateError } = await supabase
+          .from("guests")
+          .select("id, party_id")
+          .eq("unique_rsvp_token", token)
+          .single();
+
+        if (validateError || !validGuest) {
+          console.log("Invalid token validation failed");
+          return new Response(JSON.stringify({ error: "Invalid token" }), {
             status: 403,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
-      }
 
-      await supabase
-        .from("invite_parties")
-        .update({ 
-          rsvp_status: partyStatus,
-          confirmed_by_guest_id: validGuest.id,
-          last_updated_by_guest_id: validGuest.id,
-          last_updated_at: new Date().toISOString(),
-        })
-        .eq("id", validGuest.party_id);
+        // Get party's wedding_id for deadline check
+        const { data: partyData } = await supabase
+          .from("invite_parties")
+          .select("wedding_id")
+          .eq("id", validGuest.party_id)
+          .single();
 
-      for (const member of members) {
-        const updateData: any = {
-          rsvp_status: member.rsvpStatus,
-          menu_choice: member.menuChoice,
-          dietary_restrictions: member.dietaryRestrictions,
-        };
+        if (partyData?.wedding_id) {
+          const { data: wedding } = await supabase
+            .from("weddings")
+            .select("rsvp_config")
+            .eq("id", partyData.wedding_id)
+            .single();
 
-        // Handle plus-one data
-        if (member.plusOneName !== undefined) {
-          updateData.plus_one_name = member.plusOneName || null;
-        }
-        if (member.plusOneMenu !== undefined) {
-          updateData.plus_one_menu = member.plusOneMenu || null;
+          const rsvpConfig = wedding?.rsvp_config as RSVPConfig | null;
+          if (rsvpConfig?.deadline_date && new Date(rsvpConfig.deadline_date) < new Date()) {
+            return new Response(JSON.stringify({ error: "RSVP deadline passed" }), {
+              status: 403,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
         }
 
         await supabase
-          .from("guests")
-          .update(updateData)
-          .eq("id", member.id)
-          .eq("party_id", validGuest.party_id);
+          .from("invite_parties")
+          .update({ 
+            rsvp_status: partyStatus,
+            confirmed_by_guest_id: validGuest.id,
+            last_updated_by_guest_id: validGuest.id,
+            last_updated_at: new Date().toISOString(),
+          })
+          .eq("id", validGuest.party_id);
+
+        for (const member of members) {
+          const updateData: any = {
+            rsvp_status: member.rsvpStatus,
+            menu_choice: member.menuChoice,
+            dietary_restrictions: member.dietaryRestrictions,
+          };
+
+          // Handle plus-one data
+          if (member.plusOneName !== undefined) {
+            updateData.plus_one_name = member.plusOneName || null;
+          }
+          if (member.plusOneMenu !== undefined) {
+            updateData.plus_one_menu = member.plusOneMenu || null;
+          }
+
+          await supabase
+            .from("guests")
+            .update(updateData)
+            .eq("id", member.id)
+            .eq("party_id", validGuest.party_id);
+        }
+
+        await supabase.from("rsvp_log").insert({
+          party_id: validGuest.party_id,
+          guest_id_actor: validGuest.id,
+          payload: { partyStatus, members, submittedAt: new Date().toISOString() },
+        });
+
+        console.log(`RSVP submitted for party ${validGuest.party_id} by guest ${validGuest.id}`);
+
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
-      await supabase.from("rsvp_log").insert({
-        party_id: validGuest.party_id,
-        guest_id_actor: validGuest.id,
-        payload: { partyStatus, members, submittedAt: new Date().toISOString() },
-      });
-
-      console.log(`RSVP submitted for party ${validGuest.party_id} by guest ${validGuest.id}`);
-
-      return new Response(JSON.stringify({ success: true }), {
+      return new Response(JSON.stringify({ error: "Invalid request" }), {
+        status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
