@@ -44,27 +44,43 @@ Deno.serve(async (req) => {
         });
       }
 
+      // Query 1: Find guest by token
       const { data: guestData, error: guestError } = await supabase
         .from("guests")
-        .select(`
-          id, first_name, last_name, rsvp_status, menu_choice, dietary_restrictions,
-          party_id, allow_plus_one, plus_one_name, plus_one_menu,
-          invite_parties (
-            id, party_name, rsvp_status, wedding_id, last_updated_by_guest_id, last_updated_at
-          )
-        `)
+        .select("id, first_name, last_name, rsvp_status, menu_choice, dietary_restrictions, party_id, allow_plus_one, plus_one_name, plus_one_menu")
         .eq("unique_rsvp_token", token)
         .single();
 
-      if (guestError || !guestData || !guestData.invite_parties) {
-        console.log("Token not found:", token.substring(0, 8) + "...");
+      if (guestError || !guestData) {
+        console.log("Guest not found for token:", token.substring(0, 8) + "...");
         return new Response(JSON.stringify({ error: "Token not found" }), {
           status: 404,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      const party = guestData.invite_parties as any;
+      if (!guestData.party_id) {
+        console.log("Guest has no party_id:", guestData.id);
+        return new Response(JSON.stringify({ error: "Guest not in a party" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Query 2: Find party by ID
+      const { data: party, error: partyError } = await supabase
+        .from("invite_parties")
+        .select("id, party_name, rsvp_status, wedding_id, last_updated_by_guest_id, last_updated_at")
+        .eq("id", guestData.party_id)
+        .single();
+
+      if (partyError || !party) {
+        console.log("Party not found for guest:", guestData.id);
+        return new Response(JSON.stringify({ error: "Party not found" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
       const { data: wedding } = await supabase
         .from("weddings")

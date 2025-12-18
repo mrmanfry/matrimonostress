@@ -496,6 +496,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "fk_guests_party"
+            columns: ["party_id"]
+            isOneToOne: false
+            referencedRelation: "invite_parties"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "guests_group_id_fkey"
             columns: ["group_id"]
             isOneToOne: false
