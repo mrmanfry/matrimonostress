@@ -385,6 +385,13 @@ const Guests = () => {
     setRsvpCampaignOpen(true);
   };
 
+  // Handler for sending RSVP to a single guest (creates a virtual party)
+  const handleSendRSVPToSingle = (guest: Guest) => {
+    // Open campaign dialog - it will handle single guests too
+    setSelectedPartiesForRSVP([]);
+    setRsvpCampaignOpen(true);
+  };
+
   const handleBulkSendRSVP = () => {
     if (parties.length === 0) {
       toast({
@@ -993,6 +1000,7 @@ const Guests = () => {
                       onEdit={handleEditGuest}
                       onAddToParty={handleAddGuestToParty}
                       onGuestUpdate={loadData}
+                      onSendRSVP={handleSendRSVPToSingle}
                     />
                   );
                 }
