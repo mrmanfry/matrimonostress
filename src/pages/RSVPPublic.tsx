@@ -4,14 +4,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Loader2, CheckCircle, XCircle, Leaf, AlertTriangle, Clock, UserPlus, Lock } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, Leaf, AlertTriangle, Clock, UserPlus, Lock, Check, X, Baby, Utensils } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface GuestMember {
   id: string;
@@ -62,13 +63,12 @@ export default function RSVPPublic() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [rsvpData, setRsvpData] = useState<RSVPData | null>(null);
-  const [partyStatus, setPartyStatus] = useState<string>("Confermato");
   const [isPreview, setIsPreview] = useState(false);
   const [memberData, setMemberData] = useState<Record<string, {
+    rsvpStatus: 'pending' | 'confirmed' | 'declined';
     isVegetarian: boolean;
     isVegan: boolean;
     dietaryRestrictions: string;
-    rsvpStatus: string;
     hasPlusOne: boolean;
     plusOneName: string;
     plusOneMenu: string;
@@ -158,6 +158,18 @@ export default function RSVPPublic() {
               plus_one_name: null,
               plus_one_menu: null,
             },
+            {
+              id: "demo-member-3",
+              first_name: "Tommaso",
+              last_name: "Rossi",
+              rsvp_status: "pending",
+              menu_choice: null,
+              dietary_restrictions: null,
+              is_child: true,
+              allow_plus_one: false,
+              plus_one_name: null,
+              plus_one_menu: null,
+            },
           ],
           lastEditorName: null,
           lastUpdatedAt: null,
@@ -171,15 +183,14 @@ export default function RSVPPublic() {
       };
 
       setRsvpData(demoData);
-      setPartyStatus(demoData.party.status);
 
       const initialMemberData: Record<string, any> = {};
       demoData.party.members.forEach((member) => {
         initialMemberData[member.id] = {
+          rsvpStatus: 'pending',
           isVegetarian: false,
           isVegan: false,
           dietaryRestrictions: "",
-          rsvpStatus: "pending",
           hasPlusOne: false,
           plusOneName: "",
           plusOneMenu: "",
@@ -209,15 +220,15 @@ export default function RSVPPublic() {
       }
 
       setRsvpData(data);
-      setPartyStatus(data.party.status);
 
       const initialMemberData: Record<string, any> = {};
       data.party.members.forEach((member: GuestMember) => {
         initialMemberData[member.id] = {
+          rsvpStatus: member.rsvp_status === 'confirmed' ? 'confirmed' : 
+                      member.rsvp_status === 'declined' ? 'declined' : 'pending',
           isVegetarian: member.menu_choice === "vegetariano",
           isVegan: member.menu_choice === "vegano",
           dietaryRestrictions: member.dietary_restrictions || "",
-          rsvpStatus: member.rsvp_status || "pending",
           hasPlusOne: !!member.plus_one_name,
           plusOneName: member.plus_one_name || "",
           plusOneMenu: member.plus_one_menu || "",
@@ -233,6 +244,16 @@ export default function RSVPPublic() {
     }
   };
 
+  const handleMemberStatusChange = (memberId: string, status: 'confirmed' | 'declined') => {
+    setMemberData(prev => ({
+      ...prev,
+      [memberId]: {
+        ...prev[memberId],
+        rsvpStatus: status,
+      },
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -243,6 +264,15 @@ export default function RSVPPublic() {
     }
     if (rsvpData?.isReadOnly) {
       toast.error("Il termine per rispondere è scaduto");
+      return;
+    }
+
+    // Check if everyone has responded
+    const pendingMembers = rsvpData!.party.members.filter(
+      m => memberData[m.id]?.rsvpStatus === 'pending'
+    );
+    if (pendingMembers.length > 0) {
+      toast.warning(`Per favore indica se ${pendingMembers[0].first_name} ci sarà o meno.`);
       return;
     }
 
@@ -259,11 +289,16 @@ export default function RSVPPublic() {
           id: member.id,
           rsvpStatus: data?.rsvpStatus || "pending",
           menuChoice,
-          dietaryRestrictions: data?.dietaryRestrictions || null,
-          plusOneName: member.allow_plus_one && data?.hasPlusOne ? data.plusOneName : null,
-          plusOneMenu: member.allow_plus_one && data?.hasPlusOne ? data.plusOneMenu : null,
+          dietaryRestrictions: data?.rsvpStatus === 'confirmed' ? data?.dietaryRestrictions || null : null,
+          plusOneName: member.allow_plus_one && data?.hasPlusOne && data?.rsvpStatus === 'confirmed' ? data.plusOneName : null,
+          plusOneMenu: member.allow_plus_one && data?.hasPlusOne && data?.rsvpStatus === 'confirmed' ? data.plusOneMenu : null,
         };
       });
+
+      // Derive party status from individual responses
+      const hasConfirmed = members.some(m => m.rsvpStatus === 'confirmed');
+      const allDeclined = members.every(m => m.rsvpStatus === 'declined');
+      const partyStatus = allDeclined ? "Rifiutato" : hasConfirmed ? "Confermato" : "In attesa";
 
       const { data, error } = await supabase.functions.invoke("rsvp-handler", {
         method: "POST",
@@ -306,6 +341,10 @@ export default function RSVPPublic() {
   if (!rsvpData) return null;
 
   if (submitted) {
+    const confirmedCount = rsvpData.party.members.filter(
+      m => memberData[m.id]?.rsvpStatus === 'confirmed'
+    ).length;
+    
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5 flex items-center justify-center p-4">
         <Card className="max-w-md w-full text-center">
@@ -315,7 +354,9 @@ export default function RSVPPublic() {
             </div>
             <CardTitle>Grazie per la tua risposta!</CardTitle>
             <CardDescription>
-              La tua conferma è stata registrata con successo.
+              {confirmedCount > 0 
+                ? `${confirmedCount} person${confirmedCount > 1 ? 'e' : 'a'} confermat${confirmedCount > 1 ? 'e' : 'a'}.`
+                : "La tua risposta è stata registrata."}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -411,210 +452,256 @@ export default function RSVPPublic() {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-8">
-              <div>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Welcome Message */}
+              <div className="text-center mb-8">
                 <h3 className="text-lg font-semibold mb-2">
                   {config.welcome_title || `Ciao ${rsvpData.guest.firstName}!`} 👋
                 </h3>
-                <p className="text-muted-foreground mb-6">
+                <p className="text-muted-foreground">
                   {config.welcome_text || "Conferma la tua presenza per il nostro grande giorno"}
                 </p>
-
-                <div className="space-y-4">
-                  <Label className="text-base font-semibold">
-                    {rsvpData.party.name}
-                  </Label>
-                  <RadioGroup 
-                    value={partyStatus} 
-                    onValueChange={setPartyStatus}
-                    disabled={isReadOnly}
-                  >
-                    <div className="flex items-center space-x-2 p-3 rounded-lg border border-border hover:bg-accent/50 transition-colors">
-                      <RadioGroupItem value="Confermato" id="confirmed" disabled={isReadOnly} />
-                      <Label htmlFor="confirmed" className="flex-1 cursor-pointer">
-                        <CheckCircle className="w-4 h-4 inline mr-2 text-primary" />
-                        Ci saremo!
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2 p-3 rounded-lg border border-border hover:bg-accent/50 transition-colors">
-                      <RadioGroupItem value="Rifiutato" id="declined" disabled={isReadOnly} />
-                      <Label htmlFor="declined" className="flex-1 cursor-pointer">
-                        <XCircle className="w-4 h-4 inline mr-2 text-destructive" />
-                        Non potremo partecipare
-                      </Label>
-                    </div>
-                  </RadioGroup>
-                </div>
               </div>
 
-              {partyStatus === "Confermato" && (
-                <div className="space-y-6 border-t pt-6">
-                  <h4 className="font-semibold">Preferenze individuali</h4>
-                  {rsvpData.party.members.map((member) => (
-                    <div key={member.id} className="space-y-4 p-4 rounded-lg bg-accent/20 border border-border">
-                      <div className="font-medium">
-                        {member.first_name} {member.last_name}
-                        {member.is_child && (
-                          <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-1 rounded">
-                            Bambino
-                          </span>
-                        )}
-                      </div>
-                      
-                      {/* Preferenze alimentari */}
-                      <div className="space-y-3">
-                        <Label className="text-sm flex items-center gap-2">
-                          <Leaf className="w-4 h-4 text-primary" />
-                          Preferenze alimentari
-                        </Label>
-                        <div className="flex flex-col gap-2">
-                          <div className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`vegetarian-${member.id}`}
-                              checked={memberData[member.id]?.isVegetarian || false}
-                              disabled={isReadOnly}
-                              onCheckedChange={(checked) => {
-                                setMemberData({
-                                  ...memberData,
-                                  [member.id]: {
-                                    ...memberData[member.id],
-                                    isVegetarian: !!checked,
-                                    isVegan: checked ? false : memberData[member.id]?.isVegan,
-                                  },
-                                });
-                              }}
-                            />
-                            <Label 
-                              htmlFor={`vegetarian-${member.id}`} 
-                              className="text-sm font-normal cursor-pointer"
-                            >
-                              Sono vegetariano/a
-                            </Label>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`vegan-${member.id}`}
-                              checked={memberData[member.id]?.isVegan || false}
-                              disabled={isReadOnly}
-                              onCheckedChange={(checked) => {
-                                setMemberData({
-                                  ...memberData,
-                                  [member.id]: {
-                                    ...memberData[member.id],
-                                    isVegan: !!checked,
-                                    isVegetarian: checked ? false : memberData[member.id]?.isVegetarian,
-                                  },
-                                });
-                              }}
-                            />
-                            <Label 
-                              htmlFor={`vegan-${member.id}`} 
-                              className="text-sm font-normal cursor-pointer"
-                            >
-                              Sono vegano/a
-                            </Label>
+              {/* Party Name */}
+              <div className="text-center">
+                <Badge variant="outline" className="text-base px-4 py-1">
+                  {party.name}
+                </Badge>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Conferma la presenza di ogni membro del nucleo
+                </p>
+              </div>
+
+              {/* Individual Member Cards */}
+              <div className="space-y-4">
+                {rsvpData.party.members.map((member) => {
+                  const data = memberData[member.id];
+                  const isConfirmed = data?.rsvpStatus === 'confirmed';
+                  const isDeclined = data?.rsvpStatus === 'declined';
+                  
+                  return (
+                    <Card 
+                      key={member.id} 
+                      className={cn(
+                        "transition-all",
+                        isConfirmed && "border-green-200 bg-green-50/50 dark:border-green-900/50 dark:bg-green-950/20",
+                        isDeclined && "border-red-200 bg-red-50/50 dark:border-red-900/50 dark:bg-red-950/20"
+                      )}
+                    >
+                      <CardContent className="p-4">
+                        {/* Member Header */}
+                        <div className="flex items-center justify-between gap-3 mb-4">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-lg">
+                              {member.first_name} {member.last_name}
+                            </span>
+                            {member.is_child && (
+                              <Badge variant="outline" className="text-xs">
+                                <Baby className="w-3 h-3 mr-1" />
+                                Bambino
+                              </Badge>
+                            )}
                           </div>
                         </div>
-                      </div>
 
-                      {/* Allergie */}
-                      <div className="space-y-2">
-                        <Label htmlFor={`dietary-${member.id}`} className="text-sm">
-                          Allergie o intolleranze
-                        </Label>
-                        <Textarea
-                          id={`dietary-${member.id}`}
-                          placeholder="Es: Celiaco, intolleranza al lattosio, allergia alle noci..."
-                          value={memberData[member.id]?.dietaryRestrictions || ""}
-                          disabled={isReadOnly}
-                          onChange={(e) =>
-                            setMemberData({
-                              ...memberData,
-                              [member.id]: {
-                                ...memberData[member.id],
-                                dietaryRestrictions: e.target.value,
-                              },
-                            })
-                          }
-                          rows={2}
-                        />
-                      </div>
+                        {/* Status Toggle Buttons */}
+                        <div className="flex gap-2 bg-muted/50 rounded-lg p-1">
+                          <button
+                            type="button"
+                            disabled={isReadOnly}
+                            onClick={() => handleMemberStatusChange(member.id, 'confirmed')}
+                            className={cn(
+                              "flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium transition-all",
+                              isConfirmed 
+                                ? "bg-white dark:bg-green-900 text-green-700 dark:text-green-300 shadow-sm border border-green-200 dark:border-green-800" 
+                                : "text-muted-foreground hover:bg-muted",
+                              isReadOnly && "opacity-50 cursor-not-allowed"
+                            )}
+                          >
+                            <Check className="w-4 h-4" />
+                            Ci sarò
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isReadOnly}
+                            onClick={() => handleMemberStatusChange(member.id, 'declined')}
+                            className={cn(
+                              "flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium transition-all",
+                              isDeclined 
+                                ? "bg-white dark:bg-red-900 text-red-700 dark:text-red-300 shadow-sm border border-red-200 dark:border-red-800" 
+                                : "text-muted-foreground hover:bg-muted",
+                              isReadOnly && "opacity-50 cursor-not-allowed"
+                            )}
+                          >
+                            <X className="w-4 h-4" />
+                            Non ci sarò
+                          </button>
+                        </div>
 
-                      {/* Plus One */}
-                      {member.allow_plus_one && (
-                        <div className="space-y-3 pt-3 border-t border-border/50">
-                          <div className="flex items-center justify-between">
-                            <Label className="text-sm flex items-center gap-2">
-                              <UserPlus className="w-4 h-4 text-primary" />
-                              Porti un accompagnatore? (+1)
-                            </Label>
-                            <Switch
-                              checked={memberData[member.id]?.hasPlusOne || false}
-                              disabled={isReadOnly}
-                              onCheckedChange={(checked) => {
-                                setMemberData({
-                                  ...memberData,
-                                  [member.id]: {
-                                    ...memberData[member.id],
-                                    hasPlusOne: checked,
-                                    plusOneName: checked ? memberData[member.id]?.plusOneName || "" : "",
-                                    plusOneMenu: checked ? memberData[member.id]?.plusOneMenu || "" : "",
-                                  },
-                                });
-                              }}
-                            />
-                          </div>
-                          
-                          {memberData[member.id]?.hasPlusOne && (
-                            <div className="space-y-3 pl-4 border-l-2 border-primary/30">
-                              <div className="space-y-2">
-                                <Label htmlFor={`plus-one-name-${member.id}`} className="text-sm">
-                                  Nome accompagnatore
-                                </Label>
-                                <Input
-                                  id={`plus-one-name-${member.id}`}
-                                  placeholder="Nome e Cognome"
-                                  value={memberData[member.id]?.plusOneName || ""}
-                                  disabled={isReadOnly}
-                                  onChange={(e) =>
-                                    setMemberData({
-                                      ...memberData,
-                                      [member.id]: {
-                                        ...memberData[member.id],
-                                        plusOneName: e.target.value,
-                                      },
-                                    })
-                                  }
-                                />
-                              </div>
-                              <div className="space-y-2">
-                                <Label htmlFor={`plus-one-menu-${member.id}`} className="text-sm">
-                                  Preferenze menu accompagnatore
-                                </Label>
-                                <Input
-                                  id={`plus-one-menu-${member.id}`}
-                                  placeholder="Es: Vegetariano, allergie..."
-                                  value={memberData[member.id]?.plusOneMenu || ""}
-                                  disabled={isReadOnly}
-                                  onChange={(e) =>
-                                    setMemberData({
-                                      ...memberData,
-                                      [member.id]: {
-                                        ...memberData[member.id],
-                                        plusOneMenu: e.target.value,
-                                      },
-                                    })
-                                  }
-                                />
+                        {/* Preferences Section - Only show if confirmed */}
+                        {isConfirmed && (
+                          <div className="mt-4 pt-4 border-t space-y-4 animate-in slide-in-from-top-2 duration-200">
+                            {/* Food Preferences */}
+                            <div className="space-y-3">
+                              <Label className="text-sm flex items-center gap-2">
+                                <Utensils className="w-4 h-4 text-primary" />
+                                Preferenze alimentari
+                              </Label>
+                              <div className="flex flex-col gap-2">
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id={`vegetarian-${member.id}`}
+                                    checked={data?.isVegetarian || false}
+                                    disabled={isReadOnly}
+                                    onCheckedChange={(checked) => {
+                                      setMemberData({
+                                        ...memberData,
+                                        [member.id]: {
+                                          ...memberData[member.id],
+                                          isVegetarian: !!checked,
+                                          isVegan: checked ? false : memberData[member.id]?.isVegan,
+                                        },
+                                      });
+                                    }}
+                                  />
+                                  <Label 
+                                    htmlFor={`vegetarian-${member.id}`} 
+                                    className="text-sm font-normal cursor-pointer"
+                                  >
+                                    Vegetariano/a
+                                  </Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id={`vegan-${member.id}`}
+                                    checked={data?.isVegan || false}
+                                    disabled={isReadOnly}
+                                    onCheckedChange={(checked) => {
+                                      setMemberData({
+                                        ...memberData,
+                                        [member.id]: {
+                                          ...memberData[member.id],
+                                          isVegan: !!checked,
+                                          isVegetarian: checked ? false : memberData[member.id]?.isVegetarian,
+                                        },
+                                      });
+                                    }}
+                                  />
+                                  <Label 
+                                    htmlFor={`vegan-${member.id}`} 
+                                    className="text-sm font-normal cursor-pointer"
+                                  >
+                                    Vegano/a
+                                  </Label>
+                                </div>
                               </div>
                             </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
+
+                            {/* Dietary Restrictions */}
+                            <div className="space-y-2">
+                              <Label htmlFor={`dietary-${member.id}`} className="text-sm">
+                                Allergie o intolleranze
+                              </Label>
+                              <Textarea
+                                id={`dietary-${member.id}`}
+                                placeholder="Es: Celiaco, intolleranza al lattosio..."
+                                value={data?.dietaryRestrictions || ""}
+                                disabled={isReadOnly}
+                                onChange={(e) =>
+                                  setMemberData({
+                                    ...memberData,
+                                    [member.id]: {
+                                      ...memberData[member.id],
+                                      dietaryRestrictions: e.target.value,
+                                    },
+                                  })
+                                }
+                                rows={2}
+                                className="bg-background"
+                              />
+                            </div>
+
+                            {/* Plus One Section */}
+                            {member.allow_plus_one && (
+                              <div className="space-y-3 pt-3 border-t border-border/50">
+                                <div className="flex items-center justify-between">
+                                  <Label className="text-sm flex items-center gap-2">
+                                    <UserPlus className="w-4 h-4 text-primary" />
+                                    Porti un accompagnatore? (+1)
+                                  </Label>
+                                  <Switch
+                                    checked={data?.hasPlusOne || false}
+                                    disabled={isReadOnly}
+                                    onCheckedChange={(checked) => {
+                                      setMemberData({
+                                        ...memberData,
+                                        [member.id]: {
+                                          ...memberData[member.id],
+                                          hasPlusOne: checked,
+                                          plusOneName: checked ? memberData[member.id]?.plusOneName || "" : "",
+                                          plusOneMenu: checked ? memberData[member.id]?.plusOneMenu || "" : "",
+                                        },
+                                      });
+                                    }}
+                                  />
+                                </div>
+                                
+                                {data?.hasPlusOne && (
+                                  <div className="space-y-3 pl-4 border-l-2 border-primary/30">
+                                    <div className="space-y-2">
+                                      <Label htmlFor={`plus-one-name-${member.id}`} className="text-sm">
+                                        Nome accompagnatore
+                                      </Label>
+                                      <Input
+                                        id={`plus-one-name-${member.id}`}
+                                        placeholder="Nome e Cognome"
+                                        value={data?.plusOneName || ""}
+                                        disabled={isReadOnly}
+                                        onChange={(e) =>
+                                          setMemberData({
+                                            ...memberData,
+                                            [member.id]: {
+                                              ...memberData[member.id],
+                                              plusOneName: e.target.value,
+                                            },
+                                          })
+                                        }
+                                        className="bg-background"
+                                      />
+                                    </div>
+                                    <div className="space-y-2">
+                                      <Label htmlFor={`plus-one-menu-${member.id}`} className="text-sm">
+                                        Preferenze menu accompagnatore
+                                      </Label>
+                                      <Input
+                                        id={`plus-one-menu-${member.id}`}
+                                        placeholder="Es: Vegetariano, allergie..."
+                                        value={data?.plusOneMenu || ""}
+                                        disabled={isReadOnly}
+                                        onChange={(e) =>
+                                          setMemberData({
+                                            ...memberData,
+                                            [member.id]: {
+                                              ...memberData[member.id],
+                                              plusOneMenu: e.target.value,
+                                            },
+                                          })
+                                        }
+                                        className="bg-background"
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
 
               <Button 
                 type="submit" 

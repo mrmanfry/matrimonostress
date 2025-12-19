@@ -80,9 +80,28 @@ export function RSVPCampaignDialog({
   const [isRsvpConfigured, setIsRsvpConfigured] = useState(false);
   const [selectedGuestIds, setSelectedGuestIds] = useState<Set<string>>(new Set());
 
+  // Recovery from localStorage on mount
   useEffect(() => {
     if (open) {
       loadAllData();
+      
+      // Check for saved campaign progress
+      const savedProgress = localStorage.getItem("rsvp_campaign_progress");
+      if (savedProgress) {
+        try {
+          const parsed = JSON.parse(savedProgress);
+          // Only restore if it's recent (within 24 hours)
+          const isRecent = Date.now() - parsed.timestamp < 24 * 60 * 60 * 1000;
+          if (isRecent && parsed.weddingId === weddingId) {
+            toast.info("Campagna in corso recuperata!");
+            setStep("sending");
+            setCurrentIndex(parsed.currentIndex);
+            // We'll restore guests when allGuests loads
+          }
+        } catch (e) {
+          localStorage.removeItem("rsvp_campaign_progress");
+        }
+      }
     } else {
       setStep("filter");
       setActiveFilter("to_send");
@@ -317,22 +336,48 @@ export function RSVPCampaignDialog({
       return;
     }
 
+    // Update local state to reflect the change in counters
+    setAllGuests(prev => prev.map(g => 
+      g.id === currentGuest.id 
+        ? { ...g, rsvp_invitation_sent: new Date().toISOString() }
+        : g
+    ));
+
     // Move to next guest
     if (currentIndex < guests.length - 1) {
-      setCurrentIndex(currentIndex + 1);
+      const nextIndex = currentIndex + 1;
+      setCurrentIndex(nextIndex);
       setWhatsappOpened(false);
+      
+      // Save progress to localStorage
+      localStorage.setItem("rsvp_campaign_progress", JSON.stringify({
+        currentIndex: nextIndex,
+        weddingId,
+        timestamp: Date.now(),
+      }));
     } else {
+      // Campaign complete
       toast.success("Campagna completata! 🎉");
+      localStorage.removeItem("rsvp_campaign_progress");
       onOpenChange(false);
     }
   };
 
   const skipGuest = async () => {
     if (currentIndex < guests.length - 1) {
-      setCurrentIndex(currentIndex + 1);
+      const nextIndex = currentIndex + 1;
+      setCurrentIndex(nextIndex);
       setWhatsappOpened(false);
+      
+      // Save progress to localStorage
+      localStorage.setItem("rsvp_campaign_progress", JSON.stringify({
+        currentIndex: nextIndex,
+        weddingId,
+        timestamp: Date.now(),
+      }));
     } else {
       toast.success("Campagna completata!");
+      localStorage.removeItem("rsvp_campaign_progress");
       onOpenChange(false);
     }
   };
