@@ -92,7 +92,7 @@ export const PartyDialog = ({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Users className="w-5 h-5" />
-            {party ? 'Modifica Nucleo di Invito' : 'Crea Nucleo di Invito'}
+            {party?.id ? 'Modifica Nucleo di Invito' : 'Crea Nucleo di Invito'}
           </DialogTitle>
         </DialogHeader>
 
@@ -182,7 +182,7 @@ export const PartyDialog = ({
               type="submit"
               disabled={loading || !partyName.trim() || selectedGuestIds.length === 0}
             >
-              {loading ? 'Salvataggio...' : party ? 'Salva Modifiche' : 'Crea Nucleo'}
+              {loading ? 'Salvataggio...' : party?.id ? 'Salva Modifiche' : 'Crea Nucleo'}
             </Button>
           </div>
         </form>

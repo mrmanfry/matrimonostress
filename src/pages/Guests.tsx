@@ -467,8 +467,8 @@ const Guests = () => {
       return;
     }
     
-    // Convert selected guests to array for dialog
-    const selectedGuests = ungroupedGuests.filter(g => selectedGuestIds.has(g.id));
+    // FIX: Cerca in ALL guests, non solo ungrouped, per permettere ri-nucleazione
+    const selectedGuests = allGuests.filter(g => selectedGuestIds.has(g.id));
     
     // Open dialog with pre-selected guests
     setEditingParty({
@@ -480,6 +480,100 @@ const Guests = () => {
     } as any);
     setPartyDialogOpen(true);
     clearSelection();
+  };
+
+  // Bulk delete selected guests
+  const handleBulkDeleteGuests = async () => {
+    const guestCount = selectedGuestIds.size;
+    const partyCount = selectedPartyIds.size;
+    
+    let message = "";
+    if (guestCount > 0 && partyCount > 0) {
+      message = `Eliminare definitivamente ${guestCount} invitati e ${partyCount} nuclei (con tutti i loro membri)?`;
+    } else if (guestCount > 0) {
+      message = `Eliminare definitivamente ${guestCount} invitati?`;
+    } else if (partyCount > 0) {
+      message = `Eliminare definitivamente ${partyCount} nuclei (con tutti i loro membri)?`;
+    }
+    
+    if (!confirm(message)) return;
+
+    try {
+      // Delete selected individual guests
+      if (guestCount > 0) {
+        const { error } = await supabase
+          .from("guests")
+          .delete()
+          .in("id", Array.from(selectedGuestIds));
+        if (error) throw error;
+      }
+      
+      // Delete guests in selected parties, then delete parties
+      if (partyCount > 0) {
+        // First delete all guests in selected parties
+        const { error: guestsError } = await supabase
+          .from("guests")
+          .delete()
+          .in("party_id", Array.from(selectedPartyIds));
+        if (guestsError) throw guestsError;
+        
+        // Then delete the parties
+        const { error: partiesError } = await supabase
+          .from("invite_parties")
+          .delete()
+          .in("id", Array.from(selectedPartyIds));
+        if (partiesError) throw partiesError;
+      }
+
+      toast({ 
+        title: "Eliminazione completata", 
+        description: "Gli elementi selezionati sono stati rimossi." 
+      });
+      clearSelection();
+      await loadData();
+    } catch (error: any) {
+      toast({ 
+        title: "Errore", 
+        description: error.message, 
+        variant: "destructive" 
+      });
+    }
+  };
+
+  // Bulk dissolve selected parties (keep guests as singles)
+  const handleBulkDissolveParties = async () => {
+    if (selectedPartyIds.size === 0) return;
+    
+    if (!confirm(`Sciogliere ${selectedPartyIds.size} nuclei? Gli invitati torneranno singoli.`)) return;
+
+    try {
+      // Remove party_id from guests (make them singles)
+      const { error: updateError } = await supabase
+        .from("guests")
+        .update({ party_id: null })
+        .in("party_id", Array.from(selectedPartyIds));
+      if (updateError) throw updateError;
+
+      // Delete the parties
+      const { error: deleteError } = await supabase
+        .from("invite_parties")
+        .delete()
+        .in("id", Array.from(selectedPartyIds));
+      if (deleteError) throw deleteError;
+
+      toast({ 
+        title: "Nuclei Sciolti", 
+        description: "Gli invitati sono ora singoli." 
+      });
+      clearSelection();
+      await loadData();
+    } catch (error: any) {
+      toast({ 
+        title: "Errore", 
+        description: error.message, 
+        variant: "destructive" 
+      });
+    }
   };
 
   const handleEditGuest = (guestId: string) => {
@@ -1008,14 +1102,15 @@ const Guests = () => {
             </div>
           )}
 
-          {/* Selection Toolbar - Solo per invitati singoli */}
-          {selectedGuestIds.size > 0 && (
-            <SelectionToolbar
-              selectedCount={selectedGuestIds.size}
-              onCreateParty={handleCreatePartyFromSelection}
-              onClearSelection={clearSelection}
-            />
-          )}
+          {/* Selection Toolbar - Gestisce sia invitati singoli che nuclei */}
+          <SelectionToolbar
+            selectedGuestCount={selectedGuestIds.size}
+            selectedPartyCount={selectedPartyIds.size}
+            onCreateParty={handleCreatePartyFromSelection}
+            onDeleteGuests={handleBulkDeleteGuests}
+            onDissolveParties={handleBulkDissolveParties}
+            onClearSelection={clearSelection}
+          />
         </>
       )}
 
@@ -1045,10 +1140,7 @@ const Guests = () => {
           party_name: editingParty.party_name,
           guest_ids: editingParty.guests.map(g => g.id),
         } : undefined}
-        availableGuests={editingParty
-          ? [...ungroupedGuests, ...editingParty.guests]
-          : ungroupedGuests
-        }
+        availableGuests={allGuests.filter(g => !g.is_couple_member)}
         onSave={handleSaveParty}
       />
 
