@@ -374,6 +374,9 @@ export default function RSVPPublic() {
   }
 
   const { config, isReadOnly, party } = rsvpData;
+  
+  // Detect if this is a single guest (virtual party)
+  const isSingleGuest = party.id.startsWith('virtual-');
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5">
@@ -423,8 +426,8 @@ export default function RSVPPublic() {
               </Alert>
             )}
 
-            {/* Conflict Alert */}
-            {party.lastEditorName && party.lastUpdatedAt && (
+            {/* Conflict Alert - Only for parties, not singles */}
+            {!isSingleGuest && party.lastEditorName && party.lastUpdatedAt && (
               <Alert className="mb-6 border-yellow-500/50 bg-yellow-500/10">
                 <AlertTriangle className="h-4 w-4 text-yellow-600" />
                 <AlertDescription className="text-yellow-700 dark:text-yellow-400">
@@ -453,25 +456,30 @@ export default function RSVPPublic() {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Welcome Message */}
+              {/* Welcome Message - Different for singles vs parties */}
               <div className="text-center mb-8">
                 <h3 className="text-lg font-semibold mb-2">
-                  {config.welcome_title || `Ciao ${rsvpData.guest.firstName}!`} 👋
+                  {isSingleGuest 
+                    ? `Ciao ${rsvpData.guest.firstName}! 👋`
+                    : (config.welcome_title || `Ciao ${rsvpData.guest.firstName}!`) + ' 👋'
+                  }
                 </h3>
                 <p className="text-muted-foreground">
                   {config.welcome_text || "Conferma la tua presenza per il nostro grande giorno"}
                 </p>
               </div>
 
-              {/* Party Name */}
-              <div className="text-center">
-                <Badge variant="outline" className="text-base px-4 py-1">
-                  {party.name}
-                </Badge>
-                <p className="text-sm text-muted-foreground mt-2">
-                  Conferma la presenza di ogni membro del nucleo
-                </p>
-              </div>
+              {/* Party Name - Only show for real parties (nuclei), not singles */}
+              {!isSingleGuest && (
+                <div className="text-center">
+                  <Badge variant="outline" className="text-base px-4 py-1">
+                    {party.name}
+                  </Badge>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Conferma la presenza di ogni membro del nucleo
+                  </p>
+                </div>
+              )}
 
               {/* Individual Member Cards */}
               <div className="space-y-4">
