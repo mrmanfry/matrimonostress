@@ -28,6 +28,7 @@ interface Guest {
   formal_invite_sent_at?: string | null;
   std_response?: string | null;
   rsvp_status?: string | null;
+  rsvp_invitation_sent?: string | null;
 }
 
 interface GuestSingleCardProps {

@@ -19,11 +19,15 @@ interface Guest {
   rsvp_send_status: 'Non Inviato' | 'Inviato' | 'Fallito';
   allow_plus_one?: boolean;
   plus_one_name?: string;
+  is_couple_member?: boolean;
+  menu_choice?: string;
+  dietary_restrictions?: string;
   // Wedding CRM fields
   save_the_date_sent_at?: string | null;
   formal_invite_sent_at?: string | null;
   std_response?: string | null;
   rsvp_status?: string | null;
+  rsvp_invitation_sent?: string | null;
 }
 
 interface InviteParty {
