@@ -2,9 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/contexts/AuthContext";
@@ -16,13 +14,7 @@ import {
   AlertCircle,
   Smartphone,
 } from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { GuestFilters, GuestFilterValues, DEFAULT_FILTER_VALUES } from "@/components/guests/GuestFilters";
 import { PartyDialog } from "@/components/guests/PartyDialog";
 import { SmartGrouperDialog } from "@/components/guests/SmartGrouperDialog";
 import { SmartImportDialog } from "@/components/guests/SmartImportDialog";
@@ -96,11 +88,18 @@ const Guests = () => {
   const [loading, setLoading] = useState(true);
   
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [groupingFilter, setGroupingFilter] = useState("all"); // all, grouped, singles
-  const [contactFilter, setContactFilter] = useState("all"); // all, with_phone, without_phone
-  const [ageFilter, setAgeFilter] = useState("all"); // all, adults, children
+  const [filterValues, setFilterValues] = useState<GuestFilterValues>(DEFAULT_FILTER_VALUES);
   const [funnelFilter, setFunnelFilter] = useState<string | null>(null); // draft, std_sent, invited, confirmed, declined
+
+  // Helper to update individual filter values
+  const handleFilterChange = (key: keyof GuestFilterValues, value: string) => {
+    setFilterValues((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleResetFilters = () => {
+    setFilterValues(DEFAULT_FILTER_VALUES);
+    setFunnelFilter(null);
+  };
   
   const [partyDialogOpen, setPartyDialogOpen] = useState(false);
   const [editingParty, setEditingParty] = useState<InviteParty | undefined>();
@@ -671,7 +670,7 @@ const Guests = () => {
     let items: Array<{ type: 'single' | 'party'; data: Guest | InviteParty }> = [];
 
     // Add parties (grouped guests) - show single-member parties as singles
-    if (groupingFilter !== "singles") {
+    if (filterValues.grouping !== "singles") {
       parties.forEach(party => {
         if (party.guests.length === 1) {
           // Single-member party: show as individual guest
@@ -683,54 +682,153 @@ const Guests = () => {
     }
 
     // Add ungrouped guests (singles)
-    if (groupingFilter !== "grouped") {
+    if (filterValues.grouping !== "grouped") {
       ungroupedGuests.forEach(guest => {
         items.push({ type: 'single', data: guest });
       });
     }
 
-    // Apply status filter
-    items = items.filter(item => {
-      if (statusFilter !== "all") {
+    // Apply RSVP status filter
+    if (filterValues.rsvpStatus !== "all") {
+      items = items.filter(item => {
         if (item.type === 'party') {
           const party = item.data as InviteParty;
-          return party.rsvp_status === statusFilter;
+          return party.rsvp_status === filterValues.rsvpStatus;
         }
         // Singles are always "In attesa"
-        return statusFilter === "In attesa";
-      }
-      return true;
-    });
+        return filterValues.rsvpStatus === "In attesa";
+      });
+    }
 
     // Apply contact filter
-    if (contactFilter !== "all") {
+    if (filterValues.contact !== "all") {
       items = items.filter(item => {
         if (item.type === 'party') {
           const party = item.data as InviteParty;
           const hasPhone = party.guests.some(g => g.phone);
-          return contactFilter === "with_phone" ? hasPhone : !hasPhone;
+          return filterValues.contact === "with_phone" ? hasPhone : !hasPhone;
         } else {
           const guest = item.data as Guest;
           const hasPhone = !!guest.phone;
-          return contactFilter === "with_phone" ? hasPhone : !hasPhone;
+          return filterValues.contact === "with_phone" ? hasPhone : !hasPhone;
         }
       });
     }
 
     // Apply age filter
-    if (ageFilter !== "all") {
+    if (filterValues.age !== "all") {
       items = items.filter(item => {
         if (item.type === 'party') {
           const party = item.data as InviteParty;
-          if (ageFilter === "adults") {
+          if (filterValues.age === "adults") {
             return party.guests.some(g => !g.is_child);
           } else {
             return party.guests.some(g => g.is_child);
           }
         } else {
           const guest = item.data as Guest;
-          return ageFilter === "adults" ? !guest.is_child : guest.is_child;
+          return filterValues.age === "adults" ? !guest.is_child : guest.is_child;
         }
+      });
+    }
+
+    // Apply group filter
+    if (filterValues.group !== "all") {
+      items = items.filter(item => {
+        if (item.type === 'party') {
+          const party = item.data as InviteParty;
+          if (filterValues.group === "no_group") {
+            return party.guests.some(g => !g.group_id);
+          }
+          return party.guests.some(g => g.group_id === filterValues.group);
+        } else {
+          const guest = item.data as Guest;
+          if (filterValues.group === "no_group") {
+            return !guest.group_id;
+          }
+          return guest.group_id === filterValues.group;
+        }
+      });
+    }
+
+    // Apply STD status filter
+    if (filterValues.stdStatus !== "all") {
+      items = items.filter(item => {
+        const checkGuest = (g: Guest): boolean => {
+          switch (filterValues.stdStatus) {
+            case "not_sent": return !g.save_the_date_sent_at;
+            case "sent": return !!g.save_the_date_sent_at && !g.std_responded_at;
+            case "responded_yes": return g.std_response === "yes" || g.std_response === "Sì";
+            case "responded_no": return g.std_response === "no" || g.std_response === "No";
+            default: return true;
+          }
+        };
+        if (item.type === 'party') {
+          return (item.data as InviteParty).guests.some(checkGuest);
+        }
+        return checkGuest(item.data as Guest);
+      });
+    }
+
+    // Apply +1 filter
+    if (filterValues.plusOne !== "all") {
+      items = items.filter(item => {
+        const checkGuest = (g: Guest): boolean => {
+          switch (filterValues.plusOne) {
+            case "allowed": return !!g.allow_plus_one;
+            case "confirmed": return !!g.plus_one_name && g.plus_one_name.trim() !== "";
+            case "not_allowed": return !g.allow_plus_one;
+            default: return true;
+          }
+        };
+        if (item.type === 'party') {
+          return (item.data as InviteParty).guests.some(checkGuest);
+        }
+        return checkGuest(item.data as Guest);
+      });
+    }
+
+    // Apply menu filter
+    if (filterValues.menu !== "all") {
+      items = items.filter(item => {
+        const checkGuest = (g: Guest): boolean => {
+          if (filterValues.menu === "no_choice") return !g.menu_choice;
+          return g.menu_choice?.toLowerCase() === filterValues.menu.toLowerCase();
+        };
+        if (item.type === 'party') {
+          return (item.data as InviteParty).guests.some(checkGuest);
+        }
+        return checkGuest(item.data as Guest);
+      });
+    }
+
+    // Apply staff filter
+    if (filterValues.staff !== "all") {
+      items = items.filter(item => {
+        const checkGuest = (g: Guest): boolean => {
+          if (filterValues.staff === "staff_only") return !!(g as any).is_staff;
+          if (filterValues.staff === "guests_only") return !(g as any).is_staff;
+          return true;
+        };
+        if (item.type === 'party') {
+          return (item.data as InviteParty).guests.some(checkGuest);
+        }
+        return checkGuest(item.data as Guest);
+      });
+    }
+
+    // Apply formal invite status filter
+    if (filterValues.inviteStatus !== "all") {
+      items = items.filter(item => {
+        const checkGuest = (g: Guest): boolean => {
+          if (filterValues.inviteStatus === "not_sent") return !g.formal_invite_sent_at;
+          if (filterValues.inviteStatus === "sent") return !!g.formal_invite_sent_at;
+          return true;
+        };
+        if (item.type === 'party') {
+          return (item.data as InviteParty).guests.some(checkGuest);
+        }
+        return checkGuest(item.data as Guest);
       });
     }
 
@@ -774,14 +872,16 @@ const Guests = () => {
             party.party_name.toLowerCase().includes(query) ||
             party.guests.some(g =>
               g.first_name.toLowerCase().includes(query) ||
-              g.last_name.toLowerCase().includes(query)
+              g.last_name.toLowerCase().includes(query) ||
+              g.group_name?.toLowerCase().includes(query)
             )
           );
         } else {
           const guest = item.data as Guest;
           return (
             guest.first_name.toLowerCase().includes(query) ||
-            guest.last_name.toLowerCase().includes(query)
+            guest.last_name.toLowerCase().includes(query) ||
+            guest.group_name?.toLowerCase().includes(query)
           );
         }
       });
@@ -1077,7 +1177,7 @@ const Guests = () => {
           {/* Stats Chart */}
           <GuestStatsChart stats={stats} />
 
-          {/* Filters - Ridisegnati con tutti i filtri */}
+          {/* Filters - New Configurable Filter System */}
           <div className="space-y-3">
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="flex-1 relative">
@@ -1100,65 +1200,15 @@ const Guests = () => {
               </Button>
             </div>
 
-            {/* Seconda riga di filtri con label */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Tipo Gruppo</Label>
-                <Select value={groupingFilter} onValueChange={setGroupingFilter}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tutti</SelectItem>
-                    <SelectItem value="grouped">Solo Raggruppati</SelectItem>
-                    <SelectItem value="singles">Solo Singoli</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Stato RSVP</Label>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tutti gli stati</SelectItem>
-                    <SelectItem value="In attesa">In attesa</SelectItem>
-                    <SelectItem value="Confermato">Confermato</SelectItem>
-                    <SelectItem value="Rifiutato">Rifiutato</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Numero Telefono</Label>
-                <Select value={contactFilter} onValueChange={setContactFilter}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tutti</SelectItem>
-                    <SelectItem value="with_phone">Con numero</SelectItem>
-                    <SelectItem value="without_phone">Senza numero</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Tipo Invitato</Label>
-                <Select value={ageFilter} onValueChange={setAgeFilter}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tutti</SelectItem>
-                    <SelectItem value="adults">Solo Adulti</SelectItem>
-                    <SelectItem value="children">Solo Bambini</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+            {/* Configurable Filters with Settings Cog */}
+            {wedding && (
+              <GuestFilters
+                weddingId={wedding.id}
+                values={filterValues}
+                onChange={handleFilterChange}
+                onReset={handleResetFilters}
+              />
+            )}
           </div>
 
           {/* Hybrid List - La Lista Ibrida (Nuclei + Singoli) */}
