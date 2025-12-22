@@ -6,14 +6,15 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { User, UserPlus2, Leaf, Heart, RotateCcw, Mail, Calendar, CheckCircle } from "lucide-react";
+import { User, UserPlus2, Leaf, Heart, RotateCcw, Mail, Calendar, CheckCircle, Users } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-
+import { CreatableGroupSelector } from "./CreatableGroupSelector";
 interface Guest {
   id: string;
+  wedding_id?: string;
   first_name: string;
   last_name: string;
   alias?: string;
@@ -23,6 +24,7 @@ interface Guest {
   menu_choice?: string;
   dietary_restrictions?: string;
   is_couple_member?: boolean;
+  group_id?: string | null;
   // Campaign fields
   save_the_date_sent_at?: string | null;
   formal_invite_sent_at?: string | null;
@@ -35,6 +37,7 @@ interface GuestEditDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   guest: Guest | null;
+  weddingId?: string;
   onSuccess: () => void;
 }
 
@@ -42,6 +45,7 @@ export const GuestEditDialog = ({
   open,
   onOpenChange,
   guest,
+  weddingId,
   onSuccess,
 }: GuestEditDialogProps) => {
   const [firstName, setFirstName] = useState("");
@@ -52,7 +56,11 @@ export const GuestEditDialog = ({
   const [allowPlusOne, setAllowPlusOne] = useState(false);
   const [menuChoice, setMenuChoice] = useState<string | null>(null);
   const [dietaryRestrictions, setDietaryRestrictions] = useState("");
+  const [groupId, setGroupId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  
+  // Resolve weddingId from prop or guest
+  const resolvedWeddingId = weddingId || guest?.wedding_id;
   
   // Campaign state fields
   const [saveTheDateSent, setSaveTheDateSent] = useState(false);
@@ -71,6 +79,7 @@ export const GuestEditDialog = ({
       setAllowPlusOne(guest.allow_plus_one || false);
       setMenuChoice(guest.menu_choice || null);
       setDietaryRestrictions(guest.dietary_restrictions || "");
+      setGroupId(guest.group_id || null);
       
       // Campaign fields
       setSaveTheDateSent(!!guest.save_the_date_sent_at);
@@ -96,6 +105,7 @@ export const GuestEditDialog = ({
         allow_plus_one: isChild ? false : allowPlusOne,
         menu_choice: menuChoice,
         dietary_restrictions: dietaryRestrictions.trim() || null,
+        group_id: groupId,
         // Campaign fields
         save_the_date_sent_at: saveTheDateSent ? (guest.save_the_date_sent_at || new Date().toISOString()) : null,
         formal_invite_sent_at: formalInviteSent ? (guest.formal_invite_sent_at || new Date().toISOString()) : null,
@@ -195,6 +205,21 @@ export const GuestEditDialog = ({
               <p className="text-xs text-muted-foreground">
                 Formato consigliato: +39 (prefisso internazionale)
               </p>
+            </div>
+          )}
+
+          {/* Group Selector - Hidden for couple members */}
+          {!guest?.is_couple_member && resolvedWeddingId && (
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-primary" />
+                Gruppo / Categoria
+              </Label>
+              <CreatableGroupSelector
+                weddingId={resolvedWeddingId}
+                value={groupId}
+                onValueChange={setGroupId}
+              />
             </div>
           )}
 

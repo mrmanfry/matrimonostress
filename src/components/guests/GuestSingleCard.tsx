@@ -12,6 +12,7 @@ import { toast } from "sonner";
 
 interface Guest {
   id: string;
+  wedding_id?: string;
   first_name: string;
   last_name: string;
   alias?: string;
@@ -24,6 +25,7 @@ interface Guest {
   menu_choice?: string;
   dietary_restrictions?: string;
   unique_rsvp_token?: string;
+  group_id?: string | null;
   // Wedding CRM fields
   save_the_date_sent_at?: string | null;
   formal_invite_sent_at?: string | null;
