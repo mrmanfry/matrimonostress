@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Loader2, CheckCircle, XCircle, Leaf, AlertTriangle, Clock, UserPlus, Lock, Check, X, Baby, Utensils } from "lucide-react";
 import { cn } from "@/lib/utils";
-
+import { SaveTheDateView } from "@/components/rsvp/SaveTheDateView";
 interface GuestMember {
   id: string;
   first_name: string;
@@ -58,6 +58,7 @@ interface RSVPData {
 
 export default function RSVPPublic() {
   const { token } = useParams<{ token: string }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -73,6 +74,9 @@ export default function RSVPPublic() {
     plusOneName: string;
     plusOneMenu: string;
   }>>({});
+  
+  // Check if this is Save The Date mode
+  const isStdMode = searchParams.get('mode') === 'std';
 
   useEffect(() => {
     if (!token) {
@@ -330,6 +334,14 @@ export default function RSVPPublic() {
     }
   };
 
+  // Handler for Save The Date response
+  const handleStdResponse = async (response: 'likely_yes' | 'likely_no' | 'unsure') => {
+    const { error } = await supabase.functions.invoke("rsvp-handler", {
+      body: { action: "save-std-response", token, stdResponse: response },
+    });
+    if (error) throw error;
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5 flex items-center justify-center p-4">
@@ -339,6 +351,23 @@ export default function RSVPPublic() {
   }
 
   if (!rsvpData) return null;
+
+  // Render Save The Date view if mode=std
+  if (isStdMode && !isPreview) {
+    return (
+      <SaveTheDateView
+        coupleName={rsvpData.wedding.couple}
+        weddingDate={rsvpData.wedding.date}
+        guestFirstName={rsvpData.guest.firstName}
+        guestLastName={rsvpData.guest.lastName}
+        heroImageUrl={rsvpData.config.hero_image_url}
+        welcomeTitle={rsvpData.config.welcome_title}
+        welcomeText={rsvpData.config.welcome_text}
+        isReadOnly={rsvpData.isReadOnly}
+        onSubmitResponse={handleStdResponse}
+      />
+    );
+  }
 
   if (submitted) {
     const confirmedCount = rsvpData.party.members.filter(
