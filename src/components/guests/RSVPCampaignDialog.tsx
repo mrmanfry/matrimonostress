@@ -49,6 +49,7 @@ interface RSVPCampaignDialogProps {
   selectedParties: InviteParty[];
   weddingId: string;
   coupleName: string;
+  preSelectedGuestIds?: Set<string>;
 }
 
 type FilterType = "to_send" | "already_sent" | "no_phone";
@@ -59,6 +60,7 @@ export function RSVPCampaignDialog({
   selectedParties,
   weddingId,
   coupleName,
+  preSelectedGuestIds,
 }: RSVPCampaignDialogProps) {
   const navigate = useNavigate();
   const [step, setStep] = useState<"filter" | "template" | "sending">("filter");
@@ -111,9 +113,27 @@ export function RSVPCampaignDialog({
     }
   }, [open, weddingId]);
 
-  // Reset selection when filters change
+  // Apply pre-selection when allGuests loads and we have preSelectedGuestIds
   useEffect(() => {
-    setSelectedGuestIds(new Set());
+    if (open && preSelectedGuestIds && preSelectedGuestIds.size > 0 && allGuests.length > 0) {
+      // Filter to only include guests that exist and have a phone
+      const validIds = new Set(
+        allGuests
+          .filter(g => preSelectedGuestIds.has(g.id) && g.phone && g.phone.trim() !== '')
+          .map(g => g.id)
+      );
+      if (validIds.size > 0) {
+        setSelectedGuestIds(validIds);
+      }
+    }
+  }, [open, preSelectedGuestIds, allGuests]);
+
+  // Reset selection when filters change (but NOT if we have preselection)
+  useEffect(() => {
+    // Only reset if no preselection was provided
+    if (!preSelectedGuestIds || preSelectedGuestIds.size === 0) {
+      setSelectedGuestIds(new Set());
+    }
   }, [activeFilter, selectedPartyId, selectedGroupId]);
 
   const loadAllData = async () => {

@@ -380,9 +380,23 @@ const Guests = () => {
     setPartyDialogOpen(true);
   };
 
+  // Stato per i guest IDs pre-selezionati da passare al dialog RSVP
+  const [preSelectedGuestIdsForRSVP, setPreSelectedGuestIdsForRSVP] = useState<Set<string>>(new Set());
+
   // Handler per inviare RSVP dalla SelectionToolbar (contestuale)
   const handleSendRSVPFromSelection = () => {
-    // Apri il dialog RSVP - passerà parties e singoli selezionati
+    // Raccogli tutti gli IDs degli ospiti selezionati (singoli + membri dei nuclei)
+    const guestIdsToPreselect = new Set<string>();
+    
+    // Aggiungi i singoli selezionati
+    selectedGuestIds.forEach(id => guestIdsToPreselect.add(id));
+    
+    // Aggiungi i membri dei nuclei selezionati
+    parties
+      .filter(p => selectedPartyIds.has(p.id))
+      .forEach(p => p.guests.forEach(g => guestIdsToPreselect.add(g.id)));
+    
+    setPreSelectedGuestIdsForRSVP(guestIdsToPreselect);
     setSelectedPartiesForRSVP(parties.filter(p => selectedPartyIds.has(p.id)));
     setRsvpCampaignOpen(true);
   };
@@ -1178,10 +1192,14 @@ const Guests = () => {
 
       <RSVPCampaignDialog
         open={rsvpCampaignOpen}
-        onOpenChange={setRsvpCampaignOpen}
+        onOpenChange={(open) => {
+          setRsvpCampaignOpen(open);
+          if (!open) setPreSelectedGuestIdsForRSVP(new Set());
+        }}
         selectedParties={selectedPartiesForRSVP}
         weddingId={wedding?.id || ""}
         coupleName={wedding ? `${wedding.partner1_name} & ${wedding.partner2_name}` : ""}
+        preSelectedGuestIds={preSelectedGuestIdsForRSVP}
       />
 
       <GuestDiffDialog
