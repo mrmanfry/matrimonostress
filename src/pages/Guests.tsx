@@ -1259,12 +1259,17 @@ const Guests = () => {
         open={rsvpCampaignOpen}
         onOpenChange={(open) => {
           setRsvpCampaignOpen(open);
-          if (!open) setPreSelectedGuestIdsForRSVP(new Set());
+          if (!open) {
+            setPreSelectedGuestIdsForRSVP(new Set());
+            // Refresh data when dialog closes
+            loadData();
+          }
         }}
         selectedParties={selectedPartiesForRSVP}
         weddingId={wedding?.id || ""}
         coupleName={wedding ? `${wedding.partner1_name} & ${wedding.partner2_name}` : ""}
         preSelectedGuestIds={preSelectedGuestIdsForRSVP}
+        onDataChange={loadData}
       />
 
       <GuestDiffDialog
