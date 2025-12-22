@@ -390,7 +390,8 @@ export function validateSmartCSVRows(rows: SmartCSVGuestRow[]): ImportValidation
         last_name: row.last_name || '',
       });
       
-      valid.push(validated);
+      // Cast sicuro perché abbiamo già verificato che first_name esiste
+      valid.push(validated as SmartCSVGuestRow);
       
       // Warning se manca il cognome
       if (!validated.last_name) {
