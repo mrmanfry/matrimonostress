@@ -25,6 +25,7 @@ interface Guest {
   menu_choice?: string;
   dietary_restrictions?: string;
   group_id?: string | null;
+  group_name?: string | null;
   // Wedding CRM fields
   save_the_date_sent_at?: string | null;
   formal_invite_sent_at?: string | null;

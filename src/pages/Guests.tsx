@@ -60,6 +60,8 @@ interface Guest {
   plus_one_name?: string;
   is_couple_member?: boolean;
   rsvp_status?: string;
+  group_id?: string | null;
+  group_name?: string | null;
   // New Wedding CRM fields
   save_the_date_sent_at?: string | null;
   formal_invite_sent_at?: string | null;
@@ -263,17 +265,22 @@ const Guests = () => {
   const loadAllGuests = async (weddingId: string) => {
     const { data: guestsData } = await supabase
       .from("guests")
-      .select("*")
+      .select("*, guest_groups(name)")
       .eq("wedding_id", weddingId)
       .order("is_couple_member", { ascending: false }) // Couple members first
       .order("last_name");
 
     if (guestsData) {
-      setAllGuests(guestsData);
+      // Map to include group_name from the joined table
+      const guestsWithGroupName = guestsData.map((g: any) => ({
+        ...g,
+        group_name: g.guest_groups?.name || null,
+      }));
+      setAllGuests(guestsWithGroupName);
       // Filter ungrouped guests (excluding couple members from ungrouped since they're special)
-      const ungrouped = guestsData.filter((g: Guest) => !g.party_id && !g.is_couple_member);
+      const ungrouped = guestsWithGroupName.filter((g: Guest) => !g.party_id && !g.is_couple_member);
       // Add couple members at the start of ungrouped for display
-      const coupleMembers = guestsData.filter((g: Guest) => g.is_couple_member);
+      const coupleMembers = guestsWithGroupName.filter((g: Guest) => g.is_couple_member);
       setUngroupedGuests([...coupleMembers, ...ungrouped]);
     }
   };
