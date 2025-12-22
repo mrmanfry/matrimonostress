@@ -25,6 +25,7 @@ interface Guest {
   dietary_restrictions?: string;
   is_couple_member?: boolean;
   group_id?: string | null;
+  party_id?: string | null; // For group cascading
   // Campaign fields
   save_the_date_sent_at?: string | null;
   formal_invite_sent_at?: string | null;
@@ -58,9 +59,13 @@ export const GuestEditDialog = ({
   const [dietaryRestrictions, setDietaryRestrictions] = useState("");
   const [groupId, setGroupId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [applyToParty, setApplyToParty] = useState(true); // Group cascading switch
   
   // Resolve weddingId from prop or guest
   const resolvedWeddingId = weddingId || guest?.wedding_id;
+  
+  // Check if guest is part of a party (nucleo)
+  const hasParty = !!guest?.party_id;
   
   // Campaign state fields
   const [saveTheDateSent, setSaveTheDateSent] = useState(false);
@@ -126,7 +131,24 @@ export const GuestEditDialog = ({
 
       if (error) throw error;
 
-      toast.success("Invitato aggiornato!");
+      // Group Cascading: propagate group_id to all party members
+      if (hasParty && applyToParty && guest.party_id) {
+        const { error: cascadeError } = await supabase
+          .from("guests")
+          .update({ group_id: groupId })
+          .eq("party_id", guest.party_id)
+          .neq("id", guest.id); // Exclude current guest (already updated)
+
+        if (cascadeError) {
+          console.error("Errore propagazione gruppo", cascadeError);
+          toast.warning("Dati salvati, ma errore nella propagazione al nucleo.");
+        } else {
+          toast.success("Gruppo applicato a tutto il nucleo!");
+        }
+      } else {
+        toast.success("Invitato aggiornato!");
+      }
+      
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
@@ -210,16 +232,40 @@ export const GuestEditDialog = ({
 
           {/* Group Selector - Hidden for couple members */}
           {!guest?.is_couple_member && resolvedWeddingId && (
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2">
-                <Users className="w-4 h-4 text-primary" />
-                Gruppo / Categoria
-              </Label>
-              <CreatableGroupSelector
-                weddingId={resolvedWeddingId}
-                value={groupId}
-                onValueChange={setGroupId}
-              />
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-primary" />
+                  Gruppo / Categoria
+                </Label>
+                <CreatableGroupSelector
+                  weddingId={resolvedWeddingId}
+                  value={groupId}
+                  onValueChange={setGroupId}
+                />
+              </div>
+              
+              {/* Group Cascading Switch - only visible if guest is part of a party */}
+              {hasParty && (
+                <div className="flex items-center justify-between py-2 px-3 rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-blue-600" />
+                    <div>
+                      <Label htmlFor="apply-to-party" className="cursor-pointer font-medium text-sm">
+                        Estendi al Nucleo
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        Assegna questo gruppo a tutti i membri.
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    id="apply-to-party"
+                    checked={applyToParty}
+                    onCheckedChange={setApplyToParty}
+                  />
+                </div>
+              )}
             </div>
           )}
 
