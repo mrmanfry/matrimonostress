@@ -1273,6 +1273,15 @@ const Guests = () => {
         weddingId={wedding?.id || ""}
         onSuccess={loadData}
       />
+
+      <CSVImportDialog
+        open={csvImportOpen}
+        onOpenChange={setCsvImportOpen}
+        weddingId={wedding?.id || ""}
+        existingPhones={allGuests.map(g => g.phone).filter(Boolean) as string[]}
+        existingGroups={[]}
+        onSuccess={loadData}
+      />
     </div>
   );
 };
