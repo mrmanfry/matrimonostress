@@ -136,7 +136,7 @@ export const GuestNucleoCard = ({
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-2 flex-wrap">
                 <Users className="w-4 h-4 text-primary flex-shrink-0" />
-                <h3 className="font-semibold truncate">Nucleo: {party.party_name}</h3>
+                <h3 className="font-semibold truncate">{party.party_name}</h3>
                 {groupName && (
                   <Badge variant="outline" className="text-xs gap-1 bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/20 dark:border-blue-700 dark:text-blue-300">
                     <Tag className="w-3 h-3" />
