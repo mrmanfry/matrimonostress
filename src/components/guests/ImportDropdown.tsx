@@ -12,7 +12,7 @@ interface ImportDropdownProps {
   onSmartImport: () => void;
   onSmartDiff: () => void;
   onDownloadTemplate: () => void;
-  onImportCSV: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onCSVImport: () => void;
   onExportCSV: () => void;
   onExportCateringPDF: () => void;
   hasGuests: boolean;
@@ -23,7 +23,7 @@ export const ImportDropdown = ({
   onSmartImport,
   onSmartDiff,
   onDownloadTemplate,
-  onImportCSV,
+  onCSVImport,
   onExportCSV,
   onExportCateringPDF,
   hasGuests,
@@ -56,17 +56,9 @@ export const ImportDropdown = ({
 
         <DropdownMenuSeparator />
         
-        <DropdownMenuItem asChild>
-          <label className="flex items-center cursor-pointer w-full">
-            <Upload className="w-4 h-4 mr-2" />
-            <span>⬆️ Importa da file CSV</span>
-            <input
-              type="file"
-              accept=".csv"
-              className="hidden"
-              onChange={onImportCSV}
-            />
-          </label>
+        <DropdownMenuItem onClick={onCSVImport}>
+          <Upload className="w-4 h-4 mr-2" />
+          <span>⬆️ Importa da file CSV</span>
         </DropdownMenuItem>
 
         <DropdownMenuItem onClick={onDownloadTemplate}>
