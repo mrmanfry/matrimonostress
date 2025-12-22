@@ -55,6 +55,7 @@ interface RSVPCampaignDialogProps {
   weddingId: string;
   coupleName: string;
   preSelectedGuestIds?: Set<string>;
+  onDataChange?: () => void; // Callback per sincronizzare i dati con il padre
 }
 
 type FilterType = "to_send" | "already_sent" | "no_phone";
@@ -87,6 +88,7 @@ export function RSVPCampaignDialog({
   weddingId,
   coupleName,
   preSelectedGuestIds,
+  onDataChange,
 }: RSVPCampaignDialogProps) {
   const navigate = useNavigate();
   const [step, setStep] = useState<"campaign_type" | "filter" | "template" | "sending">("campaign_type");
@@ -413,20 +415,26 @@ export function RSVPCampaignDialog({
     const currentGuest = guests[currentIndex];
     if (!currentGuest) return;
 
+    const now = new Date().toISOString();
+    
+    // Build update payload based on campaign type
+    const updatePayload: Record<string, string> = {
+      // Always update legacy field for backwards compatibility
+      rsvp_invitation_sent: now,
+    };
+    
     // Update the correct timestamp based on campaign type
-    const updateField = campaignType === 'save_the_date' 
-      ? 'save_the_date_sent_at'
-      : campaignType === 'reminder'
-      ? 'last_reminder_sent_at'
-      : 'formal_invite_sent_at';
+    if (campaignType === 'save_the_date') {
+      updatePayload.save_the_date_sent_at = now;
+    } else if (campaignType === 'reminder') {
+      updatePayload.last_reminder_sent_at = now;
+    } else {
+      updatePayload.formal_invite_sent_at = now;
+    }
 
     const { error } = await supabase
       .from("guests")
-      .update({ 
-        [updateField]: new Date().toISOString(),
-        // Also update legacy field for backwards compatibility
-        rsvp_invitation_sent: new Date().toISOString() 
-      })
+      .update(updatePayload)
       .eq("id", currentGuest.id);
 
     if (error) {
@@ -438,16 +446,21 @@ export function RSVPCampaignDialog({
     // Update local state to reflect the change in counters
     setAllGuests(prev => prev.map(g => 
       g.id === currentGuest.id 
-        ? { ...g, rsvp_invitation_sent: new Date().toISOString() }
+        ? { ...g, ...updatePayload }
         : g
     ));
 
     // Also update guests array for campaign
     setGuests(prev => prev.map(g => 
       g.id === currentGuest.id 
-        ? { ...g, rsvp_invitation_sent: new Date().toISOString() }
+        ? { ...g, ...updatePayload }
         : g
     ));
+
+    // Notify parent to refresh data (sync KPIs)
+    if (onDataChange) {
+      onDataChange();
+    }
 
     moveToNext();
   };
