@@ -260,11 +260,25 @@ export function RSVPCampaignDialog({
     return result;
   }, [allGuests, selectedPartyId, selectedGroupId]);
 
+  // Helper: determina se un guest è stato già contattato per questo tipo di campagna
+  const hasBeenSentForCampaign = (g: Guest) => {
+    switch (campaignType) {
+      case 'save_the_date':
+        return !!g.save_the_date_sent_at;
+      case 'reminder':
+        return !!g.last_reminder_sent_at;
+      case 'formal_invite':
+      default:
+        // formal_invite_sent_at è la Single Source of Truth
+        return !!g.formal_invite_sent_at;
+    }
+  };
+
   // Filter stats based on pre-filtered guests
   const filterStats = useMemo(() => {
     const withPhone = preFilteredGuests.filter(g => g.phone && g.phone.trim() !== "");
-    const toSend = withPhone.filter(g => !g.rsvp_invitation_sent);
-    const alreadySent = withPhone.filter(g => !!g.rsvp_invitation_sent);
+    const toSend = withPhone.filter(g => !hasBeenSentForCampaign(g));
+    const alreadySent = withPhone.filter(g => hasBeenSentForCampaign(g));
     const noPhone = preFilteredGuests.filter(g => !g.phone || g.phone.trim() === "");
     
     return {
@@ -273,25 +287,25 @@ export function RSVPCampaignDialog({
       no_phone: noPhone.length,
       total_with_phone: withPhone.length,
     };
-  }, [preFilteredGuests]);
+  }, [preFilteredGuests, campaignType]);
 
   // Apply status filter on top of party/group filters
   const filteredGuests = useMemo(() => {
     switch (activeFilter) {
       case "to_send":
         return preFilteredGuests.filter(g => 
-          g.phone && g.phone.trim() !== "" && !g.rsvp_invitation_sent
+          g.phone && g.phone.trim() !== "" && !hasBeenSentForCampaign(g)
         );
       case "already_sent":
         return preFilteredGuests.filter(g => 
-          g.phone && g.phone.trim() !== "" && !!g.rsvp_invitation_sent
+          g.phone && g.phone.trim() !== "" && hasBeenSentForCampaign(g)
         );
       case "no_phone":
         return preFilteredGuests.filter(g => !g.phone || g.phone.trim() === "");
       default:
         return [];
     }
-  }, [preFilteredGuests, activeFilter]);
+  }, [preFilteredGuests, activeFilter, campaignType]);
 
   const generateAIMessage = async () => {
     setIsGeneratingAI(true);
