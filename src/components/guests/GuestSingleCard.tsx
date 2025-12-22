@@ -26,6 +26,7 @@ interface Guest {
   dietary_restrictions?: string;
   unique_rsvp_token?: string;
   group_id?: string | null;
+  group_name?: string | null;
   // Wedding CRM fields
   save_the_date_sent_at?: string | null;
   formal_invite_sent_at?: string | null;
@@ -139,7 +140,11 @@ export const GuestSingleCard = ({
                     compact
                   />
                   <span>•</span>
-                  <span>Gruppo: <span className="text-orange-600 font-medium">(non assegnato)</span></span>
+                  <span>Gruppo: {guest.group_name ? (
+                    <span className="text-primary font-medium">{guest.group_name}</span>
+                  ) : (
+                    <span className="text-orange-600 font-medium">(non assegnato)</span>
+                  )}</span>
                 </div>
               )}
             </div>
