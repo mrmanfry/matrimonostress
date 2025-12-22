@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
-import { Users, Phone, Edit, Baby, Edit2, UserPlus2 } from "lucide-react";
+import { Users, Phone, Edit, Baby, Edit2, UserPlus2, Tag } from "lucide-react";
 import { useState } from "react";
 import { GuestEditDialog } from "./GuestEditDialog";
 import { GuestCampaignBadges } from "./GuestCampaignBadges";
@@ -116,6 +116,8 @@ export const GuestNucleoCard = ({
   const totalGuests = party.guests.length;
   const allSent = party.guests.every(g => g.rsvp_send_status === 'Inviato');
   const guestsWithPlusOne = party.guests.filter(g => g.allow_plus_one).length;
+  // Get group name from the first guest that has one assigned
+  const groupName = party.guests.find(g => g.group_name)?.group_name;
 
   return (
     <Card className={`p-4 hover:shadow-md transition-all ${selected ? 'ring-2 ring-primary' : ''}`}>
@@ -135,6 +137,12 @@ export const GuestNucleoCard = ({
               <div className="flex items-center gap-2 mb-2 flex-wrap">
                 <Users className="w-4 h-4 text-primary flex-shrink-0" />
                 <h3 className="font-semibold truncate">Nucleo: {party.party_name}</h3>
+                {groupName && (
+                  <Badge variant="outline" className="text-xs gap-1 bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/20 dark:border-blue-700 dark:text-blue-300">
+                    <Tag className="w-3 h-3" />
+                    {groupName}
+                  </Badge>
+                )}
                 {guestsWithPlusOne > 0 && (
                   <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
                     <UserPlus2 className="w-3 h-3 mr-1" />
