@@ -14,6 +14,7 @@ interface Guest {
   id: string;
   first_name: string;
   last_name: string;
+  alias?: string;
   phone?: string;
   is_child: boolean;
   rsvp_send_status: 'Non Inviato' | 'Inviato' | 'Fallito';
@@ -101,6 +102,12 @@ export const GuestSingleCard = ({
                   <Heart className="w-4 h-4 text-pink-500 fill-pink-500" />
                 )}
                 <h3 className="font-semibold truncate">{displayName}</h3>
+                {/* Alias Badge */}
+                {guest.alias && (
+                  <span className="text-xs font-normal text-muted-foreground bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full border">
+                    aka "{guest.alias}"
+                  </span>
+                )}
                 {guest.is_couple_member && (
                   <Badge className="text-xs bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300 border-0">
                     Sposo/a

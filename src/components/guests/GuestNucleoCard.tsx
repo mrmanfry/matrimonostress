@@ -14,6 +14,7 @@ interface Guest {
   id: string;
   first_name: string;
   last_name: string;
+  alias?: string;
   phone?: string;
   is_child: boolean;
   rsvp_send_status: 'Non Inviato' | 'Inviato' | 'Fallito';
@@ -187,6 +188,11 @@ export const GuestNucleoCard = ({
                 <div key={guest.id} className="flex items-center justify-between text-sm group">
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     <span className="truncate">{guest.first_name} {guest.last_name}</span>
+                    {guest.alias && (
+                      <span className="text-xs text-muted-foreground bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded border">
+                        aka "{guest.alias}"
+                      </span>
+                    )}
                     {guest.allow_plus_one && (
                       <Badge variant="outline" className="text-[10px] py-0 px-1 bg-purple-50 border-purple-200 text-purple-600 dark:bg-purple-900/20 dark:border-purple-700 dark:text-purple-300">
                         +1

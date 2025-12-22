@@ -418,6 +418,7 @@ export type Database = {
       guests: {
         Row: {
           adults_count: number | null
+          alias: string | null
           allow_plus_one: boolean | null
           children_count: number | null
           created_at: string
@@ -449,6 +450,7 @@ export type Database = {
         }
         Insert: {
           adults_count?: number | null
+          alias?: string | null
           allow_plus_one?: boolean | null
           children_count?: number | null
           created_at?: string
@@ -480,6 +482,7 @@ export type Database = {
         }
         Update: {
           adults_count?: number | null
+          alias?: string | null
           allow_plus_one?: boolean | null
           children_count?: number | null
           created_at?: string
