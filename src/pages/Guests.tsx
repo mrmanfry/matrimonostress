@@ -20,7 +20,7 @@ import { SmartGrouperDialog } from "@/components/guests/SmartGrouperDialog";
 import { SmartImportDialog } from "@/components/guests/SmartImportDialog";
 import { ContactSyncDialog } from "@/components/guests/ContactSyncDialog";
 import { RSVPCampaignDialog } from "@/components/guests/RSVPCampaignDialog";
-import { GuestStatsChart } from "@/components/guests/GuestStatsChart";
+import { GuestAnalyticsDashboard } from "@/components/guests/GuestAnalyticsDashboard";
 import { ImportDropdown } from "@/components/guests/ImportDropdown";
 import { GuestDiffDialog } from "@/components/guests/GuestDiffDialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -1174,8 +1174,8 @@ const Guests = () => {
             </Alert>
           )}
 
-          {/* Stats Chart */}
-          <GuestStatsChart stats={stats} />
+          {/* Analytics Dashboard */}
+          <GuestAnalyticsDashboard guests={allGuests} parties={parties} />
 
           {/* Filters - New Configurable Filter System */}
           <div className="space-y-3">
