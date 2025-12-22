@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { X, Users, Trash2, UserMinus } from "lucide-react";
+import { X, Users, Trash2, UserMinus, Send } from "lucide-react";
 
 interface SelectionToolbarProps {
   selectedGuestCount: number;
@@ -8,6 +8,8 @@ interface SelectionToolbarProps {
   onDeleteGuests: () => void;
   onDissolveParties: () => void;
   onClearSelection: () => void;
+  onSendRSVP?: () => void;
+  hasContactsToSend?: boolean;
 }
 
 export const SelectionToolbar = ({
@@ -17,6 +19,8 @@ export const SelectionToolbar = ({
   onDeleteGuests,
   onDissolveParties,
   onClearSelection,
+  onSendRSVP,
+  hasContactsToSend = false,
 }: SelectionToolbarProps) => {
   const totalSelected = selectedGuestCount + selectedPartyCount;
   
@@ -53,6 +57,19 @@ export const SelectionToolbar = ({
         >
           <UserMinus className="w-4 h-4" />
           Sciogli ({selectedPartyCount})
+        </Button>
+      )}
+      
+      {/* Invia RSVP - solo se ci sono contatti da inviare */}
+      {hasContactsToSend && onSendRSVP && (
+        <Button
+          onClick={onSendRSVP}
+          variant="secondary"
+          size="sm"
+          className="gap-2"
+        >
+          <Send className="w-4 h-4" />
+          Invia RSVP
         </Button>
       )}
       
