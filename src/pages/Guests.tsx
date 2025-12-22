@@ -38,6 +38,8 @@ import { SelectionToolbar } from "@/components/guests/SelectionToolbar";
 import { FunnelKPICards } from "@/components/guests/FunnelKPICards";
 import { GuestCampaignBadges } from "@/components/guests/GuestCampaignBadges";
 import { generateCateringReport } from "@/utils/pdfHelpers";
+import { CSVImportDialog } from "@/components/guests/CSVImportDialog";
+import { generateCSVTemplate, downloadCSV, exportGuestsToCSV } from "@/utils/csvHelpers";
 
 interface Guest {
   id: string;
@@ -103,6 +105,7 @@ const Guests = () => {
   const [smartGrouperOpen, setSmartGrouperOpen] = useState(false);
   const [smartImportOpen, setSmartImportOpen] = useState(false);
   const [smartDiffOpen, setSmartDiffOpen] = useState(false);
+  const [csvImportOpen, setCsvImportOpen] = useState(false);
   const [contactSyncOpen, setContactSyncOpen] = useState(false);
   const [rsvpCampaignOpen, setRsvpCampaignOpen] = useState(false);
   const [selectedPartiesForRSVP, setSelectedPartiesForRSVP] = useState<InviteParty[]>([]);
@@ -819,26 +822,22 @@ const Guests = () => {
     potentialPlusOnes: potentialPlusOnes,
   };
 
-  // Funzioni per ImportDropdown (placeholder per ora)
+  // CSV Import/Export functions
   const handleDownloadTemplate = () => {
-    toast({
-      title: "Funzionalità in arrivo",
-      description: "Il download del template CSV sarà disponibile a breve.",
-    });
+    const template = generateCSVTemplate();
+    downloadCSV(template, "template_invitati.csv");
+    toast({ title: "Template scaricato!" });
   };
 
-  const handleImportCSV = () => {
-    toast({
-      title: "Funzionalità in arrivo",
-      description: "L'import CSV sarà disponibile a breve.",
-    });
+  const handleCSVImport = () => {
+    setCsvImportOpen(true);
   };
 
   const handleExportCSV = () => {
-    toast({
-      title: "Funzionalità in arrivo",
-      description: "L'export CSV sarà disponibile a breve.",
-    });
+    if (allGuests.length === 0) return;
+    const csv = exportGuestsToCSV(allGuests);
+    downloadCSV(csv, "lista_invitati.csv");
+    toast({ title: "Lista esportata!" });
   };
 
   const handleExportCateringPDF = async () => {
@@ -927,7 +926,7 @@ const Guests = () => {
               onSmartImport={() => setSmartImportOpen(true)}
               onSmartDiff={() => setSmartDiffOpen(true)}
               onDownloadTemplate={handleDownloadTemplate}
-              onImportCSV={handleImportCSV}
+              onCSVImport={handleCSVImport}
               onExportCSV={handleExportCSV}
               onExportCateringPDF={handleExportCateringPDF}
               hasGuests={allGuests.length > 0}
@@ -967,7 +966,7 @@ const Guests = () => {
                 onSmartImport={() => setSmartImportOpen(true)}
                 onSmartDiff={() => setSmartDiffOpen(true)}
                 onDownloadTemplate={handleDownloadTemplate}
-                onImportCSV={handleImportCSV}
+                onCSVImport={handleCSVImport}
                 onExportCSV={handleExportCSV}
                 onExportCateringPDF={handleExportCateringPDF}
                 hasGuests={false}
