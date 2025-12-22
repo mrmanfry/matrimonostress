@@ -247,14 +247,19 @@ const Guests = () => {
       partiesData.map(async (party) => {
         const { data: guestsData } = await supabase
           .from("guests")
-          .select("*")
+          .select("*, guest_groups(name)")
           .eq("party_id", party.id)
           .order("is_child", { ascending: true })
           .order("first_name");
 
+        const guestsWithGroupName = (guestsData || []).map((g: any) => ({
+          ...g,
+          group_name: g.guest_groups?.name || null,
+        }));
+
         return {
           ...party,
-          guests: guestsData || [],
+          guests: guestsWithGroupName,
         };
       })
     );
