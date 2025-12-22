@@ -68,12 +68,34 @@ export function GuestDiffDialog({ open, onOpenChange, weddingId, onSuccess }: Gu
 
     setIsAnalyzing(true);
     try {
+      console.log('[GuestDiff] Starting analysis for wedding:', weddingId);
       const { data, error } = await supabase.functions.invoke('analyze-guest-diff', {
         body: { text: rawText, weddingId }
       });
 
-      if (error) throw error;
-      if (data.error) throw new Error(data.error);
+      console.log('[GuestDiff] Response received:', { data, error });
+
+      if (error) {
+        console.error('[GuestDiff] Supabase error:', error);
+        throw error;
+      }
+      if (data?.error) {
+        console.error('[GuestDiff] Data error:', data.error);
+        throw new Error(data.error);
+      }
+
+      // Validate response structure
+      if (!data || !Array.isArray(data.new_entries) || !Array.isArray(data.fuzzy_matches)) {
+        console.error('[GuestDiff] Invalid response structure:', data);
+        throw new Error('Risposta non valida dal server');
+      }
+
+      console.log('[GuestDiff] Setting diff result:', {
+        new_entries: data.new_entries.length,
+        fuzzy_matches: data.fuzzy_matches.length,
+        exact_matches: data.exact_matches?.length || 0,
+        missing_in_new: data.missing_in_new?.length || 0
+      });
 
       setDiffResult(data);
       
@@ -84,10 +106,11 @@ export function GuestDiffDialog({ open, onOpenChange, weddingId, onSuccess }: Gu
       setFuzzyDecisions(new Map());
       setSelectedRemovals(new Set());
       
+      console.log('[GuestDiff] Transitioning to review step');
       setStep('review');
       toast.success(`Analisi completata: ${data.new_entries.length} nuovi, ${data.fuzzy_matches.length} da verificare`);
     } catch (error: any) {
-      console.error('Error analyzing diff:', error);
+      console.error('[GuestDiff] Error analyzing diff:', error);
       toast.error(error.message || "Errore nell'analisi della lista");
     } finally {
       setIsAnalyzing(false);
