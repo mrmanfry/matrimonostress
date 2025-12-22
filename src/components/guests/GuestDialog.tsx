@@ -27,6 +27,7 @@ interface Guest {
   id?: string;
   first_name: string;
   last_name: string;
+  alias?: string;
   rsvp_status: string;
   adults_count: number;
   children_count: number;
@@ -48,6 +49,7 @@ interface GuestDialogProps {
 const emptyGuest = {
   first_name: "",
   last_name: "",
+  alias: "",
   rsvp_status: "pending" as const,
   adults_count: 1,
   children_count: 0,
@@ -89,6 +91,7 @@ export function GuestDialog({
       reset({
         first_name: guest.first_name,
         last_name: guest.last_name,
+        alias: guest.alias || "",
         rsvp_status: guestRsvpStatus,
         adults_count: guest.adults_count,
         children_count: guest.children_count,
@@ -110,6 +113,7 @@ export function GuestDialog({
         id: guest?.id,
         first_name: data.first_name,
         last_name: data.last_name,
+        alias: data.alias?.trim() || null,
         rsvp_status: data.rsvp_status,
         adults_count: data.adults_count,
         children_count: data.children_count,
@@ -160,6 +164,16 @@ export function GuestDialog({
                 <p className="text-sm text-destructive">{errors.last_name.message}</p>
               )}
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="alias">Soprannome / Alias (Opzionale)</Label>
+            <Input
+              id="alias"
+              {...register("alias")}
+              placeholder="Es: Roby (usato nei messaggi al posto del nome)"
+              maxLength={50}
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">

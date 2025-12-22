@@ -18,6 +18,7 @@ interface Guest {
   id: string;
   first_name: string;
   last_name: string;
+  alias?: string;
   phone: string | null;
   unique_rsvp_token: string | null;
   rsvp_invitation_sent: string | null;
@@ -382,14 +383,18 @@ export function RSVPCampaignDialog({
     const currentGuest = guests[currentIndex];
     if (!currentGuest) return;
 
-    const guestName = `${currentGuest.first_name} ${currentGuest.last_name}`;
+    // Smart alias logic: use alias if available, otherwise use first name
+    const displayName = currentGuest.alias?.trim() 
+      ? currentGuest.alias 
+      : currentGuest.first_name;
+    
     // Add ?mode=std for save_the_date campaigns
     const rsvpLink = campaignType === 'save_the_date'
       ? `${window.location.origin}/rsvp/${currentGuest.unique_rsvp_token}?mode=std`
       : `${window.location.origin}/rsvp/${currentGuest.unique_rsvp_token}`;
 
     let message = messageTemplate
-      .replace(/\[NomeInvitato\]/g, guestName)
+      .replace(/\[NomeInvitato\]/g, displayName)
       .replace(/\[LINK_RSVP\]/g, rsvpLink)
       .replace(/\[NomeCoppia\]/g, coupleName);
 

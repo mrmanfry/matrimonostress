@@ -16,6 +16,7 @@ interface Guest {
   id: string;
   first_name: string;
   last_name: string;
+  alias?: string;
   phone?: string;
   is_child: boolean;
   allow_plus_one?: boolean;
@@ -45,6 +46,7 @@ export const GuestEditDialog = ({
 }: GuestEditDialogProps) => {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [alias, setAlias] = useState("");
   const [phone, setPhone] = useState("");
   const [isChild, setIsChild] = useState(false);
   const [allowPlusOne, setAllowPlusOne] = useState(false);
@@ -63,6 +65,7 @@ export const GuestEditDialog = ({
     if (open && guest) {
       setFirstName(guest.first_name);
       setLastName(guest.last_name);
+      setAlias(guest.alias || "");
       setPhone(guest.phone || "");
       setIsChild(guest.is_child);
       setAllowPlusOne(guest.allow_plus_one || false);
@@ -87,6 +90,7 @@ export const GuestEditDialog = ({
       const updateData: any = {
         first_name: firstName.trim(),
         last_name: lastName.trim(),
+        alias: alias.trim() || null,
         phone: phone.trim() || null,
         is_child: isChild,
         allow_plus_one: isChild ? false : allowPlusOne,
@@ -164,6 +168,17 @@ export const GuestEditDialog = ({
                 required
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="alias">Soprannome / Alias (Opzionale)</Label>
+            <Input
+              id="alias"
+              value={alias}
+              onChange={(e) => setAlias(e.target.value)}
+              placeholder="Es: Roby (usato nei messaggi al posto del nome)"
+              maxLength={50}
+            />
           </div>
 
           {/* Phone - Hidden for couple members */}

@@ -64,6 +64,12 @@ export const guestSchema = z.object({
     .trim()
     .min(1, "Il nome è obbligatorio")
     .max(100, "Il nome deve essere inferiore a 100 caratteri"),
+  alias: z
+    .string()
+    .trim()
+    .max(50, "Il soprannome deve essere inferiore a 50 caratteri")
+    .optional()
+    .or(z.literal("")),
   last_name: z
     .string()
     .trim()
