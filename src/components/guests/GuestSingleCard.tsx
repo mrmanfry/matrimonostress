@@ -118,18 +118,20 @@ export const GuestSingleCard = ({
                   </Badge>
                 )}
               </div>
-              <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground flex-wrap">
-                {/* Campaign Badges */}
-                <GuestCampaignBadges 
-                  saveTheDateSentAt={guest.save_the_date_sent_at}
-                  formalInviteSentAt={guest.formal_invite_sent_at}
-                  stdResponse={guest.std_response as 'likely_yes' | 'likely_no' | 'unsure' | null | undefined}
-                  rsvpStatus={guest.rsvp_status}
-                  compact
-                />
-                <span>•</span>
-                <span>Gruppo: <span className="text-orange-600 font-medium">(non assegnato)</span></span>
-              </div>
+              {/* Campaign Badges - Couple members always show as confirmed */}
+              {!guest.is_couple_member && (
+                <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground flex-wrap">
+                  <GuestCampaignBadges 
+                    saveTheDateSentAt={guest.save_the_date_sent_at}
+                    formalInviteSentAt={guest.formal_invite_sent_at}
+                    stdResponse={guest.std_response as 'likely_yes' | 'likely_no' | 'unsure' | null | undefined}
+                    rsvpStatus={guest.rsvp_status}
+                    compact
+                  />
+                  <span>•</span>
+                  <span>Gruppo: <span className="text-orange-600 font-medium">(non assegnato)</span></span>
+                </div>
+              )}
             </div>
 
             {/* Actions */}
@@ -157,20 +159,22 @@ export const GuestSingleCard = ({
             </div>
           </div>
 
-          {/* Contact Info */}
-          <div className="flex items-center gap-2 text-sm">
-            {guest.phone ? (
-              <div className="flex items-center gap-1 text-muted-foreground">
-                <Phone className="w-3 h-3" />
-                <span>{guest.phone}</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-1 text-orange-600">
-                <Phone className="w-3 h-3" />
-                <span className="text-xs">(Numero mancante)</span>
-              </div>
-            )}
-          </div>
+          {/* Contact Info - Hidden for couple members */}
+          {!guest.is_couple_member && (
+            <div className="flex items-center gap-2 text-sm">
+              {guest.phone ? (
+                <div className="flex items-center gap-1 text-muted-foreground">
+                  <Phone className="w-3 h-3" />
+                  <span>{guest.phone}</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1 text-orange-600">
+                  <Phone className="w-3 h-3" />
+                  <span className="text-xs">(Numero mancante)</span>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Plus One Toggle & Person count */}
           <div className="flex items-center justify-between mt-3 pt-2 border-t">
