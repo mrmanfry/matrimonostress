@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
-import { Phone, Edit, UserPlus, Baby, UserPlus2, Heart, Send } from "lucide-react";
+import { Phone, Edit, UserPlus, Baby, UserPlus2, Heart } from "lucide-react";
 import { useState } from "react";
 import { GuestEditDialog } from "./GuestEditDialog";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,7 +31,6 @@ interface GuestSingleCardProps {
   onEdit: (guestId: string) => void;
   onAddToParty: (guestId: string) => void;
   onGuestUpdate?: () => void;
-  onSendRSVP?: (guest: Guest) => void;
 }
 
 export const GuestSingleCard = ({
@@ -41,7 +40,6 @@ export const GuestSingleCard = ({
   onEdit,
   onAddToParty,
   onGuestUpdate,
-  onSendRSVP,
 }: GuestSingleCardProps) => {
   const [guestEditDialogOpen, setGuestEditDialogOpen] = useState(false);
   const [togglingPlusOne, setTogglingPlusOne] = useState(false);
@@ -123,18 +121,6 @@ export const GuestSingleCard = ({
 
             {/* Actions */}
             <div className="flex gap-1 flex-shrink-0">
-              {/* Send RSVP button - only for non-couple members with phone */}
-              {!guest.is_couple_member && guest.phone && onSendRSVP && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => onSendRSVP(guest)}
-                  title="Invia Link RSVP"
-                >
-                  <Send className="w-4 h-4 text-blue-600" />
-                </Button>
-              )}
               <Button
                 variant="ghost"
                 size="icon"

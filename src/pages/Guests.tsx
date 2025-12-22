@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -380,17 +380,27 @@ const Guests = () => {
     setPartyDialogOpen(true);
   };
 
-  const handleSendRSVP = (party: InviteParty) => {
-    setSelectedPartiesForRSVP([party]);
+  // Handler per inviare RSVP dalla SelectionToolbar (contestuale)
+  const handleSendRSVPFromSelection = () => {
+    // Apri il dialog RSVP - passerà parties e singoli selezionati
+    setSelectedPartiesForRSVP(parties.filter(p => selectedPartyIds.has(p.id)));
     setRsvpCampaignOpen(true);
   };
 
-  // Handler for sending RSVP to a single guest (creates a virtual party)
-  const handleSendRSVPToSingle = (guest: Guest) => {
-    // Open campaign dialog - it will handle single guests too
-    setSelectedPartiesForRSVP([]);
-    setRsvpCampaignOpen(true);
-  };
+  // Calcola se ci sono contatti selezionati con telefono
+  const hasContactsToSend = useMemo(() => {
+    // Almeno un party selezionato ha membri con telefono
+    const partyHasPhone = parties
+      .filter(p => selectedPartyIds.has(p.id))
+      .some(p => p.guests.some(g => g.phone));
+    
+    // Almeno un singolo selezionato ha telefono
+    const singleHasPhone = ungroupedGuests
+      .filter(g => selectedGuestIds.has(g.id))
+      .some(g => g.phone);
+    
+    return partyHasPhone || singleHasPhone;
+  }, [parties, ungroupedGuests, selectedPartyIds, selectedGuestIds]);
 
   const handleBulkSendRSVP = () => {
     if (parties.length === 0) {
@@ -1079,7 +1089,6 @@ const Guests = () => {
                       selected={selectedPartyIds.has(party.id)}
                       onToggleSelect={togglePartySelection}
                       onEdit={handleEditParty}
-                      onSendRSVP={handleSendRSVP}
                       onGuestUpdate={loadData}
                     />
                   );
@@ -1094,7 +1103,6 @@ const Guests = () => {
                       onEdit={handleEditGuest}
                       onAddToParty={handleAddGuestToParty}
                       onGuestUpdate={loadData}
-                      onSendRSVP={handleSendRSVPToSingle}
                     />
                   );
                 }
@@ -1110,6 +1118,8 @@ const Guests = () => {
             onDeleteGuests={handleBulkDeleteGuests}
             onDissolveParties={handleBulkDissolveParties}
             onClearSelection={clearSelection}
+            onSendRSVP={handleSendRSVPFromSelection}
+            hasContactsToSend={hasContactsToSend}
           />
         </>
       )}

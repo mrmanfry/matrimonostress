@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
-import { Users, Phone, Edit, Send, Baby, Edit2, UserPlus2 } from "lucide-react";
+import { Users, Phone, Edit, Baby, Edit2, UserPlus2 } from "lucide-react";
 import { useState } from "react";
 import { GuestEditDialog } from "./GuestEditDialog";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,7 +32,6 @@ interface GuestNucleoCardProps {
   selected: boolean;
   onToggleSelect: (partyId: string) => void;
   onEdit: (party: InviteParty) => void;
-  onSendRSVP: (party: InviteParty) => void;
   onGuestUpdate?: () => void;
 }
 
@@ -41,7 +40,6 @@ export const GuestNucleoCard = ({
   selected,
   onToggleSelect,
   onEdit,
-  onSendRSVP,
   onGuestUpdate,
 }: GuestNucleoCardProps) => {
   const [editingGuest, setEditingGuest] = useState<Guest | null>(null);
@@ -240,20 +238,6 @@ export const GuestNucleoCard = ({
             </div>
           </div>
 
-          {/* Send RSVP Button */}
-          {guestsWithPhone > 0 && (
-            <div className="mt-3 pt-3 border-t">
-              <Button
-                onClick={() => onSendRSVP(party)}
-                size="sm"
-                variant={allSent ? "outline" : "default"}
-                className="w-full"
-              >
-                <Send className="w-4 h-4 mr-2" />
-                {allSent ? 'Invia di nuovo RSVP' : '💬 Invia RSVP'}
-              </Button>
-            </div>
-          )}
         </div>
       </div>
 
