@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Sparkles, Send, SkipForward, Upload, X, Filter, Phone, AlertCircle, Users, CheckCircle, PhoneOff, Settings, Link2 } from "lucide-react";
+import { Sparkles, Send, SkipForward, Upload, X, Filter, Phone, AlertCircle, Users, CheckCircle, PhoneOff, Settings, Link2, RotateCcw, RefreshCw } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -54,6 +54,19 @@ interface RSVPCampaignDialogProps {
 
 type FilterType = "to_send" | "already_sent" | "no_phone";
 
+// Storage key for campaign persistence
+const STORAGE_KEY = "rsvp_campaign_progress";
+
+// Interface for saved campaign state
+interface SavedCampaignState {
+  weddingId: string;
+  guests: Guest[];
+  currentIndex: number;
+  messageTemplate: string;
+  whatsappOpened: boolean;
+  timestamp: number;
+}
+
 export function RSVPCampaignDialog({
   open,
   onOpenChange,
@@ -81,6 +94,9 @@ export function RSVPCampaignDialog({
   const [rsvpConfig, setRsvpConfig] = useState<RSVPConfig | null>(null);
   const [isRsvpConfigured, setIsRsvpConfigured] = useState(false);
   const [selectedGuestIds, setSelectedGuestIds] = useState<Set<string>>(new Set());
+  
+  // Recovery state - tracks if we're recovering from a page refresh
+  const [isRecoveringFromRefresh, setIsRecoveringFromRefresh] = useState(false);
 
   // Recovery from localStorage on mount
   useEffect(() => {
@@ -88,30 +104,56 @@ export function RSVPCampaignDialog({
       loadAllData();
       
       // Check for saved campaign progress
-      const savedProgress = localStorage.getItem("rsvp_campaign_progress");
+      const savedProgress = localStorage.getItem(STORAGE_KEY);
       if (savedProgress) {
         try {
-          const parsed = JSON.parse(savedProgress);
-          // Only restore if it's recent (within 24 hours)
+          const parsed: SavedCampaignState = JSON.parse(savedProgress);
+          // Only restore if it's recent (within 24 hours) and same wedding
           const isRecent = Date.now() - parsed.timestamp < 24 * 60 * 60 * 1000;
           if (isRecent && parsed.weddingId === weddingId) {
-            toast.info("Campagna in corso recuperata!");
-            setStep("sending");
+            toast.info("🔄 Ripristino campagna RSVP in corso...");
+            
+            // Restore full state
+            setGuests(parsed.guests);
             setCurrentIndex(parsed.currentIndex);
-            // We'll restore guests when allGuests loads
+            setMessageTemplate(parsed.messageTemplate);
+            setStep("sending");
+            
+            // If whatsappOpened was true, we're in "Limbo State"
+            if (parsed.whatsappOpened) {
+              setIsRecoveringFromRefresh(true);
+              setWhatsappOpened(true);
+            }
           }
         } catch (e) {
-          localStorage.removeItem("rsvp_campaign_progress");
+          localStorage.removeItem(STORAGE_KEY);
         }
       }
     } else {
+      // Reset when dialog closes
       setStep("filter");
       setActiveFilter("to_send");
       setSelectedPartyId(null);
       setSelectedGroupId(null);
       setSelectedGuestIds(new Set());
+      setIsRecoveringFromRefresh(false);
     }
   }, [open, weddingId]);
+
+  // Auto-save campaign state whenever critical state changes during "sending" step
+  useEffect(() => {
+    if (step === "sending" && guests.length > 0 && weddingId) {
+      const stateToSave: SavedCampaignState = {
+        weddingId,
+        guests,
+        currentIndex,
+        messageTemplate,
+        whatsappOpened,
+        timestamp: Date.now(),
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
+    }
+  }, [step, guests, currentIndex, messageTemplate, whatsappOpened, weddingId]);
 
   // Apply pre-selection when allGuests loads and we have preSelectedGuestIds
   useEffect(() => {
@@ -319,6 +361,7 @@ export function RSVPCampaignDialog({
     setStep("sending");
     setCurrentIndex(0);
     setWhatsappOpened(false);
+    setIsRecoveringFromRefresh(false);
   };
 
   const prepareWhatsAppMessage = () => {
@@ -337,8 +380,11 @@ export function RSVPCampaignDialog({
     const phoneNumber = currentGuest.phone?.replace(/[^0-9]/g, "");
     const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodedMessage}`;
 
-    window.open(whatsappUrl, "_blank");
+    // Set whatsappOpened BEFORE opening WhatsApp (triggers auto-save)
     setWhatsappOpened(true);
+    setIsRecoveringFromRefresh(false);
+    
+    window.open(whatsappUrl, "_blank");
   };
 
   const markAsSent = async () => {
@@ -363,51 +409,107 @@ export function RSVPCampaignDialog({
         : g
     ));
 
-    // Move to next guest
+    // Also update guests array for campaign
+    setGuests(prev => prev.map(g => 
+      g.id === currentGuest.id 
+        ? { ...g, rsvp_invitation_sent: new Date().toISOString() }
+        : g
+    ));
+
+    moveToNext();
+  };
+
+  const skipGuest = () => {
+    moveToNext();
+  };
+
+  const moveToNext = () => {
+    setIsRecoveringFromRefresh(false);
+    
     if (currentIndex < guests.length - 1) {
-      const nextIndex = currentIndex + 1;
-      setCurrentIndex(nextIndex);
+      setCurrentIndex(prev => prev + 1);
       setWhatsappOpened(false);
-      
-      // Save progress to localStorage
-      localStorage.setItem("rsvp_campaign_progress", JSON.stringify({
-        currentIndex: nextIndex,
-        weddingId,
-        timestamp: Date.now(),
-      }));
     } else {
       // Campaign complete
-      toast.success("Campagna completata! 🎉");
-      localStorage.removeItem("rsvp_campaign_progress");
-      onOpenChange(false);
+      finishCampaign();
     }
   };
 
-  const skipGuest = async () => {
-    if (currentIndex < guests.length - 1) {
-      const nextIndex = currentIndex + 1;
-      setCurrentIndex(nextIndex);
-      setWhatsappOpened(false);
-      
-      // Save progress to localStorage
-      localStorage.setItem("rsvp_campaign_progress", JSON.stringify({
-        currentIndex: nextIndex,
-        weddingId,
-        timestamp: Date.now(),
-      }));
-    } else {
-      toast.success("Campagna completata!");
-      localStorage.removeItem("rsvp_campaign_progress");
-      onOpenChange(false);
+  const finishCampaign = () => {
+    toast.success("Campagna completata! 🎉");
+    localStorage.removeItem(STORAGE_KEY);
+    onOpenChange(false);
+    setStep("filter");
+    setGuests([]);
+    setCurrentIndex(0);
+    setIsRecoveringFromRefresh(false);
+  };
+
+  // Handle close with confirmation during active campaign
+  const handleClose = (newOpen: boolean) => {
+    if (!newOpen && step === "sending" && guests.length > 0) {
+      const confirmed = window.confirm(
+        "Campagna in corso. I progressi sono salvati automaticamente.\n\nVuoi interrompere ora?"
+      );
+      if (!confirmed) return;
     }
+    onOpenChange(newOpen);
   };
 
   const currentGuest = guests[currentIndex];
   const progress = guests.length > 0 ? ((currentIndex / guests.length) * 100) : 0;
   const rsvpDomain = `${window.location.origin}/rsvp/`;
 
+  // Recovery UI for "Limbo State" - when page refreshed while WhatsApp was open
+  const renderRecoveryUI = () => {
+    if (!isRecoveringFromRefresh || !currentGuest) return null;
+    
+    return (
+      <div className="bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-300 dark:border-amber-700 rounded-lg p-6 space-y-4">
+        <div className="text-center">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900 mb-3">
+            <RefreshCw className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+          </div>
+          <h3 className="text-lg font-semibold text-amber-800 dark:text-amber-200">
+            Sessione Ripristinata
+          </h3>
+          <p className="text-sm text-amber-700 dark:text-amber-300 mt-2">
+            La pagina si è ricaricata mentre stavi inviando a <strong>{currentGuest.first_name} {currentGuest.last_name}</strong>.
+          </p>
+          <p className="text-sm text-amber-600 dark:text-amber-400 mt-1">
+            Hai inviato il messaggio su WhatsApp?
+          </p>
+        </div>
+        
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Button 
+            variant="outline" 
+            className="flex-1 border-amber-300 hover:bg-amber-100 dark:border-amber-700 dark:hover:bg-amber-900"
+            onClick={() => {
+              setIsRecoveringFromRefresh(false);
+              setWhatsappOpened(false);
+            }}
+          >
+            <RotateCcw className="w-4 h-4 mr-2" />
+            No, riapri WhatsApp
+          </Button>
+          <Button 
+            className="flex-1 bg-green-600 hover:bg-green-700"
+            onClick={() => {
+              setIsRecoveringFromRefresh(false);
+              markAsSent();
+            }}
+          >
+            <CheckCircle className="w-4 h-4 mr-2" />
+            Sì, ho inviato → Prosegui
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="text-2xl">💬 Assistente Invio RSVP</DialogTitle>
@@ -746,49 +848,54 @@ export function RSVPCampaignDialog({
 
           {step === "sending" && currentGuest && (
             <div className="space-y-6">
-              <div className="bg-primary/5 border-2 border-primary/20 rounded-lg p-6 space-y-4">
-                <div className="text-center">
-                  <p className="text-sm text-muted-foreground mb-1">
-                    Pronto per l'invio {currentIndex + 1} di {guests.length}
-                  </p>
-                  <h3 className="text-2xl font-bold">
-                    {currentGuest.first_name} {currentGuest.last_name}
-                  </h3>
-                  <p className="text-sm text-muted-foreground">📱 {currentGuest.phone}</p>
-                </div>
-
-                {!whatsappOpened ? (
-                  <Button
-                    onClick={prepareWhatsAppMessage}
-                    size="lg"
-                    className="w-full"
-                  >
-                    <Send className="w-5 h-5 mr-2" />
-                    ➡️ 1. Prepara Messaggio su WhatsApp
-                  </Button>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="bg-background border rounded-lg p-4 text-center">
-                      <p className="text-sm mb-2">
-                        ✅ <strong>Invio per {currentGuest.first_name} pronto!</strong>
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Vai sulla tab di WhatsApp, premi "Invio" per mandare il messaggio,
-                        poi torna qui e conferma.
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button onClick={markAsSent} className="flex-1" size="lg">
-                        ✔ 2. Messaggio Inviato! Carica il prossimo
-                      </Button>
-                      <Button onClick={skipGuest} variant="outline" size="lg">
-                        <SkipForward className="w-4 h-4 mr-2" />
-                        Salta
-                      </Button>
-                    </div>
+              {/* Recovery UI for Limbo State */}
+              {isRecoveringFromRefresh ? (
+                renderRecoveryUI()
+              ) : (
+                <div className="bg-primary/5 border-2 border-primary/20 rounded-lg p-6 space-y-4">
+                  <div className="text-center">
+                    <p className="text-sm text-muted-foreground mb-1">
+                      Pronto per l'invio {currentIndex + 1} di {guests.length}
+                    </p>
+                    <h3 className="text-2xl font-bold">
+                      {currentGuest.first_name} {currentGuest.last_name}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">📱 {currentGuest.phone}</p>
                   </div>
-                )}
-              </div>
+
+                  {!whatsappOpened ? (
+                    <Button
+                      onClick={prepareWhatsAppMessage}
+                      size="lg"
+                      className="w-full"
+                    >
+                      <Send className="w-5 h-5 mr-2" />
+                      ➡️ 1. Prepara Messaggio su WhatsApp
+                    </Button>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="bg-background border rounded-lg p-4 text-center">
+                        <p className="text-sm mb-2">
+                          ✅ <strong>Invio per {currentGuest.first_name} pronto!</strong>
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Vai sulla tab di WhatsApp, premi "Invio" per mandare il messaggio,
+                          poi torna qui e conferma.
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button onClick={markAsSent} className="flex-1" size="lg">
+                          ✔ 2. Messaggio Inviato! Carica il prossimo
+                        </Button>
+                        <Button onClick={skipGuest} variant="outline" size="lg">
+                          <SkipForward className="w-4 h-4 mr-2" />
+                          Salta
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Preview del messaggio */}
               <div className="border rounded-lg p-4 bg-muted/30">

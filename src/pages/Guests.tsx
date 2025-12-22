@@ -108,6 +108,26 @@ const Guests = () => {
     }
   }, [authState]);
 
+  // Auto-reopen RSVP Campaign dialog if there's a saved campaign in localStorage
+  useEffect(() => {
+    if (wedding?.id) {
+      const savedProgress = localStorage.getItem("rsvp_campaign_progress");
+      if (savedProgress) {
+        try {
+          const parsed = JSON.parse(savedProgress);
+          // Only reopen if it's recent (within 24 hours) and same wedding
+          const isRecent = Date.now() - parsed.timestamp < 24 * 60 * 60 * 1000;
+          if (isRecent && parsed.weddingId === wedding.id) {
+            // Reopen the RSVP Campaign dialog
+            setRsvpCampaignOpen(true);
+          }
+        } catch (e) {
+          localStorage.removeItem("rsvp_campaign_progress");
+        }
+      }
+    }
+  }, [wedding]);
+
   const loadData = async () => {
     if (authState.status !== "authenticated" || !authState.weddingId) {
       setLoading(false);
