@@ -423,12 +423,14 @@ export type Database = {
           created_at: string
           dietary_restrictions: string | null
           first_name: string
+          formal_invite_sent_at: string | null
           group_id: string | null
           id: string
           is_child: boolean
           is_couple_member: boolean
           is_staff: boolean | null
           last_name: string
+          last_reminder_sent_at: string | null
           menu_choice: string | null
           notes: string | null
           party_id: string | null
@@ -438,6 +440,9 @@ export type Database = {
           rsvp_invitation_sent: string | null
           rsvp_send_status: Database["public"]["Enums"]["send_status_enum"]
           rsvp_status: string | null
+          save_the_date_sent_at: string | null
+          std_responded_at: string | null
+          std_response: string | null
           unique_rsvp_token: string | null
           updated_at: string
           wedding_id: string
@@ -449,12 +454,14 @@ export type Database = {
           created_at?: string
           dietary_restrictions?: string | null
           first_name: string
+          formal_invite_sent_at?: string | null
           group_id?: string | null
           id?: string
           is_child?: boolean
           is_couple_member?: boolean
           is_staff?: boolean | null
           last_name: string
+          last_reminder_sent_at?: string | null
           menu_choice?: string | null
           notes?: string | null
           party_id?: string | null
@@ -464,6 +471,9 @@ export type Database = {
           rsvp_invitation_sent?: string | null
           rsvp_send_status?: Database["public"]["Enums"]["send_status_enum"]
           rsvp_status?: string | null
+          save_the_date_sent_at?: string | null
+          std_responded_at?: string | null
+          std_response?: string | null
           unique_rsvp_token?: string | null
           updated_at?: string
           wedding_id: string
@@ -475,12 +485,14 @@ export type Database = {
           created_at?: string
           dietary_restrictions?: string | null
           first_name?: string
+          formal_invite_sent_at?: string | null
           group_id?: string | null
           id?: string
           is_child?: boolean
           is_couple_member?: boolean
           is_staff?: boolean | null
           last_name?: string
+          last_reminder_sent_at?: string | null
           menu_choice?: string | null
           notes?: string | null
           party_id?: string | null
@@ -490,6 +502,9 @@ export type Database = {
           rsvp_invitation_sent?: string | null
           rsvp_send_status?: Database["public"]["Enums"]["send_status_enum"]
           rsvp_status?: string | null
+          save_the_date_sent_at?: string | null
+          std_responded_at?: string | null
+          std_response?: string | null
           unique_rsvp_token?: string | null
           updated_at?: string
           wedding_id?: string

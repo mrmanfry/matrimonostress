@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
   try {
     if (req.method === "POST") {
       const body = await req.json();
-      const { action, token, partyStatus, members } = body;
+      const { action, token, partyStatus, members, stdResponse } = body;
 
       // Validate token
       if (!token || token.length < 20) {
@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
         // Query 1: Find guest by token
         const { data: guestData, error: guestError } = await supabase
           .from("guests")
-          .select("id, first_name, last_name, rsvp_status, menu_choice, dietary_restrictions, party_id, allow_plus_one, plus_one_name, plus_one_menu, wedding_id, is_child")
+          .select("id, first_name, last_name, rsvp_status, menu_choice, dietary_restrictions, party_id, allow_plus_one, plus_one_name, plus_one_menu, wedding_id, is_child, save_the_date_sent_at, formal_invite_sent_at, std_response, std_responded_at")
           .eq("unique_rsvp_token", token)
           .single();
 
@@ -80,7 +80,7 @@ Deno.serve(async (req) => {
 
           const { data: members } = await supabase
             .from("guests")
-            .select("id, first_name, last_name, rsvp_status, menu_choice, dietary_restrictions, is_child, allow_plus_one, plus_one_name, plus_one_menu")
+            .select("id, first_name, last_name, rsvp_status, menu_choice, dietary_restrictions, is_child, allow_plus_one, plus_one_name, plus_one_menu, save_the_date_sent_at, formal_invite_sent_at, std_response")
             .eq("party_id", guestData.party_id);
 
           partyMembers = members || [];
@@ -113,6 +113,9 @@ Deno.serve(async (req) => {
             allow_plus_one: guestData.allow_plus_one,
             plus_one_name: guestData.plus_one_name,
             plus_one_menu: guestData.plus_one_menu,
+            save_the_date_sent_at: guestData.save_the_date_sent_at,
+            formal_invite_sent_at: guestData.formal_invite_sent_at,
+            std_response: guestData.std_response,
           }];
         }
 
@@ -154,6 +157,7 @@ Deno.serve(async (req) => {
             id: guestData.id,
             firstName: guestData.first_name,
             lastName: guestData.last_name,
+            stdResponse: guestData.std_response,
           },
           party: {
             id: party.id,
@@ -170,6 +174,57 @@ Deno.serve(async (req) => {
           config: rsvpConfig,
           isReadOnly,
         }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Handle SAVE-STD-RESPONSE action (Save The Date soft response)
+      if (action === "save-std-response" && stdResponse) {
+        console.log(`Saving STD response: ${stdResponse} for token: ${token.substring(0, 8)}...`);
+        
+        // Validate stdResponse value
+        if (!['likely_yes', 'likely_no', 'unsure'].includes(stdResponse)) {
+          return new Response(JSON.stringify({ error: "Invalid stdResponse value" }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        // Find guest by token
+        const { data: guest, error: guestError } = await supabase
+          .from("guests")
+          .select("id, wedding_id")
+          .eq("unique_rsvp_token", token)
+          .single();
+
+        if (guestError || !guest) {
+          console.log("Guest not found for STD response");
+          return new Response(JSON.stringify({ error: "Token not found" }), {
+            status: 404,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        // Update guest with STD response
+        const { error: updateError } = await supabase
+          .from("guests")
+          .update({ 
+            std_response: stdResponse,
+            std_responded_at: new Date().toISOString(),
+          })
+          .eq("id", guest.id);
+
+        if (updateError) {
+          console.error("Error updating STD response:", updateError);
+          return new Response(JSON.stringify({ error: "Failed to save response" }), {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        console.log(`STD response saved successfully for guest ${guest.id}`);
+
+        return new Response(JSON.stringify({ success: true }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }

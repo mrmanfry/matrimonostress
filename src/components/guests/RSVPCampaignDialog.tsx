@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useNavigate } from "react-router-dom";
+import { CampaignTypePicker, type CampaignType } from "./CampaignTypePicker";
 
 interface Guest {
   id: string;
@@ -20,6 +21,9 @@ interface Guest {
   phone: string | null;
   unique_rsvp_token: string | null;
   rsvp_invitation_sent: string | null;
+  save_the_date_sent_at?: string | null;
+  formal_invite_sent_at?: string | null;
+  last_reminder_sent_at?: string | null;
   party_id: string | null;
   group_id: string | null;
   is_child: boolean;
@@ -64,8 +68,16 @@ interface SavedCampaignState {
   currentIndex: number;
   messageTemplate: string;
   whatsappOpened: boolean;
+  campaignType: CampaignType;
   timestamp: number;
 }
+
+// Message templates per campaign type
+const MESSAGE_TEMPLATES: Record<CampaignType, string> = {
+  save_the_date: `Ciao [NomeInvitato]! 👋\n\n📅 Save The Date!\n\n[NomeCoppia] si sposano e vogliono te presente!\n\nTieniti libero/a per questa data speciale. Clicca qui per dirci se pensi di esserci:\n[LINK_RSVP]\n\nA presto! 💕`,
+  formal_invite: `Ciao [NomeInvitato]! 👋\n\nSiamo felici di invitarti ufficialmente al matrimonio di [NomeCoppia]! 💍\n\nConferma la tua presenza e le tue preferenze tramite questo link:\n[LINK_RSVP]\n\nGrazie! ❤️`,
+  reminder: `Ciao [NomeInvitato]! 👋\n\nTi ricordiamo di confermare la tua presenza al matrimonio di [NomeCoppia].\n\nPuoi farlo cliccando qui:\n[LINK_RSVP]\n\nGrazie! ❤️`,
+};
 
 export function RSVPCampaignDialog({
   open,
@@ -76,11 +88,10 @@ export function RSVPCampaignDialog({
   preSelectedGuestIds,
 }: RSVPCampaignDialogProps) {
   const navigate = useNavigate();
-  const [step, setStep] = useState<"filter" | "template" | "sending">("filter");
+  const [step, setStep] = useState<"campaign_type" | "filter" | "template" | "sending">("campaign_type");
+  const [campaignType, setCampaignType] = useState<CampaignType | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterType>("to_send");
-  const [messageTemplate, setMessageTemplate] = useState(
-    `Ciao [NomeInvitato]! 👋\n\nSiamo felici di invitarti al matrimonio di [NomeCoppia]! 💍\n\nConferma la tua presenza tramite questo link:\n[LINK_RSVP]\n\nGrazie! ❤️`
-  );
+  const [messageTemplate, setMessageTemplate] = useState(MESSAGE_TEMPLATES.formal_invite);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [allGuests, setAllGuests] = useState<Guest[]>([]);
   const [guests, setGuests] = useState<Guest[]>([]);
@@ -117,6 +128,7 @@ export function RSVPCampaignDialog({
             setGuests(parsed.guests);
             setCurrentIndex(parsed.currentIndex);
             setMessageTemplate(parsed.messageTemplate);
+            setCampaignType(parsed.campaignType || 'formal_invite');
             setStep("sending");
             
             // If whatsappOpened was true, we're in "Limbo State"
@@ -131,7 +143,8 @@ export function RSVPCampaignDialog({
       }
     } else {
       // Reset when dialog closes
-      setStep("filter");
+      setStep("campaign_type");
+      setCampaignType(null);
       setActiveFilter("to_send");
       setSelectedPartyId(null);
       setSelectedGroupId(null);
@@ -142,18 +155,19 @@ export function RSVPCampaignDialog({
 
   // Auto-save campaign state whenever critical state changes during "sending" step
   useEffect(() => {
-    if (step === "sending" && guests.length > 0 && weddingId) {
+    if (step === "sending" && guests.length > 0 && weddingId && campaignType) {
       const stateToSave: SavedCampaignState = {
         weddingId,
         guests,
         currentIndex,
         messageTemplate,
         whatsappOpened,
+        campaignType,
         timestamp: Date.now(),
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
     }
-  }, [step, guests, currentIndex, messageTemplate, whatsappOpened, weddingId]);
+  }, [step, guests, currentIndex, messageTemplate, whatsappOpened, weddingId, campaignType]);
 
   // Apply pre-selection when allGuests loads and we have preSelectedGuestIds
   useEffect(() => {
@@ -369,7 +383,10 @@ export function RSVPCampaignDialog({
     if (!currentGuest) return;
 
     const guestName = `${currentGuest.first_name} ${currentGuest.last_name}`;
-    const rsvpLink = `${window.location.origin}/rsvp/${currentGuest.unique_rsvp_token}`;
+    // Add ?mode=std for save_the_date campaigns
+    const rsvpLink = campaignType === 'save_the_date'
+      ? `${window.location.origin}/rsvp/${currentGuest.unique_rsvp_token}?mode=std`
+      : `${window.location.origin}/rsvp/${currentGuest.unique_rsvp_token}`;
 
     let message = messageTemplate
       .replace(/\[NomeInvitato\]/g, guestName)
@@ -391,9 +408,20 @@ export function RSVPCampaignDialog({
     const currentGuest = guests[currentIndex];
     if (!currentGuest) return;
 
+    // Update the correct timestamp based on campaign type
+    const updateField = campaignType === 'save_the_date' 
+      ? 'save_the_date_sent_at'
+      : campaignType === 'reminder'
+      ? 'last_reminder_sent_at'
+      : 'formal_invite_sent_at';
+
     const { error } = await supabase
       .from("guests")
-      .update({ rsvp_invitation_sent: new Date().toISOString() })
+      .update({ 
+        [updateField]: new Date().toISOString(),
+        // Also update legacy field for backwards compatibility
+        rsvp_invitation_sent: new Date().toISOString() 
+      })
       .eq("id", currentGuest.id);
 
     if (error) {
@@ -524,6 +552,27 @@ export function RSVPCampaignDialog({
                 <span>{Math.round(progress)}%</span>
               </div>
               <Progress value={progress} />
+            </div>
+          )}
+
+          {/* Campaign Type Selection - Step 0 */}
+          {step === "campaign_type" && (
+            <div className="space-y-6">
+              <CampaignTypePicker 
+                selected={campaignType} 
+                onSelect={(type) => {
+                  setCampaignType(type);
+                  setMessageTemplate(MESSAGE_TEMPLATES[type]);
+                }}
+              />
+              <Button 
+                onClick={() => setStep("filter")} 
+                size="lg" 
+                className="w-full"
+                disabled={!campaignType}
+              >
+                {campaignType ? "Continua →" : "Seleziona un tipo di campagna"}
+              </Button>
             </div>
           )}
 
@@ -737,6 +786,22 @@ export function RSVPCampaignDialog({
                 size="lg" 
                 className="w-full"
                 disabled={selectedGuestIds.size === 0 || activeFilter === "no_phone" || activeFilter === "already_sent" || !isRsvpConfigured}
+              >
+                {!isRsvpConfigured
+                  ? "⚠️ Configura prima la pagina RSVP"
+                  : activeFilter === "already_sent" 
+                  ? "Seleziona 'Da Inviare' per continuare"
+                  : activeFilter === "no_phone"
+                  ? "Aggiungi numeri di telefono per continuare"
+                  : selectedGuestIds.size === 0
+                  ? "Seleziona almeno un invitato"
+                  : `Continua con ${selectedGuestIds.size} invitati`}
+              </Button>
+              <Button variant="outline" onClick={() => setStep("campaign_type")} className="w-full">
+                ← Cambia tipo campagna
+              </Button>
+            </div>
+          )}
               >
                 {!isRsvpConfigured
                   ? "⚠️ Configura prima la pagina RSVP"
