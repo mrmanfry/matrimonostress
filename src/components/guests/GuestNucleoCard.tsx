@@ -6,6 +6,7 @@ import { Switch } from "@/components/ui/switch";
 import { Users, Phone, Edit, Baby, Edit2, UserPlus2 } from "lucide-react";
 import { useState } from "react";
 import { GuestEditDialog } from "./GuestEditDialog";
+import { GuestCampaignBadges } from "./GuestCampaignBadges";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -18,6 +19,11 @@ interface Guest {
   rsvp_send_status: 'Non Inviato' | 'Inviato' | 'Fallito';
   allow_plus_one?: boolean;
   plus_one_name?: string;
+  // Wedding CRM fields
+  save_the_date_sent_at?: string | null;
+  formal_invite_sent_at?: string | null;
+  std_response?: string | null;
+  rsvp_status?: string | null;
 }
 
 interface InviteParty {
@@ -129,7 +135,16 @@ export const GuestNucleoCard = ({
                 )}
               </div>
               <div className="flex items-center gap-2 flex-wrap text-xs">
-                {getStatusBadge(party.rsvp_status)}
+                {/* Campaign badge based on primary contact */}
+                {party.guests[0] && (
+                  <GuestCampaignBadges 
+                    saveTheDateSentAt={party.guests[0].save_the_date_sent_at}
+                    formalInviteSentAt={party.guests[0].formal_invite_sent_at}
+                    stdResponse={party.guests[0].std_response as 'likely_yes' | 'likely_no' | 'unsure' | null | undefined}
+                    rsvpStatus={party.guests[0].rsvp_status}
+                    compact
+                  />
+                )}
                 <span className="text-muted-foreground">•</span>
                 <span className="text-muted-foreground">
                   Totale: {adults.length} Adult{adults.length !== 1 ? 'i' : 'o'}, {children.length} Bambin{children.length !== 1 ? 'i' : 'o'}
