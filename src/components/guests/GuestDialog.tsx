@@ -21,7 +21,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Leaf } from "lucide-react";
+import { Leaf, Users } from "lucide-react";
+import { CreatableGroupSelector } from "./CreatableGroupSelector";
 
 interface Guest {
   id?: string;
@@ -43,6 +44,7 @@ interface GuestDialogProps {
   onOpenChange: (open: boolean) => void;
   guest: Guest | null;
   groups: Array<{ id: string; name: string }>;
+  weddingId?: string;
   onSave: (guest: Guest) => Promise<void>;
 }
 
@@ -65,6 +67,7 @@ export function GuestDialog({
   onOpenChange,
   guest,
   groups,
+  weddingId,
   onSave,
 }: GuestDialogProps) {
   const {
@@ -195,23 +198,34 @@ export function GuestDialog({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="group_id">Gruppo</Label>
-              <Select
-                value={groupId || "none"}
-                onValueChange={(value) => setValue("group_id", value === "none" ? null : value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Nessun gruppo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Nessun gruppo</SelectItem>
-                  {groups.map((group) => (
-                    <SelectItem key={group.id} value={group.id}>
-                      {group.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-primary" />
+                Gruppo
+              </Label>
+              {weddingId ? (
+                <CreatableGroupSelector
+                  weddingId={weddingId}
+                  value={groupId || null}
+                  onValueChange={(value) => setValue("group_id", value)}
+                />
+              ) : (
+                <Select
+                  value={groupId || "none"}
+                  onValueChange={(value) => setValue("group_id", value === "none" ? null : value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Nessun gruppo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nessun gruppo</SelectItem>
+                    {groups.map((group) => (
+                      <SelectItem key={group.id} value={group.id}>
+                        {group.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
           </div>
 
