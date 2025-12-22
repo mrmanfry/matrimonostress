@@ -418,17 +418,15 @@ export function RSVPCampaignDialog({
     const now = new Date().toISOString();
     
     // Build update payload based on campaign type
-    const updatePayload: Record<string, string> = {
-      // Always update legacy field for backwards compatibility
-      rsvp_invitation_sent: now,
-    };
+    // NOTE: rsvp_invitation_sent è DEPRECATO - usiamo solo i campi specifici
+    const updatePayload: Record<string, string> = {};
     
-    // Update the correct timestamp based on campaign type
     if (campaignType === 'save_the_date') {
       updatePayload.save_the_date_sent_at = now;
     } else if (campaignType === 'reminder') {
       updatePayload.last_reminder_sent_at = now;
     } else {
+      // formal_invite è la Single Source of Truth per "invito inviato"
       updatePayload.formal_invite_sent_at = now;
     }
 
