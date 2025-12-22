@@ -802,19 +802,6 @@ export function RSVPCampaignDialog({
               </Button>
             </div>
           )}
-              >
-                {!isRsvpConfigured
-                  ? "⚠️ Configura prima la pagina RSVP"
-                  : activeFilter === "already_sent" 
-                  ? "Seleziona 'Da Inviare' per continuare"
-                  : activeFilter === "no_phone"
-                  ? "Aggiungi numeri di telefono per continuare"
-                  : selectedGuestIds.size === 0
-                  ? "Seleziona almeno un invitato"
-                  : `Continua con ${selectedGuestIds.size} invitati`}
-              </Button>
-            </div>
-          )}
 
           {step === "template" && (
             <>

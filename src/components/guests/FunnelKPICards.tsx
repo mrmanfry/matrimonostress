@@ -16,7 +16,7 @@ interface Guest {
   id: string;
   save_the_date_sent_at?: string | null;
   formal_invite_sent_at?: string | null;
-  std_response?: 'likely_yes' | 'likely_no' | 'unsure' | null;
+  std_response?: string | null;
   rsvp_status?: string | null;
 }
 

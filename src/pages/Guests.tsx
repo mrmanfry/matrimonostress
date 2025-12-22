@@ -35,6 +35,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { GuestSingleCard } from "@/components/guests/GuestSingleCard";
 import { GuestNucleoCard } from "@/components/guests/GuestNucleoCard";
 import { SelectionToolbar } from "@/components/guests/SelectionToolbar";
+import { FunnelKPICards } from "@/components/guests/FunnelKPICards";
+import { GuestCampaignBadges } from "@/components/guests/GuestCampaignBadges";
 import { generateCateringReport } from "@/utils/pdfHelpers";
 
 interface Guest {
@@ -56,6 +58,12 @@ interface Guest {
   plus_one_name?: string;
   is_couple_member?: boolean;
   rsvp_status?: string;
+  // New Wedding CRM fields
+  save_the_date_sent_at?: string | null;
+  formal_invite_sent_at?: string | null;
+  last_reminder_sent_at?: string | null;
+  std_response?: string | null;
+  std_responded_at?: string | null;
 }
 
 interface InviteParty {
@@ -88,6 +96,7 @@ const Guests = () => {
   const [groupingFilter, setGroupingFilter] = useState("all"); // all, grouped, singles
   const [contactFilter, setContactFilter] = useState("all"); // all, with_phone, without_phone
   const [ageFilter, setAgeFilter] = useState("all"); // all, adults, children
+  const [funnelFilter, setFunnelFilter] = useState<string | null>(null); // draft, std_sent, invited, confirmed, declined
   
   const [partyDialogOpen, setPartyDialogOpen] = useState(false);
   const [editingParty, setEditingParty] = useState<InviteParty | undefined>();
@@ -710,6 +719,36 @@ const Guests = () => {
       });
     }
 
+    // Apply funnel filter (Wedding CRM)
+    if (funnelFilter) {
+      items = items.filter(item => {
+        const checkGuest = (g: Guest): boolean => {
+          switch (funnelFilter) {
+            case 'draft':
+              return !g.save_the_date_sent_at && !g.formal_invite_sent_at;
+            case 'std_sent':
+              return !!g.save_the_date_sent_at && !g.formal_invite_sent_at;
+            case 'invited':
+              return !!g.formal_invite_sent_at && (!g.rsvp_status || g.rsvp_status === 'pending');
+            case 'confirmed':
+              return g.rsvp_status === 'confirmed';
+            case 'declined':
+              return g.rsvp_status === 'declined';
+            default:
+              return true;
+          }
+        };
+        
+        if (item.type === 'party') {
+          const party = item.data as InviteParty;
+          // Party matches if at least one guest matches
+          return party.guests.some(g => checkGuest(g));
+        } else {
+          return checkGuest(item.data as Guest);
+        }
+      });
+    }
+
     // Apply search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -943,7 +982,14 @@ const Guests = () => {
         </Card>
       ) : (
         <>
-          {/* KPI Cards - Riorganizzate */}
+          {/* Funnel KPI Cards - Wedding CRM */}
+          <FunnelKPICards 
+            guests={allGuests}
+            activeFilter={funnelFilter}
+            onFilterChange={setFunnelFilter}
+          />
+          
+          {/* Secondary Stats Row */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card className="p-4">
               <div className="text-sm text-muted-foreground">Invitati Totali</div>

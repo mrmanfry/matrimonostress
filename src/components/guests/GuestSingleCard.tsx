@@ -6,6 +6,7 @@ import { Switch } from "@/components/ui/switch";
 import { Phone, Edit, UserPlus, Baby, UserPlus2, Heart } from "lucide-react";
 import { useState } from "react";
 import { GuestEditDialog } from "./GuestEditDialog";
+import { GuestCampaignBadges } from "./GuestCampaignBadges";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -22,6 +23,11 @@ interface Guest {
   menu_choice?: string;
   dietary_restrictions?: string;
   unique_rsvp_token?: string;
+  // Wedding CRM fields
+  save_the_date_sent_at?: string | null;
+  formal_invite_sent_at?: string | null;
+  std_response?: string | null;
+  rsvp_status?: string | null;
 }
 
 interface GuestSingleCardProps {
@@ -113,7 +119,14 @@ export const GuestSingleCard = ({
                 )}
               </div>
               <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground flex-wrap">
-                <Badge variant="secondary" className="text-xs">In attesa</Badge>
+                {/* Campaign Badges */}
+                <GuestCampaignBadges 
+                  saveTheDateSentAt={guest.save_the_date_sent_at}
+                  formalInviteSentAt={guest.formal_invite_sent_at}
+                  stdResponse={guest.std_response as 'likely_yes' | 'likely_no' | 'unsure' | null | undefined}
+                  rsvpStatus={guest.rsvp_status}
+                  compact
+                />
                 <span>•</span>
                 <span>Gruppo: <span className="text-orange-600 font-medium">(non assegnato)</span></span>
               </div>
