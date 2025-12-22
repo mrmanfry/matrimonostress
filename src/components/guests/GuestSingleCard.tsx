@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
-import { Phone, Edit, UserPlus, Baby, UserPlus2, Heart } from "lucide-react";
+import { Phone, Edit, UserPlus, Baby, UserPlus2, Heart, Tag } from "lucide-react";
 import { useState } from "react";
 import { GuestEditDialog } from "./GuestEditDialog";
 import { GuestCampaignBadges } from "./GuestCampaignBadges";
@@ -128,6 +128,12 @@ export const GuestSingleCard = ({
                     +1
                   </Badge>
                 )}
+                {guest.group_name && !guest.is_couple_member && (
+                  <Badge variant="outline" className="text-xs gap-1 bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/20 dark:border-blue-700 dark:text-blue-300">
+                    <Tag className="w-3 h-3" />
+                    {guest.group_name}
+                  </Badge>
+                )}
               </div>
               {/* Campaign Badges - Couple members always show as confirmed */}
               {!guest.is_couple_member && (
@@ -139,12 +145,6 @@ export const GuestSingleCard = ({
                     rsvpStatus={guest.rsvp_status}
                     compact
                   />
-                  <span>•</span>
-                  <span>Gruppo: {guest.group_name ? (
-                    <span className="text-primary font-medium">{guest.group_name}</span>
-                  ) : (
-                    <span className="text-orange-600 font-medium">(non assegnato)</span>
-                  )}</span>
                 </div>
               )}
             </div>
