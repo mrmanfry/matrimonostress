@@ -58,11 +58,11 @@ export function GuestSummaryWidget({ stats, onClick }: GuestSummaryWidgetProps) 
         {/* Numeri Principali - usando metriche unificate */}
         <div className="text-center">
           <div className="text-5xl font-bold text-accent mb-1">
-            {metrics.totalHeadCount || stats.guestsTotal}
+            {metrics.estimatedMaxHeadCount || stats.guestsTotal}
           </div>
-          <div className="text-sm text-muted-foreground mb-1">Coperti Totali</div>
+          <div className="text-sm text-muted-foreground mb-1">Coperti Stimati</div>
           <div className="text-xs text-muted-foreground mb-4">
-            ({metrics.totalInvitations || stats.guestsTotal} inviti)
+            ({metrics.totalInvitations} inviti{metrics.plusOnesPotential > 0 && ` + ${metrics.plusOnesPotential} +1 potenziali`})
           </div>
           
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 max-w-md mx-auto">
@@ -105,14 +105,11 @@ export function GuestSummaryWidget({ stats, onClick }: GuestSummaryWidgetProps) 
           </div>
 
           {/* Plus ones indicator */}
-          {metrics.plusOnesPotential > 0 && (
+          {metrics.plusOnesConfirmed > 0 && (
             <div className="mt-3 text-xs text-muted-foreground">
-              +1 potenziali: {metrics.plusOnesPotential} 
-              {metrics.plusOnesConfirmed > 0 && (
-                <span className="text-green-600 ml-1">
-                  ({metrics.plusOnesConfirmed} confermati)
-                </span>
-              )}
+              <span className="text-green-600">
+                {metrics.plusOnesConfirmed} +1 già confermati
+              </span>
             </div>
           )}
         </div>

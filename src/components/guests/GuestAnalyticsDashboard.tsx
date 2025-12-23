@@ -53,6 +53,7 @@ import {
   PartyForAnalytics,
   GuestAnalytics,
 } from "@/lib/guestAnalytics";
+import { useGuestMetrics } from "@/hooks/useGuestMetrics";
 
 export type AnalyticsFilterType = 
   | { type: 'rsvp'; value: 'confirmed' | 'pending' | 'declined' }
@@ -223,6 +224,8 @@ export function GuestAnalyticsDashboard({
   activeFilter,
   onClearFilter,
 }: GuestAnalyticsDashboardProps) {
+  const metrics = useGuestMetrics();
+  
   const analytics = useMemo(
     () => calculateGuestAnalytics(guests, parties),
     [guests, parties]
@@ -292,7 +295,7 @@ export function GuestAnalyticsDashboard({
               </Badge>
             )}
             <Badge variant="secondary" className="text-xs">
-              {analytics.totalGuests} invitati · {analytics.totalParties} nuclei
+              {metrics.estimatedMaxHeadCount || analytics.totalGuests} coperti stimati · {analytics.totalParties} nuclei
             </Badge>
           </div>
         </div>
