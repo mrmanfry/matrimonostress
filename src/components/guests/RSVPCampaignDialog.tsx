@@ -4,15 +4,29 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Sparkles, Send, SkipForward, Upload, X, Filter, Phone, AlertCircle, Users, CheckCircle, PhoneOff, Settings, Link2, RotateCcw, RefreshCw } from "lucide-react";
+import { Sparkles, Send, SkipForward, Upload, X, Filter, Phone, AlertCircle, Users, CheckCircle, PhoneOff, Settings, Link2, RotateCcw, RefreshCw, Info, ImageIcon, Share2, Copy } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useNavigate } from "react-router-dom";
 import { CampaignTypePicker, type CampaignType } from "./CampaignTypePicker";
+
+// Utility: Converte Data URL (base64) in File object per Share API
+const dataURLToFile = async (dataUrl: string, filename: string): Promise<File> => {
+  const res = await fetch(dataUrl);
+  const blob = await res.blob();
+  return new File([blob], filename, { type: blob.type });
+};
+
+// Utility: Verifica se il browser supporta la condivisione di file
+const canShareFiles = async (file: File): Promise<boolean> => {
+  return navigator.share !== undefined && 
+         navigator.canShare !== undefined && 
+         navigator.canShare({ files: [file] });
+};
 
 interface Guest {
   id: string;
@@ -399,7 +413,7 @@ export function RSVPCampaignDialog({
     setIsRecoveringFromRefresh(false);
   };
 
-  const prepareWhatsAppMessage = () => {
+  const handleSmartSend = async () => {
     const currentGuest = guests[currentIndex];
     if (!currentGuest) return;
 
@@ -413,20 +427,72 @@ export function RSVPCampaignDialog({
       ? `${window.location.origin}/rsvp/${currentGuest.unique_rsvp_token}?mode=std`
       : `${window.location.origin}/rsvp/${currentGuest.unique_rsvp_token}`;
 
-    let message = messageTemplate
+    const message = messageTemplate
       .replace(/\[NomeInvitato\]/g, displayName)
       .replace(/\[LINK_RSVP\]/g, rsvpLink)
       .replace(/\[NomeCoppia\]/g, coupleName);
 
-    const encodedMessage = encodeURIComponent(message);
     const phoneNumber = currentGuest.phone?.replace(/[^0-9]/g, "");
+
+    // 1. CASO MOBILE NATIVO CON IMMAGINE (Migliore esperienza)
+    if (uploadedImage && navigator.share && navigator.canShare) {
+      try {
+        const file = await dataURLToFile(uploadedImage, 'invito-matrimonio.jpg');
+        
+        if (await canShareFiles(file)) {
+          await navigator.share({
+            files: [file],
+            text: message,
+            title: 'Invito Matrimonio'
+          });
+          
+          // Se arriviamo qui, l'utente ha condiviso con successo (o almeno ha aperto il foglio)
+          setWhatsappOpened(true);
+          setIsRecoveringFromRefresh(false);
+          return; 
+        }
+      } catch (error) {
+        // L'utente ha annullato o Share API fallita, prosegui con fallback Desktop
+        console.log('Share API fallita o annullata, fallback su metodo Desktop', error);
+      }
+    }
+
+    // 2. CASO DESKTOP CON IMMAGINE (Metodo Clipboard)
+    if (uploadedImage) {
+      try {
+        const response = await fetch(uploadedImage);
+        const blob = await response.blob();
+        
+        await navigator.clipboard.write([
+          new ClipboardItem({ [blob.type]: blob })
+        ]);
+        
+        toast.success(`📸 Immagine Copiata!`, {
+          description: `Ora premi Incolla (Ctrl+V / Cmd+V) nella chat di ${currentGuest.first_name}.`,
+          duration: 6000,
+        });
+      } catch (err) {
+        console.error('Errore clipboard:', err);
+        toast.error("Impossibile copiare l'immagine", {
+          description: "Allega l'immagine manualmente dal tuo dispositivo.",
+        });
+        // NON aprire WhatsApp a vuoto, lascia che l'utente gestisca manualmente
+        return;
+      }
+    }
+
+    // 3. Apertura WhatsApp Web con testo
+    const encodedMessage = encodeURIComponent(message);
     const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodedMessage}`;
 
     // Set whatsappOpened BEFORE opening WhatsApp (triggers auto-save)
     setWhatsappOpened(true);
     setIsRecoveringFromRefresh(false);
     
-    window.open(whatsappUrl, "_blank");
+    // Piccolo delay per dare tempo di leggere il toast se presente
+    setTimeout(() => {
+      window.open(whatsappUrl, "_blank");
+    }, uploadedImage ? 800 : 0);
   };
 
   const markAsSent = async () => {
@@ -956,16 +1022,37 @@ export function RSVPCampaignDialog({
                 </div>
 
                 {uploadedImage && (
-                  <div className="relative inline-block">
-                    <img src={uploadedImage} alt="Preview" className="max-w-xs rounded border" />
-                    <Button
-                      variant="destructive"
-                      size="icon"
-                      className="absolute top-2 right-2"
-                      onClick={() => setUploadedImage(null)}
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
+                  <div className="space-y-3">
+                    <div className="relative inline-block">
+                      <img src={uploadedImage} alt="Preview" className="max-w-xs rounded border" />
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-2 right-2"
+                        onClick={() => setUploadedImage(null)}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    
+                    {/* Box Educativo: Come inviare l'immagine */}
+                    <Alert className="bg-blue-50 border-blue-200">
+                      <Info className="h-4 w-4 text-blue-600" />
+                      <AlertTitle className="text-blue-800 font-semibold">
+                        📸 Come inviare l'immagine
+                      </AlertTitle>
+                      <AlertDescription className="text-blue-700 text-sm mt-1">
+                        <p className="mb-2">WhatsApp Web non permette l'allegato automatico.</p>
+                        <ol className="list-decimal pl-4 space-y-1">
+                          <li>Il sistema <strong>copierà l'immagine</strong> nei tuoi appunti.</li>
+                          <li>Quando si apre la chat, premi <strong>Incolla (Ctrl+V / Cmd+V)</strong>.</li>
+                          <li>Il testo del messaggio sarà già pronto.</li>
+                        </ol>
+                        <p className="mt-2 text-xs text-blue-600">
+                          💡 Su smartphone, l'immagine verrà condivisa direttamente con WhatsApp!
+                        </p>
+                      </AlertDescription>
+                    </Alert>
                   </div>
                 )}
 
@@ -1026,12 +1113,21 @@ export function RSVPCampaignDialog({
 
                   {!whatsappOpened ? (
                     <Button
-                      onClick={prepareWhatsAppMessage}
+                      onClick={handleSmartSend}
                       size="lg"
                       className="w-full"
                     >
-                      <Send className="w-5 h-5 mr-2" />
-                      ➡️ 1. Prepara Messaggio su WhatsApp
+                      {uploadedImage ? (
+                        <>
+                          <Copy className="w-5 h-5 mr-2" />
+                          📸 Copia Immagine & Apri WhatsApp
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-5 h-5 mr-2" />
+                          ➡️ 1. Prepara Messaggio su WhatsApp
+                        </>
+                      )}
                     </Button>
                   ) : (
                     <div className="space-y-4">
@@ -1040,8 +1136,10 @@ export function RSVPCampaignDialog({
                           ✅ <strong>Invio per {currentGuest.first_name} pronto!</strong>
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          Vai sulla tab di WhatsApp, premi "Invio" per mandare il messaggio,
-                          poi torna qui e conferma.
+                          {uploadedImage 
+                            ? "Vai su WhatsApp, incolla l'immagine (Ctrl+V), aggiungi il testo e premi Invio."
+                            : "Vai sulla tab di WhatsApp, premi \"Invio\" per mandare il messaggio, poi torna qui e conferma."
+                          }
                         </p>
                       </div>
                       <div className="flex gap-2">
