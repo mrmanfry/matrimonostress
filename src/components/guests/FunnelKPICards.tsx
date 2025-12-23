@@ -18,6 +18,7 @@ interface Guest {
   formal_invite_sent_at?: string | null;
   std_response?: string | null;
   rsvp_status?: string | null;
+  is_couple_member?: boolean;
 }
 
 interface FunnelKPICardsProps {
@@ -27,26 +28,29 @@ interface FunnelKPICardsProps {
 }
 
 export function FunnelKPICards({ guests, activeFilter, onFilterChange }: FunnelKPICardsProps) {
+  // Filter out couple members from stats (they are auto-confirmed and should not be in funnel)
+  const analyzableGuests = guests.filter(g => !g.is_couple_member);
+  
   // Calculate funnel stats
   const stats = {
     // Draft: No STD sent, no formal invite sent
-    draft: guests.filter(g => !g.save_the_date_sent_at && !g.formal_invite_sent_at).length,
+    draft: analyzableGuests.filter(g => !g.save_the_date_sent_at && !g.formal_invite_sent_at).length,
     
     // Awareness: STD sent but no formal invite
-    std_sent: guests.filter(g => g.save_the_date_sent_at && !g.formal_invite_sent_at).length,
-    std_likely_yes: guests.filter(g => g.save_the_date_sent_at && !g.formal_invite_sent_at && g.std_response === 'likely_yes').length,
-    std_likely_no: guests.filter(g => g.save_the_date_sent_at && !g.formal_invite_sent_at && g.std_response === 'likely_no').length,
-    std_unsure: guests.filter(g => g.save_the_date_sent_at && !g.formal_invite_sent_at && g.std_response === 'unsure').length,
-    std_no_response: guests.filter(g => g.save_the_date_sent_at && !g.formal_invite_sent_at && !g.std_response).length,
+    std_sent: analyzableGuests.filter(g => g.save_the_date_sent_at && !g.formal_invite_sent_at).length,
+    std_likely_yes: analyzableGuests.filter(g => g.save_the_date_sent_at && !g.formal_invite_sent_at && g.std_response === 'likely_yes').length,
+    std_likely_no: analyzableGuests.filter(g => g.save_the_date_sent_at && !g.formal_invite_sent_at && g.std_response === 'likely_no').length,
+    std_unsure: analyzableGuests.filter(g => g.save_the_date_sent_at && !g.formal_invite_sent_at && g.std_response === 'unsure').length,
+    std_no_response: analyzableGuests.filter(g => g.save_the_date_sent_at && !g.formal_invite_sent_at && !g.std_response).length,
     
     // Invited: Formal invite sent but no RSVP response yet
-    invited: guests.filter(g => g.formal_invite_sent_at && (!g.rsvp_status || g.rsvp_status === 'pending')).length,
+    invited: analyzableGuests.filter(g => g.formal_invite_sent_at && (!g.rsvp_status || g.rsvp_status === 'pending')).length,
     
     // Confirmed
-    confirmed: guests.filter(g => g.rsvp_status === 'confirmed').length,
+    confirmed: analyzableGuests.filter(g => g.rsvp_status === 'confirmed').length,
     
     // Declined
-    declined: guests.filter(g => g.rsvp_status === 'declined').length,
+    declined: analyzableGuests.filter(g => g.rsvp_status === 'declined').length,
   };
 
   const cards = [
