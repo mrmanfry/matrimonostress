@@ -90,6 +90,7 @@ const Guests = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterValues, setFilterValues] = useState<GuestFilterValues>(DEFAULT_FILTER_VALUES);
   const [funnelFilter, setFunnelFilter] = useState<string | null>(null); // draft, std_sent, invited, confirmed, declined
+  const [activeAnalyticsFilter, setActiveAnalyticsFilter] = useState<AnalyticsFilterType | null>(null);
 
   // Helper to update individual filter values
   const handleFilterChange = (key: keyof GuestFilterValues, value: string) => {
@@ -99,6 +100,7 @@ const Guests = () => {
   const handleResetFilters = () => {
     setFilterValues(DEFAULT_FILTER_VALUES);
     setFunnelFilter(null);
+    setActiveAnalyticsFilter(null);
   };
   
   const [partyDialogOpen, setPartyDialogOpen] = useState(false);
@@ -1178,8 +1180,15 @@ const Guests = () => {
           <GuestAnalyticsDashboard 
             guests={allGuests} 
             parties={parties} 
+            activeFilter={activeAnalyticsFilter}
+            onClearFilter={handleResetFilters}
             onFilterClick={(filter: AnalyticsFilterType) => {
-              handleResetFilters();
+              // Reset all filters first
+              setFilterValues(DEFAULT_FILTER_VALUES);
+              setFunnelFilter(null);
+              // Set the active filter for visual indicator
+              setActiveAnalyticsFilter(filter);
+              // Apply the specific filter
               switch (filter.type) {
                 case 'rsvp':
                   const rsvpMap = { confirmed: 'Confermato', pending: 'In attesa', declined: 'Rifiutato' };
@@ -1194,6 +1203,10 @@ const Guests = () => {
                   break;
                 case 'menu':
                   handleFilterChange('menu', filter.value);
+                  break;
+                case 'dietary':
+                  // Filter guests with dietary restrictions - use menu filter with special value
+                  handleFilterChange('menu', 'dietary');
                   break;
                 case 'plusOne':
                   handleFilterChange('plusOne', filter.value);

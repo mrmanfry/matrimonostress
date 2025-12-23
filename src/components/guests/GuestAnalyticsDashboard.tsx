@@ -36,7 +36,10 @@ import {
   PieChartIcon,
   TrendingUp,
   Target,
+  X,
+  Filter,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   calculateGuestAnalytics,
   GuestForAnalytics,
@@ -59,6 +62,8 @@ interface GuestAnalyticsDashboardProps {
   parties: PartyForAnalytics[];
   onGroupClick?: (groupName: string) => void;
   onFilterClick?: (filter: AnalyticsFilterType) => void;
+  activeFilter?: AnalyticsFilterType | null;
+  onClearFilter?: () => void;
 }
 
 // Color palette using semantic tokens
@@ -170,11 +175,37 @@ export function GuestAnalyticsDashboard({
   parties,
   onGroupClick,
   onFilterClick,
+  activeFilter,
+  onClearFilter,
 }: GuestAnalyticsDashboardProps) {
   const analytics = useMemo(
     () => calculateGuestAnalytics(guests, parties),
     [guests, parties]
   );
+
+  // Helper to get filter label
+  const getFilterLabel = (filter: AnalyticsFilterType): string => {
+    switch (filter.type) {
+      case 'rsvp':
+        return filter.value === 'confirmed' ? 'Confermati' : filter.value === 'pending' ? 'In Attesa' : 'Rifiutati';
+      case 'composition':
+        return filter.value === 'adults' ? 'Adulti' : filter.value === 'children' ? 'Bambini' : 'Staff';
+      case 'contact':
+        return filter.value === 'with_phone' ? 'Con Telefono' : 'Senza Telefono';
+      case 'menu':
+        return `Menu: ${filter.value}`;
+      case 'dietary':
+        return 'Esigenze Speciali';
+      case 'plusOne':
+        return filter.value === 'confirmed' ? '+1 Confermati' : '+1 Permessi';
+      case 'funnel':
+        return filter.value === 'draft' ? 'Da Lavorare' : filter.value === 'std_sent' ? 'STD Inviati' : filter.value === 'invited' ? 'Invitati' : 'Confermati';
+      case 'group':
+        return `Gruppo: ${filter.value}`;
+      default:
+        return 'Filtro';
+    }
+  };
 
   if (analytics.totalGuests === 0) {
     return (
@@ -191,14 +222,34 @@ export function GuestAnalyticsDashboard({
   return (
     <Card>
       <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <CardTitle className="flex items-center gap-2">
             <BarChart3 className="w-5 h-5" />
             Analytics Invitati
           </CardTitle>
-          <Badge variant="secondary" className="text-xs">
-            {analytics.totalGuests} invitati · {analytics.totalParties} nuclei
-          </Badge>
+          <div className="flex items-center gap-2">
+            {activeFilter && (
+              <Badge 
+                variant="default" 
+                className="text-xs flex items-center gap-1.5 pr-1 bg-primary/90 hover:bg-primary cursor-pointer"
+                onClick={onClearFilter}
+              >
+                <Filter className="w-3 h-3" />
+                {getFilterLabel(activeFilter)}
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-4 w-4 p-0 hover:bg-primary-foreground/20 rounded-full ml-1"
+                  onClick={(e) => { e.stopPropagation(); onClearFilter?.(); }}
+                >
+                  <X className="w-3 h-3" />
+                </Button>
+              </Badge>
+            )}
+            <Badge variant="secondary" className="text-xs">
+              {analytics.totalGuests} invitati · {analytics.totalParties} nuclei
+            </Badge>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -452,37 +503,45 @@ function CompositionTab({ analytics, onFilterClick }: { analytics: GuestAnalytic
 
   return (
     <>
-      {/* KPI Grid */}
+      {/* KPI Grid - Clickable */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <KPICard
-          title="Adulti"
-          value={analytics.adultsCount}
-          percentage={analytics.adultsPercentage}
-          icon={Users}
-          color={COLORS.adults}
-        />
-        <KPICard
-          title="Bambini"
-          value={analytics.childrenCount}
-          percentage={analytics.childrenPercentage}
-          icon={Baby}
-          color={COLORS.children}
-        />
-        <KPICard
-          title="Staff"
-          value={analytics.staffCount}
-          percentage={analytics.staffPercentage}
-          icon={Briefcase}
-          color={COLORS.staff}
-        />
-        <KPICard
-          title="+1 Confermati"
-          value={`${analytics.plusOnesConfirmed}/${analytics.plusOnesPotential}`}
-          percentage={analytics.plusOnesConversionRate}
-          subtitle="tasso conversione"
-          icon={UserPlus}
-          color="hsl(280 65% 60%)"
-        />
+        <div className="cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => onFilterClick?.({ type: 'composition', value: 'adults' })}>
+          <KPICard
+            title="Adulti"
+            value={analytics.adultsCount}
+            percentage={analytics.adultsPercentage}
+            icon={Users}
+            color={COLORS.adults}
+          />
+        </div>
+        <div className="cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => onFilterClick?.({ type: 'composition', value: 'children' })}>
+          <KPICard
+            title="Bambini"
+            value={analytics.childrenCount}
+            percentage={analytics.childrenPercentage}
+            icon={Baby}
+            color={COLORS.children}
+          />
+        </div>
+        <div className="cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => onFilterClick?.({ type: 'composition', value: 'staff' })}>
+          <KPICard
+            title="Staff"
+            value={analytics.staffCount}
+            percentage={analytics.staffPercentage}
+            icon={Briefcase}
+            color={COLORS.staff}
+          />
+        </div>
+        <div className="cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => onFilterClick?.({ type: 'plusOne', value: 'confirmed' })}>
+          <KPICard
+            title="+1 Confermati"
+            value={`${analytics.plusOnesConfirmed}/${analytics.plusOnesPotential}`}
+            percentage={analytics.plusOnesConversionRate}
+            subtitle="tasso conversione"
+            icon={UserPlus}
+            color="hsl(280 65% 60%)"
+          />
+        </div>
       </div>
 
       {/* Charts Row */}
@@ -579,6 +638,7 @@ function CampaignsTab({ analytics, onFilterClick }: { analytics: GuestAnalytics;
       percentage: analytics.draftPercentage,
       icon: Clock,
       color: "hsl(var(--muted-foreground))",
+      filterValue: 'draft' as const,
     },
     {
       label: "STD Inviati",
@@ -586,6 +646,7 @@ function CampaignsTab({ analytics, onFilterClick }: { analytics: GuestAnalytics;
       percentage: analytics.stdSentPercentage,
       icon: Mail,
       color: COLORS.pending,
+      filterValue: 'std_sent' as const,
     },
     {
       label: "Inviti Formali",
@@ -593,6 +654,7 @@ function CampaignsTab({ analytics, onFilterClick }: { analytics: GuestAnalytics;
       percentage: analytics.invitedPercentage,
       icon: Send,
       color: COLORS.adults,
+      filterValue: 'invited' as const,
     },
     {
       label: "Confermati",
@@ -600,42 +662,51 @@ function CampaignsTab({ analytics, onFilterClick }: { analytics: GuestAnalytics;
       percentage: analytics.confirmedPercentage,
       icon: CheckCircle2,
       color: COLORS.confirmed,
+      filterValue: 'confirmed' as const,
     },
   ];
 
   return (
     <>
-      {/* KPI Grid */}
+      {/* KPI Grid - Clickable */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <KPICard
-          title="Copertura Tel."
-          value={analytics.withPhone}
-          percentage={analytics.withPhonePercentage}
-          icon={Phone}
-          color="hsl(199 89% 48%)"
-        />
-        <KPICard
-          title="Senza Telefono"
-          value={analytics.withoutPhone}
-          percentage={analytics.withoutPhonePercentage}
-          icon={PhoneOff}
-          color={COLORS.declined}
-        />
-        <KPICard
-          title="STD Risposte"
-          value={analytics.stdRespondedCount}
-          percentage={analytics.stdResponseRate}
-          subtitle="tasso risposta"
-          icon={CheckCircle2}
-          color={COLORS.confirmed}
-        />
-        <KPICard
-          title="Inviti Inviati"
-          value={analytics.invitedCount}
-          percentage={analytics.invitedPercentage}
-          icon={Send}
-          color={COLORS.adults}
-        />
+        <div className="cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => onFilterClick?.({ type: 'contact', value: 'with_phone' })}>
+          <KPICard
+            title="Copertura Tel."
+            value={analytics.withPhone}
+            percentage={analytics.withPhonePercentage}
+            icon={Phone}
+            color="hsl(199 89% 48%)"
+          />
+        </div>
+        <div className="cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => onFilterClick?.({ type: 'contact', value: 'without_phone' })}>
+          <KPICard
+            title="Senza Telefono"
+            value={analytics.withoutPhone}
+            percentage={analytics.withoutPhonePercentage}
+            icon={PhoneOff}
+            color={COLORS.declined}
+          />
+        </div>
+        <div className="cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => onFilterClick?.({ type: 'funnel', value: 'std_sent' })}>
+          <KPICard
+            title="STD Risposte"
+            value={analytics.stdRespondedCount}
+            percentage={analytics.stdResponseRate}
+            subtitle="tasso risposta"
+            icon={CheckCircle2}
+            color={COLORS.confirmed}
+          />
+        </div>
+        <div className="cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => onFilterClick?.({ type: 'funnel', value: 'invited' })}>
+          <KPICard
+            title="Inviti Inviati"
+            value={analytics.invitedCount}
+            percentage={analytics.invitedPercentage}
+            icon={Send}
+            color={COLORS.adults}
+          />
+        </div>
       </div>
 
       {/* Funnel Visualization */}
@@ -652,7 +723,11 @@ function CampaignsTab({ analytics, onFilterClick }: { analytics: GuestAnalytics;
                   analytics.totalGuests > 0 ? (stage.value / analytics.totalGuests) * 100 : 0
                 );
             return (
-              <div key={stage.label} className="flex items-center gap-3">
+              <div 
+                key={stage.label} 
+                className="flex items-center gap-3 cursor-pointer hover:bg-muted/50 rounded-lg p-1 -m-1 transition-colors"
+                onClick={() => onFilterClick?.({ type: 'funnel', value: stage.filterValue })}
+              >
                 <div className="w-28 flex items-center gap-2 text-sm">
                   <StageIcon className="w-4 h-4" style={{ color: stage.color }} />
                   <span className="truncate">{stage.label}</span>
@@ -719,29 +794,35 @@ function MenuTab({ analytics, onFilterClick }: { analytics: GuestAnalytics; onFi
 
   return (
     <>
-      {/* KPI Grid */}
+      {/* KPI Grid - Clickable */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-        <KPICard
-          title="Con Scelta Menu"
-          value={analytics.withMenuChoice}
-          percentage={analytics.withMenuChoicePercentage}
-          icon={Utensils}
-          color={COLORS.confirmed}
-        />
-        <KPICard
-          title="Senza Scelta"
-          value={analytics.totalGuests - analytics.withMenuChoice}
-          percentage={100 - analytics.withMenuChoicePercentage}
-          icon={Clock}
-          color={COLORS.pending}
-        />
-        <KPICard
-          title="Esigenze Speciali"
-          value={analytics.withDietaryCount}
-          percentage={analytics.withDietaryPercentage}
-          icon={AlertTriangle}
-          color={COLORS.declined}
-        />
+        <div className="cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => onFilterClick?.({ type: 'menu', value: 'with_choice' })}>
+          <KPICard
+            title="Con Scelta Menu"
+            value={analytics.withMenuChoice}
+            percentage={analytics.withMenuChoicePercentage}
+            icon={Utensils}
+            color={COLORS.confirmed}
+          />
+        </div>
+        <div className="cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => onFilterClick?.({ type: 'menu', value: 'no_choice' })}>
+          <KPICard
+            title="Senza Scelta"
+            value={analytics.totalGuests - analytics.withMenuChoice}
+            percentage={100 - analytics.withMenuChoicePercentage}
+            icon={Clock}
+            color={COLORS.pending}
+          />
+        </div>
+        <div className="cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => onFilterClick?.({ type: 'dietary', value: true })}>
+          <KPICard
+            title="Esigenze Speciali"
+            value={analytics.withDietaryCount}
+            percentage={analytics.withDietaryPercentage}
+            icon={AlertTriangle}
+            color={COLORS.declined}
+          />
+        </div>
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">
@@ -763,6 +844,12 @@ function MenuTab({ analytics, onFilterClick }: { analytics: GuestAnalytics; onFi
                       outerRadius={80}
                       paddingAngle={2}
                       dataKey="value"
+                      onClick={(data: any) => {
+                        if (data && data.name) {
+                          onFilterClick?.({ type: 'menu', value: data.name.toLowerCase() });
+                        }
+                      }}
+                      cursor="pointer"
                     >
                       {menuData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.fill} />
