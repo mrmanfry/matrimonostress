@@ -658,18 +658,24 @@ export function RSVPCampaignDialog({
             Sì, ho inviato → Prosegui
           </Button>
           
-          {/* Option 2: No, reopen WhatsApp */}
+          {/* Option 2: No, reopen WhatsApp - ricopia immagine e riapre */}
           <Button 
             variant="outline" 
             className="w-full border-amber-300 hover:bg-amber-100 dark:border-amber-700 dark:hover:bg-amber-900"
-            onClick={() => {
+            onClick={async () => {
               setIsRecoveringFromRefresh(false);
               setWhatsappOpened(false);
+              await handleSmartSend();
             }}
           >
             <RotateCcw className="w-4 h-4 mr-2" />
-            No, riapri WhatsApp
+            {uploadedImage ? "📸 Ricopia Immagine & Riapri WhatsApp" : "🔗 Riapri WhatsApp"}
           </Button>
+          {uploadedImage && (
+            <p className="text-xs text-amber-600 dark:text-amber-400 text-center -mt-1">
+              L'immagine verrà ricopiata negli appunti
+            </p>
+          )}
           
           {/* Option 3: Skip this guest */}
           <Button 
