@@ -20,7 +20,7 @@ import { SmartGrouperDialog } from "@/components/guests/SmartGrouperDialog";
 import { SmartImportDialog } from "@/components/guests/SmartImportDialog";
 import { ContactSyncDialog } from "@/components/guests/ContactSyncDialog";
 import { RSVPCampaignDialog } from "@/components/guests/RSVPCampaignDialog";
-import { GuestAnalyticsDashboard } from "@/components/guests/GuestAnalyticsDashboard";
+import { GuestAnalyticsDashboard, AnalyticsFilterType } from "@/components/guests/GuestAnalyticsDashboard";
 import { ImportDropdown } from "@/components/guests/ImportDropdown";
 import { GuestDiffDialog } from "@/components/guests/GuestDiffDialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -1175,7 +1175,38 @@ const Guests = () => {
           )}
 
           {/* Analytics Dashboard */}
-          <GuestAnalyticsDashboard guests={allGuests} parties={parties} />
+          <GuestAnalyticsDashboard 
+            guests={allGuests} 
+            parties={parties} 
+            onFilterClick={(filter: AnalyticsFilterType) => {
+              handleResetFilters();
+              switch (filter.type) {
+                case 'rsvp':
+                  const rsvpMap = { confirmed: 'Confermato', pending: 'In attesa', declined: 'Rifiutato' };
+                  handleFilterChange('rsvpStatus', rsvpMap[filter.value] || 'all');
+                  break;
+                case 'composition':
+                  if (filter.value === 'staff') handleFilterChange('staff', 'staff_only');
+                  else handleFilterChange('age', filter.value === 'children' ? 'children' : 'adults');
+                  break;
+                case 'contact':
+                  handleFilterChange('contact', filter.value);
+                  break;
+                case 'menu':
+                  handleFilterChange('menu', filter.value);
+                  break;
+                case 'plusOne':
+                  handleFilterChange('plusOne', filter.value);
+                  break;
+                case 'funnel':
+                  setFunnelFilter(filter.value);
+                  break;
+                case 'group':
+                  handleFilterChange('group', filter.value);
+                  break;
+              }
+            }}
+          />
 
           {/* Filters - New Configurable Filter System */}
           <div className="space-y-3">
