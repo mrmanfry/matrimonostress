@@ -370,6 +370,7 @@ function OverviewTab({
   const groupData = analytics.groupsBreakdown.slice(0, 8).map((g, i) => ({
     name: g.name.length > 15 ? g.name.slice(0, 15) + "..." : g.name,
     fullName: g.name,
+    groupId: g.id,
     count: g.count,
     percentage: g.percentage,
     fill: CHART_COLORS[i % CHART_COLORS.length],
@@ -526,7 +527,9 @@ function OverviewTab({
                     dataKey="count"
                     radius={[0, 4, 4, 0]}
                     onClick={(data: any) => {
-                      onFilterClick?.({ type: 'group', value: data.fullName });
+                      if (data.groupId) {
+                        onFilterClick?.({ type: 'group', value: data.groupId });
+                      }
                     }}
                     cursor="pointer"
                   >

@@ -32,6 +32,7 @@ export interface PartyForAnalytics {
 }
 
 export interface GroupBreakdown {
+  id: string | null;
   name: string;
   count: number;
   percentage: number;
@@ -143,22 +144,26 @@ export function calculateGuestAnalytics(
   const plusOnesConversionRate = plusOnesPotential > 0 ? (plusOnesConfirmed / plusOnesPotential) * 100 : 0;
 
   // Groups breakdown
-  const groupCounts: Record<string, number> = {};
+  const groupData: Record<string, { id: string | null; count: number }> = {};
   let ungroupedCount = 0;
   
   analyzableGuests.forEach(g => {
     if (g.group_name) {
-      groupCounts[g.group_name] = (groupCounts[g.group_name] || 0) + 1;
+      if (!groupData[g.group_name]) {
+        groupData[g.group_name] = { id: g.group_id || null, count: 0 };
+      }
+      groupData[g.group_name].count++;
     } else {
       ungroupedCount++;
     }
   });
 
-  const groupsBreakdown: GroupBreakdown[] = Object.entries(groupCounts)
-    .map(([name, count]) => ({
+  const groupsBreakdown: GroupBreakdown[] = Object.entries(groupData)
+    .map(([name, data]) => ({
+      id: data.id,
       name,
-      count,
-      percentage: (count / total) * 100
+      count: data.count,
+      percentage: (data.count / total) * 100
     }))
     .sort((a, b) => b.count - a.count);
 
