@@ -86,6 +86,7 @@ interface SavedCampaignState {
   whatsappOpened: boolean;
   campaignType: CampaignType;
   timestamp: number;
+  uploadedImage: string | null;
 }
 
 // Message templates per campaign type
@@ -148,6 +149,11 @@ export function RSVPCampaignDialog({
             setCampaignType(parsed.campaignType || 'formal_invite');
             setStep("sending");
             
+            // Restore uploaded image if present
+            if (parsed.uploadedImage) {
+              setUploadedImage(parsed.uploadedImage);
+            }
+            
             // If whatsappOpened was true, we're in "Limbo State"
             if (parsed.whatsappOpened) {
               setIsRecoveringFromRefresh(true);
@@ -177,18 +183,24 @@ export function RSVPCampaignDialog({
   // GUARD: Only save if dialog is open AND we have valid campaign data
   useEffect(() => {
     if (open && step === "sending" && guests.length > 0 && weddingId && campaignType) {
-      const stateToSave: SavedCampaignState = {
-        weddingId,
-        guests,
-        currentIndex,
-        messageTemplate,
-        whatsappOpened,
-        campaignType,
-        timestamp: Date.now(),
-      };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
+      try {
+        const stateToSave: SavedCampaignState = {
+          weddingId,
+          guests,
+          currentIndex,
+          messageTemplate,
+          whatsappOpened,
+          campaignType,
+          timestamp: Date.now(),
+          uploadedImage,
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
+      } catch (e) {
+        // Handle localStorage quota exceeded (large images)
+        console.warn("Could not save campaign state:", e);
+      }
     }
-  }, [open, step, guests, currentIndex, messageTemplate, whatsappOpened, weddingId, campaignType]);
+  }, [open, step, guests, currentIndex, messageTemplate, whatsappOpened, weddingId, campaignType, uploadedImage]);
 
   // Apply pre-selection when allGuests loads and we have preSelectedGuestIds
   useEffect(() => {
