@@ -44,10 +44,21 @@ import {
   GuestAnalytics,
 } from "@/lib/guestAnalytics";
 
+export type AnalyticsFilterType = 
+  | { type: 'rsvp'; value: 'confirmed' | 'pending' | 'declined' }
+  | { type: 'composition'; value: 'adults' | 'children' | 'staff' }
+  | { type: 'contact'; value: 'with_phone' | 'without_phone' }
+  | { type: 'menu'; value: string }
+  | { type: 'dietary'; value: boolean }
+  | { type: 'plusOne'; value: 'allowed' | 'confirmed' }
+  | { type: 'funnel'; value: 'draft' | 'std_sent' | 'invited' | 'confirmed' }
+  | { type: 'group'; value: string };
+
 interface GuestAnalyticsDashboardProps {
   guests: GuestForAnalytics[];
   parties: PartyForAnalytics[];
   onGroupClick?: (groupName: string) => void;
+  onFilterClick?: (filter: AnalyticsFilterType) => void;
 }
 
 // Color palette using semantic tokens
@@ -158,6 +169,7 @@ export function GuestAnalyticsDashboard({
   guests,
   parties,
   onGroupClick,
+  onFilterClick,
 }: GuestAnalyticsDashboardProps) {
   const analytics = useMemo(
     () => calculateGuestAnalytics(guests, parties),
@@ -212,22 +224,22 @@ export function GuestAnalyticsDashboard({
 
           {/* TAB: PANORAMICA */}
           <TabsContent value="overview" className="space-y-4">
-            <OverviewTab analytics={analytics} onGroupClick={onGroupClick} />
+            <OverviewTab analytics={analytics} onGroupClick={onGroupClick} onFilterClick={onFilterClick} />
           </TabsContent>
 
           {/* TAB: COMPOSIZIONE */}
           <TabsContent value="composition" className="space-y-4">
-            <CompositionTab analytics={analytics} />
+            <CompositionTab analytics={analytics} onFilterClick={onFilterClick} />
           </TabsContent>
 
           {/* TAB: CAMPAGNE */}
           <TabsContent value="campaigns" className="space-y-4">
-            <CampaignsTab analytics={analytics} />
+            <CampaignsTab analytics={analytics} onFilterClick={onFilterClick} />
           </TabsContent>
 
           {/* TAB: MENU */}
           <TabsContent value="menu" className="space-y-4">
-            <MenuTab analytics={analytics} />
+            <MenuTab analytics={analytics} onFilterClick={onFilterClick} />
           </TabsContent>
         </Tabs>
       </CardContent>
@@ -240,14 +252,16 @@ export function GuestAnalyticsDashboard({
 function OverviewTab({
   analytics,
   onGroupClick,
+  onFilterClick,
 }: {
   analytics: GuestAnalytics;
   onGroupClick?: (groupName: string) => void;
+  onFilterClick?: (filter: AnalyticsFilterType) => void;
 }) {
   const rsvpData = [
-    { name: "Confermati", value: analytics.confirmedCount, color: COLORS.confirmed },
-    { name: "In Attesa", value: analytics.pendingCount, color: COLORS.pending },
-    { name: "Rifiutati", value: analytics.declinedCount, color: COLORS.declined },
+    { name: "Confermati", value: analytics.confirmedCount, color: COLORS.confirmed, filterValue: 'confirmed' as const },
+    { name: "In Attesa", value: analytics.pendingCount, color: COLORS.pending, filterValue: 'pending' as const },
+    { name: "Rifiutati", value: analytics.declinedCount, color: COLORS.declined, filterValue: 'declined' as const },
   ].filter((d) => d.value > 0);
 
   const groupData = analytics.groupsBreakdown.slice(0, 8).map((g, i) => ({
@@ -260,37 +274,45 @@ function OverviewTab({
 
   return (
     <>
-      {/* KPI Grid */}
+      {/* KPI Grid - Clickable */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <KPICard
-          title="Confermati"
-          value={analytics.confirmedCount}
-          percentage={analytics.confirmedPercentage}
-          icon={UserCheck}
-          color={COLORS.confirmed}
-        />
-        <KPICard
-          title="In Attesa"
-          value={analytics.pendingCount}
-          percentage={analytics.pendingPercentage}
-          icon={Clock}
-          color={COLORS.pending}
-        />
-        <KPICard
-          title="Rifiutati"
-          value={analytics.declinedCount}
-          percentage={analytics.declinedPercentage}
-          icon={UserX}
-          color={COLORS.declined}
-        />
-        <KPICard
-          title="Copertura Tel."
-          value={analytics.withPhone}
-          percentage={analytics.withPhonePercentage}
-          subtitle={`${analytics.withoutPhone} senza telefono`}
-          icon={Phone}
-          color="hsl(199 89% 48%)"
-        />
+        <div className="cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => onFilterClick?.({ type: 'rsvp', value: 'confirmed' })}>
+          <KPICard
+            title="Confermati"
+            value={analytics.confirmedCount}
+            percentage={analytics.confirmedPercentage}
+            icon={UserCheck}
+            color={COLORS.confirmed}
+          />
+        </div>
+        <div className="cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => onFilterClick?.({ type: 'rsvp', value: 'pending' })}>
+          <KPICard
+            title="In Attesa"
+            value={analytics.pendingCount}
+            percentage={analytics.pendingPercentage}
+            icon={Clock}
+            color={COLORS.pending}
+          />
+        </div>
+        <div className="cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => onFilterClick?.({ type: 'rsvp', value: 'declined' })}>
+          <KPICard
+            title="Rifiutati"
+            value={analytics.declinedCount}
+            percentage={analytics.declinedPercentage}
+            icon={UserX}
+            color={COLORS.declined}
+          />
+        </div>
+        <div className="cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => onFilterClick?.({ type: 'contact', value: 'with_phone' })}>
+          <KPICard
+            title="Copertura Tel."
+            value={analytics.withPhone}
+            percentage={analytics.withPhonePercentage}
+            subtitle={`${analytics.withoutPhone} senza telefono`}
+            icon={Phone}
+            color="hsl(199 89% 48%)"
+          />
+        </div>
       </div>
 
       {/* Charts Row */}
@@ -313,6 +335,12 @@ function OverviewTab({
                     outerRadius={80}
                     paddingAngle={2}
                     dataKey="value"
+                    onClick={(data: any) => {
+                      if (data && data.filterValue) {
+                        onFilterClick?.({ type: 'rsvp', value: data.filterValue });
+                      }
+                    }}
+                    cursor="pointer"
                   >
                     {rsvpData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
@@ -413,7 +441,7 @@ function OverviewTab({
   );
 }
 
-function CompositionTab({ analytics }: { analytics: GuestAnalytics }) {
+function CompositionTab({ analytics, onFilterClick }: { analytics: GuestAnalytics; onFilterClick?: (filter: AnalyticsFilterType) => void }) {
   const compositionData = [
     { name: "Adulti", value: analytics.adultsCount, color: COLORS.adults },
     { name: "Bambini", value: analytics.childrenCount, color: COLORS.children },
@@ -537,7 +565,7 @@ function CompositionTab({ analytics }: { analytics: GuestAnalytics }) {
   );
 }
 
-function CampaignsTab({ analytics }: { analytics: GuestAnalytics }) {
+function CampaignsTab({ analytics, onFilterClick }: { analytics: GuestAnalytics; onFilterClick?: (filter: AnalyticsFilterType) => void }) {
   const stdResponseData = [
     { name: "Sì probabile", value: analytics.stdLikelyYes, color: COLORS.confirmed },
     { name: "Incerto", value: analytics.stdUnsure, color: COLORS.pending },
@@ -681,7 +709,7 @@ function CampaignsTab({ analytics }: { analytics: GuestAnalytics }) {
   );
 }
 
-function MenuTab({ analytics }: { analytics: GuestAnalytics }) {
+function MenuTab({ analytics, onFilterClick }: { analytics: GuestAnalytics; onFilterClick?: (filter: AnalyticsFilterType) => void }) {
   const menuData = analytics.menuBreakdown.map((m, i) => ({
     name: m.choice,
     value: m.count,
