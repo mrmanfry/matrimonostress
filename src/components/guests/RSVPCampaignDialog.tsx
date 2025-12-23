@@ -504,12 +504,34 @@ export function RSVPCampaignDialog({
   };
 
   // Handle close with confirmation during active campaign
+  // NEW: Abort campaign cleanly without marking current guest as sent
+  const handleAbortCampaign = () => {
+    // 1. Clean localStorage to prevent recovery loop
+    localStorage.removeItem(STORAGE_KEY);
+    
+    // 2. Reset local states
+    setIsRecoveringFromRefresh(false);
+    setWhatsappOpened(false);
+    
+    // 3. Notify user
+    toast.info("Campagna interrotta. I progressi precedenti sono stati salvati.");
+    
+    // 4. Close dialog
+    onOpenChange(false);
+  };
+
   const handleClose = (newOpen: boolean) => {
     if (!newOpen && step === "sending" && guests.length > 0) {
       const confirmed = window.confirm(
-        "Campagna in corso. I progressi sono salvati automaticamente.\n\nVuoi interrompere ora?"
+        "Campagna in corso.\n\n" +
+        "Se esci ora, l'invitato corrente NON verrà segnato come 'inviato'.\n" +
+        "I progressi precedenti rimangono salvati.\n\n" +
+        "Vuoi interrompere?"
       );
       if (!confirmed) return;
+      
+      // Clean localStorage to prevent recovery loop
+      localStorage.removeItem(STORAGE_KEY);
     }
     onOpenChange(newOpen);
   };
@@ -521,6 +543,13 @@ export function RSVPCampaignDialog({
   // Recovery UI for "Limbo State" - when page refreshed while WhatsApp was open
   const renderRecoveryUI = () => {
     if (!isRecoveringFromRefresh || !currentGuest) return null;
+    
+    // Handle skip during recovery - don't mark as sent, just move to next
+    const handleSkipDuringRecovery = () => {
+      setIsRecoveringFromRefresh(false);
+      setWhatsappOpened(false);
+      skipGuest();
+    };
     
     return (
       <div className="bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-300 dark:border-amber-700 rounded-lg p-6 space-y-4">
@@ -539,10 +568,23 @@ export function RSVPCampaignDialog({
           </p>
         </div>
         
-        <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex flex-col gap-3">
+          {/* Option 1: Yes, sent - continue */}
+          <Button 
+            className="w-full bg-green-600 hover:bg-green-700"
+            onClick={() => {
+              setIsRecoveringFromRefresh(false);
+              markAsSent();
+            }}
+          >
+            <CheckCircle className="w-4 h-4 mr-2" />
+            Sì, ho inviato → Prosegui
+          </Button>
+          
+          {/* Option 2: No, reopen WhatsApp */}
           <Button 
             variant="outline" 
-            className="flex-1 border-amber-300 hover:bg-amber-100 dark:border-amber-700 dark:hover:bg-amber-900"
+            className="w-full border-amber-300 hover:bg-amber-100 dark:border-amber-700 dark:hover:bg-amber-900"
             onClick={() => {
               setIsRecoveringFromRefresh(false);
               setWhatsappOpened(false);
@@ -551,15 +593,25 @@ export function RSVPCampaignDialog({
             <RotateCcw className="w-4 h-4 mr-2" />
             No, riapri WhatsApp
           </Button>
+          
+          {/* Option 3: Skip this guest */}
           <Button 
-            className="flex-1 bg-green-600 hover:bg-green-700"
-            onClick={() => {
-              setIsRecoveringFromRefresh(false);
-              markAsSent();
-            }}
+            variant="outline" 
+            className="w-full"
+            onClick={handleSkipDuringRecovery}
           >
-            <CheckCircle className="w-4 h-4 mr-2" />
-            Sì, ho inviato → Prosegui
+            <SkipForward className="w-4 h-4 mr-2" />
+            Salta questo invitato
+          </Button>
+          
+          {/* Option 4: Abort campaign entirely */}
+          <Button 
+            variant="ghost" 
+            className="w-full text-destructive hover:text-destructive hover:bg-destructive/10"
+            onClick={handleAbortCampaign}
+          >
+            <X className="w-4 h-4 mr-2" />
+            Non ho inviato, interrompi campagna
           </Button>
         </div>
       </div>
@@ -577,9 +629,20 @@ export function RSVPCampaignDialog({
           {/* Progress */}
           {step === "sending" && (
             <div className="space-y-2">
-              <div className="flex justify-between text-sm text-muted-foreground">
+              <div className="flex justify-between items-center text-sm text-muted-foreground">
                 <span>{currentIndex} / {guests.length} messaggi preparati</span>
-                <span>{Math.round(progress)}%</span>
+                <div className="flex items-center gap-3">
+                  <span>{Math.round(progress)}%</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-auto py-1 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={handleAbortCampaign}
+                  >
+                    <X className="mr-1 h-3 w-3" />
+                    Interrompi
+                  </Button>
+                </div>
               </div>
               <Progress value={progress} />
             </div>
