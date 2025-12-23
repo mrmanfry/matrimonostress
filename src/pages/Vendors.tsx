@@ -33,6 +33,8 @@ interface Vendor {
   indirizzo_sede_legale?: string;
   iban?: string;
   intestatario_conto?: string;
+  staff_meals_count?: number | null;
+  staff_dietary_notes?: string | null;
   vendor_contracts?: Array<{
     id: string;
     analyzed_at: string;
@@ -372,7 +374,9 @@ const Vendors = () => {
           phone: vendor.phone || null,
           status: vendor.status || 'evaluating',
           notes: vendor.notes || null,
-          category_id: vendor.category_id || null
+          category_id: vendor.category_id || null,
+          staff_meals_count: vendor.staff_meals_count || 0,
+          staff_dietary_notes: vendor.staff_dietary_notes || null
         };
         console.log("💾 Inserting vendor:", insertData);
         const {

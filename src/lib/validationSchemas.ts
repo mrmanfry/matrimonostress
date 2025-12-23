@@ -36,6 +36,20 @@ export const vendorSchema = z.object({
     .max(1000, "Le note devono essere inferiori a 1000 caratteri")
     .optional()
     .or(z.literal("")),
+  // Staff meals fields
+  staff_meals_count: z
+    .number()
+    .int("Deve essere un numero intero")
+    .min(0, "Il numero non può essere negativo")
+    .max(50, "Il numero non può superare 50")
+    .optional()
+    .default(0),
+  staff_dietary_notes: z
+    .string()
+    .trim()
+    .max(500, "Le note devono essere inferiori a 500 caratteri")
+    .optional()
+    .or(z.literal("")),
 });
 
 // Schema per Expense

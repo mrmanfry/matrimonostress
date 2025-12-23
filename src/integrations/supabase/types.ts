@@ -1164,6 +1164,8 @@ export type Database = {
           partita_iva_cf: string | null
           phone: string | null
           ragione_sociale: string | null
+          staff_dietary_notes: string | null
+          staff_meals_count: number | null
           status: string | null
           updated_at: string
           wedding_id: string
@@ -1182,6 +1184,8 @@ export type Database = {
           partita_iva_cf?: string | null
           phone?: string | null
           ragione_sociale?: string | null
+          staff_dietary_notes?: string | null
+          staff_meals_count?: number | null
           status?: string | null
           updated_at?: string
           wedding_id: string
@@ -1200,6 +1204,8 @@ export type Database = {
           partita_iva_cf?: string | null
           phone?: string | null
           ragione_sociale?: string | null
+          staff_dietary_notes?: string | null
+          staff_meals_count?: number | null
           status?: string | null
           updated_at?: string
           wedding_id?: string
