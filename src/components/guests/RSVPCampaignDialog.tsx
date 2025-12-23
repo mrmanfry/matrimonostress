@@ -457,7 +457,14 @@ export function RSVPCampaignDialog({
       }
     }
 
-    // 2. CASO DESKTOP CON IMMAGINE (Metodo Clipboard)
+    // 2. CASO DESKTOP (Metodo Clipboard + WhatsApp Web)
+    const encodedMessage = encodeURIComponent(message);
+    const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodedMessage}`;
+    
+    // PRIMA: Aprire WhatsApp Web (sincrono rispetto al click per evitare blocco popup)
+    window.open(whatsappUrl, "_blank");
+    
+    // POI: Se c'è immagine, copiarla nella clipboard
     if (uploadedImage) {
       try {
         const response = await fetch(uploadedImage);
@@ -468,31 +475,20 @@ export function RSVPCampaignDialog({
         ]);
         
         toast.success(`📸 Immagine Copiata!`, {
-          description: `Ora premi Incolla (Ctrl+V / Cmd+V) nella chat di ${currentGuest.first_name}.`,
+          description: `Ora vai su WhatsApp e premi Incolla (Ctrl+V / Cmd+V).`,
           duration: 6000,
         });
       } catch (err) {
         console.error('Errore clipboard:', err);
-        toast.error("Impossibile copiare l'immagine", {
+        toast.error("Impossibile copiare l'immagine automaticamente", {
           description: "Allega l'immagine manualmente dal tuo dispositivo.",
         });
-        // NON aprire WhatsApp a vuoto, lascia che l'utente gestisca manualmente
-        return;
       }
     }
 
-    // 3. Apertura WhatsApp Web con testo
-    const encodedMessage = encodeURIComponent(message);
-    const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodedMessage}`;
-
-    // Set whatsappOpened BEFORE opening WhatsApp (triggers auto-save)
+    // INFINE: Aggiornare lo stato UI
     setWhatsappOpened(true);
     setIsRecoveringFromRefresh(false);
-    
-    // Piccolo delay per dare tempo di leggere il toast se presente
-    setTimeout(() => {
-      window.open(whatsappUrl, "_blank");
-    }, uploadedImage ? 800 : 0);
   };
 
   const markAsSent = async () => {
@@ -1131,16 +1127,44 @@ export function RSVPCampaignDialog({
                     </Button>
                   ) : (
                     <div className="space-y-4">
-                      <div className="bg-background border rounded-lg p-4 text-center">
-                        <p className="text-sm mb-2">
+                      <div className="bg-background border rounded-lg p-4">
+                        <p className="text-sm mb-2 text-center">
                           ✅ <strong>Invio per {currentGuest.first_name} pronto!</strong>
                         </p>
-                        <p className="text-xs text-muted-foreground">
-                          {uploadedImage 
-                            ? "Vai su WhatsApp, incolla l'immagine (Ctrl+V), aggiungi il testo e premi Invio."
-                            : "Vai sulla tab di WhatsApp, premi \"Invio\" per mandare il messaggio, poi torna qui e conferma."
-                          }
-                        </p>
+                        {uploadedImage ? (
+                          <div className="space-y-2">
+                            <p className="text-xs text-muted-foreground text-center">
+                              WhatsApp Web si è aperto in un'altra tab. Segui questi passi:
+                            </p>
+                            <ol className="text-xs text-muted-foreground list-decimal pl-5 space-y-1">
+                              <li>Vai sulla tab di WhatsApp Web</li>
+                              <li>Premi <strong>Ctrl+V</strong> (o Cmd+V su Mac) per incollare l'immagine</li>
+                              <li>Premi Invio per inviare</li>
+                            </ol>
+                            <p className="text-xs text-muted-foreground text-center mt-2">
+                              Non si è aperto?{" "}
+                              <Button 
+                                variant="link" 
+                                size="sm" 
+                                className="h-auto p-0 text-xs"
+                                onClick={() => {
+                                  const message = messageTemplate
+                                    .replace(/\[NomeInvitato\]/g, `${currentGuest.first_name} ${currentGuest.last_name}`)
+                                    .replace(/\[LINK_RSVP\]/g, `${window.location.origin}/rsvp/${currentGuest.unique_rsvp_token}`)
+                                    .replace(/\[NomeCoppia\]/g, coupleName);
+                                  const phoneNumber = currentGuest.phone?.replace(/[^0-9+]/g, "");
+                                  window.open(`https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`, "_blank");
+                                }}
+                              >
+                                🔗 Riapri WhatsApp
+                              </Button>
+                            </p>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-muted-foreground text-center">
+                            Vai sulla tab di WhatsApp, premi "Invio" per mandare il messaggio, poi torna qui e conferma.
+                          </p>
+                        )}
                       </div>
                       <div className="flex gap-2">
                         <Button onClick={markAsSent} className="flex-1" size="lg">
