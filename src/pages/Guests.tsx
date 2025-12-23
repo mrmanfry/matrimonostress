@@ -1105,22 +1105,17 @@ const Guests = () => {
           {/* Secondary Stats Row */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card className="p-4">
-              <div className="text-sm text-muted-foreground">Invitati Totali</div>
-              <div className="text-3xl font-bold">{totalGuests}</div>
+              <div className="text-sm text-muted-foreground">Coperti Stimati</div>
+              <div className="text-3xl font-bold">{totalGuests + potentialPlusOnes}</div>
+              <div className="text-xs text-muted-foreground mt-1">
+                {totalGuests} inviti{potentialPlusOnes > 0 && ` + ${potentialPlusOnes} +1 potenziali`}
+              </div>
               <div className="text-xs text-muted-foreground mt-1">
                 {totalAdults} Adult{totalAdults !== 1 ? 'i' : 'o'}, {totalChildren} Bambin{totalChildren !== 1 ? 'i' : 'o'}
               </div>
-              {(confirmedPlusOnes > 0 || potentialPlusOnes > 0) && (
+              {confirmedPlusOnes > 0 && (
                 <div className="text-xs mt-1">
-                  {confirmedPlusOnes > 0 && (
-                    <span className="text-purple-600">+1 confermati: {confirmedPlusOnes}</span>
-                  )}
-                  {confirmedPlusOnes > 0 && potentialPlusOnes > 0 && (
-                    <span className="text-muted-foreground"> · </span>
-                  )}
-                  {potentialPlusOnes > 0 && (
-                    <span className="text-muted-foreground/70">+1 potenziali: {potentialPlusOnes}</span>
-                  )}
+                  <span className="text-green-600">{confirmedPlusOnes} +1 già confermati</span>
                 </div>
               )}
             </Card>
