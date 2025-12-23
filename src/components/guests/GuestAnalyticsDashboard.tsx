@@ -12,7 +12,7 @@ import {
   XAxis,
   YAxis,
   ResponsiveContainer,
-  Tooltip,
+  Tooltip as RechartsTooltip,
   Legend,
 } from "recharts";
 import {
@@ -38,8 +38,15 @@ import {
   Target,
   X,
   Filter,
+  MousePointerClick,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   calculateGuestAnalytics,
   GuestForAnalytics,
@@ -97,6 +104,7 @@ function KPICard({
   icon: Icon,
   trend,
   color,
+  isActive,
 }: {
   title: string;
   value: number | string;
@@ -105,9 +113,10 @@ function KPICard({
   icon: React.ElementType;
   trend?: "up" | "down" | "neutral";
   color?: string;
+  isActive?: boolean;
 }) {
   return (
-    <Card className="relative overflow-hidden">
+    <Card className={`relative overflow-hidden transition-all duration-300 ${isActive ? 'ring-2 ring-primary ring-offset-2 shadow-lg scale-[1.02]' : ''}`}>
       <CardContent className="p-4">
         <div className="flex items-start justify-between">
           <div className="space-y-1">
@@ -135,8 +144,44 @@ function KPICard({
             <Icon className="w-5 h-5" style={{ color: color || "currentColor" }} />
           </div>
         </div>
+        {/* Click hint indicator */}
+        <div className="absolute bottom-1 right-1 opacity-40">
+          <MousePointerClick className="w-3 h-3" />
+        </div>
       </CardContent>
     </Card>
+  );
+}
+
+// Wrapper for clickable KPI with tooltip
+function ClickableKPI({
+  children,
+  onClick,
+  isActive,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  isActive?: boolean;
+}) {
+  return (
+    <TooltipProvider delayDuration={300}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div
+            className={`cursor-pointer hover:scale-[1.02] transition-transform ${isActive ? 'animate-pulse' : ''}`}
+            onClick={onClick}
+          >
+            {children}
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-xs">
+          <p className="flex items-center gap-1">
+            <MousePointerClick className="w-3 h-3" />
+            Clicca per filtrare
+          </p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
@@ -275,22 +320,22 @@ export function GuestAnalyticsDashboard({
 
           {/* TAB: PANORAMICA */}
           <TabsContent value="overview" className="space-y-4">
-            <OverviewTab analytics={analytics} onGroupClick={onGroupClick} onFilterClick={onFilterClick} />
+            <OverviewTab analytics={analytics} onGroupClick={onGroupClick} onFilterClick={onFilterClick} activeFilter={activeFilter} />
           </TabsContent>
 
           {/* TAB: COMPOSIZIONE */}
           <TabsContent value="composition" className="space-y-4">
-            <CompositionTab analytics={analytics} onFilterClick={onFilterClick} />
+            <CompositionTab analytics={analytics} onFilterClick={onFilterClick} activeFilter={activeFilter} />
           </TabsContent>
 
           {/* TAB: CAMPAGNE */}
           <TabsContent value="campaigns" className="space-y-4">
-            <CampaignsTab analytics={analytics} onFilterClick={onFilterClick} />
+            <CampaignsTab analytics={analytics} onFilterClick={onFilterClick} activeFilter={activeFilter} />
           </TabsContent>
 
           {/* TAB: MENU */}
           <TabsContent value="menu" className="space-y-4">
-            <MenuTab analytics={analytics} onFilterClick={onFilterClick} />
+            <MenuTab analytics={analytics} onFilterClick={onFilterClick} activeFilter={activeFilter} />
           </TabsContent>
         </Tabs>
       </CardContent>
@@ -304,11 +349,18 @@ function OverviewTab({
   analytics,
   onGroupClick,
   onFilterClick,
+  activeFilter,
 }: {
   analytics: GuestAnalytics;
   onGroupClick?: (groupName: string) => void;
   onFilterClick?: (filter: AnalyticsFilterType) => void;
+  activeFilter?: AnalyticsFilterType | null;
 }) {
+  // Helper to check if a filter is active
+  const isFilterActive = (type: string, value: string) => {
+    return activeFilter?.type === type && activeFilter?.value === value;
+  };
+
   const rsvpData = [
     { name: "Confermati", value: analytics.confirmedCount, color: COLORS.confirmed, filterValue: 'confirmed' as const },
     { name: "In Attesa", value: analytics.pendingCount, color: COLORS.pending, filterValue: 'pending' as const },
@@ -327,34 +379,37 @@ function OverviewTab({
     <>
       {/* KPI Grid - Clickable */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => onFilterClick?.({ type: 'rsvp', value: 'confirmed' })}>
+        <ClickableKPI onClick={() => onFilterClick?.({ type: 'rsvp', value: 'confirmed' })} isActive={isFilterActive('rsvp', 'confirmed')}>
           <KPICard
             title="Confermati"
             value={analytics.confirmedCount}
             percentage={analytics.confirmedPercentage}
             icon={UserCheck}
             color={COLORS.confirmed}
+            isActive={isFilterActive('rsvp', 'confirmed')}
           />
-        </div>
-        <div className="cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => onFilterClick?.({ type: 'rsvp', value: 'pending' })}>
+        </ClickableKPI>
+        <ClickableKPI onClick={() => onFilterClick?.({ type: 'rsvp', value: 'pending' })} isActive={isFilterActive('rsvp', 'pending')}>
           <KPICard
             title="In Attesa"
             value={analytics.pendingCount}
             percentage={analytics.pendingPercentage}
             icon={Clock}
             color={COLORS.pending}
+            isActive={isFilterActive('rsvp', 'pending')}
           />
-        </div>
-        <div className="cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => onFilterClick?.({ type: 'rsvp', value: 'declined' })}>
+        </ClickableKPI>
+        <ClickableKPI onClick={() => onFilterClick?.({ type: 'rsvp', value: 'declined' })} isActive={isFilterActive('rsvp', 'declined')}>
           <KPICard
             title="Rifiutati"
             value={analytics.declinedCount}
             percentage={analytics.declinedPercentage}
             icon={UserX}
             color={COLORS.declined}
+            isActive={isFilterActive('rsvp', 'declined')}
           />
-        </div>
-        <div className="cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => onFilterClick?.({ type: 'contact', value: 'with_phone' })}>
+        </ClickableKPI>
+        <ClickableKPI onClick={() => onFilterClick?.({ type: 'contact', value: 'with_phone' })} isActive={isFilterActive('contact', 'with_phone')}>
           <KPICard
             title="Copertura Tel."
             value={analytics.withPhone}
@@ -362,8 +417,9 @@ function OverviewTab({
             subtitle={`${analytics.withoutPhone} senza telefono`}
             icon={Phone}
             color="hsl(199 89% 48%)"
+            isActive={isFilterActive('contact', 'with_phone')}
           />
-        </div>
+        </ClickableKPI>
       </div>
 
       {/* Charts Row */}
@@ -397,7 +453,7 @@ function OverviewTab({
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip
+                  <RechartsTooltip
                     formatter={(value: number, name: string) => [
                       `${value} (${((value / analytics.totalGuests) * 100).toFixed(1)}%)`,
                       name,
@@ -444,6 +500,9 @@ function OverviewTab({
           <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
             <BarChart3 className="w-4 h-4" />
             Distribuzione per Gruppo
+            <span className="text-xs text-muted-foreground ml-auto flex items-center gap-1">
+              <MousePointerClick className="w-3 h-3" /> Clicca per filtrare
+            </span>
           </h4>
           {groupData.length > 0 ? (
             <div className="h-[280px]">
@@ -457,16 +516,18 @@ function OverviewTab({
                     fontSize={11}
                     tickLine={false}
                   />
-                  <Tooltip
+                  <RechartsTooltip
                     formatter={(value: number, name: string, props: any) => [
-                      `${value} (${props.payload.percentage.toFixed(1)}%)`,
+                      `${value} (${props.payload.percentage.toFixed(1)}%) - Clicca per filtrare`,
                       props.payload.fullName,
                     ]}
                   />
                   <Bar
                     dataKey="count"
                     radius={[0, 4, 4, 0]}
-                    onClick={(data: any) => onGroupClick?.(data.fullName)}
+                    onClick={(data: any) => {
+                      onFilterClick?.({ type: 'group', value: data.fullName });
+                    }}
                     cursor="pointer"
                   >
                     {groupData.map((entry, index) => (
@@ -492,11 +553,13 @@ function OverviewTab({
   );
 }
 
-function CompositionTab({ analytics, onFilterClick }: { analytics: GuestAnalytics; onFilterClick?: (filter: AnalyticsFilterType) => void }) {
+function CompositionTab({ analytics, onFilterClick, activeFilter }: { analytics: GuestAnalytics; onFilterClick?: (filter: AnalyticsFilterType) => void; activeFilter?: AnalyticsFilterType | null }) {
+  const isFilterActive = (type: string, value: string) => activeFilter?.type === type && activeFilter?.value === value;
+  
   const compositionData = [
-    { name: "Adulti", value: analytics.adultsCount, color: COLORS.adults },
-    { name: "Bambini", value: analytics.childrenCount, color: COLORS.children },
-    { name: "Staff", value: analytics.staffCount, color: COLORS.staff },
+    { name: "Adulti", value: analytics.adultsCount, color: COLORS.adults, filterValue: 'adults' as const },
+    { name: "Bambini", value: analytics.childrenCount, color: COLORS.children, filterValue: 'children' as const },
+    { name: "Staff", value: analytics.staffCount, color: COLORS.staff, filterValue: 'staff' as const },
   ].filter((d) => d.value > 0);
 
   const partySizeData = analytics.partySizeDistribution.filter((d) => d.count > 0);
@@ -505,34 +568,37 @@ function CompositionTab({ analytics, onFilterClick }: { analytics: GuestAnalytic
     <>
       {/* KPI Grid - Clickable */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => onFilterClick?.({ type: 'composition', value: 'adults' })}>
+        <ClickableKPI onClick={() => onFilterClick?.({ type: 'composition', value: 'adults' })} isActive={isFilterActive('composition', 'adults')}>
           <KPICard
             title="Adulti"
             value={analytics.adultsCount}
             percentage={analytics.adultsPercentage}
             icon={Users}
             color={COLORS.adults}
+            isActive={isFilterActive('composition', 'adults')}
           />
-        </div>
-        <div className="cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => onFilterClick?.({ type: 'composition', value: 'children' })}>
+        </ClickableKPI>
+        <ClickableKPI onClick={() => onFilterClick?.({ type: 'composition', value: 'children' })} isActive={isFilterActive('composition', 'children')}>
           <KPICard
             title="Bambini"
             value={analytics.childrenCount}
             percentage={analytics.childrenPercentage}
             icon={Baby}
             color={COLORS.children}
+            isActive={isFilterActive('composition', 'children')}
           />
-        </div>
-        <div className="cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => onFilterClick?.({ type: 'composition', value: 'staff' })}>
+        </ClickableKPI>
+        <ClickableKPI onClick={() => onFilterClick?.({ type: 'composition', value: 'staff' })} isActive={isFilterActive('composition', 'staff')}>
           <KPICard
             title="Staff"
             value={analytics.staffCount}
             percentage={analytics.staffPercentage}
             icon={Briefcase}
             color={COLORS.staff}
+            isActive={isFilterActive('composition', 'staff')}
           />
-        </div>
-        <div className="cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => onFilterClick?.({ type: 'plusOne', value: 'confirmed' })}>
+        </ClickableKPI>
+        <ClickableKPI onClick={() => onFilterClick?.({ type: 'plusOne', value: 'confirmed' })} isActive={isFilterActive('plusOne', 'confirmed')}>
           <KPICard
             title="+1 Confermati"
             value={`${analytics.plusOnesConfirmed}/${analytics.plusOnesPotential}`}
@@ -540,8 +606,9 @@ function CompositionTab({ analytics, onFilterClick }: { analytics: GuestAnalytic
             subtitle="tasso conversione"
             icon={UserPlus}
             color="hsl(280 65% 60%)"
+            isActive={isFilterActive('plusOne', 'confirmed')}
           />
-        </div>
+        </ClickableKPI>
       </div>
 
       {/* Charts Row */}
@@ -569,7 +636,7 @@ function CompositionTab({ analytics, onFilterClick }: { analytics: GuestAnalytic
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip
+                <RechartsTooltip
                   formatter={(value: number, name: string) => [
                     `${value} (${((value / analytics.totalGuests) * 100).toFixed(1)}%)`,
                     name,
@@ -603,7 +670,7 @@ function CompositionTab({ analytics, onFilterClick }: { analytics: GuestAnalytic
                 <BarChart data={partySizeData}>
                   <XAxis dataKey="size" fontSize={12} />
                   <YAxis fontSize={12} />
-                  <Tooltip
+                  <RechartsTooltip
                     formatter={(value: number, name: string, props: any) => [
                       `${value} nuclei (${props.payload.percentage.toFixed(1)}%)`,
                       `${props.payload.size} membri`,
@@ -624,7 +691,7 @@ function CompositionTab({ analytics, onFilterClick }: { analytics: GuestAnalytic
   );
 }
 
-function CampaignsTab({ analytics, onFilterClick }: { analytics: GuestAnalytics; onFilterClick?: (filter: AnalyticsFilterType) => void }) {
+function CampaignsTab({ analytics, onFilterClick, activeFilter }: { analytics: GuestAnalytics; onFilterClick?: (filter: AnalyticsFilterType) => void; activeFilter?: AnalyticsFilterType | null }) {
   const stdResponseData = [
     { name: "Sì probabile", value: analytics.stdLikelyYes, color: COLORS.confirmed },
     { name: "Incerto", value: analytics.stdUnsure, color: COLORS.pending },
@@ -666,29 +733,33 @@ function CampaignsTab({ analytics, onFilterClick }: { analytics: GuestAnalytics;
     },
   ];
 
+  const isFilterActive = (type: string, value: string) => activeFilter?.type === type && activeFilter?.value === value;
+
   return (
     <>
       {/* KPI Grid - Clickable */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => onFilterClick?.({ type: 'contact', value: 'with_phone' })}>
+        <ClickableKPI onClick={() => onFilterClick?.({ type: 'contact', value: 'with_phone' })} isActive={isFilterActive('contact', 'with_phone')}>
           <KPICard
             title="Copertura Tel."
             value={analytics.withPhone}
             percentage={analytics.withPhonePercentage}
             icon={Phone}
             color="hsl(199 89% 48%)"
+            isActive={isFilterActive('contact', 'with_phone')}
           />
-        </div>
-        <div className="cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => onFilterClick?.({ type: 'contact', value: 'without_phone' })}>
+        </ClickableKPI>
+        <ClickableKPI onClick={() => onFilterClick?.({ type: 'contact', value: 'without_phone' })} isActive={isFilterActive('contact', 'without_phone')}>
           <KPICard
             title="Senza Telefono"
             value={analytics.withoutPhone}
             percentage={analytics.withoutPhonePercentage}
             icon={PhoneOff}
             color={COLORS.declined}
+            isActive={isFilterActive('contact', 'without_phone')}
           />
-        </div>
-        <div className="cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => onFilterClick?.({ type: 'funnel', value: 'std_sent' })}>
+        </ClickableKPI>
+        <ClickableKPI onClick={() => onFilterClick?.({ type: 'funnel', value: 'std_sent' })} isActive={isFilterActive('funnel', 'std_sent')}>
           <KPICard
             title="STD Risposte"
             value={analytics.stdRespondedCount}
@@ -696,17 +767,19 @@ function CampaignsTab({ analytics, onFilterClick }: { analytics: GuestAnalytics;
             subtitle="tasso risposta"
             icon={CheckCircle2}
             color={COLORS.confirmed}
+            isActive={isFilterActive('funnel', 'std_sent')}
           />
-        </div>
-        <div className="cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => onFilterClick?.({ type: 'funnel', value: 'invited' })}>
+        </ClickableKPI>
+        <ClickableKPI onClick={() => onFilterClick?.({ type: 'funnel', value: 'invited' })} isActive={isFilterActive('funnel', 'invited')}>
           <KPICard
             title="Inviti Inviati"
             value={analytics.invitedCount}
             percentage={analytics.invitedPercentage}
             icon={Send}
             color={COLORS.adults}
+            isActive={isFilterActive('funnel', 'invited')}
           />
-        </div>
+        </ClickableKPI>
       </div>
 
       {/* Funnel Visualization */}
@@ -784,7 +857,7 @@ function CampaignsTab({ analytics, onFilterClick }: { analytics: GuestAnalytics;
   );
 }
 
-function MenuTab({ analytics, onFilterClick }: { analytics: GuestAnalytics; onFilterClick?: (filter: AnalyticsFilterType) => void }) {
+function MenuTab({ analytics, onFilterClick, activeFilter }: { analytics: GuestAnalytics; onFilterClick?: (filter: AnalyticsFilterType) => void; activeFilter?: AnalyticsFilterType | null }) {
   const menuData = analytics.menuBreakdown.map((m, i) => ({
     name: m.choice,
     value: m.count,
@@ -792,37 +865,42 @@ function MenuTab({ analytics, onFilterClick }: { analytics: GuestAnalytics; onFi
     fill: CHART_COLORS[i % CHART_COLORS.length],
   }));
 
+  const isFilterActive = (type: string, value: string) => activeFilter?.type === type && activeFilter?.value === value;
+
   return (
     <>
       {/* KPI Grid - Clickable */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-        <div className="cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => onFilterClick?.({ type: 'menu', value: 'with_choice' })}>
+        <ClickableKPI onClick={() => onFilterClick?.({ type: 'menu', value: 'with_choice' })} isActive={isFilterActive('menu', 'with_choice')}>
           <KPICard
             title="Con Scelta Menu"
             value={analytics.withMenuChoice}
             percentage={analytics.withMenuChoicePercentage}
             icon={Utensils}
             color={COLORS.confirmed}
+            isActive={isFilterActive('menu', 'with_choice')}
           />
-        </div>
-        <div className="cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => onFilterClick?.({ type: 'menu', value: 'no_choice' })}>
+        </ClickableKPI>
+        <ClickableKPI onClick={() => onFilterClick?.({ type: 'menu', value: 'no_choice' })} isActive={isFilterActive('menu', 'no_choice')}>
           <KPICard
             title="Senza Scelta"
             value={analytics.totalGuests - analytics.withMenuChoice}
             percentage={100 - analytics.withMenuChoicePercentage}
             icon={Clock}
             color={COLORS.pending}
+            isActive={isFilterActive('menu', 'no_choice')}
           />
-        </div>
-        <div className="cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => onFilterClick?.({ type: 'dietary', value: true })}>
+        </ClickableKPI>
+        <ClickableKPI onClick={() => onFilterClick?.({ type: 'dietary', value: true })} isActive={activeFilter?.type === 'dietary'}>
           <KPICard
             title="Esigenze Speciali"
             value={analytics.withDietaryCount}
             percentage={analytics.withDietaryPercentage}
             icon={AlertTriangle}
             color={COLORS.declined}
+            isActive={activeFilter?.type === 'dietary'}
           />
-        </div>
+        </ClickableKPI>
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">
@@ -831,6 +909,9 @@ function MenuTab({ analytics, onFilterClick }: { analytics: GuestAnalytics; onFi
           <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
             <PieChartIcon className="w-4 h-4" />
             Distribuzione Menu
+            <span className="text-xs text-muted-foreground ml-auto flex items-center gap-1">
+              <MousePointerClick className="w-3 h-3" /> Clicca per filtrare
+            </span>
           </h4>
           {menuData.length > 0 ? (
             <>
@@ -855,7 +936,7 @@ function MenuTab({ analytics, onFilterClick }: { analytics: GuestAnalytics; onFi
                         <Cell key={`cell-${index}`} fill={entry.fill} />
                       ))}
                     </Pie>
-                    <Tooltip
+                    <RechartsTooltip
                       formatter={(value: number, name: string, props: any) => [
                         `${value} (${props.payload.percentage.toFixed(1)}%)`,
                         name,
