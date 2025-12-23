@@ -5,7 +5,8 @@ import { useAuth } from "@/contexts/AuthContext";
 export interface GuestMetrics {
   // Conteggi base
   totalInvitations: number;    // Righe DB (buste da spedire)
-  totalHeadCount: number;      // Persone fisiche (coperti catering)
+  totalHeadCount: number;      // Persone fisiche (coperti catering - solo +1 confermati)
+  estimatedMaxHeadCount: number; // Coperti stimati (include +1 potenziali)
   
   // Breakdown Composizione
   adultsCount: number;
@@ -154,6 +155,14 @@ export function useGuestMetrics(): GuestMetrics {
     staffCount + 
     plusOnesConfirmed;
 
+  // Estimated max head count = include TUTTI i +1 potenziali
+  const estimatedMaxHeadCount = 
+    adultsCount + 
+    childrenCount + 
+    coupleCount + 
+    staffCount + 
+    plusOnesPotential;
+
   const refetch = () => {
     refetchGuests();
     refetchVendors();
@@ -162,6 +171,7 @@ export function useGuestMetrics(): GuestMetrics {
   return {
     totalInvitations,
     totalHeadCount,
+    estimatedMaxHeadCount,
     adultsCount,
     childrenCount,
     coupleCount,
