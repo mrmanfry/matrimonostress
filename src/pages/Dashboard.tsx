@@ -6,10 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Heart, Users, Euro, Calendar, CheckSquare, AlertCircle, TrendingUp, ExternalLink } from "lucide-react";
+import { Heart, Users, Euro, Calendar, CheckSquare, AlertCircle, TrendingUp, ExternalLink, Utensils } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from "recharts";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
+import { useGuestMetrics } from "@/hooks/useGuestMetrics";
+import { GuestSummaryWidget } from "@/components/dashboard/GuestSummaryWidget";
 
 interface Wedding {
   id: string;
@@ -357,74 +359,11 @@ const Dashboard = () => {
 
       {/* Widget Grid 2x2 */}
       <div className="grid md:grid-cols-2 gap-6">
-        {/* Widget 1: Riepilogo Invitati con Grafico */}
-        <Card 
-          className="p-6 hover:shadow-elegant transition-all cursor-pointer"
-          onClick={() => navigate("/app/guests")}
-        >
-          <div className="flex items-center gap-2 mb-4">
-            <Users className="w-6 h-6 text-accent" />
-            <h3 className="text-xl font-semibold">Riepilogo Invitati</h3>
-          </div>
-
-          <div className="space-y-6">
-            {/* Numeri Principali */}
-            <div className="text-center">
-              <div className="text-5xl font-bold text-accent mb-2">
-                {stats.guestsTotal}
-              </div>
-              <div className="text-sm text-muted-foreground mb-4">Invitati Totali</div>
-              
-              <div className="grid grid-cols-2 gap-3 max-w-xs mx-auto">
-                <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20">
-                  <div className="text-2xl font-bold text-blue-600">
-                    {stats.adultsTotal}
-                  </div>
-                  <div className="text-xs text-muted-foreground">Adulti</div>
-                </div>
-                <div className="p-3 rounded-lg bg-purple-50 dark:bg-purple-950/20">
-                  <div className="text-2xl font-bold text-purple-600">
-                    {stats.childrenTotal}
-                  </div>
-                  <div className="text-xs text-muted-foreground">Bambini</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Stato RSVP - Grafico */}
-            <div>
-              <h4 className="text-sm font-semibold mb-3 text-center">Stato Conferme</h4>
-              <div className="h-[180px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={rsvpChartData}
-                      cx="50%"
-                      cy="45%"
-                      innerRadius={50}
-                      outerRadius={70}
-                      paddingAngle={3}
-                      dataKey="value"
-                    >
-                      {rsvpChartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Legend 
-                      verticalAlign="bottom" 
-                      height={40}
-                      formatter={(value, entry: any) => (
-                        <span className="text-xs">
-                          {value}: <strong>{entry.payload.value}</strong>
-                        </span>
-                      )}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
-        </Card>
+        {/* Widget 1: Riepilogo Invitati con Grafico - usando useGuestMetrics */}
+        <GuestSummaryWidget 
+          stats={stats} 
+          onClick={() => navigate("/app/guests")} 
+        />
 
         {/* Widget 2: Stato Budget con Barra */}
         <Card 

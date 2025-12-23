@@ -9,6 +9,7 @@ import { vendorSchema, type VendorFormData } from "@/lib/validationSchemas";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { Switch } from "@/components/ui/switch";
 import { Upload, FileText, X } from "lucide-react";
 import {
   Dialog,
@@ -36,6 +37,8 @@ interface Vendor {
   status: string;
   notes: string | null;
   category_id: string | null;
+  staff_meals_count?: number | null;
+  staff_dietary_notes?: string | null;
 }
 
 interface VendorDialogProps {
@@ -56,6 +59,8 @@ const emptyVendor: VendorFormData = {
   status: "evaluating",
   notes: "",
   category_id: "",
+  staff_meals_count: 0,
+  staff_dietary_notes: "",
 };
 
 export function VendorDialog({
@@ -88,6 +93,7 @@ export function VendorDialog({
 
   const categoryId = watch("category_id");
   const status = watch("status");
+  const staffMealsCount = watch("staff_meals_count");
 
   useEffect(() => {
     if (vendor) {
@@ -99,6 +105,8 @@ export function VendorDialog({
         status: vendor.status as VendorFormData["status"],
         notes: vendor.notes || "",
         category_id: vendor.category_id || "",
+        staff_meals_count: vendor.staff_meals_count || 0,
+        staff_dietary_notes: vendor.staff_dietary_notes || "",
       });
       if (vendor.id) {
         loadExistingFiles(vendor.id);
@@ -367,6 +375,8 @@ export function VendorDialog({
         phone: data.phone || null,
         notes: data.notes || null,
         category_id: data.category_id || null,
+        staff_meals_count: data.staff_meals_count || 0,
+        staff_dietary_notes: data.staff_dietary_notes || null,
       };
       
       await onSave(vendorData);
@@ -527,6 +537,67 @@ export function VendorDialog({
             <p className="text-xs text-muted-foreground">
               Spazio per preventivi, pro/contro, dettagli contrattuali
             </p>
+          </div>
+
+          {/* Sezione Logistica Evento */}
+          <div className="space-y-3 pt-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="staff-meals-switch" className="text-base font-semibold">
+                🍽️ Logistica Evento
+              </Label>
+            </div>
+            
+            <div className="border rounded-lg p-4 space-y-4 bg-muted/30">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="staff-meals-switch" className="text-sm">
+                    Richiede pasti staff?
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Attiva se il fornitore ha personale che necessita di pasti
+                  </p>
+                </div>
+                <Switch
+                  id="staff-meals-switch"
+                  checked={(staffMealsCount || 0) > 0}
+                  onCheckedChange={(checked) => {
+                    setValue("staff_meals_count", checked ? 1 : 0, { shouldValidate: true });
+                  }}
+                />
+              </div>
+
+              {(staffMealsCount || 0) > 0 && (
+                <div className="space-y-4 pt-2 border-t">
+                  <div className="space-y-2">
+                    <Label htmlFor="staff_meals_count">Numero persone</Label>
+                    <Input
+                      id="staff_meals_count"
+                      type="number"
+                      min={1}
+                      max={50}
+                      {...register("staff_meals_count", { valueAsNumber: true })}
+                      placeholder="1"
+                    />
+                    {errors.staff_meals_count && (
+                      <p className="text-sm text-destructive">{errors.staff_meals_count.message}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="staff_dietary_notes">Note alimentari staff</Label>
+                    <Input
+                      id="staff_dietary_notes"
+                      {...register("staff_dietary_notes")}
+                      placeholder="Es: 1 vegano, 1 intollerante al lattosio..."
+                      maxLength={500}
+                    />
+                    {errors.staff_dietary_notes && (
+                      <p className="text-sm text-destructive">{errors.staff_dietary_notes.message}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Gestione spese - mostra solo se vendor è salvato */}
