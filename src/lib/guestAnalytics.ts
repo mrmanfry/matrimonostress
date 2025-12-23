@@ -120,34 +120,37 @@ export function calculateGuestAnalytics(
   guests: GuestForAnalytics[],
   parties: PartyForAnalytics[]
 ): GuestAnalytics {
-  // Filter out couple members from analytics
-  const analyzableGuests = guests.filter(g => !g.is_couple_member);
-  const total = analyzableGuests.length;
+  // Separate couple members (always confirmed) from regular guests
+  const coupleMembers = guests.filter(g => g.is_couple_member);
+  const regularGuests = guests.filter(g => !g.is_couple_member);
+  
+  // Total includes everyone
+  const total = guests.length;
   
   if (total === 0) {
     return getEmptyAnalytics();
   }
 
-  // RSVP Status counts
-  const confirmedCount = analyzableGuests.filter(g => g.rsvp_status === 'confirmed').length;
-  const declinedCount = analyzableGuests.filter(g => g.rsvp_status === 'declined').length;
+  // RSVP Status counts - couple members always count as confirmed
+  const confirmedCount = coupleMembers.length + regularGuests.filter(g => g.rsvp_status === 'confirmed').length;
+  const declinedCount = regularGuests.filter(g => g.rsvp_status === 'declined').length;
   const pendingCount = total - confirmedCount - declinedCount;
 
-  // Composition
-  const childrenCount = analyzableGuests.filter(g => g.is_child).length;
-  const staffCount = analyzableGuests.filter(g => g.is_staff).length;
+  // Composition (includes everyone)
+  const childrenCount = guests.filter(g => g.is_child).length;
+  const staffCount = guests.filter(g => g.is_staff).length;
   const adultsCount = total - childrenCount - staffCount;
 
-  // Plus Ones
-  const plusOnesPotential = analyzableGuests.filter(g => g.allow_plus_one).length;
-  const plusOnesConfirmed = analyzableGuests.filter(g => g.plus_one_name && g.plus_one_name.trim() !== '').length;
+  // Plus Ones (regular guests only - couple members don't have plus ones)
+  const plusOnesPotential = regularGuests.filter(g => g.allow_plus_one).length;
+  const plusOnesConfirmed = regularGuests.filter(g => g.plus_one_name && g.plus_one_name.trim() !== '').length;
   const plusOnesConversionRate = plusOnesPotential > 0 ? (plusOnesConfirmed / plusOnesPotential) * 100 : 0;
 
-  // Groups breakdown
+  // Groups breakdown (includes everyone)
   const groupData: Record<string, { id: string | null; count: number }> = {};
   let ungroupedCount = 0;
   
-  analyzableGuests.forEach(g => {
+  guests.forEach(g => {
     if (g.group_name) {
       if (!groupData[g.group_name]) {
         groupData[g.group_name] = { id: g.group_id || null, count: 0 };
@@ -167,25 +170,25 @@ export function calculateGuestAnalytics(
     }))
     .sort((a, b) => b.count - a.count);
 
-  // Contact coverage
-  const withPhone = analyzableGuests.filter(g => g.phone && g.phone.trim() !== '').length;
-  const withoutPhone = total - withPhone;
+  // Contact coverage (regular guests only - couple members don't need phone for campaigns)
+  const withPhone = regularGuests.filter(g => g.phone && g.phone.trim() !== '').length;
+  const withoutPhone = regularGuests.length - withPhone;
 
-  // Campaign funnel
-  const draftCount = analyzableGuests.filter(g => !g.save_the_date_sent_at && !g.formal_invite_sent_at).length;
-  const stdSentCount = analyzableGuests.filter(g => g.save_the_date_sent_at && !g.formal_invite_sent_at).length;
-  const stdRespondedCount = analyzableGuests.filter(g => g.std_responded_at).length;
+  // Campaign funnel (regular guests only - couple members don't go through funnel)
+  const draftCount = regularGuests.filter(g => !g.save_the_date_sent_at && !g.formal_invite_sent_at).length;
+  const stdSentCount = regularGuests.filter(g => g.save_the_date_sent_at && !g.formal_invite_sent_at).length;
+  const stdRespondedCount = regularGuests.filter(g => g.std_responded_at).length;
   const stdResponseRate = stdSentCount > 0 ? (stdRespondedCount / stdSentCount) * 100 : 0;
-  const stdLikelyYes = analyzableGuests.filter(g => g.std_response === 'likely_yes').length;
-  const stdUnsure = analyzableGuests.filter(g => g.std_response === 'unsure').length;
-  const stdLikelyNo = analyzableGuests.filter(g => g.std_response === 'likely_no').length;
-  const invitedCount = analyzableGuests.filter(g => g.formal_invite_sent_at).length;
+  const stdLikelyYes = regularGuests.filter(g => g.std_response === 'likely_yes').length;
+  const stdUnsure = regularGuests.filter(g => g.std_response === 'unsure').length;
+  const stdLikelyNo = regularGuests.filter(g => g.std_response === 'likely_no').length;
+  const invitedCount = regularGuests.filter(g => g.formal_invite_sent_at).length;
 
-  // Menu breakdown
+  // Menu breakdown (includes everyone)
   const menuCounts: Record<string, number> = {};
   let withMenuChoice = 0;
   
-  analyzableGuests.forEach(g => {
+  guests.forEach(g => {
     if (g.menu_choice && g.menu_choice.trim() !== '') {
       withMenuChoice++;
       menuCounts[g.menu_choice] = (menuCounts[g.menu_choice] || 0) + 1;
@@ -200,11 +203,11 @@ export function calculateGuestAnalytics(
     }))
     .sort((a, b) => b.count - a.count);
 
-  // Dietary restrictions
+  // Dietary restrictions (includes everyone)
   const dietarySet = new Set<string>();
   let withDietaryCount = 0;
   
-  analyzableGuests.forEach(g => {
+  guests.forEach(g => {
     if (g.dietary_restrictions && g.dietary_restrictions.trim() !== '') {
       withDietaryCount++;
       dietarySet.add(g.dietary_restrictions.trim());
