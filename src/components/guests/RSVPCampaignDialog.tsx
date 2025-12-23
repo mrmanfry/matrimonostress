@@ -861,10 +861,11 @@ export function RSVPCampaignDialog({
                           <div className="flex-1 flex items-center justify-between">
                             <div>
                               <span className="font-medium">{guest.first_name} {guest.last_name}</span>
-                              {guest.rsvp_invitation_sent && (
+                              {hasBeenSentForCampaign(guest) && (
                                 <Badge variant="outline" className="ml-2 text-xs text-green-600">
                                   <CheckCircle className="w-3 h-3 mr-1" />
-                                  Inviato
+                                  {campaignType === 'save_the_date' ? 'STD Inviato' : 
+                                   campaignType === 'reminder' ? 'Reminder Inviato' : 'Invito Inviato'}
                                 </Badge>
                               )}
                             </div>
