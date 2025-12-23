@@ -145,7 +145,7 @@ export function RSVPCampaignDialog({
         }
       }
     } else {
-      // Reset when dialog closes
+      // Full reset when dialog closes (prevents stale state)
       setStep("campaign_type");
       setCampaignType(null);
       setActiveFilter("to_send");
@@ -153,12 +153,16 @@ export function RSVPCampaignDialog({
       setSelectedGroupId(null);
       setSelectedGuestIds(new Set());
       setIsRecoveringFromRefresh(false);
+      setGuests([]);
+      setCurrentIndex(0);
+      setWhatsappOpened(false);
     }
   }, [open, weddingId]);
 
   // Auto-save campaign state whenever critical state changes during "sending" step
+  // GUARD: Only save if dialog is open AND we have valid campaign data
   useEffect(() => {
-    if (step === "sending" && guests.length > 0 && weddingId && campaignType) {
+    if (open && step === "sending" && guests.length > 0 && weddingId && campaignType) {
       const stateToSave: SavedCampaignState = {
         weddingId,
         guests,
@@ -170,7 +174,7 @@ export function RSVPCampaignDialog({
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
     }
-  }, [step, guests, currentIndex, messageTemplate, whatsappOpened, weddingId, campaignType]);
+  }, [open, step, guests, currentIndex, messageTemplate, whatsappOpened, weddingId, campaignType]);
 
   // Apply pre-selection when allGuests loads and we have preSelectedGuestIds
   useEffect(() => {
@@ -503,20 +507,31 @@ export function RSVPCampaignDialog({
     setIsRecoveringFromRefresh(false);
   };
 
-  // Handle close with confirmation during active campaign
-  // NEW: Abort campaign cleanly without marking current guest as sent
-  const handleAbortCampaign = () => {
-    // 1. Clean localStorage to prevent recovery loop
+  // Helper to fully reset campaign state (prevents auto-save from rewriting localStorage)
+  const resetCampaignState = () => {
+    // Clear localStorage FIRST
     localStorage.removeItem(STORAGE_KEY);
     
-    // 2. Reset local states
-    setIsRecoveringFromRefresh(false);
+    // Reset ALL React states that auto-save depends on
+    setStep("campaign_type");
+    setGuests([]);
+    setCurrentIndex(0);
     setWhatsappOpened(false);
+    setIsRecoveringFromRefresh(false);
+    setCampaignType(null);
+    setSelectedGuestIds(new Set());
+  };
+
+  // Handle close with confirmation during active campaign
+  // Abort campaign cleanly without marking current guest as sent
+  const handleAbortCampaign = () => {
+    // 1. Fully reset state (prevents auto-save loop)
+    resetCampaignState();
     
-    // 3. Notify user
+    // 2. Notify user
     toast.info("Campagna interrotta. I progressi precedenti sono stati salvati.");
     
-    // 4. Close dialog
+    // 3. Close dialog
     onOpenChange(false);
   };
 
@@ -530,8 +545,8 @@ export function RSVPCampaignDialog({
       );
       if (!confirmed) return;
       
-      // Clean localStorage to prevent recovery loop
-      localStorage.removeItem(STORAGE_KEY);
+      // Fully reset state to prevent recovery loop
+      resetCampaignState();
     }
     onOpenChange(newOpen);
   };
