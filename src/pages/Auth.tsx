@@ -5,9 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { Heart, Loader2 } from "lucide-react";
 import { z } from "zod";
+import { sessionGuard } from "@/utils/sessionGuard";
 
 const emailSchema = z.string().trim().email("Email non valida");
 const passwordSchema = z
@@ -51,6 +53,7 @@ const Auth = () => {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false); // Default: false (sicurezza massima)
   const [passwordStrength, setPasswordStrength] = useState({ strength: 0, label: "", color: "" });
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const navigate = useNavigate();
@@ -114,6 +117,15 @@ const Auth = () => {
         // Validate inputs for login
         emailSchema.parse(email);
         passwordSchema.parse(password);
+
+        // GESTIONE PERSISTENZA SESSIONE
+        // Se "rememberMe" è false, la sessione verrà cancellata alla chiusura del browser
+        if (rememberMe) {
+          sessionGuard.markAsPersistent();
+        } else {
+          sessionGuard.markAsVolatile();
+        }
+
         const { error } = await supabase.auth.signInWithPassword({
           email,
           password,
@@ -123,7 +135,9 @@ const Auth = () => {
         
         toast({
           title: "Accesso effettuato!",
-          description: "Benvenuto su Nozze Senza Stress",
+          description: rememberMe 
+            ? "Resterai collegato su questo dispositivo" 
+            : "La sessione terminerà alla chiusura del browser",
         });
       } else {
         // Validate signup form
@@ -144,6 +158,13 @@ const Auth = () => {
           });
           setValidationErrors(errors);
           throw new Error(Object.values(errors)[0]);
+        }
+
+        // Per la registrazione, gestione persistenza
+        if (rememberMe) {
+          sessionGuard.markAsPersistent();
+        } else {
+          sessionGuard.markAsVolatile();
         }
 
         const { data, error } = await supabase.auth.signUp({
@@ -314,6 +335,22 @@ const Auth = () => {
               )}
             </div>
           )}
+
+          {/* CHECKBOX "RESTA COLLEGATO" */}
+          <div className="flex items-center space-x-2 py-2">
+            <Checkbox
+              id="rememberMe"
+              checked={rememberMe}
+              onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+              disabled={loading}
+            />
+            <Label 
+              htmlFor="rememberMe" 
+              className="text-sm text-muted-foreground cursor-pointer select-none"
+            >
+              Resta collegato su questo dispositivo
+            </Label>
+          </div>
 
           <Button 
             type="submit" 
