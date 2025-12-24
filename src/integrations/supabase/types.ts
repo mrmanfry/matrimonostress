@@ -1269,6 +1269,7 @@ export type Database = {
         Row: {
           access_code: string | null
           calculation_mode: string | null
+          campaigns_config: Json | null
           created_at: string
           created_by: string
           id: string
@@ -1285,6 +1286,7 @@ export type Database = {
         Insert: {
           access_code?: string | null
           calculation_mode?: string | null
+          campaigns_config?: Json | null
           created_at?: string
           created_by: string
           id?: string
@@ -1301,6 +1303,7 @@ export type Database = {
         Update: {
           access_code?: string | null
           calculation_mode?: string | null
+          campaigns_config?: Json | null
           created_at?: string
           created_by?: string
           id?: string
