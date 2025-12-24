@@ -158,6 +158,11 @@ Deno.serve(async (req) => {
           lastEditorName = editor?.first_name || null;
         }
 
+// Helper per gestire stringhe vuote/solo spazi
+        const getValidString = (value: string | null | undefined, fallback: string): string => {
+          return value?.trim() ? value : fallback;
+        };
+
         // Parse campaigns_config (new) or fall back to rsvp_config (legacy)
         const campaignsConfig = wedding?.campaigns_config as CampaignsConfig | null;
         
@@ -165,8 +170,8 @@ Deno.serve(async (req) => {
         const rsvpConfig: RSVPConfig = campaignsConfig
           ? {
               hero_image_url: campaignsConfig.save_the_date.hero_image_url || campaignsConfig.rsvp.hero_image_url,
-              welcome_title: campaignsConfig.save_the_date.welcome_title || "Save The Date!",
-              welcome_text: campaignsConfig.save_the_date.welcome_text || "Non vediamo l'ora di festeggiare con voi!",
+              welcome_title: getValidString(campaignsConfig.save_the_date.welcome_title, "Save The Date!"),
+              welcome_text: getValidString(campaignsConfig.save_the_date.welcome_text, "Non vediamo l'ora di festeggiare con voi!"),
               deadline_date: campaignsConfig.rsvp.deadline_date,
             }
           : wedding?.rsvp_config || {
