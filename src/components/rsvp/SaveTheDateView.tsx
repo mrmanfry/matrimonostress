@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Calendar, MapPin, Loader2, CheckCircle, ChevronDown } from "lucide-react";
+import { Calendar, MapPin, Loader2, ChevronDown, Check, Heart, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Theme {
@@ -24,6 +23,48 @@ interface SaveTheDateViewProps {
   theme?: Theme | null;
   onSubmitResponse: (response: 'likely_yes' | 'likely_no' | 'unsure') => Promise<void>;
 }
+
+// Helper function to get confirmation content based on response
+const getConfirmationContent = (response: string, guestFirstName: string) => {
+  switch (response) {
+    case 'likely_yes':
+      return {
+        title: `Grazie ${guestFirstName}!`,
+        subtitle: 'Non vediamo l\'ora di condividere questo giorno speciale con te.',
+        message: 'Sarà un onore averti al nostro fianco. Ti invieremo presto tutti i dettagli per il grande giorno.',
+        icon: 'check' as const,
+        showCalendar: true,
+        ctaLabel: 'Cambia la tua risposta',
+      };
+    case 'unsure':
+      return {
+        title: `Grazie ${guestFirstName}!`,
+        subtitle: 'Abbiamo registrato la tua risposta.',
+        message: 'Capiamo che la vita è piena di impegni. Torna su questa pagina quando vorrai per farci sapere se potrai esserci — ci aiuterai a organizzare al meglio il nostro giorno.',
+        icon: 'check' as const,
+        showCalendar: true,
+        ctaLabel: 'Aggiorna la tua risposta',
+      };
+    case 'likely_no':
+      return {
+        title: `Ci mancherai, ${guestFirstName}`,
+        subtitle: 'Ci dispiace che non potrai essere con noi.',
+        message: 'Ma ti porteremo nel cuore quel giorno. Se le cose dovessero cambiare, sappi che c\'è sempre un posto per te.',
+        icon: 'heart' as const,
+        showCalendar: false,
+        ctaLabel: 'Cambia la tua risposta',
+      };
+    default:
+      return {
+        title: `Grazie ${guestFirstName}!`,
+        subtitle: 'Abbiamo registrato la tua risposta.',
+        message: 'Ti invieremo presto tutti i dettagli!',
+        icon: 'check' as const,
+        showCalendar: true,
+        ctaLabel: 'Cambia la tua risposta',
+      };
+  }
+};
 
 export function SaveTheDateView({
   coupleName,
@@ -79,13 +120,17 @@ export function SaveTheDateView({
     try {
       await onSubmitResponse(response);
       setSubmitted(true);
-      toast.success("Grazie per la tua risposta! 💕");
     } catch (error) {
       toast.error("Si è verificato un errore. Riprova.");
       setSelectedResponse(null);
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleChangeResponse = () => {
+    setSubmitted(false);
+    setSelectedResponse(null);
   };
 
   const addToCalendar = (type: 'google' | 'apple' | 'outlook') => {
@@ -126,42 +171,160 @@ END:VCALENDAR`;
     setShowCalendarOptions(false);
   };
 
-  // Success state after submission
-  if (submitted && !isPreview) {
+  // Get confirmation content based on response
+  const confirmationContent = selectedResponse 
+    ? getConfirmationContent(selectedResponse, guestFirstName) 
+    : null;
+
+  // Success state after submission - Immersive Design
+  if (submitted && !isPreview && confirmationContent) {
     return (
       <div 
-        className="min-h-screen flex items-center justify-center p-4"
-        style={{ 
-          background: `linear-gradient(135deg, ${primaryColor}22, ${primaryColor}08)` 
+        className="relative min-h-screen flex flex-col"
+        style={{
+          backgroundImage: heroImageUrl 
+            ? `url(${heroImageUrl})` 
+            : `linear-gradient(135deg, ${primaryColor}33 0%, ${primaryColor}11 100%)`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundAttachment: 'fixed',
         }}
       >
-        <div className="max-w-md w-full text-center bg-white/90 backdrop-blur-sm rounded-2xl p-8 shadow-xl">
-          <div 
-            className="mx-auto mb-4 w-16 h-16 rounded-full flex items-center justify-center"
-            style={{ backgroundColor: `${primaryColor}20` }}
-          >
-            <CheckCircle className="w-8 h-8" style={{ color: primaryColor }} />
-          </div>
-          <h2 className="font-cormorant text-3xl font-light mb-2">Grazie {guestFirstName}!</h2>
-          <p className="text-gray-600 mb-6">
-            Abbiamo registrato la tua risposta. Ti invieremo presto tutti i dettagli!
-          </p>
-          
-          <div className="bg-gray-50 rounded-lg p-4 mb-6">
-            <p className="text-sm text-gray-500 mb-1">Segna la data!</p>
-            <p className="font-cormorant text-2xl font-semibold capitalize">
-              {dayNumber} {monthName} {year}
+        {/* Dark Gradient Overlay */}
+        <div 
+          className="absolute inset-0"
+          style={{
+            background: heroImageUrl 
+              ? 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.5) 50%, rgba(0,0,0,0.3) 100%)'
+              : 'transparent'
+          }}
+        />
+
+        {/* Content Container */}
+        <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 py-12">
+          <div className="text-center text-white max-w-md mx-auto space-y-8">
+            
+            {/* Couple Names */}
+            <p 
+              className="font-cormorant text-2xl font-light tracking-wide"
+              style={{ color: 'rgba(255,255,255,0.7)' }}
+            >
+              {name1} & {name2}
             </p>
+
+            {/* Animated Check/Heart Icon */}
+            <div 
+              className="mx-auto w-20 h-20 rounded-full flex items-center justify-center animate-scale-in"
+              style={{ 
+                backgroundColor: confirmationContent.icon === 'heart' 
+                  ? 'rgba(239, 68, 68, 0.2)' 
+                  : `${primaryColor}30`,
+                border: `2px solid ${confirmationContent.icon === 'heart' ? 'rgba(239, 68, 68, 0.5)' : primaryColor}`
+              }}
+            >
+              {confirmationContent.icon === 'heart' ? (
+                <Heart 
+                  className="w-10 h-10 animate-fade-in" 
+                  style={{ color: '#ef4444', fill: '#ef4444' }} 
+                />
+              ) : (
+                <Check 
+                  className="w-10 h-10 animate-fade-in" 
+                  style={{ color: primaryColor }} 
+                  strokeWidth={3}
+                />
+              )}
+            </div>
+
+            {/* Title */}
+            <div className="space-y-2">
+              <h1 className="font-cormorant text-4xl sm:text-5xl font-light animate-fade-in">
+                {confirmationContent.title}
+              </h1>
+              <p 
+                className="text-lg font-light"
+                style={{ color: 'rgba(255,255,255,0.8)' }}
+              >
+                {confirmationContent.subtitle}
+              </p>
+            </div>
+
+            {/* Personalized Message */}
+            <p 
+              className="font-playfair text-base sm:text-lg italic leading-relaxed max-w-sm mx-auto"
+              style={{ color: 'rgba(255,255,255,0.7)' }}
+            >
+              {confirmationContent.message}
+            </p>
+
+            {/* Date Section - Only for positive responses */}
+            {confirmationContent.showCalendar && (
+              <div className="pt-4 space-y-4">
+                {/* Elegant Separator */}
+                <div className="flex items-center justify-center gap-4">
+                  <div className="h-px w-12 bg-white/30" />
+                  <span 
+                    className="text-xs uppercase tracking-[0.2em] font-light"
+                    style={{ color: 'rgba(255,255,255,0.5)' }}
+                  >
+                    Segna la data
+                  </span>
+                  <div className="h-px w-12 bg-white/30" />
+                </div>
+
+                {/* Date Display */}
+                <p className="font-cormorant text-3xl sm:text-4xl font-semibold capitalize">
+                  {dayNumber} {monthName} {year}
+                </p>
+
+                {/* Calendar Button */}
+                <div className="relative pt-2">
+                  <button
+                    onClick={() => setShowCalendarOptions(!showCalendarOptions)}
+                    className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full backdrop-blur-md transition-all hover:scale-[1.02]"
+                    style={{
+                      backgroundColor: 'rgba(255,255,255,0.1)',
+                      border: '1px solid rgba(255,255,255,0.3)',
+                      color: 'white'
+                    }}
+                  >
+                    <Calendar className="w-4 h-4" style={{ color: primaryColor }} />
+                    <span className="text-sm tracking-wide">Aggiungi al Calendario</span>
+                    <ChevronDown className={cn("w-4 h-4 transition-transform", showCalendarOptions && "rotate-180")} />
+                  </button>
+                  
+                  {/* Calendar Dropdown */}
+                  {showCalendarOptions && (
+                    <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-64 bg-white/95 backdrop-blur-md rounded-xl shadow-xl overflow-hidden z-20">
+                      {['google', 'apple', 'outlook'].map((cal) => (
+                        <button
+                          key={cal}
+                          onClick={() => addToCalendar(cal as any)}
+                          className="w-full px-4 py-3 text-left text-gray-800 hover:bg-gray-100 transition-colors flex items-center gap-3 text-sm"
+                        >
+                          <Calendar className="w-4 h-4" style={{ color: primaryColor }} />
+                          <span className="capitalize">{cal === 'apple' ? 'Apple Calendar' : cal === 'google' ? 'Google Calendar' : 'Outlook'}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Change Response Button */}
+            <div className="pt-6">
+              <button
+                onClick={handleChangeResponse}
+                className="inline-flex items-center gap-2 text-sm tracking-wide transition-all hover:opacity-80"
+                style={{ color: 'rgba(255,255,255,0.6)' }}
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span>{confirmationContent.ctaLabel}</span>
+              </button>
+            </div>
+
           </div>
-          
-          <Button 
-            variant="outline" 
-            onClick={() => addToCalendar('google')} 
-            className="w-full"
-          >
-            <Calendar className="w-4 h-4 mr-2" />
-            Aggiungi a Google Calendar
-          </Button>
         </div>
       </div>
     );
