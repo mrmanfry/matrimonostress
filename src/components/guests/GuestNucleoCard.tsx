@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Users, Phone, Edit, Baby, Edit2, UserPlus2, Tag, AlertTriangle } from "lucide-react";
+import { Users, Edit, Baby, Edit2, UserPlus2, Tag, AlertTriangle } from "lucide-react";
 import { useState, useMemo } from "react";
 import { GuestEditDialog } from "./GuestEditDialog";
 import { GuestCampaignBadges } from "./GuestCampaignBadges";
@@ -82,6 +82,22 @@ function detectStdDiscrepancy(guests: Guest[]): { hasDiscrepancy: boolean; detai
   return { hasDiscrepancy: true, details };
 }
 
+/**
+ * Gets the status strip color based on party/STD status.
+ */
+function getStatusStripColor(party: InviteParty): string {
+  if (party.rsvp_status === 'Confermato') return 'bg-green-500';
+  if (party.rsvp_status === 'Rifiutato') return 'bg-red-500';
+  
+  // Check STD response from primary guest
+  const primaryStd = party.guests[0]?.std_response;
+  if (primaryStd === 'likely_yes') return 'bg-violet-500';
+  if (primaryStd === 'likely_no') return 'bg-orange-500';
+  if (primaryStd === 'unsure') return 'bg-amber-400';
+  
+  return 'bg-gray-300 dark:bg-gray-600';
+}
+
 export const GuestNucleoCard = ({
   party,
   selected,
@@ -145,191 +161,187 @@ export const GuestNucleoCard = ({
 
   const adults = party.guests.filter(g => !g.is_child);
   const children = party.guests.filter(g => g.is_child);
-  const guestsWithPhone = party.guests.filter(g => g.phone).length;
-  const totalGuests = party.guests.length;
-  const allSent = party.guests.every(g => g.rsvp_send_status === 'Inviato');
   const guestsWithPlusOne = party.guests.filter(g => g.allow_plus_one).length;
   // Get group name from the first guest that has one assigned
   const groupName = party.guests.find(g => g.group_name)?.group_name;
   
   // Detect STD discrepancy within family nucleus
   const stdDiscrepancy = useMemo(() => detectStdDiscrepancy(party.guests), [party.guests]);
+  
+  // Status strip color
+  const statusStripColor = getStatusStripColor(party);
 
   return (
-    <Card className={`p-4 hover:shadow-md transition-all ${selected ? 'ring-2 ring-primary' : ''}`}>
-      <div className="flex items-start gap-3">
-        {/* Checkbox */}
-        <Checkbox
-          checked={selected}
-          onCheckedChange={() => onToggleSelect(party.id)}
-          className="mt-1"
-        />
+    <Card className={`relative overflow-hidden hover:shadow-md transition-all ${selected ? 'ring-2 ring-primary' : ''}`}>
+      {/* Status Strip - colored bar on the left */}
+      <div className={`absolute left-0 top-0 bottom-0 w-1 ${statusStripColor}`} />
+      
+      <div className="p-4 pl-5">
+        <div className="flex items-start gap-3">
+          {/* Checkbox */}
+          <Checkbox
+            checked={selected}
+            onCheckedChange={() => onToggleSelect(party.id)}
+            className="mt-1"
+          />
 
-        {/* Content */}
-        <div className="flex-1 min-w-0">
-          {/* Header */}
-          <div className="flex items-start justify-between gap-2 mb-3">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-2 flex-wrap">
-                <Users className="w-4 h-4 text-primary flex-shrink-0" />
-                <h3 className="font-semibold truncate">{party.party_name}</h3>
-                {groupName && (
-                  <Badge variant="outline" className="text-xs gap-1 bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/20 dark:border-blue-700 dark:text-blue-300">
-                    <Tag className="w-3 h-3" />
-                    {groupName}
-                  </Badge>
-                )}
-                {guestsWithPlusOne > 0 && (
-                  <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
-                    <UserPlus2 className="w-3 h-3 mr-1" />
-                    {guestsWithPlusOne} +1
-                  </Badge>
-                )}
-              </div>
-              <div className="flex items-center gap-2 flex-wrap text-xs">
-                {/* Campaign badge based on primary contact */}
-                {party.guests[0] && (
-                  <GuestCampaignBadges 
-                    saveTheDateSentAt={party.guests[0].save_the_date_sent_at}
-                    formalInviteSentAt={party.guests[0].formal_invite_sent_at}
-                    stdResponse={party.guests[0].std_response as 'likely_yes' | 'likely_no' | 'unsure' | null | undefined}
-                    rsvpStatus={party.guests[0].rsvp_status}
-                    compact
-                  />
-                )}
-                {/* STD Discrepancy Warning */}
-                {stdDiscrepancy.hasDiscrepancy && (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Badge 
-                          variant="outline" 
-                          className="text-xs gap-1 bg-orange-50 border-orange-300 text-orange-700 dark:bg-orange-900/20 dark:border-orange-600 dark:text-orange-400 cursor-help"
-                        >
-                          <AlertTriangle className="w-3 h-3" />
-                          Risposte diverse
-                        </Badge>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom" className="max-w-xs">
-                        <p className="text-xs font-medium mb-1">Discrepanza Save The Date:</p>
-                        <p className="text-xs text-muted-foreground">{stdDiscrepancy.details}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                )}
-                <span className="text-muted-foreground">•</span>
-                <span className="text-muted-foreground">
-                  Totale: {adults.length} Adult{adults.length !== 1 ? 'i' : 'o'}, {children.length} Bambin{children.length !== 1 ? 'i' : 'o'}
-                </span>
-              </div>
-              <div className="flex items-center gap-1 mt-1 text-xs">
-                <Phone className="w-3 h-3 text-muted-foreground" />
-                <span className={guestsWithPhone === totalGuests ? 'text-green-600' : 'text-orange-600'}>
-                  ({guestsWithPhone}/{totalGuests} contatti presenti)
-                </span>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex gap-1 flex-shrink-0">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 gap-1.5"
-                onClick={() => onEdit(party)}
-              >
-                <Edit className="w-3.5 h-3.5" />
-                <span className="text-xs">Modifica Nucleo</span>
-              </Button>
-            </div>
-          </div>
-
-          {/* Divider */}
-          <div className="border-t my-3" />
-
-          {/* Members List */}
-          <div className="space-y-1">
-            <h4 className="text-xs font-medium text-muted-foreground mb-2">👥 Membri:</h4>
-            <div className="space-y-2 pl-3">
-              {adults.map(guest => (
-                <div key={guest.id} className="flex items-center justify-between text-sm group">
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <span className="truncate">{guest.first_name} {guest.last_name}</span>
-                    {guest.alias && (
-                      <span className="text-xs text-muted-foreground bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded border">
-                        aka "{guest.alias}"
-                      </span>
-                    )}
-                    {guest.allow_plus_one && (
-                      <Badge variant="outline" className="text-[10px] py-0 px-1 bg-purple-50 border-purple-200 text-purple-600 dark:bg-purple-900/20 dark:border-purple-700 dark:text-purple-300">
-                        +1
-                      </Badge>
-                    )}
-                    {guest.phone ? (
-                      <span className="text-muted-foreground text-xs truncate">
-                        ({guest.phone})
-                      </span>
-                    ) : (
-                      <span className="text-orange-600 text-xs">(nessun numero)</span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div 
-                      className="flex items-center gap-1"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <span className="text-xs text-muted-foreground">+1</span>
-                      <Switch
-                        checked={guest.allow_plus_one || false}
-                        onCheckedChange={(checked) => handleTogglePlusOne(guest.id, checked)}
-                        disabled={togglingPlusOne === guest.id}
-                        className="scale-[0.6]"
-                        title="Permetti +1"
-                      />
-                    </div>
-                    {getSendStatusIcon(guest.rsvp_send_status)}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6"
-                      onClick={() => handleEditGuest(guest)}
-                      title="Modifica invitato"
-                    >
-                      <Edit2 className="w-3 h-3" />
-                    </Button>
-                  </div>
+          {/* Content */}
+          <div className="flex-1 min-w-0">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-2 mb-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                  <Users className="w-4 h-4 text-primary flex-shrink-0" />
+                  <h3 className="font-semibold truncate">{party.party_name}</h3>
+                  {groupName && (
+                    <Badge variant="outline" className="text-xs gap-1 bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/20 dark:border-blue-700 dark:text-blue-300">
+                      <Tag className="w-3 h-3" />
+                      {groupName}
+                    </Badge>
+                  )}
+                  {guestsWithPlusOne > 0 && (
+                    <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
+                      <UserPlus2 className="w-3 h-3 mr-1" />
+                      {guestsWithPlusOne} +1
+                    </Badge>
+                  )}
                 </div>
-              ))}
-              {children.length > 0 && (
-                <>
-                  <div className="text-xs text-muted-foreground flex items-center gap-1 mt-2 pt-1 border-t">
-                    <Baby className="w-3 h-3" />
-                    Bambini:
-                  </div>
-                  {children.map(guest => (
-                    <div key={guest.id} className="flex items-center justify-between text-sm pl-2 group">
-                      <span className="text-muted-foreground truncate">
-                        {guest.first_name} {guest.last_name}
-                      </span>
-                      <div className="flex items-center gap-1">
-                        {getSendStatusIcon(guest.rsvp_send_status)}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={() => handleEditGuest(guest)}
-                          title="Modifica invitato"
-                        >
-                          <Edit2 className="w-3 h-3" />
-                        </Button>
-                      </div>
+                <div className="flex items-center gap-2 flex-wrap text-xs">
+                  {/* Campaign badge based on primary contact */}
+                  {party.guests[0] && (
+                    <GuestCampaignBadges 
+                      saveTheDateSentAt={party.guests[0].save_the_date_sent_at}
+                      formalInviteSentAt={party.guests[0].formal_invite_sent_at}
+                      stdResponse={party.guests[0].std_response as 'likely_yes' | 'likely_no' | 'unsure' | null | undefined}
+                      rsvpStatus={party.guests[0].rsvp_status}
+                      compact
+                    />
+                  )}
+                  {/* STD Discrepancy Warning */}
+                  {stdDiscrepancy.hasDiscrepancy && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Badge 
+                            variant="outline" 
+                            className="text-xs gap-1 bg-orange-50 border-orange-300 text-orange-700 dark:bg-orange-900/20 dark:border-orange-600 dark:text-orange-400 cursor-help"
+                          >
+                            <AlertTriangle className="w-3 h-3" />
+                            Risposte diverse
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="max-w-xs">
+                          <p className="text-xs font-medium mb-1">Discrepanza Save The Date:</p>
+                          <p className="text-xs text-muted-foreground">{stdDiscrepancy.details}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                  <span className="text-muted-foreground">•</span>
+                  <span className="text-muted-foreground">
+                    {adults.length} Adult{adults.length !== 1 ? 'i' : 'o'}, {children.length} Bambin{children.length !== 1 ? 'i' : 'o'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-1 flex-shrink-0">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 gap-1.5"
+                  onClick={() => onEdit(party)}
+                >
+                  <Edit className="w-3.5 h-3.5" />
+                  <span className="text-xs">Modifica Nucleo</span>
+                </Button>
+              </div>
+            </div>
+
+            {/* Divider */}
+            <div className="border-t my-3" />
+
+            {/* Members List */}
+            <div className="space-y-1">
+              <h4 className="text-xs font-medium text-muted-foreground mb-2">👥 Membri:</h4>
+              <div className="space-y-2 pl-3">
+                {adults.map(guest => (
+                  <div key={guest.id} className="flex items-center justify-between text-sm group">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <span className="truncate">{guest.first_name} {guest.last_name}</span>
+                      {guest.alias && (
+                        <span className="text-xs text-muted-foreground bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded border">
+                          aka "{guest.alias}"
+                        </span>
+                      )}
+                      {guest.allow_plus_one && (
+                        <Badge variant="outline" className="text-[10px] py-0 px-1 bg-purple-50 border-purple-200 text-purple-600 dark:bg-purple-900/20 dark:border-purple-700 dark:text-purple-300">
+                          +1
+                        </Badge>
+                      )}
+                      {guest.phone && (
+                        <span className="text-muted-foreground text-xs truncate">
+                          ({guest.phone})
+                        </span>
+                      )}
                     </div>
-                  ))}
-                </>
-              )}
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="flex items-center gap-1"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <span className="text-xs text-muted-foreground">+1</span>
+                        <Switch
+                          checked={guest.allow_plus_one || false}
+                          onCheckedChange={(checked) => handleTogglePlusOne(guest.id, checked)}
+                          disabled={togglingPlusOne === guest.id}
+                          className="scale-[0.6]"
+                          title="Permetti +1"
+                        />
+                      </div>
+                      {getSendStatusIcon(guest.rsvp_send_status)}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={() => handleEditGuest(guest)}
+                        title="Modifica invitato"
+                      >
+                        <Edit2 className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+                {children.length > 0 && (
+                  <>
+                    <div className="text-xs text-muted-foreground flex items-center gap-1 mt-2 pt-1 border-t">
+                      <Baby className="w-3 h-3" />
+                      Bambini:
+                    </div>
+                    {children.map(guest => (
+                      <div key={guest.id} className="flex items-center justify-between text-sm pl-2 group">
+                        <span className="text-muted-foreground truncate">
+                          {guest.first_name} {guest.last_name}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          {getSendStatusIcon(guest.rsvp_send_status)}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => handleEditGuest(guest)}
+                            title="Modifica invitato"
+                          >
+                            <Edit2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )}
+              </div>
             </div>
           </div>
-
         </div>
       </div>
 

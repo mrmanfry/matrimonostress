@@ -122,9 +122,10 @@ export function FunnelKPICards({ guests, activeFilter, onFilterChange }: FunnelK
           <Card 
             key={card.id}
             className={cn(
-              "p-4 cursor-pointer transition-all hover:shadow-md",
+              "p-4 cursor-pointer transition-all duration-200",
+              "hover:shadow-lg hover:-translate-y-0.5",
               card.bgColor,
-              isActive && "ring-2 ring-primary ring-offset-2",
+              isActive && "ring-2 ring-primary ring-offset-2 shadow-lg -translate-y-0.5",
               card.borderColor
             )}
             onClick={() => onFilterChange?.(isActive ? null : card.id)}
