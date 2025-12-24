@@ -3,8 +3,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
-import { Users, Phone, Edit, Baby, Edit2, UserPlus2, Tag } from "lucide-react";
-import { useState } from "react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Users, Phone, Edit, Baby, Edit2, UserPlus2, Tag, AlertTriangle } from "lucide-react";
+import { useState, useMemo } from "react";
 import { GuestEditDialog } from "./GuestEditDialog";
 import { GuestCampaignBadges } from "./GuestCampaignBadges";
 import { supabase } from "@/integrations/supabase/client";
@@ -47,6 +48,38 @@ interface GuestNucleoCardProps {
   onToggleSelect: (partyId: string) => void;
   onEdit: (party: InviteParty) => void;
   onGuestUpdate?: () => void;
+}
+
+/**
+ * Detects if family members have different STD responses (discrepancy).
+ * Returns details about the discrepancy if found.
+ */
+function detectStdDiscrepancy(guests: Guest[]): { hasDiscrepancy: boolean; details: string } {
+  const responses = guests
+    .filter(g => g.std_response)
+    .map(g => ({ name: g.first_name, response: g.std_response }));
+  
+  if (responses.length <= 1) {
+    return { hasDiscrepancy: false, details: "" };
+  }
+
+  const uniqueResponses = new Set(responses.map(r => r.response));
+  if (uniqueResponses.size <= 1) {
+    return { hasDiscrepancy: false, details: "" };
+  }
+
+  // Build details string showing who said what
+  const responseLabels: Record<string, string> = {
+    'likely_yes': 'Probabile Sì',
+    'likely_no': 'Probabile No',
+    'unsure': 'Incerto',
+  };
+
+  const details = responses
+    .map(r => `${r.name}: ${responseLabels[r.response || ''] || r.response}`)
+    .join(', ');
+
+  return { hasDiscrepancy: true, details };
 }
 
 export const GuestNucleoCard = ({
@@ -118,6 +151,9 @@ export const GuestNucleoCard = ({
   const guestsWithPlusOne = party.guests.filter(g => g.allow_plus_one).length;
   // Get group name from the first guest that has one assigned
   const groupName = party.guests.find(g => g.group_name)?.group_name;
+  
+  // Detect STD discrepancy within family nucleus
+  const stdDiscrepancy = useMemo(() => detectStdDiscrepancy(party.guests), [party.guests]);
 
   return (
     <Card className={`p-4 hover:shadow-md transition-all ${selected ? 'ring-2 ring-primary' : ''}`}>
@@ -160,6 +196,26 @@ export const GuestNucleoCard = ({
                     rsvpStatus={party.guests[0].rsvp_status}
                     compact
                   />
+                )}
+                {/* STD Discrepancy Warning */}
+                {stdDiscrepancy.hasDiscrepancy && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Badge 
+                          variant="outline" 
+                          className="text-xs gap-1 bg-orange-50 border-orange-300 text-orange-700 dark:bg-orange-900/20 dark:border-orange-600 dark:text-orange-400 cursor-help"
+                        >
+                          <AlertTriangle className="w-3 h-3" />
+                          Risposte diverse
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-xs">
+                        <p className="text-xs font-medium mb-1">Discrepanza Save The Date:</p>
+                        <p className="text-xs text-muted-foreground">{stdDiscrepancy.details}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 )}
                 <span className="text-muted-foreground">•</span>
                 <span className="text-muted-foreground">
