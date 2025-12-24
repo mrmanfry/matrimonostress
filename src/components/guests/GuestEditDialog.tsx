@@ -101,6 +101,10 @@ export const GuestEditDialog = ({
 
     setLoading(true);
     try {
+      // Inferred Status Logic: if there's a response, STD must have been sent
+      const effectiveSaveTheDateSent = saveTheDateSent || (stdResponse && stdResponse !== null);
+      const effectiveFormalInviteSent = formalInviteSent || (rsvpStatus === 'confirmed' || rsvpStatus === 'declined');
+      
       const updateData: any = {
         first_name: firstName.trim(),
         last_name: lastName.trim(),
@@ -111,9 +115,9 @@ export const GuestEditDialog = ({
         menu_choice: menuChoice,
         dietary_restrictions: dietaryRestrictions.trim() || null,
         group_id: groupId,
-        // Campaign fields
-        save_the_date_sent_at: saveTheDateSent ? (guest.save_the_date_sent_at || new Date().toISOString()) : null,
-        formal_invite_sent_at: formalInviteSent ? (guest.formal_invite_sent_at || new Date().toISOString()) : null,
+        // Campaign fields with inferred logic
+        save_the_date_sent_at: effectiveSaveTheDateSent ? (guest.save_the_date_sent_at || new Date().toISOString()) : null,
+        formal_invite_sent_at: effectiveFormalInviteSent ? (guest.formal_invite_sent_at || new Date().toISOString()) : null,
         std_response: stdResponse,
         rsvp_status: rsvpStatus,
       };
@@ -402,7 +406,15 @@ export const GuestEditDialog = ({
                   {saveTheDateSent && (
                     <div className="space-y-2 pl-6">
                       <Label className="text-sm">Risposta STD</Label>
-                      <Select value={stdResponse || "none"} onValueChange={(v) => setStdResponse(v === "none" ? null : v)}>
+                      <Select 
+                        value={stdResponse || "none"} 
+                        onValueChange={(v) => {
+                          const newResponse = v === "none" ? null : v;
+                          setStdResponse(newResponse);
+                          // Auto-inference: if user sets a response, STD must have been sent
+                          // This is handled by the parent condition, but we keep it for safety
+                        }}
+                      >
                         <SelectTrigger className="h-8 text-sm">
                           <SelectValue placeholder="Nessuna risposta" />
                         </SelectTrigger>
@@ -413,6 +425,9 @@ export const GuestEditDialog = ({
                           <SelectItem value="unsure">Incerto ?</SelectItem>
                         </SelectContent>
                       </Select>
+                      <p className="text-xs text-muted-foreground">
+                        💡 Se imposti una risposta, lo stato "Inviato" è automatico.
+                      </p>
                     </div>
                   )}
 
