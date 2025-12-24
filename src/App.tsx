@@ -53,6 +53,7 @@ const App = () => (
             <Route path="/progress/:token" element={<ProgressPublic />} />
             <Route path="/sync/:token" element={<ContactSync />} />
             <Route path="/rsvp/:token" element={<RSVPPublic />} />
+            <Route path="/save-the-date/:token" element={<RSVPPublic forceStdMode />} />
             <Route
               path="/app" 
               element={

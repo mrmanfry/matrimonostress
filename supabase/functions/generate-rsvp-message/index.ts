@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,7 +11,35 @@ serve(async (req) => {
   }
 
   try {
-    const { coupleName } = await req.json();
+    const { coupleName, campaignType = 'rsvp' } = await req.json();
+
+    // Prompt diversi per STD vs RSVP
+    const systemPromptSTD = `Sei un assistente che scrive messaggi "Save The Date" per matrimoni in italiano. 
+Crea messaggi leggeri, anticipatori e festosi. NON chiedere conferme definitive o dettagli come menu/allergie. 
+Il tono deve essere: "Segnati questa data!" non "Confermi la presenza?". 
+Usa emoji con moderazione. Mantieni un tono amichevole ma elegante.`;
+
+    const systemPromptRSVP = `Sei un assistente che scrive messaggi di invito ufficiale a matrimoni in italiano. 
+Crea messaggi calorosi, personali ed emozionanti che richiedono una conferma di presenza. 
+Usa emoji con moderazione. Mantieni un tono amichevole ma elegante.`;
+
+    const userPromptSTD = `Scrivi un messaggio WhatsApp "Save The Date" per il matrimonio di ${coupleName}. 
+Il messaggio deve:
+- Annunciare la data del matrimonio con entusiasmo
+- Invitare a "segnare la data in agenda"
+- NON chiedere conferme definitive o dettagli
+- Includere le variabili [NomeInvitato], [LINK_STD] e [NomeCoppia]
+- Massimo 3 righe, tono leggero e anticipatorio`;
+
+    const userPromptRSVP = `Scrivi un messaggio WhatsApp per invitare ufficialmente gli ospiti al matrimonio di ${coupleName}. 
+Il messaggio deve includere le variabili [NomeInvitato], [LINK_RSVP] e [NomeCoppia]. 
+Massimo 3-4 righe, tono caldo e festoso.`;
+
+    const isSTD = campaignType === 'save_the_date';
+    const systemPrompt = isSTD ? systemPromptSTD : systemPromptRSVP;
+    const userPrompt = isSTD ? userPromptSTD : userPromptRSVP;
+
+    console.log(`Generating message for campaign type: ${campaignType}`);
 
     const response = await fetch('https://api.lovable.app/inference/v1/chat/completions', {
       method: 'POST',
@@ -23,14 +50,8 @@ serve(async (req) => {
       body: JSON.stringify({
         model: 'openai/gpt-5-nano',
         messages: [
-          {
-            role: 'system',
-            content: 'Sei un assistente che scrive messaggi di invito a matrimoni in italiano. Crea messaggi calorosi, personali ed emozionanti. Usa emoji con moderazione. Mantieni un tono amichevole ma elegante.',
-          },
-          {
-            role: 'user',
-            content: `Scrivi un messaggio WhatsApp per invitare gli ospiti al matrimonio di ${coupleName}. Il messaggio deve includere le variabili [NomeInvitato], [LINK_RSVP] e [NomeCoppia]. Massimo 3-4 righe, tono caldo e festoso.`,
-          },
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
         ],
         temperature: 0.8,
         max_tokens: 200,
@@ -38,11 +59,15 @@ serve(async (req) => {
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('AI Gateway error:', response.status, errorText);
       throw new Error('Errore nella generazione del messaggio');
     }
 
     const data = await response.json();
     const message = data.choices[0].message.content;
+
+    console.log(`Message generated successfully for ${campaignType}`);
 
     return new Response(
       JSON.stringify({ message }),
