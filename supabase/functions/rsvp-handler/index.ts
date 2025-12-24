@@ -231,6 +231,7 @@ Deno.serve(async (req) => {
       }
 
       // Handle SAVE-STD-RESPONSE action (Save The Date soft response)
+      // KEY FEATURE: Propagates response to ALL family nucleus members
       if (action === "save-std-response" && stdResponse) {
         console.log(`Saving STD response: ${stdResponse} for token: ${token.substring(0, 8)}...`);
         
@@ -242,10 +243,10 @@ Deno.serve(async (req) => {
           });
         }
 
-        // Find guest by token
+        // Find guest by token - include party_id for propagation logic
         const { data: guest, error: guestError } = await supabase
           .from("guests")
-          .select("id, wedding_id")
+          .select("id, wedding_id, party_id")
           .eq("unique_rsvp_token", token)
           .single();
 
@@ -257,26 +258,61 @@ Deno.serve(async (req) => {
           });
         }
 
-        // Update guest with STD response
-        const { error: updateError } = await supabase
-          .from("guests")
-          .update({ 
-            std_response: stdResponse,
-            std_responded_at: new Date().toISOString(),
-          })
-          .eq("id", guest.id);
+        const now = new Date().toISOString();
+        let updatedCount = 0;
 
-        if (updateError) {
-          console.error("Error updating STD response:", updateError);
-          return new Response(JSON.stringify({ error: "Failed to save response" }), {
-            status: 500,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+        // PROPAGATION LOGIC: If guest belongs to a party, update ALL members
+        if (guest.party_id) {
+          console.log(`Guest ${guest.id} belongs to party ${guest.party_id} - propagating STD response to all members`);
+          
+          const { error: updateError, count } = await supabase
+            .from("guests")
+            .update({ 
+              std_response: stdResponse,
+              std_responded_at: now,
+            })
+            .eq("party_id", guest.party_id)
+            .select("id");
+
+          if (updateError) {
+            console.error("Error updating STD response for party:", updateError);
+            return new Response(JSON.stringify({ error: "Failed to save response" }), {
+              status: 500,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+
+          updatedCount = count || 0;
+          console.log(`STD response propagated to ${updatedCount} members of party ${guest.party_id}`);
+        } else {
+          // SINGLE GUEST: Update only their record
+          console.log(`Guest ${guest.id} is single (no party_id) - updating only their record`);
+          
+          const { error: updateError } = await supabase
+            .from("guests")
+            .update({ 
+              std_response: stdResponse,
+              std_responded_at: now,
+            })
+            .eq("id", guest.id);
+
+          if (updateError) {
+            console.error("Error updating STD response:", updateError);
+            return new Response(JSON.stringify({ error: "Failed to save response" }), {
+              status: 500,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+
+          updatedCount = 1;
+          console.log(`STD response saved for single guest ${guest.id}`);
         }
 
-        console.log(`STD response saved successfully for guest ${guest.id}`);
-
-        return new Response(JSON.stringify({ success: true }), {
+        return new Response(JSON.stringify({ 
+          success: true,
+          propagated: guest.party_id ? true : false,
+          updatedCount,
+        }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
