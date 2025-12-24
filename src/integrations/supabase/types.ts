@@ -1273,6 +1273,7 @@ export type Database = {
           created_at: string
           created_by: string
           id: string
+          location: string | null
           partner1_name: string
           partner2_name: string
           rsvp_config: Json | null
@@ -1290,6 +1291,7 @@ export type Database = {
           created_at?: string
           created_by: string
           id?: string
+          location?: string | null
           partner1_name: string
           partner2_name: string
           rsvp_config?: Json | null
@@ -1307,6 +1309,7 @@ export type Database = {
           created_at?: string
           created_by?: string
           id?: string
+          location?: string | null
           partner1_name?: string
           partner2_name?: string
           rsvp_config?: Json | null

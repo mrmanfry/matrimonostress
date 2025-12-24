@@ -140,10 +140,10 @@ Deno.serve(async (req) => {
           }];
         }
 
-        // Get wedding data - now including campaigns_config
+        // Get wedding data - now including campaigns_config and location
         const { data: wedding } = await supabase
           .from("weddings")
-          .select("partner1_name, partner2_name, wedding_date, rsvp_config, campaigns_config")
+          .select("partner1_name, partner2_name, wedding_date, rsvp_config, campaigns_config, location")
           .eq("id", weddingId)
           .single();
 
@@ -208,6 +208,7 @@ Deno.serve(async (req) => {
           wedding: {
             couple: wedding ? `${wedding.partner1_name} & ${wedding.partner2_name}` : "",
             date: wedding?.wedding_date || "",
+            location: wedding?.location || null,
           },
           config: rsvpConfig,
           theme,
