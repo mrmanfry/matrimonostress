@@ -493,7 +493,7 @@ export function RSVPCampaignDialog({
     
     // Add ?mode=std for save_the_date campaigns
     const rsvpLink = campaignType === 'save_the_date'
-      ? `${window.location.origin}/rsvp/${currentGuest.unique_rsvp_token}?mode=std`
+      ? `${window.location.origin}/save-the-date/${currentGuest.unique_rsvp_token}`
       : `${window.location.origin}/rsvp/${currentGuest.unique_rsvp_token}`;
 
     const message = messageTemplate

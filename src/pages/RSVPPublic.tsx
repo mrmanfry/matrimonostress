@@ -14,6 +14,10 @@ import { toast } from "sonner";
 import { Loader2, CheckCircle, XCircle, Leaf, AlertTriangle, Clock, UserPlus, Lock, Check, X, Baby, Utensils } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SaveTheDateView } from "@/components/rsvp/SaveTheDateView";
+
+interface RSVPPublicProps {
+  forceStdMode?: boolean;
+}
 interface GuestMember {
   id: string;
   first_name: string;
@@ -56,7 +60,7 @@ interface RSVPData {
   isReadOnly: boolean;
 }
 
-export default function RSVPPublic() {
+export default function RSVPPublic({ forceStdMode }: RSVPPublicProps) {
   const { token } = useParams<{ token: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -75,8 +79,8 @@ export default function RSVPPublic() {
     plusOneMenu: string;
   }>>({});
   
-  // Check if this is Save The Date mode
-  const isStdMode = searchParams.get('mode') === 'std';
+  // Check if this is Save The Date mode (via prop OR query param)
+  const isStdMode = forceStdMode || searchParams.get('mode') === 'std';
 
   useEffect(() => {
     if (!token) {
