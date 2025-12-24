@@ -251,19 +251,6 @@ END:VCALENDAR`;
               </div>
             )}
 
-            {/* Countdown */}
-            {showCountdown && daysUntilWedding > 0 && (
-              <div 
-                className="inline-block px-4 py-2 rounded-full text-sm backdrop-blur-sm"
-                style={{ 
-                  backgroundColor: 'rgba(255,255,255,0.15)',
-                  border: `1px solid ${primaryColor}50`
-                }}
-              >
-                <span style={{ color: primaryColor }}>{daysUntilWedding}</span>
-                <span className="text-white/80 ml-1">giorni al grande giorno</span>
-              </div>
-            )}
 
             {/* Personalized Quote Message */}
             <div className="pt-4 pb-6">
@@ -313,18 +300,18 @@ END:VCALENDAR`;
               {!isReadOnly && (
                 <div className="space-y-3">
                   <p className="text-white/70 text-xs tracking-wide uppercase">Pensi di esserci?</p>
-                  <div className="flex gap-3 justify-center">
+                  <div className="flex gap-2 justify-center">
                     {[
-                      { value: 'likely_yes', label: 'Ci sarò!', icon: '😊' },
-                      { value: 'unsure', label: 'Forse', icon: '🤔' },
-                      { value: 'likely_no', label: 'No', icon: '😢' },
+                      { value: 'likely_yes', label: 'Ci sarò' },
+                      { value: 'unsure', label: 'Forse' },
+                      { value: 'likely_no', label: 'Non potrò' },
                     ].map((option) => (
                       <button
                         key={option.value}
                         onClick={() => handleResponse(option.value as any)}
                         disabled={submitting}
                         className={cn(
-                          "flex flex-col items-center gap-1 px-4 py-3 rounded-xl backdrop-blur-md transition-all",
+                          "px-5 py-2.5 rounded-full backdrop-blur-md transition-all font-light tracking-wide text-sm",
                           selectedResponse === option.value
                             ? "scale-105"
                             : "hover:scale-[1.02]",
@@ -332,19 +319,21 @@ END:VCALENDAR`;
                         )}
                         style={{
                           backgroundColor: selectedResponse === option.value 
-                            ? `${primaryColor}40` 
+                            ? `${primaryColor}` 
                             : 'rgba(255,255,255,0.1)',
                           border: selectedResponse === option.value 
-                            ? `2px solid ${primaryColor}` 
-                            : '1px solid rgba(255,255,255,0.2)',
+                            ? `1px solid ${primaryColor}` 
+                            : '1px solid rgba(255,255,255,0.25)',
+                          color: selectedResponse === option.value 
+                            ? 'white'
+                            : 'rgba(255,255,255,0.9)',
                         }}
                       >
                         {submitting && selectedResponse === option.value ? (
-                          <Loader2 className="w-6 h-6 animate-spin text-white" />
+                          <Loader2 className="w-4 h-4 animate-spin" />
                         ) : (
-                          <span className="text-xl">{option.icon}</span>
+                          option.label
                         )}
-                        <span className="text-xs text-white/90">{option.label}</span>
                       </button>
                     ))}
                   </div>

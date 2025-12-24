@@ -41,14 +41,31 @@ const CampaignConfigDialog = ({
   const [welcomeTitle, setWelcomeTitle] = useState("");
   const [welcomeText, setWelcomeText] = useState("");
   const [deadlineDate, setDeadlineDate] = useState("");
+  const [weddingLocationState, setWeddingLocationState] = useState("");
   
   // Theme state
   const [fontFamily, setFontFamily] = useState<"serif" | "sans" | "elegant">("serif");
   const [primaryColor, setPrimaryColor] = useState("#D4AF37");
-  const [showCountdown, setShowCountdown] = useState(true);
 
   const isSTD = campaignType === "save_the_date";
   const title = isSTD ? "Configura Save The Date" : "Configura Invito RSVP";
+
+  // Load wedding location
+  useEffect(() => {
+    const loadWeddingLocation = async () => {
+      if (open && weddingId) {
+        const { data } = await supabase
+          .from("weddings")
+          .select("location")
+          .eq("id", weddingId)
+          .single();
+        if (data?.location) {
+          setWeddingLocationState(data.location);
+        }
+      }
+    };
+    loadWeddingLocation();
+  }, [open, weddingId]);
 
   useEffect(() => {
     if (currentConfig && open) {
@@ -61,7 +78,6 @@ const CampaignConfigDialog = ({
       // Theme
       setFontFamily(currentConfig.theme.font_family);
       setPrimaryColor(currentConfig.theme.primary_color);
-      setShowCountdown(currentConfig.theme.show_countdown);
     }
   }, [currentConfig, open, campaignType]);
 
@@ -162,13 +178,21 @@ const CampaignConfigDialog = ({
         deadline_date: deadlineDate || null,
       };
 
-      // Update theme
+      // Update theme (remove countdown)
       updatedConfig.theme = {
         ...updatedConfig.theme,
         font_family: fontFamily,
         primary_color: primaryColor,
-        show_countdown: showCountdown,
+        show_countdown: false, // Always false now
       };
+
+      // Also update wedding location
+      const { error: locationError } = await supabase
+        .from("weddings")
+        .update({ location: weddingLocationState || null })
+        .eq("id", weddingId);
+
+      if (locationError) throw locationError;
 
       const { error } = await supabase
         .from("weddings")
@@ -292,6 +316,23 @@ const CampaignConfigDialog = ({
                   />
                 </div>
 
+                {/* Location (only for STD) */}
+                {isSTD && (
+                  <div className="space-y-2">
+                    <Label htmlFor="weddingLocation">Città del Matrimonio</Label>
+                    <Input
+                      id="weddingLocation"
+                      value={weddingLocationState}
+                      onChange={(e) => setWeddingLocationState(e.target.value)}
+                      placeholder="Es: Roma, Italia"
+                      maxLength={100}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Verrà mostrata sotto la data nella pagina Save The Date
+                    </p>
+                  </div>
+                )}
+
                 {/* Deadline (only for RSVP) */}
                 {!isSTD && (
                   <div className="space-y-2">
@@ -366,22 +407,6 @@ const CampaignConfigDialog = ({
                   </div>
                 </div>
 
-                {/* Show Countdown */}
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label>Mostra Countdown</Label>
-                    <p className="text-xs text-muted-foreground">
-                      Visualizza i giorni mancanti al matrimonio
-                    </p>
-                  </div>
-                  <Button
-                    variant={showCountdown ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setShowCountdown(!showCountdown)}
-                  >
-                    {showCountdown ? "Attivo" : "Disattivo"}
-                  </Button>
-                </div>
               </TabsContent>
             </Tabs>
 
@@ -418,7 +443,7 @@ const CampaignConfigDialog = ({
                     <SaveTheDateView
                       coupleName={partnerNames || "Marco & Giulia"}
                       weddingDate={weddingDate || new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
-                      weddingLocation="Roma, Italia"
+                      weddingLocation={weddingLocationState || "Roma, Italia"}
                       guestFirstName="Mario"
                       guestLastName="Rossi"
                       heroImageUrl={heroImageUrl}
@@ -429,7 +454,7 @@ const CampaignConfigDialog = ({
                       theme={{
                         font_family: fontFamily,
                         primary_color: primaryColor,
-                        show_countdown: showCountdown,
+                        show_countdown: false,
                       }}
                       onSubmitResponse={async () => {
                         toast({ title: "Anteprima", description: "Questo è solo un test!" });

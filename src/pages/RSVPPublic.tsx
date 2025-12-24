@@ -61,6 +61,7 @@ interface RSVPData {
   wedding: {
     couple: string;
     date: string;
+    location?: string | null;
   };
   config: RSVPConfig;
   theme?: Theme | null;
@@ -379,7 +380,7 @@ export default function RSVPPublic({ forceStdMode }: RSVPPublicProps) {
       <SaveTheDateView
         coupleName={rsvpData.wedding.couple}
         weddingDate={rsvpData.wedding.date}
-        weddingLocation="Italia"
+        weddingLocation={rsvpData.wedding.location || undefined}
         guestFirstName={rsvpData.guest.firstName}
         guestLastName={rsvpData.guest.lastName}
         heroImageUrl={stdHeroImage}
