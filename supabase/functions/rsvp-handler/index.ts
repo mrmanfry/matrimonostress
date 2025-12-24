@@ -166,34 +166,40 @@ Deno.serve(async (req) => {
         // Parse campaigns_config (new) or fall back to rsvp_config (legacy)
         const campaignsConfig = wedding?.campaigns_config as CampaignsConfig | null;
         
-        // Build response config from campaigns_config if available
+        // Build RSVP config (for the formal RSVP page) - use RSVP campaign settings
         const rsvpConfig: RSVPConfig = campaignsConfig
           ? {
-              hero_image_url: campaignsConfig.save_the_date.hero_image_url || campaignsConfig.rsvp.hero_image_url,
-              welcome_title: getValidString(campaignsConfig.save_the_date.welcome_title, "Save The Date!"),
-              welcome_text: getValidString(campaignsConfig.save_the_date.welcome_text, "Non vediamo l'ora di festeggiare con voi!"),
+              hero_image_url: campaignsConfig.rsvp.hero_image_url,
+              welcome_title: getValidString(campaignsConfig.rsvp.welcome_title, "Conferma la tua Presenza"),
+              welcome_text: getValidString(campaignsConfig.rsvp.welcome_text, "Non vediamo l'ora di festeggiare con voi!"),
               deadline_date: campaignsConfig.rsvp.deadline_date,
             }
           : wedding?.rsvp_config || {
               hero_image_url: null,
-              welcome_title: "Benvenuti al nostro Matrimonio",
+              welcome_title: "Conferma la tua Presenza",
               welcome_text: "Non vediamo l'ora di festeggiare con voi!",
               deadline_date: null,
             };
 
+        // Build STD config (for Save The Date page) - use STD campaign settings with proper defaults
+        const stdConfig: RSVPConfig | null = campaignsConfig
+          ? {
+              hero_image_url: campaignsConfig.save_the_date.hero_image_url,
+              welcome_title: getValidString(campaignsConfig.save_the_date.welcome_title, "Save The Date!"),
+              welcome_text: getValidString(campaignsConfig.save_the_date.welcome_text, "Segnati questa data!"),
+              deadline_date: campaignsConfig.save_the_date.deadline_date,
+            }
+          : null;
+
         // Extract theme for new structure
         const theme = campaignsConfig?.theme || null;
 
-        // Check if deadline has passed
+        // Check if deadline has passed (use RSVP deadline for read-only state)
         const isReadOnly = rsvpConfig.deadline_date 
           ? new Date(rsvpConfig.deadline_date) < new Date() 
           : false;
 
-        console.log(`RSVP data fetched for guest ${guestData.id}, party: ${party.id}`);
-
-        // Build campaigns-aware config for STD vs RSVP
-        const stdConfig = campaignsConfig?.save_the_date || null;
-        const rsvpCampaignConfig = campaignsConfig?.rsvp || null;
+        console.log(`RSVP data fetched for guest ${guestData.id}, party: ${party.id}, stdConfig: ${JSON.stringify(stdConfig)}`);
 
         return new Response(JSON.stringify({
           guest: {
@@ -215,10 +221,9 @@ Deno.serve(async (req) => {
             date: wedding?.wedding_date || "",
             location: wedding?.location || null,
           },
-          config: rsvpConfig,
+          config: rsvpConfig,   // RSVP-specific config
+          stdConfig,            // STD-specific config (separate!)
           theme,
-          stdConfig,
-          rsvpConfig: rsvpCampaignConfig,
           isReadOnly,
         }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
