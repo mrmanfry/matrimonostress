@@ -425,6 +425,63 @@ export function RSVPCampaignDialog({
     setIsRecoveringFromRefresh(false);
   };
 
+  /**
+   * Canvas Cleaning: Pulisce l'immagine da qualsiasi metadato di file system
+   * ridisegnandola su un canvas e copiando il risultato puro nella clipboard.
+   * Questo risolve il problema del "doppio allegato" su WhatsApp Web/Edge.
+   */
+  const copyImageToClipboard = async (base64Image: string): Promise<boolean> => {
+    try {
+      // 1. Creiamo un elemento immagine in memoria
+      const img = new Image();
+      img.src = base64Image;
+      
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+      });
+
+      // 2. Creiamo un Canvas invisibile delle stesse dimensioni
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      
+      if (!ctx) throw new Error("Canvas context failed");
+
+      // 3. Disegniamo l'immagine (questo rimuove ogni legame col file originale)
+      ctx.drawImage(img, 0, 0);
+
+      // 4. Estraiamo il BLOB puro (PNG è il più sicuro per la clipboard)
+      const blob = await new Promise<Blob | null>(resolve => 
+        canvas.toBlob(resolve, 'image/png')
+      );
+
+      if (!blob) throw new Error("Blob creation failed");
+
+      // 5. Scriviamo nella clipboard SOLO l'immagine PNG pulita
+      const item = new ClipboardItem({
+        'image/png': blob
+      });
+
+      await navigator.clipboard.write([item]);
+      
+      toast.success("📸 Immagine Copiata!", {
+        description: "Ora vai su WhatsApp e premi Incolla (Ctrl+V / Cmd+V).",
+        duration: 6000,
+      });
+      
+      return true;
+
+    } catch (err) {
+      console.error("Errore copia canvas:", err);
+      toast.error("Impossibile copiare l'immagine automaticamente", {
+        description: "Allega l'immagine manualmente dal tuo dispositivo.",
+      });
+      return false;
+    }
+  };
+
   const handleSmartSend = async () => {
     const currentGuest = guests[currentIndex];
     if (!currentGuest) return;
@@ -476,26 +533,11 @@ export function RSVPCampaignDialog({
     // PRIMA: Aprire WhatsApp Web (sincrono rispetto al click per evitare blocco popup)
     window.open(whatsappUrl, "_blank");
     
-    // POI: Se c'è immagine, copiarla nella clipboard
+    // POI: Se c'è immagine, copiarla con Canvas Cleaning (rimuove metadati Edge)
     if (uploadedImage) {
-      try {
-        const response = await fetch(uploadedImage);
-        const blob = await response.blob();
-        
-        await navigator.clipboard.write([
-          new ClipboardItem({ [blob.type]: blob })
-        ]);
-        
-        toast.success(`📸 Immagine Copiata!`, {
-          description: `Ora vai su WhatsApp e premi Incolla (Ctrl+V / Cmd+V).`,
-          duration: 6000,
-        });
-      } catch (err) {
-        console.error('Errore clipboard:', err);
-        toast.error("Impossibile copiare l'immagine automaticamente", {
-          description: "Allega l'immagine manualmente dal tuo dispositivo.",
-        });
-      }
+      await copyImageToClipboard(uploadedImage);
+      // Breve pausa tecnica per assicurare che il SO recepisca
+      await new Promise(resolve => setTimeout(resolve, 300));
     }
 
     // INFINE: Aggiornare lo stato UI
