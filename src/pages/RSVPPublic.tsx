@@ -379,6 +379,7 @@ export default function RSVPPublic({ forceStdMode }: RSVPPublicProps) {
       <SaveTheDateView
         coupleName={rsvpData.wedding.couple}
         weddingDate={rsvpData.wedding.date}
+        weddingLocation="Italia"
         guestFirstName={rsvpData.guest.firstName}
         guestLastName={rsvpData.guest.lastName}
         heroImageUrl={stdHeroImage}

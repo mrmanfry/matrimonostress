@@ -412,17 +412,18 @@ const CampaignConfigDialog = ({
               </div>
               
               {/* Phone Frame with Real Component */}
-              <div className="mx-auto w-[300px] h-[550px] bg-background border-4 border-foreground/20 rounded-[2rem] overflow-hidden shadow-xl">
+              <div className="mx-auto w-[300px] h-[550px] bg-black border-4 border-foreground/20 rounded-[2rem] overflow-hidden shadow-xl">
                 <div className="w-full h-full overflow-y-auto transform scale-[0.55] origin-top-left" style={{ width: "182%", height: "182%" }}>
                   {isSTD ? (
                     <SaveTheDateView
                       coupleName={partnerNames || "Marco & Giulia"}
                       weddingDate={weddingDate || new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
+                      weddingLocation="Roma, Italia"
                       guestFirstName="Mario"
                       guestLastName="Rossi"
                       heroImageUrl={heroImageUrl}
                       welcomeTitle={welcomeTitle || "Save The Date!"}
-                      welcomeText={welcomeText || "Segnati questa data speciale!"}
+                      welcomeText={welcomeText || "Un capitolo d'amore ci aspetta, e vorremmo tu fossi parte di questa storia."}
                       isReadOnly={false}
                       isPreview={true}
                       theme={{
