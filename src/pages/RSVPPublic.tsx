@@ -371,11 +371,11 @@ export default function RSVPPublic({ forceStdMode }: RSVPPublicProps) {
 
   // Render Save The Date view if mode=std
   if (isStdMode && !isPreview) {
-    // Use STD-specific config if available, otherwise fallback to main config
-    // Apply .trim() to properly detect empty strings for fallback
-    const stdHeroImage = rsvpData.stdConfig?.hero_image_url || rsvpData.config.hero_image_url;
-    const stdWelcomeTitle = rsvpData.stdConfig?.welcome_title?.trim() || rsvpData.config.welcome_title;
-    const stdWelcomeText = rsvpData.stdConfig?.welcome_text?.trim() || rsvpData.config.welcome_text;
+    // Use STD-specific config directly - edge function now properly separates configs
+    // stdConfig already has correct defaults from the edge function
+    const stdHeroImage = rsvpData.stdConfig?.hero_image_url || null;
+    const stdWelcomeTitle = rsvpData.stdConfig?.welcome_title || "Save The Date!";
+    const stdWelcomeText = rsvpData.stdConfig?.welcome_text || "Segnati questa data!";
 
     return (
       <SaveTheDateView
