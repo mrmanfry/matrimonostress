@@ -212,30 +212,6 @@ END:VCALENDAR`;
               {name1} & {name2}
             </p>
 
-            {/* Animated Check/Heart Icon */}
-            <div 
-              className="mx-auto w-20 h-20 rounded-full flex items-center justify-center animate-scale-in"
-              style={{ 
-                backgroundColor: confirmationContent.icon === 'heart' 
-                  ? 'rgba(239, 68, 68, 0.2)' 
-                  : `${primaryColor}30`,
-                border: `2px solid ${confirmationContent.icon === 'heart' ? 'rgba(239, 68, 68, 0.5)' : primaryColor}`
-              }}
-            >
-              {confirmationContent.icon === 'heart' ? (
-                <Heart 
-                  className="w-10 h-10 animate-fade-in" 
-                  style={{ color: '#ef4444', fill: '#ef4444' }} 
-                />
-              ) : (
-                <Check 
-                  className="w-10 h-10 animate-fade-in" 
-                  style={{ color: primaryColor }} 
-                  strokeWidth={3}
-                />
-              )}
-            </div>
-
             {/* Title */}
             <div className="space-y-2">
               <h1 className="font-cormorant text-4xl sm:text-5xl font-light animate-fade-in">
