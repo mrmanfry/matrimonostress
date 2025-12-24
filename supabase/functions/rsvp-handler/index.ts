@@ -12,6 +12,27 @@ interface RSVPConfig {
   deadline_date: string | null;
 }
 
+interface CampaignConfig {
+  status: string;
+  enabled: boolean;
+  hero_image_url: string | null;
+  welcome_title: string;
+  welcome_text: string;
+  deadline_date: string | null;
+}
+
+interface CampaignsConfig {
+  save_the_date: CampaignConfig;
+  rsvp: CampaignConfig;
+  theme: {
+    layout_mode: string;
+    font_family: "serif" | "sans" | "elegant";
+    primary_color: string;
+    show_countdown: boolean;
+    show_powered_by: boolean;
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -119,10 +140,10 @@ Deno.serve(async (req) => {
           }];
         }
 
-        // Get wedding data
+        // Get wedding data - now including campaigns_config
         const { data: wedding } = await supabase
           .from("weddings")
-          .select("partner1_name, partner2_name, wedding_date, rsvp_config")
+          .select("partner1_name, partner2_name, wedding_date, rsvp_config, campaigns_config")
           .eq("id", weddingId)
           .single();
 
@@ -137,13 +158,26 @@ Deno.serve(async (req) => {
           lastEditorName = editor?.first_name || null;
         }
 
-        // Parse rsvp_config
-        const rsvpConfig: RSVPConfig = wedding?.rsvp_config || {
-          hero_image_url: null,
-          welcome_title: "Benvenuti al nostro Matrimonio",
-          welcome_text: "Non vediamo l'ora di festeggiare con voi!",
-          deadline_date: null,
-        };
+        // Parse campaigns_config (new) or fall back to rsvp_config (legacy)
+        const campaignsConfig = wedding?.campaigns_config as CampaignsConfig | null;
+        
+        // Build response config from campaigns_config if available
+        const rsvpConfig: RSVPConfig = campaignsConfig
+          ? {
+              hero_image_url: campaignsConfig.save_the_date.hero_image_url || campaignsConfig.rsvp.hero_image_url,
+              welcome_title: campaignsConfig.save_the_date.welcome_title || "Save The Date!",
+              welcome_text: campaignsConfig.save_the_date.welcome_text || "Non vediamo l'ora di festeggiare con voi!",
+              deadline_date: campaignsConfig.rsvp.deadline_date,
+            }
+          : wedding?.rsvp_config || {
+              hero_image_url: null,
+              welcome_title: "Benvenuti al nostro Matrimonio",
+              welcome_text: "Non vediamo l'ora di festeggiare con voi!",
+              deadline_date: null,
+            };
+
+        // Extract theme for new structure
+        const theme = campaignsConfig?.theme || null;
 
         // Check if deadline has passed
         const isReadOnly = rsvpConfig.deadline_date 
@@ -151,6 +185,10 @@ Deno.serve(async (req) => {
           : false;
 
         console.log(`RSVP data fetched for guest ${guestData.id}, party: ${party.id}`);
+
+        // Build campaigns-aware config for STD vs RSVP
+        const stdConfig = campaignsConfig?.save_the_date || null;
+        const rsvpCampaignConfig = campaignsConfig?.rsvp || null;
 
         return new Response(JSON.stringify({
           guest: {
@@ -172,6 +210,9 @@ Deno.serve(async (req) => {
             date: wedding?.wedding_date || "",
           },
           config: rsvpConfig,
+          theme,
+          stdConfig,
+          rsvpConfig: rsvpCampaignConfig,
           isReadOnly,
         }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },

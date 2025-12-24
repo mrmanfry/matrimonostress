@@ -7,8 +7,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Upload, Image as ImageIcon, Loader2, Smartphone, Type, Palette } from "lucide-react";
+import { Upload, Loader2, Smartphone, Type, Palette } from "lucide-react";
 import { CampaignConfig, CampaignsConfig } from "./CampaignCard";
+import { SaveTheDateView } from "@/components/rsvp/SaveTheDateView";
 
 interface CampaignConfigDialogProps {
   open: boolean;
@@ -402,88 +403,84 @@ const CampaignConfigDialog = ({
             </div>
           </div>
 
-          {/* Live Preview Panel */}
+          {/* Live Preview Panel - Real SaveTheDateView Component */}
           <div className="hidden md:block">
             <div className="sticky top-0">
               <div className="flex items-center gap-2 mb-3">
                 <Smartphone className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Anteprima Mobile</span>
+                <span className="text-sm text-muted-foreground">Anteprima Mobile (Interattiva)</span>
               </div>
               
-              {/* Phone Frame */}
-              <div className="mx-auto w-[280px] h-[500px] bg-background border-4 border-foreground/20 rounded-[2rem] overflow-hidden shadow-xl">
-                <div className="w-full h-full overflow-y-auto">
-                  {/* Hero Section Preview */}
-                  <div 
-                    className="h-64 relative flex items-center justify-center"
-                    style={{
-                      background: heroImageUrl 
-                        ? `linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.5)), url(${heroImageUrl}) center/cover`
-                        : `linear-gradient(to bottom, hsl(var(--primary)/0.8), hsl(var(--primary)/0.6))`
-                    }}
-                  >
-                    <div className="text-center text-white p-4">
-                      <h1 
-                        className={`text-xl font-bold mb-2 ${
-                          fontFamily === "serif" ? "font-serif" :
-                          fontFamily === "sans" ? "font-sans" :
-                          "font-serif italic"
-                        }`}
-                        style={{ color: "white" }}
-                      >
-                        {partnerNames || "Marco & Giulia"}
-                      </h1>
-                      <p className="text-sm opacity-90">
-                        {weddingDate 
-                          ? new Date(weddingDate).toLocaleDateString("it-IT", {
-                              day: "numeric",
-                              month: "long",
-                              year: "numeric"
-                            })
-                          : "14 Giugno 2026"
-                        }
-                      </p>
-                      {showCountdown && (
-                        <div className="mt-4 text-xs opacity-80">
-                          <span className="px-2 py-1 rounded bg-white/20">
-                            Mancano X giorni
-                          </span>
+              {/* Phone Frame with Real Component */}
+              <div className="mx-auto w-[300px] h-[550px] bg-background border-4 border-foreground/20 rounded-[2rem] overflow-hidden shadow-xl">
+                <div className="w-full h-full overflow-y-auto transform scale-[0.55] origin-top-left" style={{ width: "182%", height: "182%" }}>
+                  {isSTD ? (
+                    <SaveTheDateView
+                      coupleName={partnerNames || "Marco & Giulia"}
+                      weddingDate={weddingDate || new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
+                      guestFirstName="Mario"
+                      guestLastName="Rossi"
+                      heroImageUrl={heroImageUrl}
+                      welcomeTitle={welcomeTitle || "Save The Date!"}
+                      welcomeText={welcomeText || "Segnati questa data speciale!"}
+                      isReadOnly={false}
+                      isPreview={true}
+                      theme={{
+                        font_family: fontFamily,
+                        primary_color: primaryColor,
+                        show_countdown: showCountdown,
+                      }}
+                      onSubmitResponse={async () => {
+                        toast({ title: "Anteprima", description: "Questo è solo un test!" });
+                      }}
+                    />
+                  ) : (
+                    // RSVP Preview - simplified mockup for now
+                    <div className="min-h-screen bg-background">
+                      {heroImageUrl && (
+                        <div className="h-48 w-full overflow-hidden">
+                          <img src={heroImageUrl} alt="Hero" className="w-full h-full object-cover" />
                         </div>
                       )}
+                      <div className="p-6 space-y-4">
+                        <h1 
+                          className={`text-2xl font-bold text-center ${
+                            fontFamily === "serif" ? "font-serif" :
+                            fontFamily === "sans" ? "font-sans" :
+                            "font-serif italic"
+                          }`}
+                          style={{ color: primaryColor }}
+                        >
+                          {partnerNames || "Marco & Giulia"}
+                        </h1>
+                        <p className="text-center text-muted-foreground">
+                          {weddingDate 
+                            ? new Date(weddingDate).toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" })
+                            : "14 Giugno 2026"
+                          }
+                        </p>
+                        <div className="bg-muted/30 rounded-lg p-4 text-center">
+                          <h2 className="font-semibold mb-2">{welcomeTitle || "Conferma la tua Presenza"}</h2>
+                          <p className="text-sm text-muted-foreground">{welcomeText || "Non vediamo l'ora di festeggiare con voi!"}</p>
+                        </div>
+                        <div className="space-y-3">
+                          <div className="border rounded-lg p-3">
+                            <p className="text-sm font-medium mb-2">Mario Rossi</p>
+                            <div className="flex gap-2">
+                              <button className="flex-1 py-2 rounded border text-sm hover:bg-muted transition-colors">Ci sarò</button>
+                              <button className="flex-1 py-2 rounded border text-sm hover:bg-muted transition-colors">Non ci sarò</button>
+                            </div>
+                          </div>
+                        </div>
+                        <button 
+                          className="w-full py-3 rounded-lg text-white font-medium"
+                          style={{ backgroundColor: primaryColor }}
+                        >
+                          Conferma Presenza
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                  
-                  {/* Content Section Preview */}
-                  <div className="p-4 space-y-4">
-                    <h2 
-                      className={`text-lg font-semibold text-center ${
-                        fontFamily === "serif" ? "font-serif" :
-                        fontFamily === "sans" ? "font-sans" :
-                        "font-serif italic"
-                      }`}
-                      style={{ color: primaryColor }}
-                    >
-                      {welcomeTitle || (isSTD ? "Save The Date!" : "Conferma la tua Presenza")}
-                    </h2>
-                    <p className="text-sm text-muted-foreground text-center">
-                      {welcomeText || "Messaggio di benvenuto..."}
-                    </p>
-                    
-                    {/* Form Preview Placeholder */}
-                    <div className="border rounded-lg p-3 bg-muted/30">
-                      <div className="h-3 w-3/4 bg-muted rounded mb-2" />
-                      <div className="h-8 w-full bg-muted rounded mb-2" />
-                      <div className="h-3 w-1/2 bg-muted rounded mb-2" />
-                      <div className="h-8 w-full bg-muted rounded" />
-                    </div>
-                    
-                    <button 
-                      className="w-full py-2 rounded-lg text-white text-sm font-medium"
-                      style={{ backgroundColor: primaryColor }}
-                    >
-                      {isSTD ? "Ho capito!" : "Conferma Presenza"}
-                    </button>
-                  </div>
+                  )}
                 </div>
               </div>
             </div>

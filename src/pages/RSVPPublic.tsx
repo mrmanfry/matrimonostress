@@ -38,6 +38,12 @@ interface RSVPConfig {
   deadline_date: string | null;
 }
 
+interface Theme {
+  font_family: "serif" | "sans" | "elegant";
+  primary_color: string;
+  show_countdown: boolean;
+}
+
 interface RSVPData {
   guest: {
     id: string;
@@ -57,6 +63,12 @@ interface RSVPData {
     date: string;
   };
   config: RSVPConfig;
+  theme?: Theme | null;
+  stdConfig?: {
+    hero_image_url: string | null;
+    welcome_title: string;
+    welcome_text: string;
+  } | null;
   isReadOnly: boolean;
 }
 
@@ -358,16 +370,22 @@ export default function RSVPPublic({ forceStdMode }: RSVPPublicProps) {
 
   // Render Save The Date view if mode=std
   if (isStdMode && !isPreview) {
+    // Use STD-specific config if available, otherwise fallback to main config
+    const stdHeroImage = rsvpData.stdConfig?.hero_image_url || rsvpData.config.hero_image_url;
+    const stdWelcomeTitle = rsvpData.stdConfig?.welcome_title || rsvpData.config.welcome_title;
+    const stdWelcomeText = rsvpData.stdConfig?.welcome_text || rsvpData.config.welcome_text;
+
     return (
       <SaveTheDateView
         coupleName={rsvpData.wedding.couple}
         weddingDate={rsvpData.wedding.date}
         guestFirstName={rsvpData.guest.firstName}
         guestLastName={rsvpData.guest.lastName}
-        heroImageUrl={rsvpData.config.hero_image_url}
-        welcomeTitle={rsvpData.config.welcome_title}
-        welcomeText={rsvpData.config.welcome_text}
+        heroImageUrl={stdHeroImage}
+        welcomeTitle={stdWelcomeTitle}
+        welcomeText={stdWelcomeText}
         isReadOnly={rsvpData.isReadOnly}
+        theme={rsvpData.theme}
         onSubmitResponse={handleStdResponse}
       />
     );

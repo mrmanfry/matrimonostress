@@ -5,6 +5,12 @@ import { toast } from "sonner";
 import { Calendar, Heart, ThumbsUp, HelpCircle, ThumbsDown, Loader2, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+interface Theme {
+  font_family: "serif" | "sans" | "elegant";
+  primary_color: string;
+  show_countdown: boolean;
+}
+
 interface SaveTheDateViewProps {
   coupleName: string;
   weddingDate: string;
@@ -14,6 +20,8 @@ interface SaveTheDateViewProps {
   welcomeTitle?: string;
   welcomeText?: string;
   isReadOnly?: boolean;
+  isPreview?: boolean;
+  theme?: Theme | null;
   onSubmitResponse: (response: 'likely_yes' | 'likely_no' | 'unsure') => Promise<void>;
 }
 
@@ -26,6 +34,8 @@ export function SaveTheDateView({
   welcomeTitle,
   welcomeText,
   isReadOnly,
+  isPreview,
+  theme,
   onSubmitResponse,
 }: SaveTheDateViewProps) {
   const [submitting, setSubmitting] = useState(false);
@@ -39,8 +49,30 @@ export function SaveTheDateView({
     year: "numeric",
   });
 
+  // Calculate countdown
+  const daysUntilWedding = Math.ceil(
+    (new Date(weddingDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
+  );
+
+  // Theme-based styling
+  const fontClass = theme?.font_family === "sans" 
+    ? "font-sans" 
+    : theme?.font_family === "elegant" 
+      ? "font-serif italic" 
+      : "font-serif";
+  
+  const primaryColor = theme?.primary_color || "hsl(var(--primary))";
+  const showCountdown = theme?.show_countdown ?? true;
+
   const handleResponse = async (response: 'likely_yes' | 'likely_no' | 'unsure') => {
     if (isReadOnly || submitting) return;
+    
+    // In preview mode, just show visual feedback
+    if (isPreview) {
+      setSelectedResponse(response);
+      toast.info("Anteprima - click registrato!");
+      return;
+    }
     
     setSubmitting(true);
     setSelectedResponse(response);
@@ -98,7 +130,7 @@ END:VCALENDAR`;
     window.open(url, '_blank');
   };
 
-  if (submitted) {
+  if (submitted && !isPreview) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center p-4">
         <Card className="max-w-md w-full text-center">
@@ -106,14 +138,14 @@ END:VCALENDAR`;
             <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
               <CheckCircle className="w-8 h-8 text-primary" />
             </div>
-            <h2 className="text-2xl font-bold mb-2">Grazie {guestFirstName}! 💕</h2>
+            <h2 className={cn("text-2xl font-bold mb-2", fontClass)}>Grazie {guestFirstName}! 💕</h2>
             <p className="text-muted-foreground mb-6">
               Abbiamo registrato la tua risposta. Ti invieremo presto tutti i dettagli!
             </p>
             
             <div className="bg-muted/50 rounded-lg p-4 mb-4">
               <p className="text-sm text-muted-foreground mb-2">Segna la data!</p>
-              <p className="font-semibold text-lg capitalize">{formattedDate}</p>
+              <p className={cn("font-semibold text-lg capitalize", fontClass)}>{formattedDate}</p>
             </div>
             
             <div className="flex flex-col gap-2">
@@ -130,6 +162,13 @@ END:VCALENDAR`;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
+      {/* Preview Banner */}
+      {isPreview && (
+        <div className="bg-yellow-500 text-yellow-950 text-center py-2 px-4 font-medium text-sm sticky top-0 z-50">
+          ⚠️ ANTEPRIMA - Questa è una simulazione
+        </div>
+      )}
+
       {/* Hero Section */}
       <div className="relative h-[40vh] md:h-[50vh] w-full overflow-hidden">
         {heroImageUrl ? (
@@ -139,8 +178,11 @@ END:VCALENDAR`;
             className="w-full h-full object-cover"
           />
         ) : (
-          <div className="w-full h-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
-            <Heart className="w-24 h-24 text-primary/30" />
+          <div 
+            className="w-full h-full flex items-center justify-center"
+            style={{ background: `linear-gradient(135deg, ${primaryColor}33, ${primaryColor}11)` }}
+          >
+            <Heart className="w-24 h-24" style={{ color: `${primaryColor}55` }} />
           </div>
         )}
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background" />
@@ -149,7 +191,14 @@ END:VCALENDAR`;
         <div className="absolute bottom-0 left-0 right-0 text-center pb-8">
           <div className="inline-block bg-background/90 backdrop-blur-sm rounded-2xl px-8 py-4 shadow-lg">
             <p className="text-sm text-muted-foreground uppercase tracking-wider mb-1">Save The Date</p>
-            <p className="text-3xl md:text-4xl font-bold capitalize">{formattedDate}</p>
+            <p className={cn("text-3xl md:text-4xl font-bold capitalize", fontClass)}>{formattedDate}</p>
+            
+            {/* Countdown */}
+            {showCountdown && daysUntilWedding > 0 && (
+              <p className="text-sm mt-2" style={{ color: primaryColor }}>
+                Mancano {daysUntilWedding} giorni
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -157,7 +206,12 @@ END:VCALENDAR`;
       <div className="max-w-lg mx-auto px-4 py-8 space-y-8">
         {/* Couple Names */}
         <div className="text-center">
-          <h1 className="text-4xl font-bold text-primary mb-2">{coupleName}</h1>
+          <h1 
+            className={cn("text-4xl font-bold mb-2", fontClass)}
+            style={{ color: primaryColor }}
+          >
+            {coupleName}
+          </h1>
           <p className="text-muted-foreground">si sposano!</p>
         </div>
 
