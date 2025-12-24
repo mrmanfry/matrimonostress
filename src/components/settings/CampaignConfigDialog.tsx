@@ -140,6 +140,10 @@ const CampaignConfigDialog = ({
   const handleSave = async () => {
     setSaving(true);
     try {
+      // Trim values to avoid saving empty/whitespace-only strings
+      const trimmedTitle = welcomeTitle.trim();
+      const trimmedText = welcomeText.trim();
+
       // Build updated config
       const updatedConfig: CampaignsConfig = currentConfig 
         ? { ...currentConfig }
@@ -169,12 +173,13 @@ const CampaignConfigDialog = ({
             },
           };
 
-      // Update the specific campaign
+      // Update the specific campaign with trimmed values (fallback to defaults if empty)
+      const isSTDCampaign = campaignType === "save_the_date";
       updatedConfig[campaignType] = {
         ...updatedConfig[campaignType],
         hero_image_url: heroImageUrl,
-        welcome_title: welcomeTitle,
-        welcome_text: welcomeText,
+        welcome_title: trimmedTitle || (isSTDCampaign ? "Save The Date!" : "Conferma la tua Presenza"),
+        welcome_text: trimmedText || (isSTDCampaign ? "Segnati questa data!" : "Non vediamo l'ora di festeggiare con voi!"),
         deadline_date: deadlineDate || null,
       };
 
