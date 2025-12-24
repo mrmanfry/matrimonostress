@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { useNavigate } from "react-router-dom";
 import { CampaignTypePicker, type CampaignType } from "./CampaignTypePicker";
+import { CampaignsConfig } from "@/components/settings/CampaignCard";
 
 // Utility: Converte Data URL (base64) in File object per Share API
 const dataURLToFile = async (dataUrl: string, filename: string): Promise<File> => {
@@ -89,11 +90,34 @@ interface SavedCampaignState {
   uploadedImage: string | null;
 }
 
-// Message templates per campaign type
-const MESSAGE_TEMPLATES: Record<CampaignType, string> = {
-  save_the_date: `Ciao [NomeInvitato]! 👋\n\n📅 Save The Date!\n\n[NomeCoppia] si sposano e vogliono te presente!\n\nTieniti libero/a per questa data speciale. Clicca qui per dirci se pensi di esserci:\n[LINK_RSVP]\n\nA presto! 💕`,
-  formal_invite: `Ciao [NomeInvitato]! 👋\n\nSiamo felici di invitarti ufficialmente al matrimonio di [NomeCoppia]! 💍\n\nConferma la tua presenza e le tue preferenze tramite questo link:\n[LINK_RSVP]\n\nGrazie! ❤️`,
-  reminder: `Ciao [NomeInvitato]! 👋\n\nTi ricordiamo di confermare la tua presenza al matrimonio di [NomeCoppia].\n\nPuoi farlo cliccando qui:\n[LINK_RSVP]\n\nGrazie! ❤️`,
+// Message templates per campaign type (defaults)
+const DEFAULT_MESSAGE_TEMPLATES: Record<CampaignType, string> = {
+  save_the_date: `Ciao [NomeInvitato], con molta gioia, desideriamo condividere con te un momento speciale: il nostro matrimonio. ❤️
+
+[NomeCoppia] si sposano e sarebbe un vero regalo averti con noi per festeggiare questo inizio.
+
+Puoi trovare tutti i dettagli e confermare la tua presenza qui:
+[LINK_RSVP]
+
+Non vediamo l'ora di riabbracciarti!
+[NomeCoppia]`,
+  formal_invite: `Ciao [NomeInvitato], con molta gioia, desideriamo condividere con te un momento speciale: il nostro matrimonio. ❤️
+
+[NomeCoppia] si sposano e sarebbe un vero regalo averti con noi per festeggiare questo inizio.
+
+Puoi trovare tutti i dettagli e confermare la tua presenza qui:
+[LINK_RSVP]
+
+Non vediamo l'ora di riabbracciarti!
+[NomeCoppia]`,
+  reminder: `Ciao [NomeInvitato]! 👋
+
+Ti ricordiamo di confermare la tua presenza al matrimonio di [NomeCoppia].
+
+Puoi farlo cliccando qui:
+[LINK_RSVP]
+
+Grazie! ❤️`,
 };
 
 export function RSVPCampaignDialog({
@@ -109,7 +133,7 @@ export function RSVPCampaignDialog({
   const [step, setStep] = useState<"campaign_type" | "filter" | "template" | "sending">("campaign_type");
   const [campaignType, setCampaignType] = useState<CampaignType | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterType>("to_send");
-  const [messageTemplate, setMessageTemplate] = useState(MESSAGE_TEMPLATES.formal_invite);
+  const [messageTemplate, setMessageTemplate] = useState(DEFAULT_MESSAGE_TEMPLATES.formal_invite);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [allGuests, setAllGuests] = useState<Guest[]>([]);
   const [guests, setGuests] = useState<Guest[]>([]);
@@ -123,6 +147,7 @@ export function RSVPCampaignDialog({
   const [rsvpConfig, setRsvpConfig] = useState<RSVPConfig | null>(null);
   const [isRsvpConfigured, setIsRsvpConfigured] = useState(false);
   const [selectedGuestIds, setSelectedGuestIds] = useState<Set<string>>(new Set());
+  const [campaignsConfig, setCampaignsConfig] = useState<CampaignsConfig | null>(null);
   
   // Recovery state - tracks if we're recovering from a page refresh
   const [isRecoveringFromRefresh, setIsRecoveringFromRefresh] = useState(false);
@@ -241,10 +266,10 @@ export function RSVPCampaignDialog({
       .order("name");
     setAllGroups(groups || []);
 
-    // Load RSVP config from wedding
+    // Load RSVP config and campaigns_config from wedding
     const { data: wedding } = await supabase
       .from("weddings")
-      .select("rsvp_config")
+      .select("rsvp_config, campaigns_config")
       .eq("id", weddingId)
       .single();
     
@@ -256,6 +281,11 @@ export function RSVPCampaignDialog({
     } else {
       setRsvpConfig(null);
       setIsRsvpConfigured(false);
+    }
+
+    // Load campaigns_config for saved message templates
+    if (wedding?.campaigns_config) {
+      setCampaignsConfig(wedding.campaigns_config as unknown as CampaignsConfig);
     }
 
     // Load ALL guests for the wedding (not filtered by party)
@@ -413,11 +443,57 @@ export function RSVPCampaignDialog({
     return filteredGuests.filter(g => selectedGuestIds.has(g.id));
   }, [filteredGuests, selectedGuestIds]);
 
-  const startSending = () => {
+  const startSending = async () => {
     if (selectedGuests.length === 0) {
       toast.error("Nessun invitato selezionato");
       return;
     }
+
+    // Save the message template to campaigns_config if it was modified
+    if (campaignType) {
+      const campaignKey = campaignType === 'save_the_date' ? 'save_the_date' : 'rsvp';
+      const updatedConfig: CampaignsConfig = campaignsConfig 
+        ? { ...campaignsConfig }
+        : {
+            save_the_date: {
+              status: "draft",
+              enabled: true,
+              hero_image_url: null,
+              welcome_title: "Save The Date!",
+              welcome_text: "Segnati questa data!",
+              deadline_date: null,
+            },
+            rsvp: {
+              status: "draft",
+              enabled: true,
+              hero_image_url: null,
+              welcome_title: "Conferma la tua Presenza",
+              welcome_text: "Non vediamo l'ora di festeggiare con voi!",
+              deadline_date: null,
+            },
+            theme: {
+              layout_mode: "immersive_scroll",
+              font_family: "serif",
+              primary_color: "#D4AF37",
+              show_countdown: false,
+              show_powered_by: true,
+            },
+          };
+
+      updatedConfig[campaignKey] = {
+        ...updatedConfig[campaignKey],
+        whatsapp_message_template: messageTemplate,
+      };
+
+      // Save to database
+      await supabase
+        .from("weddings")
+        .update({ campaigns_config: updatedConfig as any })
+        .eq("id", weddingId);
+
+      setCampaignsConfig(updatedConfig);
+    }
+
     setGuests(selectedGuests);
     setStep("sending");
     setCurrentIndex(0);
@@ -792,7 +868,10 @@ export function RSVPCampaignDialog({
                 selected={campaignType} 
                 onSelect={(type) => {
                   setCampaignType(type);
-                  setMessageTemplate(MESSAGE_TEMPLATES[type]);
+                  // Use saved template if available, otherwise use default
+                  const campaignKey = type === 'save_the_date' ? 'save_the_date' : 'rsvp';
+                  const savedTemplate = campaignsConfig?.[campaignKey]?.whatsapp_message_template;
+                  setMessageTemplate(savedTemplate || DEFAULT_MESSAGE_TEMPLATES[type]);
                 }}
               />
               <Button 

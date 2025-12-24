@@ -20,6 +20,7 @@ export interface CampaignConfig {
   welcome_title: string;
   welcome_text: string;
   deadline_date: string | null;
+  whatsapp_message_template?: string | null;
 }
 
 export interface CampaignsConfig {
