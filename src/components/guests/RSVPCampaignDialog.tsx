@@ -558,26 +558,37 @@ export function RSVPCampaignDialog({
     }
   };
 
+  /**
+   * SINGLE SOURCE OF TRUTH: Builds WhatsApp message payload for a guest.
+   * Used by ALL message generation points (send, reopen, preview).
+   */
+  const buildWhatsAppPayload = (guest: Guest) => {
+    // Smart alias logic: use alias if available, otherwise use first name only
+    const displayName = guest.alias?.trim() 
+      ? guest.alias 
+      : guest.first_name;
+    
+    // Dynamic link based on campaign type
+    const link = campaignType === 'save_the_date'
+      ? `${window.location.origin}/save-the-date/${guest.unique_rsvp_token}`
+      : `${window.location.origin}/rsvp/${guest.unique_rsvp_token}`;
+
+    const message = messageTemplate
+      .replace(/\[NomeInvitato\]/g, displayName)
+      .replace(/\[LINK_RSVP\]/g, link)
+      .replace(/\[NomeCoppia\]/g, coupleName);
+
+    const phoneNumber = guest.phone?.replace(/[^0-9]/g, "") || "";
+    const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
+
+    return { displayName, link, message, phoneNumber, whatsappUrl };
+  };
+
   const handleSmartSend = async () => {
     const currentGuest = guests[currentIndex];
     if (!currentGuest) return;
 
-    // Smart alias logic: use alias if available, otherwise use first name
-    const displayName = currentGuest.alias?.trim() 
-      ? currentGuest.alias 
-      : currentGuest.first_name;
-    
-    // Add ?mode=std for save_the_date campaigns
-    const rsvpLink = campaignType === 'save_the_date'
-      ? `${window.location.origin}/save-the-date/${currentGuest.unique_rsvp_token}`
-      : `${window.location.origin}/rsvp/${currentGuest.unique_rsvp_token}`;
-
-    const message = messageTemplate
-      .replace(/\[NomeInvitato\]/g, displayName)
-      .replace(/\[LINK_RSVP\]/g, rsvpLink)
-      .replace(/\[NomeCoppia\]/g, coupleName);
-
-    const phoneNumber = currentGuest.phone?.replace(/[^0-9]/g, "");
+    const { message, whatsappUrl } = buildWhatsAppPayload(currentGuest);
 
     // 1. CASO MOBILE NATIVO CON IMMAGINE (Migliore esperienza)
     if (uploadedImage && navigator.share && navigator.canShare) {
@@ -603,9 +614,6 @@ export function RSVPCampaignDialog({
     }
 
     // 2. CASO DESKTOP (Metodo Clipboard + WhatsApp Web)
-    const encodedMessage = encodeURIComponent(message);
-    const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodedMessage}`;
-    
     // PRIMA: Aprire WhatsApp Web (sincrono rispetto al click per evitare blocco popup)
     window.open(whatsappUrl, "_blank");
     
@@ -1287,12 +1295,8 @@ export function RSVPCampaignDialog({
                                 size="sm" 
                                 className="h-auto p-0 text-xs"
                                 onClick={() => {
-                                  const message = messageTemplate
-                                    .replace(/\[NomeInvitato\]/g, `${currentGuest.first_name} ${currentGuest.last_name}`)
-                                    .replace(/\[LINK_RSVP\]/g, `${window.location.origin}/rsvp/${currentGuest.unique_rsvp_token}`)
-                                    .replace(/\[NomeCoppia\]/g, coupleName);
-                                  const phoneNumber = currentGuest.phone?.replace(/[^0-9+]/g, "");
-                                  window.open(`https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`, "_blank");
+                                  const { whatsappUrl } = buildWhatsAppPayload(currentGuest);
+                                  window.open(whatsappUrl, "_blank");
                                 }}
                               >
                                 🔗 Riapri WhatsApp
@@ -1323,10 +1327,7 @@ export function RSVPCampaignDialog({
               <div className="border rounded-lg p-4 bg-muted/30">
                 <p className="text-xs font-medium mb-2 text-muted-foreground">Anteprima messaggio:</p>
                 <p className="text-sm whitespace-pre-wrap">
-                  {messageTemplate
-                    .replace(/\[NomeInvitato\]/g, `${currentGuest.first_name} ${currentGuest.last_name}`)
-                    .replace(/\[LINK_RSVP\]/g, `${window.location.origin}/rsvp/${currentGuest.unique_rsvp_token}`)
-                    .replace(/\[NomeCoppia\]/g, coupleName)}
+                  {buildWhatsAppPayload(currentGuest).message}
                 </p>
               </div>
             </div>
