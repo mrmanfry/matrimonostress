@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Calendar, Heart, ThumbsUp, HelpCircle, ThumbsDown, Loader2, CheckCircle } from "lucide-react";
+import { Calendar, MapPin, Loader2, CheckCircle, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Theme {
@@ -14,6 +13,7 @@ interface Theme {
 interface SaveTheDateViewProps {
   coupleName: string;
   weddingDate: string;
+  weddingLocation?: string;
   guestFirstName: string;
   guestLastName: string;
   heroImageUrl?: string | null;
@@ -28,6 +28,7 @@ interface SaveTheDateViewProps {
 export function SaveTheDateView({
   coupleName,
   weddingDate,
+  weddingLocation,
   guestFirstName,
   guestLastName,
   heroImageUrl,
@@ -41,33 +42,31 @@ export function SaveTheDateView({
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [selectedResponse, setSelectedResponse] = useState<'likely_yes' | 'likely_no' | 'unsure' | null>(null);
+  const [showCalendarOptions, setShowCalendarOptions] = useState(false);
 
-  const formattedDate = new Date(weddingDate).toLocaleDateString("it-IT", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  // Parse couple names for display
+  const names = coupleName.split(/\s*[&e]\s*/i);
+  const name1 = names[0]?.trim() || "";
+  const name2 = names[1]?.trim() || "";
+
+  // Format date
+  const eventDate = new Date(weddingDate);
+  const dayNumber = eventDate.getDate();
+  const monthName = eventDate.toLocaleDateString("it-IT", { month: "long" });
+  const year = eventDate.getFullYear();
 
   // Calculate countdown
   const daysUntilWedding = Math.ceil(
-    (new Date(weddingDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
+    (eventDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
   );
 
   // Theme-based styling
-  const fontClass = theme?.font_family === "sans" 
-    ? "font-sans" 
-    : theme?.font_family === "elegant" 
-      ? "font-serif italic" 
-      : "font-serif";
-  
-  const primaryColor = theme?.primary_color || "hsl(var(--primary))";
+  const primaryColor = theme?.primary_color || "#D4AF37";
   const showCountdown = theme?.show_countdown ?? true;
 
   const handleResponse = async (response: 'likely_yes' | 'likely_no' | 'unsure') => {
     if (isReadOnly || submitting) return;
     
-    // In preview mode, just show visual feedback
     if (isPreview) {
       setSelectedResponse(response);
       toast.info("Anteprima - click registrato!");
@@ -91,9 +90,6 @@ export function SaveTheDateView({
 
   const addToCalendar = (type: 'google' | 'apple' | 'outlook') => {
     const eventTitle = encodeURIComponent(`Matrimonio ${coupleName}`);
-    const eventDate = new Date(weddingDate);
-    
-    // Format for calendar links
     const startDate = eventDate.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
     const endDate = new Date(eventDate.getTime() + 12 * 60 * 60 * 1000).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
     
@@ -102,12 +98,13 @@ export function SaveTheDateView({
     switch (type) {
       case 'google':
         url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${eventTitle}&dates=${startDate}/${endDate}`;
+        window.open(url, '_blank');
         break;
       case 'outlook':
         url = `https://outlook.live.com/calendar/0/deeplink/compose?subject=${eventTitle}&startdt=${eventDate.toISOString()}&enddt=${new Date(eventDate.getTime() + 12 * 60 * 60 * 1000).toISOString()}`;
+        window.open(url, '_blank');
         break;
       case 'apple':
-        // Generate .ics file for Apple Calendar
         const icsContent = `BEGIN:VCALENDAR
 VERSION:2.0
 BEGIN:VEVENT
@@ -117,214 +114,250 @@ SUMMARY:Matrimonio ${coupleName}
 END:VEVENT
 END:VCALENDAR`;
         const blob = new Blob([icsContent], { type: 'text/calendar' });
-        url = URL.createObjectURL(blob);
+        const downloadUrl = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url;
+        a.href = downloadUrl;
         a.download = `matrimonio-${coupleName.replace(/\s+/g, '-').toLowerCase()}.ics`;
         a.click();
-        URL.revokeObjectURL(url);
+        URL.revokeObjectURL(downloadUrl);
         toast.success("File calendario scaricato!");
-        return;
+        break;
     }
-    
-    window.open(url, '_blank');
+    setShowCalendarOptions(false);
   };
 
+  // Success state after submission
   if (submitted && !isPreview) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center p-4">
-        <Card className="max-w-md w-full text-center">
-          <CardContent className="pt-8 pb-8">
-            <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-              <CheckCircle className="w-8 h-8 text-primary" />
-            </div>
-            <h2 className={cn("text-2xl font-bold mb-2", fontClass)}>Grazie {guestFirstName}! 💕</h2>
-            <p className="text-muted-foreground mb-6">
-              Abbiamo registrato la tua risposta. Ti invieremo presto tutti i dettagli!
+      <div 
+        className="min-h-screen flex items-center justify-center p-4"
+        style={{ 
+          background: `linear-gradient(135deg, ${primaryColor}22, ${primaryColor}08)` 
+        }}
+      >
+        <div className="max-w-md w-full text-center bg-white/90 backdrop-blur-sm rounded-2xl p-8 shadow-xl">
+          <div 
+            className="mx-auto mb-4 w-16 h-16 rounded-full flex items-center justify-center"
+            style={{ backgroundColor: `${primaryColor}20` }}
+          >
+            <CheckCircle className="w-8 h-8" style={{ color: primaryColor }} />
+          </div>
+          <h2 className="font-cormorant text-3xl font-light mb-2">Grazie {guestFirstName}!</h2>
+          <p className="text-gray-600 mb-6">
+            Abbiamo registrato la tua risposta. Ti invieremo presto tutti i dettagli!
+          </p>
+          
+          <div className="bg-gray-50 rounded-lg p-4 mb-6">
+            <p className="text-sm text-gray-500 mb-1">Segna la data!</p>
+            <p className="font-cormorant text-2xl font-semibold capitalize">
+              {dayNumber} {monthName} {year}
             </p>
-            
-            <div className="bg-muted/50 rounded-lg p-4 mb-4">
-              <p className="text-sm text-muted-foreground mb-2">Segna la data!</p>
-              <p className={cn("font-semibold text-lg capitalize", fontClass)}>{formattedDate}</p>
-            </div>
-            
-            <div className="flex flex-col gap-2">
-              <Button variant="outline" onClick={() => addToCalendar('google')} className="w-full">
-                <Calendar className="w-4 h-4 mr-2" />
-                Aggiungi a Google Calendar
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+          </div>
+          
+          <Button 
+            variant="outline" 
+            onClick={() => addToCalendar('google')} 
+            className="w-full"
+          >
+            <Calendar className="w-4 h-4 mr-2" />
+            Aggiungi a Google Calendar
+          </Button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
+    <div className="relative min-h-screen">
       {/* Preview Banner */}
       {isPreview && (
-        <div className="bg-yellow-500 text-yellow-950 text-center py-2 px-4 font-medium text-sm sticky top-0 z-50">
+        <div 
+          className="text-white text-center py-2 px-4 font-medium text-sm sticky top-0 z-50"
+          style={{ backgroundColor: primaryColor }}
+        >
           ⚠️ ANTEPRIMA - Questa è una simulazione
         </div>
       )}
 
-      {/* Hero Section */}
-      <div className="relative h-[40vh] md:h-[50vh] w-full overflow-hidden">
-        {heroImageUrl ? (
-          <img
-            src={heroImageUrl}
-            alt="Wedding"
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div 
-            className="w-full h-full flex items-center justify-center"
-            style={{ background: `linear-gradient(135deg, ${primaryColor}33, ${primaryColor}11)` }}
-          >
-            <Heart className="w-24 h-24" style={{ color: `${primaryColor}55` }} />
-          </div>
-        )}
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background" />
-        
-        {/* Date Overlay */}
-        <div className="absolute bottom-0 left-0 right-0 text-center pb-8">
-          <div className="inline-block bg-background/90 backdrop-blur-sm rounded-2xl px-8 py-4 shadow-lg">
-            <p className="text-sm text-muted-foreground uppercase tracking-wider mb-1">Save The Date</p>
-            <p className={cn("text-3xl md:text-4xl font-bold capitalize", fontClass)}>{formattedDate}</p>
+      {/* Full-Screen Hero with Background Image */}
+      <div 
+        className="relative min-h-screen flex flex-col"
+        style={{
+          backgroundImage: heroImageUrl 
+            ? `url(${heroImageUrl})` 
+            : `linear-gradient(135deg, ${primaryColor}33 0%, ${primaryColor}11 100%)`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundAttachment: 'fixed',
+        }}
+      >
+        {/* Dark Gradient Overlay */}
+        <div 
+          className="absolute inset-0"
+          style={{
+            background: heroImageUrl 
+              ? 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.4) 40%, rgba(0,0,0,0.2) 70%, transparent 100%)'
+              : 'transparent'
+          }}
+        />
+
+        {/* Content Container */}
+        <div className="relative z-10 flex-1 flex flex-col justify-end pb-8 px-6">
+          {/* Main Content */}
+          <div className="text-center text-white max-w-lg mx-auto space-y-6">
             
+            {/* Couple Names - Large Typography */}
+            <div className="space-y-2">
+              <h1 className="font-cormorant text-5xl sm:text-6xl md:text-7xl font-light leading-tight">
+                {name1}
+              </h1>
+              <p 
+                className="font-playfair text-2xl sm:text-3xl italic"
+                style={{ color: primaryColor }}
+              >
+                &
+              </p>
+              <h1 className="font-cormorant text-5xl sm:text-6xl md:text-7xl font-light leading-tight">
+                {name2}
+              </h1>
+            </div>
+
+            {/* Save The Date Label */}
+            <p 
+              className="uppercase tracking-[0.3em] text-sm font-light"
+              style={{ color: heroImageUrl ? 'rgba(255,255,255,0.8)' : primaryColor }}
+            >
+              Save The Date
+            </p>
+
+            {/* Date Display */}
+            <div className="space-y-1">
+              <p className="font-cormorant text-4xl sm:text-5xl font-semibold">
+                {dayNumber} {monthName}
+              </p>
+              <p 
+                className="font-cormorant text-3xl sm:text-4xl font-light"
+                style={{ color: heroImageUrl ? 'rgba(255,255,255,0.7)' : primaryColor }}
+              >
+                {year}
+              </p>
+            </div>
+
+            {/* Location */}
+            {weddingLocation && (
+              <div className="flex items-center justify-center gap-2 text-white/80">
+                <MapPin className="w-4 h-4" style={{ color: primaryColor }} />
+                <span className="text-sm tracking-wide">{weddingLocation}</span>
+              </div>
+            )}
+
             {/* Countdown */}
             {showCountdown && daysUntilWedding > 0 && (
-              <p className="text-sm mt-2" style={{ color: primaryColor }}>
-                Mancano {daysUntilWedding} giorni
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-lg mx-auto px-4 py-8 space-y-8">
-        {/* Couple Names */}
-        <div className="text-center">
-          <h1 
-            className={cn("text-4xl font-bold mb-2", fontClass)}
-            style={{ color: primaryColor }}
-          >
-            {coupleName}
-          </h1>
-          <p className="text-muted-foreground">si sposano!</p>
-        </div>
-
-        {/* Welcome Message */}
-        <Card>
-          <CardContent className="pt-6 text-center">
-            <h2 className="text-xl font-semibold mb-2">
-              Ciao {guestFirstName}! 👋
-            </h2>
-            <p className="text-muted-foreground">
-              {welcomeText || "Tieniti libero per questa data speciale. Ti invieremo presto tutti i dettagli!"}
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Add to Calendar */}
-        <Card>
-          <CardContent className="pt-6 space-y-4">
-            <h3 className="font-semibold text-center flex items-center justify-center gap-2">
-              <Calendar className="w-5 h-5 text-primary" />
-              Aggiungi al Calendario
-            </h3>
-            <div className="grid grid-cols-3 gap-2">
-              <Button variant="outline" onClick={() => addToCalendar('google')} className="text-sm">
-                Google
-              </Button>
-              <Button variant="outline" onClick={() => addToCalendar('apple')} className="text-sm">
-                Apple
-              </Button>
-              <Button variant="outline" onClick={() => addToCalendar('outlook')} className="text-sm">
-                Outlook
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Soft RSVP Widget */}
-        {!isReadOnly && (
-          <Card className="border-2 border-primary/20">
-            <CardContent className="pt-6 space-y-4">
-              <h3 className="font-semibold text-center">
-                Pensi di esserci? 🤔
-              </h3>
-              <p className="text-sm text-muted-foreground text-center">
-                Non è vincolante - ci aiuta a organizzarci!
-              </p>
-              
-              <div className="grid grid-cols-3 gap-3">
-                <button
-                  onClick={() => handleResponse('likely_yes')}
-                  disabled={submitting}
-                  className={cn(
-                    "flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all",
-                    selectedResponse === 'likely_yes' 
-                      ? "border-green-500 bg-green-50 dark:bg-green-950/30" 
-                      : "border-border hover:border-green-300 hover:bg-green-50/50 dark:hover:bg-green-950/20",
-                    submitting && "opacity-50 cursor-not-allowed"
-                  )}
-                >
-                  {submitting && selectedResponse === 'likely_yes' ? (
-                    <Loader2 className="w-8 h-8 animate-spin text-green-500" />
-                  ) : (
-                    <ThumbsUp className="w-8 h-8 text-green-500" />
-                  )}
-                  <span className="text-sm font-medium">Ci sarò!</span>
-                </button>
-                
-                <button
-                  onClick={() => handleResponse('unsure')}
-                  disabled={submitting}
-                  className={cn(
-                    "flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all",
-                    selectedResponse === 'unsure' 
-                      ? "border-amber-500 bg-amber-50 dark:bg-amber-950/30" 
-                      : "border-border hover:border-amber-300 hover:bg-amber-50/50 dark:hover:bg-amber-950/20",
-                    submitting && "opacity-50 cursor-not-allowed"
-                  )}
-                >
-                  {submitting && selectedResponse === 'unsure' ? (
-                    <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
-                  ) : (
-                    <HelpCircle className="w-8 h-8 text-amber-500" />
-                  )}
-                  <span className="text-sm font-medium">Forse</span>
-                </button>
-                
-                <button
-                  onClick={() => handleResponse('likely_no')}
-                  disabled={submitting}
-                  className={cn(
-                    "flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all",
-                    selectedResponse === 'likely_no' 
-                      ? "border-red-500 bg-red-50 dark:bg-red-950/30" 
-                      : "border-border hover:border-red-300 hover:bg-red-50/50 dark:hover:bg-red-950/20",
-                    submitting && "opacity-50 cursor-not-allowed"
-                  )}
-                >
-                  {submitting && selectedResponse === 'likely_no' ? (
-                    <Loader2 className="w-8 h-8 animate-spin text-red-500" />
-                  ) : (
-                    <ThumbsDown className="w-8 h-8 text-red-500" />
-                  )}
-                  <span className="text-sm font-medium">Difficile</span>
-                </button>
+              <div 
+                className="inline-block px-4 py-2 rounded-full text-sm backdrop-blur-sm"
+                style={{ 
+                  backgroundColor: 'rgba(255,255,255,0.15)',
+                  border: `1px solid ${primaryColor}50`
+                }}
+              >
+                <span style={{ color: primaryColor }}>{daysUntilWedding}</span>
+                <span className="text-white/80 ml-1">giorni al grande giorno</span>
               </div>
-            </CardContent>
-          </Card>
-        )}
+            )}
 
-        {/* Footer */}
-        <div className="text-center text-sm text-muted-foreground pb-8">
-          <Heart className="w-4 h-4 inline-block mr-1" />
-          Ti invieremo i dettagli ufficiali più avanti
+            {/* Personalized Quote Message */}
+            <div className="pt-4 pb-6">
+              <p 
+                className="font-playfair text-base sm:text-lg italic text-white/90 max-w-sm mx-auto leading-relaxed"
+              >
+                "{welcomeText || `Ciao ${guestFirstName}! Un capitolo d'amore ci aspetta, e vorremmo tu fossi parte di questa storia.`}"
+              </p>
+            </div>
+
+            {/* Action Buttons - Glass Morphism Style */}
+            <div className="space-y-4 pt-2">
+              {/* Calendar Button */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowCalendarOptions(!showCalendarOptions)}
+                  className="w-full flex items-center justify-center gap-3 px-6 py-3 rounded-full backdrop-blur-md transition-all hover:scale-[1.02]"
+                  style={{
+                    backgroundColor: 'rgba(255,255,255,0.15)',
+                    border: '1px solid rgba(255,255,255,0.3)',
+                    color: 'white'
+                  }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '20px', color: primaryColor }}>event</span>
+                  <span className="text-sm tracking-wide">Aggiungi al Calendario</span>
+                  <ChevronDown className={cn("w-4 h-4 transition-transform", showCalendarOptions && "rotate-180")} />
+                </button>
+                
+                {/* Calendar Dropdown */}
+                {showCalendarOptions && (
+                  <div className="absolute top-full mt-2 left-0 right-0 bg-white/95 backdrop-blur-md rounded-xl shadow-xl overflow-hidden z-20">
+                    {['google', 'apple', 'outlook'].map((cal) => (
+                      <button
+                        key={cal}
+                        onClick={() => addToCalendar(cal as any)}
+                        className="w-full px-4 py-3 text-left text-gray-800 hover:bg-gray-100 transition-colors flex items-center gap-3 text-sm"
+                      >
+                        <Calendar className="w-4 h-4" style={{ color: primaryColor }} />
+                        <span className="capitalize">{cal === 'apple' ? 'Apple Calendar' : cal === 'google' ? 'Google Calendar' : 'Outlook'}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* RSVP Buttons */}
+              {!isReadOnly && (
+                <div className="space-y-3">
+                  <p className="text-white/70 text-xs tracking-wide uppercase">Pensi di esserci?</p>
+                  <div className="flex gap-3 justify-center">
+                    {[
+                      { value: 'likely_yes', label: 'Ci sarò!', icon: '😊' },
+                      { value: 'unsure', label: 'Forse', icon: '🤔' },
+                      { value: 'likely_no', label: 'No', icon: '😢' },
+                    ].map((option) => (
+                      <button
+                        key={option.value}
+                        onClick={() => handleResponse(option.value as any)}
+                        disabled={submitting}
+                        className={cn(
+                          "flex flex-col items-center gap-1 px-4 py-3 rounded-xl backdrop-blur-md transition-all",
+                          selectedResponse === option.value
+                            ? "scale-105"
+                            : "hover:scale-[1.02]",
+                          submitting && "opacity-50 cursor-not-allowed"
+                        )}
+                        style={{
+                          backgroundColor: selectedResponse === option.value 
+                            ? `${primaryColor}40` 
+                            : 'rgba(255,255,255,0.1)',
+                          border: selectedResponse === option.value 
+                            ? `2px solid ${primaryColor}` 
+                            : '1px solid rgba(255,255,255,0.2)',
+                        }}
+                      >
+                        {submitting && selectedResponse === option.value ? (
+                          <Loader2 className="w-6 h-6 animate-spin text-white" />
+                        ) : (
+                          <span className="text-xl">{option.icon}</span>
+                        )}
+                        <span className="text-xs text-white/90">{option.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-white/50 text-xs">Non vincolante - ci aiuta a organizzarci!</p>
+                </div>
+              )}
+            </div>
+
+            {/* Scroll Indicator */}
+            <div className="pt-8 pb-4 animate-bounce">
+              <ChevronDown className="w-6 h-6 mx-auto text-white/40" />
+            </div>
+          </div>
         </div>
       </div>
     </div>
