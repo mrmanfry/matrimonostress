@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Heart, RefreshCw, LogOut, WifiOff } from "lucide-react";
@@ -11,21 +11,26 @@ interface ProtectedRouteProps {
   redirectIfHasWedding?: boolean;
 }
 
-export function ProtectedRoute({ children, requireWedding = false, redirectIfHasWedding = false }: ProtectedRouteProps) {
+/**
+ * ProtectedRoute - Guardiano delle rotte basato su stati espliciti
+ * 
+ * Logica senza timer:
+ * - loading: spinner
+ * - error: schermata errore critico
+ * - authenticated_wedding_error: schermata retry (errore network)
+ * - unauthenticated: redirect a /auth
+ * - no_wedding: redirect a /onboarding (se requireWedding) o passa
+ * - authenticated: redirect a /app/dashboard (se redirectIfHasWedding) o passa
+ */
+export function ProtectedRoute({ 
+  children, 
+  requireWedding = false, 
+  redirectIfHasWedding = false 
+}: ProtectedRouteProps) {
   const { authState, refreshAuth, signOut } = useAuth();
   const location = useLocation();
-  const [gracePeriodExpired, setGracePeriodExpired] = useState(false);
-  
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setGracePeriodExpired(true);
-      console.log('[ProtectedRoute] Grace period expired');
-    }, 6000); // 6 second grace period (queries run in parallel with 5s timeout)
-    
-    return () => clearTimeout(timer);
-  }, [authState.status === 'authenticated' ? authState.weddingId : null]);
 
-  // Loading state
+  // 1. Loading State - Spinner mentre Supabase/RPC lavorano
   if (authState.status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-hero">
@@ -37,7 +42,7 @@ export function ProtectedRoute({ children, requireWedding = false, redirectIfHas
     );
   }
 
-  // Error state (general auth error)
+  // 2. Error State - Errore critico di autenticazione
   if (authState.status === "error") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-hero">
@@ -47,10 +52,7 @@ export function ProtectedRoute({ children, requireWedding = false, redirectIfHas
           <p className="text-muted-foreground max-w-md">
             Si è verificato un errore durante l'autenticazione. Riprova più tardi.
           </p>
-          <Button
-            onClick={() => window.location.reload()}
-            className="mt-4"
-          >
+          <Button onClick={() => window.location.reload()} className="mt-4">
             Ricarica la Pagina
           </Button>
         </div>
@@ -58,8 +60,8 @@ export function ProtectedRoute({ children, requireWedding = false, redirectIfHas
     );
   }
 
-  // NEW: Wedding loading error state (user is authenticated but wedding fetch failed)
-  // This prevents the "registration loop" bug - we show retry instead of redirecting to onboarding
+  // 3. Wedding Loading Error - Utente autenticato ma errore nel fetch del wedding
+  // Mostra schermata retry invece di reindirizzare a onboarding (previene loop di registrazione)
   if (authState.status === "authenticated_wedding_error") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-hero p-4">
@@ -115,37 +117,32 @@ export function ProtectedRoute({ children, requireWedding = false, redirectIfHas
     );
   }
 
-  // Not authenticated
+  // 4. Unauthenticated - Redirect al login salvando la location corrente
   if (authState.status === "unauthenticated") {
     return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 
-  // Wedding check for protected routes
-  if (authState.status === "authenticated") {
-    const hasWedding = authState.weddingId !== null;
-    
-    // During grace period, show loading instead of redirect
-    if (!hasWedding && !gracePeriodExpired) {
-      return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-hero">
-          <div className="text-center space-y-4">
-            <Heart className="w-16 h-16 text-accent fill-accent animate-pulse mx-auto" />
-            <p className="text-lg text-muted-foreground">Verifica in corso...</p>
-          </div>
-        </div>
-      );
-    }
-
-    if (redirectIfHasWedding && hasWedding) {
-      return <Navigate to="/app/dashboard" replace />;
-    }
-
-    if (requireWedding && !hasWedding && gracePeriodExpired) {
-      console.warn('[ProtectedRoute] No weddingId after grace period, redirecting to onboarding');
+  // 5. No Wedding - Utente loggato ma nuovo (senza matrimonio)
+  if (authState.status === "no_wedding") {
+    // Se la pagina richiede un matrimonio (es. Dashboard), manda a Onboarding
+    if (requireWedding) {
+      console.log('[ProtectedRoute] Missing wedding context, redirecting to onboarding');
       return <Navigate to="/onboarding" replace />;
     }
+    // Altrimenti (es. sta visitando /onboarding o /profile), lascialo passare
+    return <>{children}</>;
   }
 
-  // All checks passed
-  return <>{children}</>;
+  // 6. Authenticated - Utente loggato E con matrimonio
+  if (authState.status === "authenticated") {
+    // Se è su una pagina che deve saltare se ha già un matrimonio (es. /onboarding), manda a Dashboard
+    if (redirectIfHasWedding) {
+      return <Navigate to="/app/dashboard" replace />;
+    }
+    // Tutto ok, mostra la pagina
+    return <>{children}</>;
+  }
+
+  // Fallback di sicurezza (non dovrebbe mai arrivarci)
+  return null;
 }

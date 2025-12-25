@@ -1,25 +1,22 @@
-import { createContext, useContext, useEffect, useState, ReactNode, useRef, useCallback } from "react";
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import { retryWithBackoff } from "@/utils/retryWithBackoff";
-import { fetchWithTimeout } from "@/utils/fetchWithTimeout";
 import { weddingStorage } from "@/utils/weddingStorage";
 
 /**
- * Risultato del caricamento weddingId con distinzione tra:
- * - found: ID trovato con successo
- * - not_found: Utente autenticato ma senza matrimonio (nuovo utente)
- * - error: Errore tecnico (rete, timeout, server)
+ * Stati dell'autenticazione con distinzione esplicita:
+ * - loading: inizializzazione in corso
+ * - unauthenticated: utente non loggato
+ * - authenticated: loggato CON matrimonio (weddingId garantito)
+ * - no_wedding: loggato MA senza matrimonio (nuovo utente -> onboarding)
+ * - authenticated_wedding_error: loggato ma errore nel recupero wedding (mostra retry)
+ * - error: errore critico di autenticazione
  */
-type WeddingIdResult = 
-  | { status: 'found'; weddingId: string }
-  | { status: 'not_found' }
-  | { status: 'error'; error: Error };
-
 type AuthState = 
   | { status: "loading" }
   | { status: "unauthenticated" }
-  | { status: "authenticated"; user: User; session: Session; weddingId: string | null }
+  | { status: "authenticated"; user: User; session: Session; weddingId: string; role: string | null }
+  | { status: "no_wedding"; user: User; session: Session }
   | { status: "authenticated_wedding_error"; user: User; session: Session; error: Error }
   | { status: "error"; error: Error };
 
@@ -33,70 +30,11 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [authState, setAuthState] = useState<AuthState>({ status: "loading" });
-  const loadWeddingIdTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const DEBOUNCE_MS = 500;
 
-  const loadSession = async () => {
-    try {
-      const { data, error } = await retryWithBackoff(
-        () => supabase.auth.getSession(),
-        {
-          maxAttempts: 3,
-          initialDelay: 1000,
-          onRetry: (attempt, error) => {
-            console.log(`Auth retry attempt ${attempt}:`, error.message);
-          }
-        }
-      );
-
-      if (error) throw error;
-
-      if (data.session) {
-        // Get previous weddingId if available
-        const previousWeddingId = authState.status === 'authenticated' ? authState.weddingId : null;
-        
-        // Load wedding_id for the user with error distinction
-        const result = await loadWeddingIdWithStatus(data.session.user.id, previousWeddingId);
-        
-        if (result.status === 'error') {
-          // Errore tecnico: NON reindirizzare a onboarding!
-          console.error('[AuthContext] Errore recupero wedding, mostra schermata retry');
-          setAuthState({
-            status: "authenticated_wedding_error",
-            user: data.session.user,
-            session: data.session,
-            error: result.error,
-          });
-        } else if (result.status === 'found') {
-          setAuthState({
-            status: "authenticated",
-            user: data.session.user,
-            session: data.session,
-            weddingId: result.weddingId,
-          });
-        } else {
-          // not_found: utente nuovo, può andare a onboarding
-          setAuthState({
-            status: "authenticated",
-            user: data.session.user,
-            session: data.session,
-            weddingId: null,
-          });
-        }
-      } else {
-        setAuthState({ status: "unauthenticated" });
-      }
-    } catch (error) {
-      console.error("Auth error:", error);
-      setAuthState({
-        status: "error",
-        error: error instanceof Error ? error : new Error(String(error)),
-      });
-    }
-  };
-
-  // Funzione helper per la verifica in background (Fire & Forget)
-  const verifyCacheInBackground = async (idToVerify: string, userId: string) => {
+  /**
+   * Verifica in background che il cached ID sia ancora valido (Fire & Forget)
+   */
+  const verifyCacheInBackground = useCallback(async (idToVerify: string) => {
     try {
       const { data } = await supabase
         .from('weddings')
@@ -107,192 +45,175 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!data) {
         console.warn('[AuthContext] ⚠️ Background check: cached ID is invalid/deleted.');
         weddingStorage.clear();
-        // L'utente verrà reindirizzato al prossimo refresh
       } else {
         console.log('[AuthContext] ✅ Background check passed.');
       }
     } catch (e) {
       console.warn('[AuthContext] Background check network error (ignored):', e);
     }
-  };
-
-  /**
-   * Versione migliorata di loadWeddingId che distingue tra:
-   * - Matrimonio trovato
-   * - Nessun matrimonio (utente nuovo)
-   * - Errore tecnico
-   */
-  const loadWeddingIdWithStatus = async (
-    userId: string, 
-    previousWeddingId?: string | null
-  ): Promise<WeddingIdResult> => {
-    // 1. RECUPERO CACHE
-    const cachedWeddingId = previousWeddingId || weddingStorage.get();
-    
-    // CASO A: ABBIAMO UN ID IN CACHE (Utente di ritorno) - INGRESSO IMMEDIATO
-    if (cachedWeddingId) {
-      console.log('[AuthContext] ⚡ Cache hit! Entering immediately:', cachedWeddingId);
-      
-      // NON BLOCCHIAMO L'INGRESSO. Lanciamo la verifica in background ("Fire & Forget")
-      verifyCacheInBackground(cachedWeddingId, userId);
-      
-      return { status: 'found', weddingId: cachedWeddingId };
-    }
-    
-    // CASO B: NESSUNA CACHE (Primo accesso o cache pulita)
-    console.log('[AuthContext] No cache, fetching from DB (Cold Start)...');
-    try {
-      const roleQuery = async () => {
-        return await supabase.from("user_roles").select("wedding_id").eq("user_id", userId).maybeSingle();
-      };
-      
-      const weddingQuery = async () => {
-        return await supabase.from("weddings").select("id").eq("created_by", userId).maybeSingle();
-      };
-      
-      // Timeout generoso (15s) solo per chi NON ha cache
-      const [roleResult, weddingResult] = await Promise.all([
-        fetchWithTimeout(roleQuery, 15000, null),
-        fetchWithTimeout(weddingQuery, 15000, null)
-      ]);
-
-      // Verifica se c'è stato un errore nella query (non solo timeout)
-      if (roleResult === null && weddingResult === null) {
-        // Entrambe le query hanno fallito - probabile errore di rete
-        throw new Error('Timeout o errore di rete nel recupero dati matrimonio');
-      }
-      
-      if (roleResult?.data?.wedding_id) {
-        weddingStorage.set(roleResult.data.wedding_id);
-        return { status: 'found', weddingId: roleResult.data.wedding_id };
-      }
-      
-      if (weddingResult?.data?.id) {
-        weddingStorage.set(weddingResult.data.id);
-        return { status: 'found', weddingId: weddingResult.data.id };
-      }
-      
-      // Nessun matrimonio trovato - utente nuovo
-      return { status: 'not_found' };
-    } catch (error) {
-      console.error('[AuthContext] Error fetching wedding ID:', error);
-      return { 
-        status: 'error', 
-        error: error instanceof Error ? error : new Error(String(error)) 
-      };
-    }
-  };
-
-  // Legacy function for backward compatibility
-  const loadWeddingId = async (userId: string, previousWeddingId?: string | null): Promise<string | null> => {
-    const result = await loadWeddingIdWithStatus(userId, previousWeddingId);
-    if (result.status === 'found') return result.weddingId;
-    return null;
-  };
-
-  const debouncedLoadWeddingId = useCallback(async (userId: string) => {
-    if (loadWeddingIdTimeoutRef.current) {
-      clearTimeout(loadWeddingIdTimeoutRef.current);
-    }
-    
-    loadWeddingIdTimeoutRef.current = setTimeout(async () => {
-      const weddingId = await loadWeddingId(userId);
-      setAuthState(prev => {
-        if (prev.status === 'authenticated') {
-          return {
-            ...prev,
-            weddingId
-          };
-        }
-        return prev;
-      });
-    }, DEBOUNCE_MS);
   }, []);
 
-  useEffect(() => {
-    // Initial load
-    loadSession();
+  /**
+   * Carica il contesto utente usando la RPC ottimizzata (singola chiamata)
+   * Ritorna { weddingId, role } oppure lancia errore
+   */
+  const loadUserContext = useCallback(async (): Promise<{ weddingId: string | null; role: string | null }> => {
+    // 1. Cache Check: Se abbiamo già l'ID in localStorage, usiamolo per istantaneità
+    const cached = weddingStorage.get();
+    if (cached) {
+      console.log('[AuthContext] ⚡ Cache hit! Using:', cached);
+      // Verifica in background senza bloccare
+      verifyCacheInBackground(cached);
+      return { weddingId: cached, role: null };
+    }
 
-    // Listen for auth changes
+    // 2. RPC Call: Singola chiamata al database
+    console.log('[AuthContext] ⚡ Fetching user context via RPC...');
+    
+    const { data, error } = await supabase.rpc('get_user_context');
+    
+    if (error) {
+      console.error('[AuthContext] RPC Error:', error);
+      throw error;
+    }
+
+    // Parse JSON response from RPC
+    const contextData = data as { wedding_id: string | null; role: string | null } | null;
+    const serverWeddingId = contextData?.wedding_id || null;
+    const serverRole = contextData?.role || null;
+
+    if (serverWeddingId) {
+      console.log('[AuthContext] ✅ Context resolved:', serverWeddingId, 'role:', serverRole);
+      weddingStorage.set(serverWeddingId);
+    } else {
+      console.log('[AuthContext] 🤷 No wedding context found (new user)');
+    }
+
+    return { weddingId: serverWeddingId, role: serverRole };
+  }, [verifyCacheInBackground]);
+
+  /**
+   * Gestore centrale della sessione - chiamato per ogni evento auth
+   */
+  const handleAuthSession = useCallback(async (session: Session) => {
+    try {
+      const { weddingId, role } = await loadUserContext();
+      
+      if (weddingId) {
+        // Caso A: Utente ha un matrimonio -> Authenticated
+        setAuthState({
+          status: "authenticated",
+          user: session.user,
+          session,
+          weddingId,
+          role
+        });
+      } else {
+        // Caso B: Utente loggato ma SENZA matrimonio -> No Wedding (onboarding)
+        console.log('[AuthContext] User logged in but needs onboarding');
+        setAuthState({
+          status: "no_wedding",
+          user: session.user,
+          session
+        });
+      }
+    } catch (error) {
+      console.error('[AuthContext] Error finalizing auth session:', error);
+      setAuthState({
+        status: "authenticated_wedding_error",
+        user: session.user,
+        session,
+        error: error instanceof Error ? error : new Error(String(error))
+      });
+    }
+  }, [loadUserContext]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    // Check iniziale della sessione
+    const initSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) throw error;
+        
+        if (session && mounted) {
+          await handleAuthSession(session);
+        } else if (!session && mounted) {
+          setAuthState({ status: "unauthenticated" });
+        }
+      } catch (error) {
+        console.error('[AuthContext] Init session error:', error);
+        if (mounted) {
+          setAuthState({
+            status: "error",
+            error: error instanceof Error ? error : new Error(String(error))
+          });
+        }
+      }
+    };
+
+    initSession();
+
+    // Listener eventi auth (Event-Driven)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('[AuthContext] Auth event:', event);
-        
-        if (!session) {
+        if (!mounted) return;
+        console.log(`[AuthContext] Auth event: ${event}`);
+
+        // Logout o sessione invalida
+        if (event === 'SIGNED_OUT' || !session) {
           weddingStorage.clear();
           setAuthState({ status: "unauthenticated" });
           return;
         }
-        
+
+        // Token refresh: preserva lo stato esistente, aggiorna solo la sessione
         if (event === 'TOKEN_REFRESHED') {
-          // CRITICAL: Preserve existing weddingId during token refresh
           setAuthState(prev => {
             if (prev.status === 'authenticated') {
               console.log('[AuthContext] Token refreshed, keeping weddingId:', prev.weddingId);
-              return {
-                ...prev,
-                session, // Only update session
-              };
+              return { ...prev, session };
             }
-            // Also preserve authenticated_wedding_error state
             if (prev.status === 'authenticated_wedding_error') {
-              return {
-                ...prev,
-                session,
-              };
+              return { ...prev, session };
+            }
+            if (prev.status === 'no_wedding') {
+              return { ...prev, session };
             }
             return prev;
           });
           return;
         }
-        
-        if (event === 'SIGNED_IN') {
-          // Only on initial login, load weddingId
-          const result = await loadWeddingIdWithStatus(session.user.id);
+
+        // SIGNED_IN, INITIAL_SESSION e altri eventi: gestione unificata
+        if (['SIGNED_IN', 'INITIAL_SESSION'].includes(event)) {
+          // Evita ri-caricamento se stesso utente già autenticato
+          setAuthState(prev => {
+            if (prev.status === 'authenticated' && prev.user.id === session.user.id) {
+              console.log('[AuthContext] Same user already authenticated, skipping reload');
+              return prev;
+            }
+            // Altrimenti triggera il caricamento (gestito sotto)
+            return prev;
+          });
           
-          if (result.status === 'error') {
-            setAuthState({
-              status: "authenticated_wedding_error",
-              user: session.user,
-              session,
-              error: result.error,
-            });
-          } else {
-            setAuthState({
-              status: "authenticated",
-              user: session.user,
-              session,
-              weddingId: result.status === 'found' ? result.weddingId : null,
-            });
+          // Se non siamo già nello stato giusto, carica il contesto
+          const currentState = authState;
+          if (currentState.status !== 'authenticated' || 
+              (currentState.status === 'authenticated' && currentState.user?.id !== session.user.id)) {
+            await handleAuthSession(session);
           }
-          return;
         }
-        
-        // INITIAL_SESSION and other events: keep existing state if same user
-        setAuthState(prev => {
-          if (prev.status === 'authenticated' && prev.user.id === session.user.id) {
-            return prev; // No change, avoid duplicate loads
-          }
-          if (prev.status === 'authenticated_wedding_error' && prev.user.id === session.user.id) {
-            return prev; // Preserve error state
-          }
-          return {
-            status: "authenticated",
-            user: session.user,
-            session,
-            weddingId: prev.status === 'authenticated' ? prev.weddingId : null,
-          };
-        });
       }
     );
 
     return () => {
+      mounted = false;
       subscription.unsubscribe();
-      if (loadWeddingIdTimeoutRef.current) {
-        clearTimeout(loadWeddingIdTimeoutRef.current);
-      }
     };
-  }, [debouncedLoadWeddingId]);
+  }, [handleAuthSession]);
 
   const signOut = async () => {
     await supabase.auth.signOut();
@@ -302,7 +223,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshAuth = async () => {
     setAuthState({ status: "loading" });
-    await loadSession();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      await handleAuthSession(session);
+    } else {
+      setAuthState({ status: "unauthenticated" });
+    }
   };
 
   return (

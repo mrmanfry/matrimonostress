@@ -1329,6 +1329,7 @@ export type Database = {
     Functions: {
       cleanup_expired_sync_tokens: { Args: never; Returns: undefined }
       generate_progress_token: { Args: never; Returns: string }
+      get_user_context: { Args: never; Returns: Json }
       get_user_email: { Args: { _user_id: string }; Returns: string }
       get_wedding_role: {
         Args: { _user_id: string; _wedding_id: string }
