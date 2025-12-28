@@ -98,11 +98,26 @@ export function SaveTheDateView({
   const name1 = names[0]?.trim() || "";
   const name2 = names[1]?.trim() || "";
 
-  // Format date
-  const eventDate = new Date(weddingDate);
-  const dayNumber = eventDate.getDate();
-  const monthName = eventDate.toLocaleDateString("it-IT", { month: "long" });
-  const year = eventDate.getFullYear();
+  // Format date in the wedding's timezone (not user's local timezone)
+  // This ensures someone in Brazil sees "25 luglio" not "24 luglio"
+  const eventDate = new Date(weddingDate + "T12:00:00"); // Add noon time to avoid midnight edge cases
+  const tz = timezone || "Europe/Rome";
+
+  // Use Intl.DateTimeFormat to format in the wedding's timezone
+  const dayNumber = new Intl.DateTimeFormat("it-IT", { 
+    day: "numeric", 
+    timeZone: tz 
+  }).format(eventDate);
+
+  const monthName = new Intl.DateTimeFormat("it-IT", { 
+    month: "long", 
+    timeZone: tz 
+  }).format(eventDate);
+
+  const year = new Intl.DateTimeFormat("it-IT", { 
+    year: "numeric", 
+    timeZone: tz 
+  }).format(eventDate);
 
   // Calculate countdown
   const daysUntilWedding = Math.ceil(
