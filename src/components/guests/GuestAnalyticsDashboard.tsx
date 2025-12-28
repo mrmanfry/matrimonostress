@@ -796,12 +796,14 @@ function CampaignsTab({ analytics, onFilterClick, activeFilter }: { analytics: G
           Funnel Campagne
         </h4>
         <div className="space-y-3">
-              {funnelStages.map((stage) => {
+              {(() => {
+                const maxValue = Math.max(...funnelStages.map(s => s.value), 1);
+                return funnelStages.map((stage) => {
                 const StageIcon = stage.icon;
-                const widthPercent = Math.max(
-                  20,
-                  analytics.totalGuests > 0 ? (stage.value / analytics.totalGuests) * 100 : 0
-                );
+                // Width is proportional to max stage value, with a minimum for visibility only if value > 0
+                const widthPercent = stage.value > 0 
+                  ? Math.max(8, (stage.value / maxValue) * 100) 
+                  : 0;
             return (
               <div 
                 key={stage.label} 
@@ -830,7 +832,8 @@ function CampaignsTab({ analytics, onFilterClick, activeFilter }: { analytics: G
                 </span>
               </div>
             );
-          })}
+          });
+              })()}
         </div>
       </Card>
 
