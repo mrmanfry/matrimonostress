@@ -94,7 +94,7 @@ export function GuestFilters({
     switch (filterId) {
       case "group":
         return (
-          <div className="space-y-1.5 min-w-[140px]" key={filterId}>
+          <div className="space-y-1.5" key={filterId}>
             <Label className="text-xs text-muted-foreground">Gruppo</Label>
             <Select
               value={values.group}
@@ -118,7 +118,7 @@ export function GuestFilters({
 
       case "rsvpStatus":
         return (
-          <div className="space-y-1.5 min-w-[130px]" key={filterId}>
+          <div className="space-y-1.5" key={filterId}>
             <Label className="text-xs text-muted-foreground">Stato RSVP</Label>
             <Select
               value={values.rsvpStatus}
@@ -139,7 +139,7 @@ export function GuestFilters({
 
       case "stdStatus":
         return (
-          <div className="space-y-1.5 min-w-[140px]" key={filterId}>
+          <div className="space-y-1.5" key={filterId}>
             <Label className="text-xs text-muted-foreground">Save The Date</Label>
             <Select
               value={values.stdStatus}
@@ -162,7 +162,7 @@ export function GuestFilters({
 
       case "plusOne":
         return (
-          <div className="space-y-1.5 min-w-[140px]" key={filterId}>
+          <div className="space-y-1.5" key={filterId}>
             <Label className="text-xs text-muted-foreground">+1 Accomp.</Label>
             <Select
               value={values.plusOne}
@@ -183,7 +183,7 @@ export function GuestFilters({
 
       case "grouping":
         return (
-          <div className="space-y-1.5 min-w-[130px]" key={filterId}>
+          <div className="space-y-1.5" key={filterId}>
             <Label className="text-xs text-muted-foreground">Raggruppamento</Label>
             <Select
               value={values.grouping}
@@ -203,7 +203,7 @@ export function GuestFilters({
 
       case "contact":
         return (
-          <div className="space-y-1.5 min-w-[130px]" key={filterId}>
+          <div className="space-y-1.5" key={filterId}>
             <Label className="text-xs text-muted-foreground">Telefono</Label>
             <Select
               value={values.contact}
@@ -223,7 +223,7 @@ export function GuestFilters({
 
       case "age":
         return (
-          <div className="space-y-1.5 min-w-[120px]" key={filterId}>
+          <div className="space-y-1.5" key={filterId}>
             <Label className="text-xs text-muted-foreground">Tipo Invitato</Label>
             <Select
               value={values.age}
@@ -243,7 +243,7 @@ export function GuestFilters({
 
       case "menu":
         return (
-          <div className="space-y-1.5 min-w-[130px]" key={filterId}>
+          <div className="space-y-1.5" key={filterId}>
             <Label className="text-xs text-muted-foreground">Menu</Label>
             <Select
               value={values.menu}
@@ -266,7 +266,7 @@ export function GuestFilters({
 
       case "staff":
         return (
-          <div className="space-y-1.5 min-w-[120px]" key={filterId}>
+          <div className="space-y-1.5" key={filterId}>
             <Label className="text-xs text-muted-foreground">Ruolo</Label>
             <Select
               value={values.staff}
@@ -286,7 +286,7 @@ export function GuestFilters({
 
       case "inviteStatus":
         return (
-          <div className="space-y-1.5 min-w-[140px]" key={filterId}>
+          <div className="space-y-1.5" key={filterId}>
             <Label className="text-xs text-muted-foreground">Invito Formale</Label>
             <Select
               value={values.inviteStatus}
@@ -311,7 +311,7 @@ export function GuestFilters({
 
   return (
     <>
-      <div className="flex flex-wrap items-end gap-3">
+      <div className="grid grid-cols-2 md:flex md:flex-wrap items-end gap-2 md:gap-3">
         {enabledFilters.map((filter) => renderFilter(filter.id))}
 
         {/* Settings button with hidden filters count */}

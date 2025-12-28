@@ -1040,12 +1040,12 @@ const Guests = () => {
   const hasNoGuests = allGuests.length === 0;
 
   return (
-    <div className="container mx-auto p-6 space-y-6 max-w-7xl">
+    <div className="container mx-auto p-3 md:p-6 space-y-4 md:space-y-6 max-w-7xl overflow-x-hidden">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-3">
-            <Users className="w-8 h-8" />
+          <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2 md:gap-3">
+            <Users className="w-7 h-7 md:w-8 md:h-8" />
             Gestione Invitati
           </h1>
           <p className="text-muted-foreground mt-1">
@@ -1122,7 +1122,7 @@ const Guests = () => {
           />
           
           {/* Secondary Stats Row */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
             <Card className="p-4">
               <div className="text-sm text-muted-foreground">Coperti Stimati</div>
               <div className="text-3xl font-bold">{totalGuests + potentialPlusOnes}</div>
@@ -1240,7 +1240,7 @@ const Guests = () => {
 
           {/* Filters - New Configurable Filter System */}
           <div className="space-y-3">
-            <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
