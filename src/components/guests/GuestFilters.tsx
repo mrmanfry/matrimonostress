@@ -311,7 +311,7 @@ export function GuestFilters({
 
   return (
     <>
-      <div className="grid grid-cols-2 md:flex md:flex-wrap items-end gap-2 md:gap-3">
+      <div className="grid grid-cols-1 xs:grid-cols-2 md:flex md:flex-wrap items-end gap-2 md:gap-3 min-w-0">
         {enabledFilters.map((filter) => renderFilter(filter.id))}
 
         {/* Settings button with hidden filters count */}

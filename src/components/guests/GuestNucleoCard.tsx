@@ -252,8 +252,8 @@ export const GuestNucleoCard = ({
       {/* Status Strip - colored bar on the left */}
       <div className={`absolute left-0 top-0 bottom-0 w-1 ${statusStripColor}`} />
       
-      <div className="p-4 pl-5">
-        <div className="flex items-start gap-3">
+      <div className="p-3 sm:p-4 pl-4 sm:pl-5">
+        <div className="flex items-start gap-2 sm:gap-3">
           {/* Checkbox */}
           <Checkbox
             checked={selected}
@@ -266,9 +266,9 @@ export const GuestNucleoCard = ({
             {/* Header */}
             <div className="flex items-start justify-between gap-2 mb-3">
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                <div className="flex items-center gap-1 sm:gap-2 mb-2 flex-wrap">
                   <Users className="w-4 h-4 text-primary flex-shrink-0" />
-                  <h3 className="font-semibold truncate">{party.party_name}</h3>
+                  <h3 className="font-semibold truncate text-sm sm:text-base">{party.party_name}</h3>
                   {groupName && (
                     <Badge variant="outline" className="text-xs gap-1 bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/20 dark:border-blue-700 dark:text-blue-300">
                       <Tag className="w-3 h-3" />
@@ -326,11 +326,11 @@ export const GuestNucleoCard = ({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-8 gap-1.5"
+                  className="h-8 gap-1 px-2"
                   onClick={() => onEdit(party)}
                 >
                   <Edit className="w-3.5 h-3.5" />
-                  <span className="text-xs">Modifica Nucleo</span>
+                  <span className="text-xs hidden sm:inline">Modifica Nucleo</span>
                 </Button>
               </div>
             </div>
@@ -343,8 +343,8 @@ export const GuestNucleoCard = ({
               <h4 className="text-xs font-medium text-muted-foreground mb-2">👥 Membri:</h4>
               <div className="space-y-2 pl-3">
                 {adults.map(guest => (
-                  <div key={guest.id} className="flex items-center justify-between text-sm group">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <div key={guest.id} className="flex items-center justify-between text-sm group gap-1 min-w-0">
+                    <div className="flex items-center gap-1 sm:gap-2 min-w-0 flex-1">
                       <span className="truncate">{guest.first_name} {guest.last_name}</span>
                       {guest.alias && (
                         <span className="text-xs text-muted-foreground bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded border">
@@ -364,17 +364,17 @@ export const GuestNucleoCard = ({
                       {getStdSentIcon(guest)}
                       {getStdResponseIcon(guest)}
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 flex-shrink-0">
                       <div 
-                        className="flex items-center gap-1"
+                        className="flex items-center gap-0.5"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <span className="text-xs text-muted-foreground">+1</span>
+                        <span className="text-xs text-muted-foreground hidden sm:inline">+1</span>
                         <Switch
                           checked={guest.allow_plus_one || false}
                           onCheckedChange={(checked) => handleTogglePlusOne(guest.id, checked)}
                           disabled={togglingPlusOne === guest.id}
-                          className="scale-[0.6]"
+                          className="scale-[0.55]"
                           title="Permetti +1"
                         />
                       </div>

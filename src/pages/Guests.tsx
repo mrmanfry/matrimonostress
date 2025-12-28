@@ -1240,14 +1240,14 @@ const Guests = () => {
 
           {/* Filters - New Configurable Filter System */}
           <div className="space-y-3">
-            <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
-              <div className="flex-1 relative">
+            <div className="flex flex-col gap-2 sm:flex-row sm:gap-3 min-w-0">
+              <div className="flex-1 relative min-w-0">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   placeholder="🔍 Cerca invitati o nuclei..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 w-full"
                 />
               </div>
 
@@ -1255,9 +1255,10 @@ const Guests = () => {
                 onClick={handleBulkSendRSVP}
                 disabled={parties.length === 0}
                 variant="default"
-                className="gap-2 whitespace-nowrap"
+                className="gap-2 w-full sm:w-auto sm:whitespace-nowrap"
               >
-                💬 Campagna RSVP
+                <span className="sm:hidden">💬 Campagna</span>
+                <span className="hidden sm:inline">💬 Campagna RSVP</span>
               </Button>
             </div>
 
