@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Sparkles, Send, SkipForward, Upload, X, Filter, Phone, AlertCircle, Users, CheckCircle, PhoneOff, Settings, Link2, RotateCcw, RefreshCw, Info, ImageIcon, Share2, Copy } from "lucide-react";
+import { Sparkles, Send, SkipForward, Upload, X, Filter, Phone, AlertCircle, Users, CheckCircle, PhoneOff, Settings, Link2, RotateCcw, RefreshCw, Info, ImageIcon, Share2, Copy, Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -144,6 +145,7 @@ export function RSVPCampaignDialog({
   const [allGroups, setAllGroups] = useState<GuestGroup[]>([]);
   const [selectedPartyId, setSelectedPartyId] = useState<string | null>(null);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const [rsvpConfig, setRsvpConfig] = useState<RSVPConfig | null>(null);
   const [isRsvpConfigured, setIsRsvpConfigured] = useState(false);
   const [selectedGuestIds, setSelectedGuestIds] = useState<Set<string>>(new Set());
@@ -317,8 +319,18 @@ export function RSVPCampaignDialog({
       result = result.filter(g => g.group_id === selectedGroupId);
     }
     
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      result = result.filter(g => 
+        g.first_name.toLowerCase().includes(query) ||
+        g.last_name.toLowerCase().includes(query) ||
+        (g.alias && g.alias.toLowerCase().includes(query))
+      );
+    }
+    
     return result;
-  }, [allGuests, selectedPartyId, selectedGroupId]);
+  }, [allGuests, selectedPartyId, selectedGroupId, searchQuery]);
 
   // Helper: determina se un guest è stato già contattato per questo tipo di campagna
   const hasBeenSentForCampaign = (g: Guest) => {
@@ -933,6 +945,18 @@ export function RSVPCampaignDialog({
                     <Filter className="w-4 h-4 text-muted-foreground" />
                     <span className="text-sm font-medium">Filtra per</span>
                   </div>
+                  
+                  {/* Search input */}
+                  <div className="relative mb-3">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Cerca per nome, cognome o alias..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                  
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="text-xs text-muted-foreground mb-1 block">Nucleo Familiare</label>
@@ -973,7 +997,7 @@ export function RSVPCampaignDialog({
                       </Select>
                     </div>
                   </div>
-                  {(selectedPartyId || selectedGroupId) && (
+                  {(selectedPartyId || selectedGroupId || searchQuery.trim()) && (
                     <div className="mt-3 flex items-center gap-2">
                       <Badge variant="secondary" className="text-xs">
                         {preFilteredGuests.length} invitati filtrati
@@ -985,6 +1009,7 @@ export function RSVPCampaignDialog({
                         onClick={() => {
                           setSelectedPartyId(null);
                           setSelectedGroupId(null);
+                          setSearchQuery("");
                         }}
                       >
                         Rimuovi filtri
