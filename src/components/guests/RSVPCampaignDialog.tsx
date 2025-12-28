@@ -663,6 +663,7 @@ export function RSVPCampaignDialog({
     const message = messageTemplate
       .replace(/\[NomeInvitato\]/g, displayName)
       .replace(/\[LINK_RSVP\]/g, link)
+      .replace(/\[LINK_STD\]/g, link)
       .replace(/\[NomeCoppia\]/g, coupleName);
 
     const phoneNumber = guest.phone?.replace(/[^0-9]/g, "") || "";
@@ -1277,7 +1278,7 @@ export function RSVPCampaignDialog({
                       value={messageTemplate}
                       onChange={(e) => setMessageTemplate(e.target.value)}
                       rows={8}
-                      placeholder="Usa le variabili: [NomeInvitato], [LINK_RSVP], [NomeCoppia]"
+                      placeholder="Usa le variabili: [NomeInvitato], [LINK_RSVP], [LINK_STD], [NomeCoppia]"
                       className="font-mono text-sm"
                     />
                     <div className="flex flex-wrap gap-2">
@@ -1379,8 +1380,9 @@ export function RSVPCampaignDialog({
                 <div className="bg-muted p-4 rounded-lg space-y-2">
                   <p className="font-medium">📋 Variabili disponibili:</p>
                   <ul className="text-sm space-y-1 list-disc list-inside">
-                    <li><code>[NomeInvitato]</code> - Nome completo dell'invitato</li>
-                    <li><code>[LINK_RSVP]</code> - Link RSVP unico personalizzato</li>
+                    <li><code>[NomeInvitato]</code> - Alias (soprannome) se disponibile, altrimenti nome</li>
+                    <li><code>[LINK_RSVP]</code> - Link RSVP per conferma presenza</li>
+                    <li><code>[LINK_STD]</code> - Link Save The Date per anteprima</li>
                     <li><code>[NomeCoppia]</code> - Nomi degli sposi</li>
                   </ul>
                 </div>
