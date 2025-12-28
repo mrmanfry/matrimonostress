@@ -846,11 +846,12 @@ const Guests = () => {
     if (funnelFilter) {
       items = items.filter(item => {
         const checkGuest = (g: Guest): boolean => {
+          const hasStdInfo = !!g.save_the_date_sent_at || !!g.std_response;
           switch (funnelFilter) {
             case 'draft':
-              return !g.save_the_date_sent_at && !g.formal_invite_sent_at;
+              return !hasStdInfo && !g.formal_invite_sent_at;
             case 'std_sent':
-              return !!g.save_the_date_sent_at && !g.formal_invite_sent_at;
+              return hasStdInfo && !g.formal_invite_sent_at;
             case 'invited':
               return !!g.formal_invite_sent_at && (!g.rsvp_status || g.rsvp_status === 'pending');
             case 'confirmed':
