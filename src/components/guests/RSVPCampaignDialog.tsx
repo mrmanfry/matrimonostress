@@ -101,14 +101,16 @@ interface SavedCampaignState {
 
 // Message templates per campaign type (defaults)
 const DEFAULT_MESSAGE_TEMPLATES: Record<CampaignType, string> = {
-  save_the_date: `Ciao [NomeInvitato], con molta gioia, desideriamo condividere con te un momento speciale: il nostro matrimonio. ❤️
+  save_the_date: `Ciao [NomeInvitato],
 
-[NomeCoppia] si sposano e sarebbe un vero regalo averti con noi per festeggiare questo inizio.
+Save the Date!
 
-Puoi trovare tutti i dettagli e confermare la tua presenza qui:
-[LINK_RSVP]
+Ci sposiamo: segna la data per il grande giorno.
+Non vediamo l'ora di condividere questo momento speciale.
 
-Non vediamo l'ora di riabbracciarti!
+Scopri i primi dettagli qui:
+[LINK_STD]
+
 [NomeCoppia]`,
   formal_invite: `Ciao [NomeInvitato], con molta gioia, desideriamo condividere con te un momento speciale: il nostro matrimonio. ❤️
 
