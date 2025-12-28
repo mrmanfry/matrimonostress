@@ -31,6 +31,7 @@ interface Guest {
   save_the_date_sent_at?: string | null;
   formal_invite_sent_at?: string | null;
   std_response?: string | null;
+  std_responded_at?: string | null;
   rsvp_status?: string | null;
   rsvp_invitation_sent?: string | null;
 }
@@ -168,6 +169,14 @@ export const GuestNucleoCard = ({
   // Detect STD discrepancy within family nucleus
   const stdDiscrepancy = useMemo(() => detectStdDiscrepancy(party.guests), [party.guests]);
   
+  // Find who responded to STD (first person with std_responded_at)
+  const stdResponder = useMemo(() => {
+    const respondedGuests = party.guests
+      .filter(g => g.std_responded_at)
+      .sort((a, b) => new Date(a.std_responded_at!).getTime() - new Date(b.std_responded_at!).getTime());
+    return respondedGuests[0]?.first_name || null;
+  }, [party.guests]);
+  
   // Status strip color
   const statusStripColor = getStatusStripColor(party);
 
@@ -214,6 +223,7 @@ export const GuestNucleoCard = ({
                       formalInviteSentAt={party.guests[0].formal_invite_sent_at}
                       stdResponse={party.guests[0].std_response as 'likely_yes' | 'likely_no' | 'unsure' | null | undefined}
                       rsvpStatus={party.guests[0].rsvp_status}
+                      stdRespondedBy={stdResponder}
                       compact
                     />
                   )}
