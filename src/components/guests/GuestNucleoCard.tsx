@@ -316,6 +316,7 @@ export const GuestNucleoCard = ({
                           ({guest.phone})
                         </span>
                       )}
+                      {getStdSentIcon(guest)}
                     </div>
                     <div className="flex items-center gap-2">
                       <div 
@@ -331,7 +332,6 @@ export const GuestNucleoCard = ({
                           title="Permetti +1"
                         />
                       </div>
-                      {getStdSentIcon(guest)}
                       {getSendStatusIcon(guest.rsvp_send_status)}
                       <Button
                         variant="ghost"
