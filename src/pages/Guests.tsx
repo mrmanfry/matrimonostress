@@ -13,7 +13,15 @@ import {
   Sparkles,
   AlertCircle,
   Smartphone,
+  UserPlus,
+  ChevronDown,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { GuestFilters, GuestFilterValues, DEFAULT_FILTER_VALUES } from "@/components/guests/GuestFilters";
 import { PartyDialog } from "@/components/guests/PartyDialog";
 import { SmartGrouperDialog } from "@/components/guests/SmartGrouperDialog";
@@ -28,6 +36,7 @@ import { GuestSingleCard } from "@/components/guests/GuestSingleCard";
 import { GuestNucleoCard } from "@/components/guests/GuestNucleoCard";
 import { SelectionToolbar } from "@/components/guests/SelectionToolbar";
 import { FunnelKPICards } from "@/components/guests/FunnelKPICards";
+import { GuestDialog } from "@/components/guests/GuestDialog";
 import { GuestCampaignBadges } from "@/components/guests/GuestCampaignBadges";
 import { generateCateringReport } from "@/utils/pdfHelpers";
 import { CSVImportDialog } from "@/components/guests/CSVImportDialog";
@@ -110,6 +119,7 @@ const Guests = () => {
   const [smartDiffOpen, setSmartDiffOpen] = useState(false);
   const [csvImportOpen, setCsvImportOpen] = useState(false);
   const [contactSyncOpen, setContactSyncOpen] = useState(false);
+  const [singleGuestDialogOpen, setSingleGuestDialogOpen] = useState(false);
   const [rsvpCampaignOpen, setRsvpCampaignOpen] = useState(false);
   const [selectedPartiesForRSVP, setSelectedPartiesForRSVP] = useState<InviteParty[]>([]);
   
@@ -1072,15 +1082,28 @@ const Guests = () => {
               <Smartphone className="w-4 h-4 mr-2" />
               Sincronizza Contatti
             </Button>
-            <Button
-              onClick={() => {
-                setEditingParty(undefined);
-                setPartyDialogOpen(true);
-              }}
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Crea Nucleo
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Crea
+                  <ChevronDown className="w-4 h-4 ml-1" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setSingleGuestDialogOpen(true)}>
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Crea Contatto
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => {
+                  setEditingParty(undefined);
+                  setPartyDialogOpen(true);
+                }}>
+                  <Users className="w-4 h-4 mr-2" />
+                  Crea Nucleo
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         )}
       </div>
@@ -1105,10 +1128,28 @@ const Guests = () => {
                 hasGuests={false}
                 hasConfirmedGuests={false}
               />
-              <Button onClick={() => setSmartImportOpen(true)}>
-                <Sparkles className="w-4 h-4 mr-2" />
-                Smart Import
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Crea
+                    <ChevronDown className="w-4 h-4 ml-1" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setSingleGuestDialogOpen(true)}>
+                    <UserPlus className="w-4 h-4 mr-2" />
+                    Crea Contatto
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => {
+                    setEditingParty(undefined);
+                    setPartyDialogOpen(true);
+                  }}>
+                    <Users className="w-4 h-4 mr-2" />
+                    Crea Nucleo
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </Card>
@@ -1410,6 +1451,39 @@ const Guests = () => {
         existingPhones={allGuests.map(g => g.phone).filter(Boolean) as string[]}
         existingGroups={[]}
         onSuccess={loadData}
+      />
+
+      <GuestDialog
+        open={singleGuestDialogOpen}
+        onOpenChange={setSingleGuestDialogOpen}
+        guest={null}
+        groups={[]}
+        weddingId={wedding?.id}
+        onSave={async (guestData) => {
+          if (!wedding?.id) return;
+          
+          const { error } = await supabase
+            .from("guests")
+            .insert({
+              wedding_id: wedding.id,
+              first_name: guestData.first_name,
+              last_name: guestData.last_name,
+              rsvp_status: guestData.rsvp_status || "In attesa",
+              adults_count: guestData.adults_count || 1,
+              children_count: guestData.children_count || 0,
+              menu_choice: guestData.menu_choice || null,
+              dietary_restrictions: guestData.dietary_restrictions || null,
+              notes: guestData.notes || null,
+              group_id: guestData.group_id || null,
+              allow_plus_one: guestData.allow_plus_one || false,
+              is_child: false,
+            });
+            
+          if (error) throw error;
+          
+          setSingleGuestDialogOpen(false);
+          loadData();
+        }}
       />
     </div>
   );
