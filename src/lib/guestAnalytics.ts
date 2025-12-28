@@ -175,9 +175,11 @@ export function calculateGuestAnalytics(
   const withoutPhone = regularGuests.length - withPhone;
 
   // Campaign funnel (regular guests only - couple members don't go through funnel)
-  const draftCount = regularGuests.filter(g => !g.save_the_date_sent_at && !g.formal_invite_sent_at).length;
-  const stdSentCount = regularGuests.filter(g => g.save_the_date_sent_at && !g.formal_invite_sent_at).length;
-  const stdRespondedCount = regularGuests.filter(g => g.std_responded_at).length;
+  // Note: if someone has std_response, they effectively "received" the STD (maybe via family referent)
+  const hasStdInfo = (g: GuestForAnalytics) => g.save_the_date_sent_at || g.std_response;
+  const draftCount = regularGuests.filter(g => !hasStdInfo(g) && !g.formal_invite_sent_at).length;
+  const stdSentCount = regularGuests.filter(g => hasStdInfo(g) && !g.formal_invite_sent_at).length;
+  const stdRespondedCount = regularGuests.filter(g => g.std_responded_at || g.std_response).length;
   const stdResponseRate = stdSentCount > 0 ? (stdRespondedCount / stdSentCount) * 100 : 0;
   const stdLikelyYes = regularGuests.filter(g => g.std_response === 'likely_yes').length;
   const stdUnsure = regularGuests.filter(g => g.std_response === 'unsure').length;
