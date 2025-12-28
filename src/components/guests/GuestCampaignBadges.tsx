@@ -129,51 +129,51 @@ export function GuestCampaignBadges({
         </Tooltip>
       </TooltipProvider>
     );
+  }
 
-    // STD Response badge
-    if (stdResponse) {
-      const responseConfig = {
-        likely_yes: {
-          icon: ThumbsUp,
-          label: "Interessato",
-          shortLabel: "👍",
-          color: "border-green-300 bg-green-50 text-green-700 dark:border-green-700 dark:bg-green-950/30 dark:text-green-400",
-        },
-        unsure: {
-          icon: HelpCircle,
-          label: "Incerto",
-          shortLabel: "🤔",
-          color: "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-400",
-        },
-        likely_no: {
-          icon: ThumbsDown,
-          label: "Improbabile",
-          shortLabel: "👎",
-          color: "border-red-300 bg-red-50 text-red-700 dark:border-red-700 dark:bg-red-950/30 dark:text-red-400",
-        },
-      }[stdResponse];
+  // STD Response badge - show even if saveTheDateSentAt is null (fix for responses without recorded send)
+  if (stdResponse && !formalInviteSentAt) {
+    const responseConfig = {
+      likely_yes: {
+        icon: ThumbsUp,
+        label: "Interessato",
+        shortLabel: "👍",
+        color: "border-green-300 bg-green-50 text-green-700 dark:border-green-700 dark:bg-green-950/30 dark:text-green-400",
+      },
+      unsure: {
+        icon: HelpCircle,
+        label: "Incerto",
+        shortLabel: "🤔",
+        color: "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-400",
+      },
+      likely_no: {
+        icon: ThumbsDown,
+        label: "Improbabile",
+        shortLabel: "👎",
+        color: "border-red-300 bg-red-50 text-red-700 dark:border-red-700 dark:bg-red-950/30 dark:text-red-400",
+      },
+    }[stdResponse];
 
-      const ResponseIcon = responseConfig.icon;
-      
-      badges.push(
-        <TooltipProvider key="std-response">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Badge variant="outline" className={cn(responseConfig.color, compact && "h-5 text-[10px] px-1.5")}>
-                <ResponseIcon className={cn("mr-1", compact ? "w-3 h-3" : "w-3.5 h-3.5")} />
-                {compact ? responseConfig.shortLabel : responseConfig.label}
-              </Badge>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Risposta al Save The Date: {responseConfig.label}</p>
-              {stdRespondedBy && (
-                <p className="text-xs text-muted-foreground">Risposto da: {stdRespondedBy}</p>
-              )}
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      );
-    }
+    const ResponseIcon = responseConfig.icon;
+    
+    badges.push(
+      <TooltipProvider key="std-response">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Badge variant="outline" className={cn(responseConfig.color, compact && "h-5 text-[10px] px-1.5")}>
+              <ResponseIcon className={cn("mr-1", compact ? "w-3 h-3" : "w-3.5 h-3.5")} />
+              {compact ? responseConfig.shortLabel : responseConfig.label}
+            </Badge>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Risposta al Save The Date: {responseConfig.label}</p>
+            {stdRespondedBy && (
+              <p className="text-xs text-muted-foreground">Risposto da: {stdRespondedBy}</p>
+            )}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
   }
 
   // If nothing sent, show "Da Invitare" badge
