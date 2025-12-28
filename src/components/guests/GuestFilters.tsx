@@ -151,8 +151,9 @@ export function GuestFilters({
               <SelectContent>
                 <SelectItem value="all">Tutti</SelectItem>
                 <SelectItem value="not_sent">Non inviato</SelectItem>
-                <SelectItem value="sent">Inviato</SelectItem>
+                <SelectItem value="sent">Inviato / Risposto</SelectItem>
                 <SelectItem value="responded_yes">Risposto (Sì)</SelectItem>
+                <SelectItem value="responded_unsure">Risposto (Forse)</SelectItem>
                 <SelectItem value="responded_no">Risposto (No)</SelectItem>
               </SelectContent>
             </Select>

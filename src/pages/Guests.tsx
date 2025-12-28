@@ -758,10 +758,18 @@ const Guests = () => {
       items = items.filter(item => {
         const checkGuest = (g: Guest): boolean => {
           switch (filterValues.stdStatus) {
-            case "not_sent": return !g.save_the_date_sent_at;
-            case "sent": return !!g.save_the_date_sent_at && !g.std_responded_at;
-            case "responded_yes": return g.std_response === "yes" || g.std_response === "Sì";
-            case "responded_no": return g.std_response === "no" || g.std_response === "No";
+            case "not_sent": 
+              // Non inviato E non ha risposto (chi risponde è implicitamente inviato)
+              return !g.save_the_date_sent_at && !g.std_response;
+            case "sent": 
+              // Inviato OPPURE ha risposto (risposta implica invio)
+              return !!g.save_the_date_sent_at || !!g.std_response;
+            case "responded_yes": 
+              return g.std_response === "likely_yes";
+            case "responded_no": 
+              return g.std_response === "likely_no";
+            case "responded_unsure": 
+              return g.std_response === "unsure";
             default: return true;
           }
         };
