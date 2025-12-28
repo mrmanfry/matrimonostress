@@ -49,6 +49,7 @@ interface RSVPData {
     id: string;
     firstName: string;
     lastName: string;
+    alias?: string | null;
   };
   party: {
     id: string;
@@ -385,6 +386,7 @@ export default function RSVPPublic({ forceStdMode }: RSVPPublicProps) {
         weddingLocation={rsvpData.wedding.location || undefined}
         guestFirstName={rsvpData.guest.firstName}
         guestLastName={rsvpData.guest.lastName}
+        guestAlias={rsvpData.guest.alias}
         heroImageUrl={stdHeroImage}
         welcomeTitle={stdWelcomeTitle}
         welcomeText={stdWelcomeText}
