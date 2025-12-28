@@ -1280,7 +1280,7 @@ export function RSVPCampaignDialog({
                       placeholder="Usa le variabili: [NomeInvitato], [LINK_RSVP], [NomeCoppia]"
                       className="font-mono text-sm"
                     />
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <Button
                         variant="outline"
                         size="sm"
@@ -1288,7 +1288,20 @@ export function RSVPCampaignDialog({
                         disabled={isGeneratingAI}
                       >
                         <Sparkles className="w-4 h-4 mr-2" />
-                        {isGeneratingAI ? "Generazione..." : "✨ Genera Testo con AI"}
+                        {isGeneratingAI ? "Generazione..." : "✨ Genera con AI"}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          if (campaignType) {
+                            setMessageTemplate(DEFAULT_MESSAGE_TEMPLATES[campaignType]);
+                            toast.success("Template ripristinato al default");
+                          }
+                        }}
+                      >
+                        <RotateCcw className="w-4 h-4 mr-2" />
+                        Ripristina default
                       </Button>
                       <label className="cursor-pointer">
                         <input
@@ -1300,7 +1313,7 @@ export function RSVPCampaignDialog({
                         <Button variant="outline" size="sm" type="button" asChild>
                           <span>
                             <Upload className="w-4 h-4 mr-2" />
-                            Carica Immagine (Opzionale)
+                            Carica Immagine
                           </span>
                         </Button>
                       </label>
