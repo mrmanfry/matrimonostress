@@ -74,7 +74,8 @@ interface RSVPData {
 }
 
 export default function RSVPPublic({ forceStdMode }: RSVPPublicProps) {
-  const { token } = useParams<{ token: string }>();
+  // Support both old format (/rsvp/:token) and new format (/:coupleSlug/rsvp/:token)
+  const { token, coupleSlug } = useParams<{ token: string; coupleSlug?: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);

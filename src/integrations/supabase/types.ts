@@ -1277,6 +1277,7 @@ export type Database = {
           partner1_name: string
           partner2_name: string
           rsvp_config: Json | null
+          slug: string | null
           target_adults: number | null
           target_children: number | null
           target_staff: number | null
@@ -1295,6 +1296,7 @@ export type Database = {
           partner1_name: string
           partner2_name: string
           rsvp_config?: Json | null
+          slug?: string | null
           target_adults?: number | null
           target_children?: number | null
           target_staff?: number | null
@@ -1313,6 +1315,7 @@ export type Database = {
           partner1_name?: string
           partner2_name?: string
           rsvp_config?: Json | null
+          slug?: string | null
           target_adults?: number | null
           target_children?: number | null
           target_staff?: number | null
@@ -1329,6 +1332,10 @@ export type Database = {
     Functions: {
       cleanup_expired_sync_tokens: { Args: never; Returns: undefined }
       generate_progress_token: { Args: never; Returns: string }
+      generate_wedding_slug: {
+        Args: { p1_name: string; p2_name: string }
+        Returns: string
+      }
       get_user_context: { Args: never; Returns: Json }
       get_user_email: { Args: { _user_id: string }; Returns: string }
       get_wedding_role: {
@@ -1347,6 +1354,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      unaccent: { Args: { "": string }; Returns: string }
     }
     Enums: {
       app_role: "co_planner" | "manager" | "guest"
