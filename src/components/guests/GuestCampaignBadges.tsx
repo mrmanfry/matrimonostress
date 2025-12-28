@@ -17,6 +17,7 @@ interface GuestCampaignBadgesProps {
   formalInviteSentAt?: string | null;
   stdResponse?: 'likely_yes' | 'likely_no' | 'unsure' | null;
   rsvpStatus?: string | null;
+  stdRespondedBy?: string | null;
   compact?: boolean;
 }
 
@@ -25,6 +26,7 @@ export function GuestCampaignBadges({
   formalInviteSentAt,
   stdResponse,
   rsvpStatus,
+  stdRespondedBy,
   compact = false,
 }: GuestCampaignBadgesProps) {
   const formatDate = (dateStr: string) => {
@@ -164,6 +166,9 @@ export function GuestCampaignBadges({
             </TooltipTrigger>
             <TooltipContent>
               <p>Risposta al Save The Date: {responseConfig.label}</p>
+              {stdRespondedBy && (
+                <p className="text-xs text-muted-foreground">Risposto da: {stdRespondedBy}</p>
+              )}
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
