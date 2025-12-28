@@ -477,13 +477,13 @@ const Guests = () => {
       .filter(p => selectedPartyIds.has(p.id))
       .some(p => p.guests.some(g => g.phone));
     
-    // Almeno un singolo selezionato ha telefono
-    const singleHasPhone = ungroupedGuests
+    // Almeno un singolo selezionato ha telefono (cerca in tutti gli invitati)
+    const singleHasPhone = allGuests
       .filter(g => selectedGuestIds.has(g.id))
       .some(g => g.phone);
     
     return partyHasPhone || singleHasPhone;
-  }, [parties, ungroupedGuests, selectedPartyIds, selectedGuestIds]);
+  }, [parties, allGuests, selectedPartyIds, selectedGuestIds]);
 
   const handleBulkSendRSVP = () => {
     if (parties.length === 0) {
