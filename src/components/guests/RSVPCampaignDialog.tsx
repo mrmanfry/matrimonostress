@@ -15,6 +15,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useNavigate } from "react-router-dom";
 import { CampaignTypePicker, type CampaignType } from "./CampaignTypePicker";
 import { CampaignsConfig } from "@/components/settings/CampaignCard";
+import { 
+  saveImageToIDB, 
+  loadImageFromIDB, 
+  clearImageFromIDB, 
+  compressImageForStorage,
+  estimateBase64Size,
+  formatBytes
+} from "@/lib/campaignStorage";
 
 // Utility: Converte Data URL (base64) in File object per Share API
 const dataURLToFile = async (dataUrl: string, filename: string): Promise<File> => {
@@ -76,10 +84,10 @@ interface RSVPCampaignDialogProps {
 
 type FilterType = "to_send" | "already_sent" | "no_phone";
 
-// Storage key for campaign persistence
+// Storage key for campaign persistence (metadata only, image in IndexedDB)
 const STORAGE_KEY = "rsvp_campaign_progress";
 
-// Interface for saved campaign state
+// Interface for saved campaign state (NO image here - stored in IndexedDB)
 interface SavedCampaignState {
   weddingId: string;
   guests: Guest[];
@@ -88,7 +96,7 @@ interface SavedCampaignState {
   whatsappOpened: boolean;
   campaignType: CampaignType;
   timestamp: number;
-  uploadedImage: string | null;
+  hasImage: boolean; // Flag to check IndexedDB for image
 }
 
 // Message templates per campaign type (defaults)
@@ -155,60 +163,70 @@ export function RSVPCampaignDialog({
   // Recovery state - tracks if we're recovering from a page refresh
   const [isRecoveringFromRefresh, setIsRecoveringFromRefresh] = useState(false);
 
-  // Recovery from localStorage on mount
+  // Recovery from localStorage + IndexedDB on mount
   useEffect(() => {
-    if (open) {
-      loadAllData();
-      
-      // Check for saved campaign progress
-      const savedProgress = localStorage.getItem(STORAGE_KEY);
-      if (savedProgress) {
-        try {
-          const parsed: SavedCampaignState = JSON.parse(savedProgress);
-          // Only restore if it's recent (within 24 hours) and same wedding
-          const isRecent = Date.now() - parsed.timestamp < 24 * 60 * 60 * 1000;
-          if (isRecent && parsed.weddingId === weddingId) {
-            toast.info("🔄 Ripristino campagna RSVP in corso...");
-            
-            // Restore full state
-            setGuests(parsed.guests);
-            setCurrentIndex(parsed.currentIndex);
-            setMessageTemplate(parsed.messageTemplate);
-            setCampaignType(parsed.campaignType || 'formal_invite');
-            setStep("sending");
-            
-            // Restore uploaded image if present
-            if (parsed.uploadedImage) {
-              setUploadedImage(parsed.uploadedImage);
+    const recoverCampaign = async () => {
+      if (open) {
+        loadAllData();
+        
+        // Check for saved campaign progress
+        const savedProgress = localStorage.getItem(STORAGE_KEY);
+        if (savedProgress) {
+          try {
+            const parsed: SavedCampaignState = JSON.parse(savedProgress);
+            // Only restore if it's recent (within 24 hours) and same wedding
+            const isRecent = Date.now() - parsed.timestamp < 24 * 60 * 60 * 1000;
+            if (isRecent && parsed.weddingId === weddingId) {
+              toast.info("🔄 Ripristino campagna RSVP in corso...");
+              
+              // Restore full state
+              setGuests(parsed.guests);
+              setCurrentIndex(parsed.currentIndex);
+              setMessageTemplate(parsed.messageTemplate);
+              setCampaignType(parsed.campaignType || 'formal_invite');
+              setStep("sending");
+              
+              // Restore uploaded image from IndexedDB if flagged
+              if (parsed.hasImage) {
+                const savedImage = await loadImageFromIDB();
+                if (savedImage) {
+                  setUploadedImage(savedImage);
+                  console.log('📸 Immagine recuperata da IndexedDB');
+                }
+              }
+              
+              // If whatsappOpened was true, we're in "Limbo State"
+              if (parsed.whatsappOpened) {
+                setIsRecoveringFromRefresh(true);
+                setWhatsappOpened(true);
+              }
             }
-            
-            // If whatsappOpened was true, we're in "Limbo State"
-            if (parsed.whatsappOpened) {
-              setIsRecoveringFromRefresh(true);
-              setWhatsappOpened(true);
-            }
+          } catch (e) {
+            localStorage.removeItem(STORAGE_KEY);
+            await clearImageFromIDB();
           }
-        } catch (e) {
-          localStorage.removeItem(STORAGE_KEY);
         }
+      } else {
+        // Full reset when dialog closes (prevents stale state)
+        setStep("campaign_type");
+        setCampaignType(null);
+        setActiveFilter("to_send");
+        setSelectedPartyId(null);
+        setSelectedGroupId(null);
+        setSelectedGuestIds(new Set());
+        setIsRecoveringFromRefresh(false);
+        setGuests([]);
+        setCurrentIndex(0);
+        setWhatsappOpened(false);
       }
-    } else {
-      // Full reset when dialog closes (prevents stale state)
-      setStep("campaign_type");
-      setCampaignType(null);
-      setActiveFilter("to_send");
-      setSelectedPartyId(null);
-      setSelectedGroupId(null);
-      setSelectedGuestIds(new Set());
-      setIsRecoveringFromRefresh(false);
-      setGuests([]);
-      setCurrentIndex(0);
-      setWhatsappOpened(false);
-    }
+    };
+    
+    recoverCampaign();
   }, [open, weddingId]);
 
   // Auto-save campaign state whenever critical state changes during "sending" step
   // GUARD: Only save if dialog is open AND we have valid campaign data
+  // NOTE: Image is saved separately in IndexedDB, only a flag here
   useEffect(() => {
     if (open && step === "sending" && guests.length > 0 && weddingId && campaignType) {
       try {
@@ -220,11 +238,10 @@ export function RSVPCampaignDialog({
           whatsappOpened,
           campaignType,
           timestamp: Date.now(),
-          uploadedImage,
+          hasImage: !!uploadedImage, // Flag only, image in IndexedDB
         };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
       } catch (e) {
-        // Handle localStorage quota exceeded (large images)
         console.warn("Could not save campaign state:", e);
       }
     }
@@ -429,14 +446,44 @@ export function RSVPCampaignDialog({
     }
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
+    if (!file) return;
+    
+    try {
+      // Read file as base64
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setUploadedImage(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      const originalBase64 = await new Promise<string>((resolve, reject) => {
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      
+      // Log original size
+      const originalSize = estimateBase64Size(originalBase64);
+      console.log(`📸 Immagine originale: ${formatBytes(originalSize)}`);
+      
+      // Compress for storage (800px max width, 70% quality)
+      const compressedBase64 = await compressImageForStorage(originalBase64, 800, 0.7);
+      const compressedSize = estimateBase64Size(compressedBase64);
+      console.log(`📸 Immagine compressa: ${formatBytes(compressedSize)} (${Math.round((1 - compressedSize/originalSize) * 100)}% riduzione)`);
+      
+      // Set state for UI
+      setUploadedImage(compressedBase64);
+      
+      // Save to IndexedDB for persistence
+      const saved = await saveImageToIDB(compressedBase64);
+      if (saved) {
+        console.log('📸 Immagine salvata in IndexedDB per recovery');
+      } else {
+        toast.warning("L'immagine potrebbe non sopravvivere al refresh della pagina", {
+          description: "Consigliamo di inviare senza immagine o di usare un'immagine più piccola.",
+          duration: 5000,
+        });
+      }
+    } catch (error) {
+      console.error('Errore nel caricamento immagine:', error);
+      toast.error("Errore nel caricamento dell'immagine");
     }
   };
 
@@ -628,6 +675,25 @@ export function RSVPCampaignDialog({
 
     const { message, whatsappUrl } = buildWhatsAppPayload(currentGuest);
 
+    // CRITICAL: Pre-save state BEFORE navigator.share() to survive page kill
+    // Mobile browsers often terminate the page during share to free memory
+    try {
+      const stateToSave: SavedCampaignState = {
+        weddingId,
+        guests,
+        currentIndex,
+        messageTemplate,
+        whatsappOpened: true, // Mark as opened BEFORE share
+        campaignType: campaignType!,
+        timestamp: Date.now(),
+        hasImage: !!uploadedImage,
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
+      console.log('💾 Stato salvato PRIMA di navigator.share()');
+    } catch (e) {
+      console.warn('Pre-share save failed:', e);
+    }
+
     // 1. CASO MOBILE NATIVO CON IMMAGINE (Migliore esperienza)
     if (uploadedImage && navigator.share && navigator.canShare) {
       try {
@@ -735,20 +801,25 @@ export function RSVPCampaignDialog({
     }
   };
 
-  const finishCampaign = () => {
+  const finishCampaign = async () => {
     toast.success("Campagna completata! 🎉");
     localStorage.removeItem(STORAGE_KEY);
+    await clearImageFromIDB(); // Clear IndexedDB image
     onOpenChange(false);
     setStep("filter");
     setGuests([]);
     setCurrentIndex(0);
     setIsRecoveringFromRefresh(false);
+    setUploadedImage(null);
   };
 
   // Helper to fully reset campaign state (prevents auto-save from rewriting localStorage)
-  const resetCampaignState = () => {
+  const resetCampaignState = async () => {
     // Clear localStorage FIRST
     localStorage.removeItem(STORAGE_KEY);
+    
+    // Clear IndexedDB image
+    await clearImageFromIDB();
     
     // Reset ALL React states that auto-save depends on
     setStep("campaign_type");
@@ -758,13 +829,14 @@ export function RSVPCampaignDialog({
     setIsRecoveringFromRefresh(false);
     setCampaignType(null);
     setSelectedGuestIds(new Set());
+    setUploadedImage(null);
   };
 
   // Handle close with confirmation during active campaign
   // Abort campaign cleanly without marking current guest as sent
-  const handleAbortCampaign = () => {
+  const handleAbortCampaign = async () => {
     // 1. Fully reset state (prevents auto-save loop)
-    resetCampaignState();
+    await resetCampaignState();
     
     // 2. Notify user
     toast.info("Campagna interrotta. I progressi precedenti sono stati salvati.");
@@ -773,7 +845,7 @@ export function RSVPCampaignDialog({
     onOpenChange(false);
   };
 
-  const handleClose = (newOpen: boolean) => {
+  const handleClose = async (newOpen: boolean) => {
     if (!newOpen && step === "sending" && guests.length > 0) {
       const confirmed = window.confirm(
         "Campagna in corso.\n\n" +
@@ -784,7 +856,7 @@ export function RSVPCampaignDialog({
       if (!confirmed) return;
       
       // Fully reset state to prevent recovery loop
-      resetCampaignState();
+      await resetCampaignState();
     }
     onOpenChange(newOpen);
   };
@@ -820,6 +892,25 @@ export function RSVPCampaignDialog({
             Hai inviato il messaggio su WhatsApp?
           </p>
         </div>
+        
+        {/* Image Recovery Preview */}
+        {uploadedImage && (
+          <div className="flex items-center justify-center gap-3 p-3 bg-amber-100 dark:bg-amber-900/50 rounded-lg">
+            <img 
+              src={uploadedImage} 
+              alt="Immagine recuperata" 
+              className="w-16 h-16 rounded object-cover border-2 border-amber-300"
+            />
+            <div className="text-left">
+              <p className="text-xs font-medium text-amber-800 dark:text-amber-200">
+                📸 Immagine Recuperata
+              </p>
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                L'immagine è stata salvata correttamente
+              </p>
+            </div>
+          </div>
+        )}
         
         <div className="flex flex-col gap-3">
           {/* Option 1: Yes, sent - continue */}
@@ -1223,7 +1314,10 @@ export function RSVPCampaignDialog({
                         variant="destructive"
                         size="icon"
                         className="absolute top-2 right-2"
-                        onClick={() => setUploadedImage(null)}
+                        onClick={async () => {
+                          setUploadedImage(null);
+                          await clearImageFromIDB();
+                        }}
                       >
                         <X className="w-4 h-4" />
                       </Button>
