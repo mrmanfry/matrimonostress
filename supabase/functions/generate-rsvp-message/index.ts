@@ -17,10 +17,12 @@ serve(async (req) => {
     const systemPromptSTD = `Sei un assistente che scrive messaggi "Save The Date" per matrimoni in italiano. 
 Crea messaggi leggeri, anticipatori e festosi. NON chiedere conferme definitive o dettagli come menu/allergie. 
 Il tono deve essere: "Segnati questa data!" non "Confermi la presenza?". 
+IMPORTANTE: Usa SEMPRE linguaggio neutro rispetto al genere. Evita forme maschili/femminili come "tieniti libero/a", "sei invitato/a", "caro/a". Preferisci forme impersonali come "segna la data", "sarà un giorno speciale".
 Usa emoji con moderazione. Mantieni un tono amichevole ma elegante.`;
 
     const systemPromptRSVP = `Sei un assistente che scrive messaggi di invito ufficiale a matrimoni in italiano. 
 Crea messaggi calorosi, personali ed emozionanti che richiedono una conferma di presenza. 
+IMPORTANTE: Usa SEMPRE linguaggio neutro rispetto al genere. Evita forme maschili/femminili come "sei invitato/a", "benvenuto/a", "caro/a". Preferisci forme impersonali o invariabili.
 Usa emoji con moderazione. Mantieni un tono amichevole ma elegante.`;
 
     const userPromptSTD = `Scrivi un messaggio WhatsApp "Save The Date" per il matrimonio di ${coupleName}. 
@@ -28,12 +30,15 @@ Il messaggio deve:
 - Annunciare la data del matrimonio con entusiasmo
 - Invitare a "segnare la data in agenda"
 - NON chiedere conferme definitive o dettagli
+- Usare SOLO linguaggio neutro (NO "tieniti libero", "sei invitato", ecc.)
 - Includere le variabili [NomeInvitato], [LINK_STD] e [NomeCoppia]
 - Massimo 3 righe, tono leggero e anticipatorio`;
 
     const userPromptRSVP = `Scrivi un messaggio WhatsApp per invitare ufficialmente gli ospiti al matrimonio di ${coupleName}. 
-Il messaggio deve includere le variabili [NomeInvitato], [LINK_RSVP] e [NomeCoppia]. 
-Massimo 3-4 righe, tono caldo e festoso.`;
+Il messaggio deve:
+- Includere le variabili [NomeInvitato], [LINK_RSVP] e [NomeCoppia]
+- Usare SOLO linguaggio neutro (NO forme maschili/femminili)
+- Massimo 3-4 righe, tono caldo e festoso.`;
 
     const isSTD = campaignType === 'save_the_date';
     const systemPrompt = isSTD ? systemPromptSTD : systemPromptRSVP;
