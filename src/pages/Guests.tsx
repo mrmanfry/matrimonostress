@@ -697,8 +697,18 @@ const Guests = () => {
           const party = item.data as InviteParty;
           return party.rsvp_status === filterValues.rsvpStatus;
         }
-        // Singles are always "In attesa"
-        return filterValues.rsvpStatus === "In attesa";
+        // Check individual guest rsvp_status
+        const guest = item.data as Guest;
+        // Map filter values (Italian enum) to database values
+        const dbStatusMap: Record<string, string> = {
+          'Confermato': 'confirmed',
+          'In attesa': 'pending',
+          'Rifiutato': 'declined'
+        };
+        const dbStatus = dbStatusMap[filterValues.rsvpStatus];
+        // Handle guests without rsvp_status (default to pending)
+        const guestStatus = guest.rsvp_status || 'pending';
+        return guestStatus === dbStatus;
       });
     }
 
