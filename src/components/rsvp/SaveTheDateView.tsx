@@ -15,6 +15,7 @@ interface SaveTheDateViewProps {
   weddingLocation?: string;
   guestFirstName: string;
   guestLastName: string;
+  guestAlias?: string | null;
   heroImageUrl?: string | null;
   welcomeTitle?: string;
   welcomeText?: string;
@@ -25,38 +26,40 @@ interface SaveTheDateViewProps {
 }
 
 // Helper function to get confirmation content based on response
-const getConfirmationContent = (response: string, guestFirstName: string) => {
+const getConfirmationContent = (response: string, guestFirstName: string, guestAlias?: string | null) => {
+  const displayName = guestAlias || guestFirstName;
+  
   switch (response) {
     case 'likely_yes':
       return {
-        title: `Grazie ${guestFirstName}!`,
-        subtitle: 'Non vediamo l\'ora di condividere questo giorno speciale con te.',
-        message: 'Sarà un onore averti al nostro fianco. Ti invieremo presto tutti i dettagli per il grande giorno.',
+        title: `Grazie ${displayName}!`,
+        subtitle: 'Non vediamo l\'ora di festeggiare insieme a te',
+        message: 'Ti invieremo presto tutti i dettagli per il grande giorno. Intanto, salva la data!',
         icon: 'check' as const,
         showCalendar: true,
         ctaLabel: 'Cambia la tua risposta',
       };
     case 'unsure':
       return {
-        title: `Grazie ${guestFirstName}!`,
-        subtitle: 'Abbiamo registrato la tua risposta.',
-        message: 'Capiamo che la vita è piena di impegni. Torna su questa pagina quando vorrai per farci sapere se potrai esserci — ci aiuterai a organizzare al meglio il nostro giorno.',
+        title: `Grazie ${displayName}!`,
+        subtitle: 'Apprezziamo la tua sincerità',
+        message: 'Ti terremo aggiornato su tutti i dettagli, così potrai decidere con calma quando sarà il momento.',
         icon: 'check' as const,
         showCalendar: true,
         ctaLabel: 'Aggiorna la tua risposta',
       };
     case 'likely_no':
       return {
-        title: `Ci mancherai, ${guestFirstName}`,
-        subtitle: 'Ci dispiace che non potrai essere con noi.',
-        message: 'Ma ti porteremo nel cuore quel giorno. Se le cose dovessero cambiare, sappi che c\'è sempre un posto per te.',
+        title: `Ci mancherai ${displayName}`,
+        subtitle: 'Ma ti penseremo in questo giorno speciale',
+        message: 'Grazie per avercelo fatto sapere. Se le cose dovessero cambiare, facci sapere!',
         icon: 'heart' as const,
         showCalendar: false,
         ctaLabel: 'Cambia la tua risposta',
       };
     default:
       return {
-        title: `Grazie ${guestFirstName}!`,
+        title: `Grazie ${displayName}!`,
         subtitle: 'Abbiamo registrato la tua risposta.',
         message: 'Ti invieremo presto tutti i dettagli!',
         icon: 'check' as const,
@@ -72,6 +75,7 @@ export function SaveTheDateView({
   weddingLocation,
   guestFirstName,
   guestLastName,
+  guestAlias,
   heroImageUrl,
   welcomeTitle,
   welcomeText,
@@ -173,7 +177,7 @@ END:VCALENDAR`;
 
   // Get confirmation content based on response
   const confirmationContent = selectedResponse 
-    ? getConfirmationContent(selectedResponse, guestFirstName) 
+    ? getConfirmationContent(selectedResponse, guestFirstName, guestAlias) 
     : null;
 
   // Success state after submission - Immersive Design
@@ -396,7 +400,7 @@ END:VCALENDAR`;
               <p 
                 className="font-playfair text-base sm:text-lg italic text-white/90 max-w-sm mx-auto leading-relaxed"
               >
-                "{welcomeText || `Ciao ${guestFirstName}! Un capitolo d'amore ci aspetta, e vorremmo tu fossi parte di questa storia.`}"
+                "{welcomeText || `Ciao ${guestAlias || guestFirstName}! Un capitolo d'amore ci aspetta, e vorremmo tu fossi parte di questa storia.`}"
               </p>
             </div>
 

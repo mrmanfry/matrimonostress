@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
         // Query 1: Find guest by token
         const { data: guestData, error: guestError } = await supabase
           .from("guests")
-          .select("id, first_name, last_name, rsvp_status, menu_choice, dietary_restrictions, party_id, allow_plus_one, plus_one_name, plus_one_menu, wedding_id, is_child, save_the_date_sent_at, formal_invite_sent_at, std_response, std_responded_at")
+          .select("id, first_name, last_name, alias, rsvp_status, menu_choice, dietary_restrictions, party_id, allow_plus_one, plus_one_name, plus_one_menu, wedding_id, is_child, save_the_date_sent_at, formal_invite_sent_at, std_response, std_responded_at")
           .eq("unique_rsvp_token", token)
           .single();
 
@@ -206,6 +206,7 @@ Deno.serve(async (req) => {
             id: guestData.id,
             firstName: guestData.first_name,
             lastName: guestData.last_name,
+            alias: guestData.alias,
             stdResponse: guestData.std_response,
           },
           party: {
