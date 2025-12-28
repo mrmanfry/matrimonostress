@@ -363,21 +363,40 @@ export function RSVPCampaignDialog({
 
   // Apply status filter on top of party/group filters
   const filteredGuests = useMemo(() => {
+    let result: Guest[];
     switch (activeFilter) {
       case "to_send":
-        return preFilteredGuests.filter(g => 
+        result = preFilteredGuests.filter(g => 
           g.phone && g.phone.trim() !== "" && !hasBeenSentForCampaign(g)
         );
+        break;
       case "already_sent":
-        return preFilteredGuests.filter(g => 
+        result = preFilteredGuests.filter(g => 
           g.phone && g.phone.trim() !== "" && hasBeenSentForCampaign(g)
         );
+        break;
       case "no_phone":
-        return preFilteredGuests.filter(g => !g.phone || g.phone.trim() === "");
+        result = preFilteredGuests.filter(g => !g.phone || g.phone.trim() === "");
+        break;
       default:
-        return [];
+        result = [];
     }
-  }, [preFilteredGuests, activeFilter, campaignType]);
+    
+    // Sort: selected guests first, then alphabetically by last name, first name
+    return result.sort((a, b) => {
+      const aSelected = selectedGuestIds.has(a.id);
+      const bSelected = selectedGuestIds.has(b.id);
+      
+      // Selected guests come first
+      if (aSelected && !bSelected) return -1;
+      if (!aSelected && bSelected) return 1;
+      
+      // Then sort alphabetically by last name, then first name
+      const lastNameCompare = a.last_name.localeCompare(b.last_name, 'it');
+      if (lastNameCompare !== 0) return lastNameCompare;
+      return a.first_name.localeCompare(b.first_name, 'it');
+    });
+  }, [preFilteredGuests, activeFilter, campaignType, selectedGuestIds]);
 
   const generateAIMessage = async () => {
     setIsGeneratingAI(true);
