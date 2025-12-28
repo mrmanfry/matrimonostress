@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Users, Edit, Baby, Edit2, UserPlus2, Tag, AlertTriangle, CalendarCheck } from "lucide-react";
+import { Users, Edit, Baby, Edit2, UserPlus2, Tag, AlertTriangle, CalendarCheck, ThumbsUp, HelpCircle, ThumbsDown } from "lucide-react";
 import { useState, useMemo } from "react";
 import { GuestEditDialog } from "./GuestEditDialog";
 import { GuestCampaignBadges } from "./GuestCampaignBadges";
@@ -182,6 +182,51 @@ export const GuestNucleoCard = ({
     );
   };
 
+  const getStdResponseIcon = (guest: Guest) => {
+    if (!guest.std_response) return null;
+    
+    const responseConfig = {
+      likely_yes: {
+        icon: ThumbsUp,
+        label: "Probabile Sì",
+        color: "text-green-600 dark:text-green-400",
+      },
+      unsure: {
+        icon: HelpCircle,
+        label: "Incerto",
+        color: "text-amber-600 dark:text-amber-400",
+      },
+      likely_no: {
+        icon: ThumbsDown,
+        label: "Improbabile",
+        color: "text-red-600 dark:text-red-400",
+      },
+    }[guest.std_response];
+
+    if (!responseConfig) return null;
+
+    const ResponseIcon = responseConfig.icon;
+    const respondedAt = guest.std_responded_at 
+      ? new Date(guest.std_responded_at).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' })
+      : null;
+    
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className={responseConfig.color}>
+              <ResponseIcon className="w-3.5 h-3.5" />
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="top">
+            <p className="text-xs">STD: {responseConfig.label}</p>
+            {respondedAt && <p className="text-xs text-muted-foreground">Risposto il {respondedAt}</p>}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  };
+
   const adults = party.guests.filter(g => !g.is_child);
   const children = party.guests.filter(g => g.is_child);
   const guestsWithPlusOne = party.guests.filter(g => g.allow_plus_one).length;
@@ -317,6 +362,7 @@ export const GuestNucleoCard = ({
                         </span>
                       )}
                       {getStdSentIcon(guest)}
+                      {getStdResponseIcon(guest)}
                     </div>
                     <div className="flex items-center gap-2">
                       <div 
