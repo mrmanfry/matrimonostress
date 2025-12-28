@@ -94,6 +94,7 @@ const Guests = () => {
   const [parties, setParties] = useState<InviteParty[]>([]);
   const [ungroupedGuests, setUngroupedGuests] = useState<Guest[]>([]);
   const [allGuests, setAllGuests] = useState<Guest[]>([]);
+  const [vendorStaffCount, setVendorStaffCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   
   const [searchQuery, setSearchQuery] = useState("");
@@ -174,7 +175,8 @@ const Guests = () => {
 
       await Promise.all([
         loadParties(weddingData.id),
-        loadAllGuests(weddingData.id)
+        loadAllGuests(weddingData.id),
+        loadVendorStaff(weddingData.id)
       ]);
     } catch (error) {
       console.error("Error loading data:", error);
@@ -298,6 +300,18 @@ const Guests = () => {
       // Add couple members at the start of ungrouped for display
       const coupleMembers = guestsWithGroupName.filter((g: Guest) => g.is_couple_member);
       setUngroupedGuests([...coupleMembers, ...ungrouped]);
+    }
+  };
+
+  const loadVendorStaff = async (weddingId: string) => {
+    const { data: vendorsData } = await supabase
+      .from("vendors")
+      .select("staff_meals_count")
+      .eq("wedding_id", weddingId);
+
+    if (vendorsData) {
+      const totalStaff = vendorsData.reduce((sum, v) => sum + (v.staff_meals_count || 0), 0);
+      setVendorStaffCount(totalStaff);
     }
   };
 
@@ -1166,16 +1180,18 @@ const Guests = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
             <Card className="p-4">
               <div className="text-sm text-muted-foreground">Coperti Stimati</div>
-              <div className="text-3xl font-bold">{totalGuests + potentialPlusOnes}</div>
+              <div className="text-3xl font-bold">{totalGuests + potentialPlusOnes + vendorStaffCount}</div>
               <div className="text-xs text-muted-foreground mt-1">
-                {totalGuests} inviti{potentialPlusOnes > 0 && ` + ${potentialPlusOnes} +1 potenziali`}
+                {totalGuests} inviti
+                {potentialPlusOnes > 0 && ` + ${potentialPlusOnes} accomp. potenziali`}
+                {vendorStaffCount > 0 && ` + ${vendorStaffCount} staff`}
               </div>
               <div className="text-xs text-muted-foreground mt-1">
                 {totalAdults} Adult{totalAdults !== 1 ? 'i' : 'o'}, {totalChildren} Bambin{totalChildren !== 1 ? 'i' : 'o'}
               </div>
               {confirmedPlusOnes > 0 && (
                 <div className="text-xs mt-1">
-                  <span className="text-green-600">{confirmedPlusOnes} +1 già confermati</span>
+                  <span className="text-green-600">{confirmedPlusOnes} accomp. confermati</span>
                 </div>
               )}
             </Card>
