@@ -150,6 +150,7 @@ export function RSVPCampaignDialog({
   const [isRsvpConfigured, setIsRsvpConfigured] = useState(false);
   const [selectedGuestIds, setSelectedGuestIds] = useState<Set<string>>(new Set());
   const [campaignsConfig, setCampaignsConfig] = useState<CampaignsConfig | null>(null);
+  const [weddingSlug, setWeddingSlug] = useState<string | null>(null);
   
   // Recovery state - tracks if we're recovering from a page refresh
   const [isRecoveringFromRefresh, setIsRecoveringFromRefresh] = useState(false);
@@ -268,12 +269,17 @@ export function RSVPCampaignDialog({
       .order("name");
     setAllGroups(groups || []);
 
-    // Load RSVP config and campaigns_config from wedding
+    // Load RSVP config, campaigns_config, and slug from wedding
     const { data: wedding } = await supabase
       .from("weddings")
-      .select("rsvp_config, campaigns_config")
+      .select("rsvp_config, campaigns_config, slug")
       .eq("id", weddingId)
       .single();
+    
+    // Set wedding slug for vanity URLs
+    if (wedding?.slug) {
+      setWeddingSlug(wedding.slug);
+    }
     
     if (wedding?.rsvp_config) {
       const config = wedding.rsvp_config as RSVPConfig;
@@ -599,10 +605,11 @@ export function RSVPCampaignDialog({
       ? guest.alias 
       : guest.first_name;
     
-    // Dynamic link based on campaign type
+    // Dynamic link based on campaign type - use vanity URL if slug is available
+    const basePath = weddingSlug ? `/${weddingSlug}` : '';
     const link = campaignType === 'save_the_date'
-      ? `${window.location.origin}/save-the-date/${guest.unique_rsvp_token}`
-      : `${window.location.origin}/rsvp/${guest.unique_rsvp_token}`;
+      ? `${window.location.origin}${basePath}/save-the-date/${guest.unique_rsvp_token}`
+      : `${window.location.origin}${basePath}/rsvp/${guest.unique_rsvp_token}`;
 
     const message = messageTemplate
       .replace(/\[NomeInvitato\]/g, displayName)
