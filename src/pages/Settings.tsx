@@ -106,6 +106,9 @@ const Settings = () => {
   const [editedPartner2, setEditedPartner2] = useState("");
   const [editedDate, setEditedDate] = useState("");
   const [editedBudget, setEditedBudget] = useState("");
+  const [editedLocation, setEditedLocation] = useState("");
+  const [editedCeremonyTime, setEditedCeremonyTime] = useState("");
+  const [editedTimezone, setEditedTimezone] = useState("Europe/Rome");
   const [savingWeddingData, setSavingWeddingData] = useState(false);
   
   const { toast } = useToast();
@@ -146,6 +149,9 @@ const Settings = () => {
       setEditedPartner2(weddingData.partner2_name || "");
       setEditedDate(weddingData.wedding_date || "");
       setEditedBudget(weddingData.total_budget?.toString() || "");
+      setEditedLocation(weddingData.location || "");
+      setEditedCeremonyTime(weddingData.ceremony_start_time || "");
+      setEditedTimezone(weddingData.timezone || "Europe/Rome");
 
       const { data: rolesData } = await supabase
         .from("user_roles")
@@ -555,6 +561,9 @@ const Settings = () => {
           partner2_name: editedPartner2,
           wedding_date: editedDate,
           total_budget: budgetValue,
+          location: editedLocation || null,
+          ceremony_start_time: editedCeremonyTime || null,
+          timezone: editedTimezone || "Europe/Rome",
         })
         .eq("id", wedding.id);
 
@@ -584,6 +593,9 @@ const Settings = () => {
     setEditedPartner2(wedding?.partner2_name || "");
     setEditedDate(wedding?.wedding_date || "");
     setEditedBudget(wedding?.total_budget?.toString() || "");
+    setEditedLocation(wedding?.location || "");
+    setEditedCeremonyTime(wedding?.ceremony_start_time || "");
+    setEditedTimezone(wedding?.timezone || "Europe/Rome");
   };
 
   const handleToggleCampaignStatus = async (campaignType: "save_the_date" | "rsvp") => {
@@ -764,6 +776,58 @@ const Settings = () => {
                         required
                       />
                     </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="ceremony_time" className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4" />
+                        Orario Inizio Cerimonia
+                      </Label>
+                      <Input
+                        id="ceremony_time"
+                        type="time"
+                        value={editedCeremonyTime}
+                        onChange={(e) => setEditedCeremonyTime(e.target.value)}
+                        placeholder="16:00"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Usato per l'evento calendario (default 16:00)
+                      </p>
+                    </div>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="location" className="flex items-center gap-2">
+                        Località
+                      </Label>
+                      <Input
+                        id="location"
+                        value={editedLocation}
+                        onChange={(e) => setEditedLocation(e.target.value)}
+                        placeholder="Es: Villa Rossi, Roma"
+                        maxLength={200}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Verrà usata come indirizzo nell'evento calendario
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="timezone">Fuso Orario</Label>
+                      <Select value={editedTimezone} onValueChange={setEditedTimezone}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleziona fuso orario" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Europe/Rome">🇮🇹 Italia (Europe/Rome)</SelectItem>
+                          <SelectItem value="Europe/London">🇬🇧 Regno Unito (Europe/London)</SelectItem>
+                          <SelectItem value="Europe/Paris">🇫🇷 Francia (Europe/Paris)</SelectItem>
+                          <SelectItem value="Europe/Berlin">🇩🇪 Germania (Europe/Berlin)</SelectItem>
+                          <SelectItem value="Europe/Madrid">🇪🇸 Spagna (Europe/Madrid)</SelectItem>
+                          <SelectItem value="America/New_York">🇺🇸 New York (America/New_York)</SelectItem>
+                          <SelectItem value="America/Los_Angeles">🇺🇸 Los Angeles (America/Los_Angeles)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
                       <Label htmlFor="total_budget" className="flex items-center gap-2">
                         <DollarSign className="w-4 h-4" />

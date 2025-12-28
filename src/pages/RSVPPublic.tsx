@@ -63,6 +63,8 @@ interface RSVPData {
     couple: string;
     date: string;
     location?: string | null;
+    ceremonyStartTime?: string | null;
+    timezone?: string | null;
   };
   config: RSVPConfig;
   theme?: Theme | null;
@@ -384,6 +386,8 @@ export default function RSVPPublic({ forceStdMode }: RSVPPublicProps) {
         coupleName={rsvpData.wedding.couple}
         weddingDate={rsvpData.wedding.date}
         weddingLocation={rsvpData.wedding.location || undefined}
+        ceremonyStartTime={rsvpData.wedding.ceremonyStartTime || undefined}
+        timezone={rsvpData.wedding.timezone || undefined}
         guestFirstName={rsvpData.guest.firstName}
         guestLastName={rsvpData.guest.lastName}
         guestAlias={rsvpData.guest.alias}

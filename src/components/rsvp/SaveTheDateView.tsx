@@ -13,6 +13,8 @@ interface SaveTheDateViewProps {
   coupleName: string;
   weddingDate: string;
   weddingLocation?: string;
+  ceremonyStartTime?: string;
+  timezone?: string;
   guestFirstName: string;
   guestLastName: string;
   guestAlias?: string | null;
@@ -73,6 +75,8 @@ export function SaveTheDateView({
   coupleName,
   weddingDate,
   weddingLocation,
+  ceremonyStartTime,
+  timezone = "Europe/Rome",
   guestFirstName,
   guestLastName,
   guestAlias,
@@ -139,27 +143,45 @@ export function SaveTheDateView({
 
   const addToCalendar = (type: 'google' | 'apple' | 'outlook') => {
     const eventTitle = encodeURIComponent(`Matrimonio ${coupleName}`);
-    const startDate = eventDate.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-    const endDate = new Date(eventDate.getTime() + 12 * 60 * 60 * 1000).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    const eventLocation = encodeURIComponent(weddingLocation || '');
+    
+    // Combine date + ceremony time (default 16:00 if not set)
+    const [hours, minutes] = (ceremonyStartTime || '16:00').split(':').map(Number);
+    const startDateTime = new Date(eventDate);
+    startDateTime.setHours(hours, minutes, 0, 0);
+    
+    // End = start + 12 hours
+    const endDateTime = new Date(startDateTime.getTime() + 12 * 60 * 60 * 1000);
+    
+    // Format for ICS (local time without Z suffix): YYYYMMDDTHHmmss
+    const formatLocalDateTime = (d: Date) => {
+      const pad = (n: number) => n.toString().padStart(2, '0');
+      return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
+    };
     
     let url = '';
     
     switch (type) {
       case 'google':
-        url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${eventTitle}&dates=${startDate}/${endDate}`;
+        // Google Calendar uses the format YYYYMMDDTHHMMSS without Z for timezone-aware events
+        const googleStart = formatLocalDateTime(startDateTime);
+        const googleEnd = formatLocalDateTime(endDateTime);
+        url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${eventTitle}&dates=${googleStart}/${googleEnd}&location=${eventLocation}&ctz=${timezone}`;
         window.open(url, '_blank');
         break;
       case 'outlook':
-        url = `https://outlook.live.com/calendar/0/deeplink/compose?subject=${eventTitle}&startdt=${eventDate.toISOString()}&enddt=${new Date(eventDate.getTime() + 12 * 60 * 60 * 1000).toISOString()}`;
+        url = `https://outlook.live.com/calendar/0/deeplink/compose?subject=${eventTitle}&location=${eventLocation}&startdt=${startDateTime.toISOString()}&enddt=${endDateTime.toISOString()}`;
         window.open(url, '_blank');
         break;
       case 'apple':
         const icsContent = `BEGIN:VCALENDAR
 VERSION:2.0
+PRODID:-//WedSapp//IT
 BEGIN:VEVENT
-DTSTART:${startDate}
-DTEND:${endDate}
+DTSTART;TZID=${timezone}:${formatLocalDateTime(startDateTime)}
+DTEND;TZID=${timezone}:${formatLocalDateTime(endDateTime)}
 SUMMARY:Matrimonio ${coupleName}
+LOCATION:${weddingLocation || ''}
 END:VEVENT
 END:VCALENDAR`;
         const blob = new Blob([icsContent], { type: 'text/calendar' });

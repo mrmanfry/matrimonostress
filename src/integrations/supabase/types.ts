@@ -1270,6 +1270,7 @@ export type Database = {
           access_code: string | null
           calculation_mode: string | null
           campaigns_config: Json | null
+          ceremony_start_time: string | null
           created_at: string
           created_by: string
           id: string
@@ -1281,6 +1282,7 @@ export type Database = {
           target_adults: number | null
           target_children: number | null
           target_staff: number | null
+          timezone: string | null
           total_budget: number | null
           updated_at: string
           wedding_date: string
@@ -1289,6 +1291,7 @@ export type Database = {
           access_code?: string | null
           calculation_mode?: string | null
           campaigns_config?: Json | null
+          ceremony_start_time?: string | null
           created_at?: string
           created_by: string
           id?: string
@@ -1300,6 +1303,7 @@ export type Database = {
           target_adults?: number | null
           target_children?: number | null
           target_staff?: number | null
+          timezone?: string | null
           total_budget?: number | null
           updated_at?: string
           wedding_date: string
@@ -1308,6 +1312,7 @@ export type Database = {
           access_code?: string | null
           calculation_mode?: string | null
           campaigns_config?: Json | null
+          ceremony_start_time?: string | null
           created_at?: string
           created_by?: string
           id?: string
@@ -1319,6 +1324,7 @@ export type Database = {
           target_adults?: number | null
           target_children?: number | null
           target_staff?: number | null
+          timezone?: string | null
           total_budget?: number | null
           updated_at?: string
           wedding_date?: string
