@@ -1220,6 +1220,9 @@ const Guests = () => {
                 case 'group':
                   handleFilterChange('group', filter.value);
                   break;
+                case 'std':
+                  handleFilterChange('stdStatus', filter.value);
+                  break;
               }
             }}
           />

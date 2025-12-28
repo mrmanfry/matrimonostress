@@ -63,7 +63,8 @@ export type AnalyticsFilterType =
   | { type: 'dietary'; value: boolean }
   | { type: 'plusOne'; value: 'allowed' | 'confirmed' }
   | { type: 'funnel'; value: 'draft' | 'std_sent' | 'invited' | 'confirmed' }
-  | { type: 'group'; value: string };
+  | { type: 'group'; value: string }
+  | { type: 'std'; value: 'responded_yes' | 'responded_no' | 'responded_unsure' };
 
 interface GuestAnalyticsDashboardProps {
   guests: GuestForAnalytics[];
@@ -833,7 +834,7 @@ function CampaignsTab({ analytics, onFilterClick, activeFilter }: { analytics: G
         </div>
       </Card>
 
-      {/* STD Responses Breakdown */}
+      {/* STD Responses Breakdown - Clickable */}
       {stdResponseData.length > 0 && (
         <Card className="p-4">
           <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
@@ -841,17 +842,32 @@ function CampaignsTab({ analytics, onFilterClick, activeFilter }: { analytics: G
             Risposte Save The Date
           </h4>
           <div className="grid grid-cols-3 gap-4">
-            <div className="text-center p-3 rounded-lg bg-green-50 dark:bg-green-900/20">
+            <div 
+              className={`text-center p-3 rounded-lg bg-green-50 dark:bg-green-900/20 cursor-pointer transition-all hover:ring-2 hover:ring-green-500/50 ${
+                activeFilter?.type === 'std' && activeFilter?.value === 'responded_yes' ? 'ring-2 ring-green-500' : ''
+              }`}
+              onClick={() => onFilterClick?.({ type: 'std', value: 'responded_yes' })}
+            >
               <CheckCircle2 className="w-6 h-6 mx-auto mb-1 text-green-600" />
               <div className="text-2xl font-bold text-green-600">{analytics.stdLikelyYes}</div>
               <div className="text-xs text-muted-foreground">Sì probabile</div>
             </div>
-            <div className="text-center p-3 rounded-lg bg-orange-50 dark:bg-orange-900/20">
+            <div 
+              className={`text-center p-3 rounded-lg bg-orange-50 dark:bg-orange-900/20 cursor-pointer transition-all hover:ring-2 hover:ring-orange-500/50 ${
+                activeFilter?.type === 'std' && activeFilter?.value === 'responded_unsure' ? 'ring-2 ring-orange-500' : ''
+              }`}
+              onClick={() => onFilterClick?.({ type: 'std', value: 'responded_unsure' })}
+            >
               <HelpCircle className="w-6 h-6 mx-auto mb-1 text-orange-500" />
               <div className="text-2xl font-bold text-orange-500">{analytics.stdUnsure}</div>
               <div className="text-xs text-muted-foreground">Incerto</div>
             </div>
-            <div className="text-center p-3 rounded-lg bg-red-50 dark:bg-red-900/20">
+            <div 
+              className={`text-center p-3 rounded-lg bg-red-50 dark:bg-red-900/20 cursor-pointer transition-all hover:ring-2 hover:ring-red-500/50 ${
+                activeFilter?.type === 'std' && activeFilter?.value === 'responded_no' ? 'ring-2 ring-red-500' : ''
+              }`}
+              onClick={() => onFilterClick?.({ type: 'std', value: 'responded_no' })}
+            >
               <XCircle className="w-6 h-6 mx-auto mb-1 text-red-500" />
               <div className="text-2xl font-bold text-red-500">{analytics.stdLikelyNo}</div>
               <div className="text-xs text-muted-foreground">No probabile</div>
