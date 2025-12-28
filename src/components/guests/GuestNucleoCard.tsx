@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Users, Edit, Baby, Edit2, UserPlus2, Tag, AlertTriangle } from "lucide-react";
+import { Users, Edit, Baby, Edit2, UserPlus2, Tag, AlertTriangle, CalendarCheck } from "lucide-react";
 import { useState, useMemo } from "react";
 import { GuestEditDialog } from "./GuestEditDialog";
 import { GuestCampaignBadges } from "./GuestCampaignBadges";
@@ -160,6 +160,28 @@ export const GuestNucleoCard = ({
     }
   };
 
+  const getStdSentIcon = (guest: Guest) => {
+    if (!guest.save_the_date_sent_at) return null;
+    
+    const sentDate = new Date(guest.save_the_date_sent_at);
+    const formattedDate = sentDate.toLocaleDateString('it-IT', { day: '2-digit', month: 'short' });
+    
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="text-violet-600 dark:text-violet-400">
+              <CalendarCheck className="w-3.5 h-3.5" />
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="top">
+            <p className="text-xs">STD inviato il {formattedDate}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  };
+
   const adults = party.guests.filter(g => !g.is_child);
   const children = party.guests.filter(g => g.is_child);
   const guestsWithPlusOne = party.guests.filter(g => g.allow_plus_one).length;
@@ -309,6 +331,7 @@ export const GuestNucleoCard = ({
                           title="Permetti +1"
                         />
                       </div>
+                      {getStdSentIcon(guest)}
                       {getSendStatusIcon(guest.rsvp_send_status)}
                       <Button
                         variant="ghost"
