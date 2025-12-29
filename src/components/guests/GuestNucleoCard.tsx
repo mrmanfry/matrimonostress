@@ -267,20 +267,22 @@ export const GuestNucleoCard = ({
     const allPhoneGuestsSentStd = guestsWithPhone.every(g => g.save_the_date_sent_at);
     const allPhoneGuestsSentFormal = guestsWithPhone.every(g => g.formal_invite_sent_at);
     
-    // Use the earliest sent date as the nucleus date
+    // Use the LATEST sent date as the nucleus date (most recent = last element after sorting)
     const stdSentDates = guestsWithPhone
       .filter(g => g.save_the_date_sent_at)
-      .map(g => g.save_the_date_sent_at!);
+      .map(g => g.save_the_date_sent_at!)
+      .sort();
     const formalSentDates = guestsWithPhone
       .filter(g => g.formal_invite_sent_at)
-      .map(g => g.formal_invite_sent_at!);
+      .map(g => g.formal_invite_sent_at!)
+      .sort();
     
     return {
       saveTheDateSentAt: allPhoneGuestsSentStd && stdSentDates.length > 0 
-        ? stdSentDates.sort()[0] 
+        ? stdSentDates[stdSentDates.length - 1]  // Last = most recent
         : null,
       formalInviteSentAt: allPhoneGuestsSentFormal && formalSentDates.length > 0 
-        ? formalSentDates.sort()[0] 
+        ? formalSentDates[formalSentDates.length - 1]  // Last = most recent
         : null,
     };
   }, [party.guests]);
