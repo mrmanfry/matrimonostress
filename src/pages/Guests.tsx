@@ -311,11 +311,9 @@ const Guests = () => {
         group_name: g.guest_groups?.name || null,
       }));
       setAllGuests(guestsWithGroupName);
-      // Filter ungrouped guests (excluding couple members from ungrouped since they're special)
-      const ungrouped = guestsWithGroupName.filter((g: Guest) => !g.party_id && !g.is_couple_member);
-      // Add couple members at the start of ungrouped for display
-      const coupleMembers = guestsWithGroupName.filter((g: Guest) => g.is_couple_member);
-      setUngroupedGuests([...coupleMembers, ...ungrouped]);
+      // Filter ungrouped guests (those without a party_id)
+      const ungrouped = guestsWithGroupName.filter((g: Guest) => !g.party_id);
+      setUngroupedGuests(ungrouped);
     }
   };
 
