@@ -41,6 +41,7 @@ import { GuestCampaignBadges } from "@/components/guests/GuestCampaignBadges";
 import { generateCateringReport } from "@/utils/pdfHelpers";
 import { CSVImportDialog } from "@/components/guests/CSVImportDialog";
 import { generateCSVTemplate, downloadCSV, exportGuestsToCSV } from "@/utils/csvHelpers";
+import { matchesFunnelFilter } from "@/lib/nucleusStatusHelper";
 
 interface Guest {
   id: string;
@@ -876,33 +877,15 @@ const Guests = () => {
       });
     }
 
-    // Apply funnel filter (Wedding CRM)
+    // Apply funnel filter (Wedding CRM) - using nucleus-aware logic
     if (funnelFilter) {
       items = items.filter(item => {
-        const checkGuest = (g: Guest): boolean => {
-          const hasStdInfo = !!g.save_the_date_sent_at || !!g.std_response;
-          switch (funnelFilter) {
-            case 'draft':
-              return !hasStdInfo && !g.formal_invite_sent_at;
-            case 'std_sent':
-              return hasStdInfo && !g.formal_invite_sent_at;
-            case 'invited':
-              return !!g.formal_invite_sent_at && (!g.rsvp_status || g.rsvp_status === 'pending');
-            case 'confirmed':
-              return g.rsvp_status === 'confirmed';
-            case 'declined':
-              return g.rsvp_status === 'declined';
-            default:
-              return true;
-          }
-        };
-        
         if (item.type === 'party') {
           const party = item.data as InviteParty;
-          // Party matches if at least one guest matches
-          return party.guests.some(g => checkGuest(g));
+          // Party matches if at least one guest matches (using nucleus-aware logic)
+          return party.guests.some(g => matchesFunnelFilter(g, allGuests, funnelFilter));
         } else {
-          return checkGuest(item.data as Guest);
+          return matchesFunnelFilter(item.data as Guest, allGuests, funnelFilter);
         }
       });
     }

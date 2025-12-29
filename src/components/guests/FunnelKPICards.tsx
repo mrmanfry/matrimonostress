@@ -11,9 +11,12 @@ import {
   HelpCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getEffectiveStatus } from "@/lib/nucleusStatusHelper";
 
 interface Guest {
   id: string;
+  party_id?: string | null;
+  phone?: string | null;
   save_the_date_sent_at?: string | null;
   formal_invite_sent_at?: string | null;
   std_response?: string | null;
@@ -32,20 +35,42 @@ export function FunnelKPICards({ guests, activeFilter, onFilterChange }: FunnelK
   const coupleMembers = guests.filter(g => g.is_couple_member);
   const regularGuests = guests.filter(g => !g.is_couple_member);
   
-  // Calculate funnel stats (couple members only count as confirmed)
+  // Calculate funnel stats using nucleus-aware logic
+  // This ensures guests without phone inherit STD status from party members with phone
   const stats = {
-    // Draft: No STD sent, no formal invite sent (excludes couple)
-    draft: regularGuests.filter(g => !g.save_the_date_sent_at && !g.formal_invite_sent_at).length,
+    // Draft: No effective STD sent, no formal invite (excludes couple)
+    draft: regularGuests.filter(g => {
+      const status = getEffectiveStatus(g, guests);
+      return !status.hasStdSent && !status.hasFormalInvite;
+    }).length,
     
-    // Awareness: STD sent but no formal invite (excludes couple)
-    std_sent: regularGuests.filter(g => g.save_the_date_sent_at && !g.formal_invite_sent_at).length,
-    std_likely_yes: regularGuests.filter(g => g.save_the_date_sent_at && !g.formal_invite_sent_at && g.std_response === 'likely_yes').length,
-    std_likely_no: regularGuests.filter(g => g.save_the_date_sent_at && !g.formal_invite_sent_at && g.std_response === 'likely_no').length,
-    std_unsure: regularGuests.filter(g => g.save_the_date_sent_at && !g.formal_invite_sent_at && g.std_response === 'unsure').length,
-    std_no_response: regularGuests.filter(g => g.save_the_date_sent_at && !g.formal_invite_sent_at && !g.std_response).length,
+    // Awareness: Effective STD sent but no formal invite (excludes couple)
+    std_sent: regularGuests.filter(g => {
+      const status = getEffectiveStatus(g, guests);
+      return status.hasStdSent && !status.hasFormalInvite;
+    }).length,
+    std_likely_yes: regularGuests.filter(g => {
+      const status = getEffectiveStatus(g, guests);
+      return status.hasStdSent && !status.hasFormalInvite && g.std_response === 'likely_yes';
+    }).length,
+    std_likely_no: regularGuests.filter(g => {
+      const status = getEffectiveStatus(g, guests);
+      return status.hasStdSent && !status.hasFormalInvite && g.std_response === 'likely_no';
+    }).length,
+    std_unsure: regularGuests.filter(g => {
+      const status = getEffectiveStatus(g, guests);
+      return status.hasStdSent && !status.hasFormalInvite && g.std_response === 'unsure';
+    }).length,
+    std_no_response: regularGuests.filter(g => {
+      const status = getEffectiveStatus(g, guests);
+      return status.hasStdSent && !status.hasFormalInvite && !g.std_response;
+    }).length,
     
-    // Invited: Formal invite sent but no RSVP response yet (excludes couple)
-    invited: regularGuests.filter(g => g.formal_invite_sent_at && (!g.rsvp_status || g.rsvp_status === 'pending')).length,
+    // Invited: Effective formal invite but RSVP pending (excludes couple)
+    invited: regularGuests.filter(g => {
+      const status = getEffectiveStatus(g, guests);
+      return status.hasFormalInvite && (!g.rsvp_status || g.rsvp_status === 'pending');
+    }).length,
     
     // Confirmed: includes couple members (always confirmed) + confirmed regular guests
     confirmed: coupleMembers.length + regularGuests.filter(g => g.rsvp_status === 'confirmed').length,
