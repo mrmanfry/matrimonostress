@@ -799,6 +799,9 @@ const Guests = () => {
             case "sent": 
               // Inviato OPPURE ha risposto (risposta implica invio)
               return !!g.save_the_date_sent_at || !!g.std_response;
+            case "sent_no_response":
+              // Inviato MA senza risposta
+              return !!g.save_the_date_sent_at && !g.std_response;
             case "responded_yes": 
               return g.std_response === "likely_yes";
             case "responded_no": 
