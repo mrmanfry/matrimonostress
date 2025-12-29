@@ -16,7 +16,7 @@ import { isDeclined, isConfirmed, isPending } from "@/lib/rsvpHelpers";
 import { toast } from "sonner";
 import { BudgetSpreadsheet } from "@/components/budget/BudgetSpreadsheet";
 import { BudgetScenarioBar } from "@/components/budget/BudgetScenarioBar";
-
+import { calculateExpectedCounts, calculateTotalVendorStaff, type Guest as ExpectedGuest, type ExpectedResult } from "@/lib/expectedCalculator";
 interface ExpenseItem {
   id: string;
   description: string;
@@ -64,6 +64,7 @@ export default function BudgetLegacy() {
   const [guestBreakdown, setGuestBreakdown] = useState({ confirmed: 0, pending: 0, declined: 0 });
   const [guestCounts, setGuestCounts] = useState<GuestCounts | null>(null);
   const [lineItemsMap, setLineItemsMap] = useState<Record<string, ExpenseLineItem[]>>({});
+  const [expectedDetails, setExpectedDetails] = useState<ExpectedResult | null>(null);
 
   useEffect(() => {
     if (authState.status === "authenticated") {
@@ -138,28 +139,46 @@ export default function BudgetLegacy() {
 
       setLineItemsMap(lineItemsData);
 
-      // Load guests for expected/confirmed counts
+      // Load guests with STD data for expected/confirmed counts
       const { data: guests } = await supabase
         .from("guests")
-        .select("rsvp_status, is_child, is_staff")
+        .select("id, rsvp_status, is_child, is_staff, is_couple_member, save_the_date_sent_at, std_response")
         .eq("wedding_id", authState.weddingId);
+
+      // Load vendor staff totals
+      const { data: vendors } = await supabase
+        .from("vendors")
+        .select("staff_meals_count")
+        .eq("wedding_id", authState.weddingId);
+
+      const vendorStaffTotal = calculateTotalVendorStaff(vendors || []);
 
       // Use consistent RSVP status helpers
       const confirmedGuests = (guests || []).filter(g => isConfirmed(g.rsvp_status));
       const declinedGuests = (guests || []).filter(g => isDeclined(g.rsvp_status));
       const pendingGuests = (guests || []).filter(g => isPending(g.rsvp_status));
-      // Expected = all guests except declined
-      const expectedGuests = (guests || []).filter(g => !isDeclined(g.rsvp_status));
 
       setGuestBreakdown({
         confirmed: confirmedGuests.length,
         pending: pendingGuests.length,
         declined: declinedGuests.length
       });
+
+      // Calculate expected counts with new STD-based logic
+      const guestsForCalc: ExpectedGuest[] = (guests || [])
+        .filter(g => !g.is_couple_member && !g.is_staff)
+        .map(g => ({
+          id: g.id,
+          is_child: g.is_child || false,
+          save_the_date_sent_at: g.save_the_date_sent_at,
+          std_response: g.std_response
+        }));
+
+      const expectedResult = calculateExpectedCounts(guestsForCalc, vendorStaffTotal);
+      setExpectedDetails(expectedResult);
       
       const countAdults = (guestList: any[]) => guestList.filter(g => !g.is_child && !g.is_staff).length;
       const countChildren = (guestList: any[]) => guestList.filter(g => g.is_child).length;
-      const countStaff = (guestList: any[]) => guestList.filter(g => g.is_staff).length;
 
       const counts: GuestCounts = {
         planned: {
@@ -168,14 +187,14 @@ export default function BudgetLegacy() {
           staff: wedding?.target_staff || 0
         },
         expected: {
-          adults: countAdults(expectedGuests),
-          children: countChildren(expectedGuests),
-          staff: countStaff(expectedGuests)
+          adults: expectedResult.adults,
+          children: expectedResult.children,
+          staff: expectedResult.staff
         },
         confirmed: {
           adults: countAdults(confirmedGuests),
           children: countChildren(confirmedGuests),
-          staff: countStaff(confirmedGuests)
+          staff: vendorStaffTotal
         }
       };
 
@@ -396,6 +415,7 @@ export default function BudgetLegacy() {
           onValueChange={handleModeChange}
           breakdown={guestBreakdown}
           plannedCounts={guestCounts?.planned}
+          expectedDetails={expectedDetails || undefined}
         />
       </div>
 
