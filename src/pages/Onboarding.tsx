@@ -44,12 +44,16 @@ const Onboarding = () => {
       return;
     }
 
-    // Check for pending invitation
-    if (authState.status === "authenticated") {
+    // Check for pending invitation - accept both "authenticated" and "no_wedding" states
+    const user = (authState.status === "authenticated" || authState.status === "no_wedding") 
+      ? authState.user 
+      : null;
+    
+    if (user?.email) {
       supabase
         .from('wedding_invitations')
         .select('wedding_id, role, weddings(partner1_name, partner2_name, access_code)')
-        .eq('email', authState.user.email)
+        .eq('email', user.email)
         .eq('status', 'pending')
         .maybeSingle()
         .then(({ data }) => {
@@ -81,7 +85,8 @@ const Onboarding = () => {
         total_budget: budgetValue || undefined,
       });
 
-      if (authState.status !== "authenticated") {
+      // Accept both "authenticated" (has wedding) and "no_wedding" (new user without wedding)
+      if (authState.status !== "authenticated" && authState.status !== "no_wedding") {
         toast({
           title: "Sessione scaduta",
           description: "Effettua nuovamente l'accesso",
@@ -233,7 +238,8 @@ const Onboarding = () => {
     setLoading(true);
 
     try {
-      if (authState.status !== "authenticated") {
+      // Accept both "authenticated" (has wedding) and "no_wedding" (new user without wedding)
+      if (authState.status !== "authenticated" && authState.status !== "no_wedding") {
         toast({
           title: "Sessione scaduta",
           description: "Effettua nuovamente l'accesso",

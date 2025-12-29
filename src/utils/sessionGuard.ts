@@ -75,14 +75,19 @@ export function initSessionGuard(): void {
     }
   });
 
-  // Listener per quando la visibilità della pagina cambia (fallback per mobile)
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden' && sessionGuard.isVolatile()) {
-      // Su mobile, beforeunload potrebbe non essere affidabile
-      // Usiamo visibilitychange come backup
-      sessionGuard.clearSupabaseTokens();
-    }
-  });
+  // Fallback mobile-only: usa pagehide invece di visibilitychange
+  // visibilitychange è troppo aggressivo (scatta anche cambiando tab, in iframe, ecc.)
+  // pagehide è più affidabile per la chiusura effettiva della pagina
+  const isMobile = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
+  
+  if (isMobile) {
+    window.addEventListener('pagehide', () => {
+      if (sessionGuard.isVolatile()) {
+        console.log('[SessionGuard] Mobile pagehide, pulizia token...');
+        sessionGuard.clearSupabaseTokens();
+      }
+    });
+  }
 
   console.log('[SessionGuard] Inizializzato');
 }
