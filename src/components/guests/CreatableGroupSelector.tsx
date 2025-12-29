@@ -126,7 +126,7 @@ export function CreatableGroupSelector({
             value={searchValue}
             onValueChange={setSearchValue}
           />
-          <CommandList>
+          <CommandList className="max-h-60 overflow-y-auto">
             <CommandEmpty>
               {searchValue.trim() ? (
                 <button
