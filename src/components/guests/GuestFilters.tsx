@@ -67,17 +67,39 @@ export function GuestFilters({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [groups, setGroups] = useState<GuestGroup[]>([]);
 
-  // Load groups for the dropdown
+  // Load only groups that have at least one guest assigned
   useEffect(() => {
     if (weddingId) {
-      supabase
-        .from("guest_groups")
-        .select("id, name")
-        .eq("wedding_id", weddingId)
-        .order("name")
-        .then(({ data }) => {
-          if (data) setGroups(data);
-        });
+      const loadGroupsWithGuests = async () => {
+        // Get all groups for this wedding
+        const { data: allGroups } = await supabase
+          .from("guest_groups")
+          .select("id, name")
+          .eq("wedding_id", weddingId)
+          .order("name");
+
+        if (!allGroups) {
+          setGroups([]);
+          return;
+        }
+
+        // Get distinct group_ids that have guests assigned
+        const { data: guestsWithGroups } = await supabase
+          .from("guests")
+          .select("group_id")
+          .eq("wedding_id", weddingId)
+          .not("group_id", "is", null);
+
+        const usedGroupIds = new Set(
+          (guestsWithGroups || []).map((g) => g.group_id)
+        );
+
+        // Filter to only groups that have guests
+        const groupsWithGuests = allGroups.filter((g) => usedGroupIds.has(g.id));
+        setGroups(groupsWithGuests);
+      };
+
+      loadGroupsWithGuests();
     }
   }, [weddingId]);
 
