@@ -935,7 +935,7 @@ const Guests = () => {
   // "Nuclei di Invito" = parties + ungrouped (ogni single è un nucleo di 1)
   const totalNuclei = parties.length + ungroupedGuests.length;
   
-  const guestsWithoutPhone = allGuests.filter(g => !g.phone).length;
+  const guestsWithoutPhone = allGuests.filter(g => !g.phone && !g.is_couple_member).length;
   const confirmedParties = parties.filter(p => p.rsvp_status === 'Confermato').length;
   const guestsWithPlusOneEnabled = allGuests.filter(g => g.allow_plus_one).length;
 
