@@ -44,6 +44,34 @@ export const vendorSchema = z.object({
     .max(50, "Il numero non può superare 50")
     .optional()
     .default(0),
+  staff_vegan_count: z
+    .number()
+    .int("Deve essere un numero intero")
+    .min(0, "Il numero non può essere negativo")
+    .max(50, "Il numero non può superare 50")
+    .optional()
+    .default(0),
+  staff_vegetarian_count: z
+    .number()
+    .int("Deve essere un numero intero")
+    .min(0, "Il numero non può essere negativo")
+    .max(50, "Il numero non può superare 50")
+    .optional()
+    .default(0),
+  staff_gluten_free_count: z
+    .number()
+    .int("Deve essere un numero intero")
+    .min(0, "Il numero non può essere negativo")
+    .max(50, "Il numero non può superare 50")
+    .optional()
+    .default(0),
+  staff_lactose_free_count: z
+    .number()
+    .int("Deve essere un numero intero")
+    .min(0, "Il numero non può essere negativo")
+    .max(50, "Il numero non può superare 50")
+    .optional()
+    .default(0),
   staff_dietary_notes: z
     .string()
     .trim()

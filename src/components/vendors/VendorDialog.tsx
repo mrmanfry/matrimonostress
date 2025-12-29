@@ -38,6 +38,10 @@ interface Vendor {
   notes: string | null;
   category_id: string | null;
   staff_meals_count?: number | null;
+  staff_vegan_count?: number | null;
+  staff_vegetarian_count?: number | null;
+  staff_gluten_free_count?: number | null;
+  staff_lactose_free_count?: number | null;
   staff_dietary_notes?: string | null;
 }
 
@@ -60,6 +64,10 @@ const emptyVendor: VendorFormData = {
   notes: "",
   category_id: "",
   staff_meals_count: 0,
+  staff_vegan_count: 0,
+  staff_vegetarian_count: 0,
+  staff_gluten_free_count: 0,
+  staff_lactose_free_count: 0,
   staff_dietary_notes: "",
 };
 
@@ -106,6 +114,10 @@ export function VendorDialog({
         notes: vendor.notes || "",
         category_id: vendor.category_id || "",
         staff_meals_count: vendor.staff_meals_count || 0,
+        staff_vegan_count: vendor.staff_vegan_count || 0,
+        staff_vegetarian_count: vendor.staff_vegetarian_count || 0,
+        staff_gluten_free_count: vendor.staff_gluten_free_count || 0,
+        staff_lactose_free_count: vendor.staff_lactose_free_count || 0,
         staff_dietary_notes: vendor.staff_dietary_notes || "",
       });
       if (vendor.id) {
@@ -569,7 +581,7 @@ export function VendorDialog({
               {(staffMealsCount || 0) > 0 && (
                 <div className="space-y-4 pt-2 border-t">
                   <div className="space-y-2">
-                    <Label htmlFor="staff_meals_count">Numero persone</Label>
+                    <Label htmlFor="staff_meals_count">Numero totale persone</Label>
                     <Input
                       id="staff_meals_count"
                       type="number"
@@ -583,12 +595,62 @@ export function VendorDialog({
                     )}
                   </div>
 
+                  <div className="space-y-3">
+                    <Label className="text-sm font-medium">Preferenze alimentari</Label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="staff_vegan_count" className="text-xs text-muted-foreground">🌱 Vegani</Label>
+                        <Input
+                          id="staff_vegan_count"
+                          type="number"
+                          min={0}
+                          max={50}
+                          {...register("staff_vegan_count", { valueAsNumber: true })}
+                          placeholder="0"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="staff_vegetarian_count" className="text-xs text-muted-foreground">🥗 Vegetariani</Label>
+                        <Input
+                          id="staff_vegetarian_count"
+                          type="number"
+                          min={0}
+                          max={50}
+                          {...register("staff_vegetarian_count", { valueAsNumber: true })}
+                          placeholder="0"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="staff_gluten_free_count" className="text-xs text-muted-foreground">🌾 Senza glutine</Label>
+                        <Input
+                          id="staff_gluten_free_count"
+                          type="number"
+                          min={0}
+                          max={50}
+                          {...register("staff_gluten_free_count", { valueAsNumber: true })}
+                          placeholder="0"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="staff_lactose_free_count" className="text-xs text-muted-foreground">🥛 Senza lattosio</Label>
+                        <Input
+                          id="staff_lactose_free_count"
+                          type="number"
+                          min={0}
+                          max={50}
+                          {...register("staff_lactose_free_count", { valueAsNumber: true })}
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
-                    <Label htmlFor="staff_dietary_notes">Note alimentari staff</Label>
+                    <Label htmlFor="staff_dietary_notes">Altre note alimentari</Label>
                     <Input
                       id="staff_dietary_notes"
                       {...register("staff_dietary_notes")}
-                      placeholder="Es: 1 vegano, 1 intollerante al lattosio..."
+                      placeholder="Es: allergie specifiche, preferenze particolari..."
                       maxLength={500}
                     />
                     {errors.staff_dietary_notes && (

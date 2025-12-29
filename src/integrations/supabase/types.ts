@@ -1165,7 +1165,11 @@ export type Database = {
           phone: string | null
           ragione_sociale: string | null
           staff_dietary_notes: string | null
+          staff_gluten_free_count: number | null
+          staff_lactose_free_count: number | null
           staff_meals_count: number | null
+          staff_vegan_count: number | null
+          staff_vegetarian_count: number | null
           status: string | null
           updated_at: string
           wedding_id: string
@@ -1185,7 +1189,11 @@ export type Database = {
           phone?: string | null
           ragione_sociale?: string | null
           staff_dietary_notes?: string | null
+          staff_gluten_free_count?: number | null
+          staff_lactose_free_count?: number | null
           staff_meals_count?: number | null
+          staff_vegan_count?: number | null
+          staff_vegetarian_count?: number | null
           status?: string | null
           updated_at?: string
           wedding_id: string
@@ -1205,7 +1213,11 @@ export type Database = {
           phone?: string | null
           ragione_sociale?: string | null
           staff_dietary_notes?: string | null
+          staff_gluten_free_count?: number | null
+          staff_lactose_free_count?: number | null
           staff_meals_count?: number | null
+          staff_vegan_count?: number | null
+          staff_vegetarian_count?: number | null
           status?: string | null
           updated_at?: string
           wedding_id?: string
