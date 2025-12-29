@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ExpenseItemTabs } from "./ExpenseItemTabs";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ExpenseItemCard } from "./ExpenseItemCard";
+import { calculateExpectedCounts, calculateTotalVendorStaff, type Guest } from "@/lib/expectedCalculator";
 
 interface ExpenseItem {
   id: string;
@@ -67,6 +68,7 @@ export function ExpenseItemsManager({ vendorId, categoryId, calculationMode }: E
   const [actualAdults, setActualAdults] = useState(0);
   const [actualChildren, setActualChildren] = useState(0);
   const [actualStaff, setActualStaff] = useState(0);
+  const [expectedCounts, setExpectedCounts] = useState({ adults: 0, children: 0, staff: 0 });
   const [weddingTargets, setWeddingTargets] = useState({ adults: 100, children: 0, staff: 0 });
   const { toast } = useToast();
 
@@ -114,19 +116,25 @@ export function ExpenseItemsManager({ vendorId, categoryId, calculationMode }: E
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) return;
 
-      const { data: weddingData } = await supabase
-        .from("weddings")
-        .select("id")
-        .eq("created_by", userData.user.id)
-        .maybeSingle();
+      const { data: userRole } = await supabase
+        .from("user_roles")
+        .select("wedding_id")
+        .eq("user_id", userData.user.id)
+        .single();
 
-      if (!weddingData) return;
+      if (!userRole) return;
 
-      // Load all guests to calculate both expected and confirmed
+      // Load all guests with STD data for expected calculation
       const { data: guests } = await supabase
         .from("guests")
-        .select("is_child, is_staff, rsvp_status")
-        .eq("wedding_id", weddingData.id);
+        .select("id, is_child, is_staff, rsvp_status, save_the_date_sent_at, std_response")
+        .eq("wedding_id", userRole.wedding_id);
+
+      // Load all vendors to get total staff
+      const { data: allVendors } = await supabase
+        .from("vendors")
+        .select("staff_meals_count")
+        .eq("wedding_id", userRole.wedding_id);
 
       // Confirmed counts (only confirmed RSVPs)
       const confirmedAdults = guests?.filter(g => !g.is_child && !g.is_staff && g.rsvp_status === 'confirmed').length || 0;
@@ -136,6 +144,26 @@ export function ExpenseItemsManager({ vendorId, categoryId, calculationMode }: E
       setActualAdults(confirmedAdults);
       setActualChildren(confirmedChildren);
       setActualStaff(confirmedStaff);
+
+      // Calculate expected counts with new STD-based logic
+      if (guests) {
+        const vendorStaffTotal = calculateTotalVendorStaff(allVendors || []);
+        const guestsForCalc: Guest[] = guests.map(g => ({
+          id: g.id,
+          is_child: g.is_child,
+          is_staff: g.is_staff || false,
+          save_the_date_sent_at: g.save_the_date_sent_at,
+          std_response: g.std_response,
+          rsvp_status: g.rsvp_status
+        }));
+        
+        const expected = calculateExpectedCounts(guestsForCalc, vendorStaffTotal);
+        setExpectedCounts({
+          adults: expected.adults,
+          children: expected.children,
+          staff: expected.staff
+        });
+      }
     } catch (error) {
       console.error("Error loading guest counts:", error);
     }
@@ -347,11 +375,7 @@ export function ExpenseItemsManager({ vendorId, categoryId, calculationMode }: E
     
     const guestCounts = {
       planned: resolvedCounts,
-      expected: {
-        adults: actualAdults,
-        children: actualChildren,
-        staff: actualStaff
-      },
+      expected: expectedCounts,
       confirmed: {
         adults: actualAdults,
         children: actualChildren,
@@ -373,7 +397,7 @@ export function ExpenseItemsManager({ vendorId, categoryId, calculationMode }: E
       globalMode,
       guestCounts
     );
-  }, [lineItems, actualAdults, actualChildren, actualStaff, weddingTargets, calculationMode]);
+  }, [lineItems, actualAdults, actualChildren, actualStaff, expectedCounts, weddingTargets, calculationMode]);
 
   const toggleExpanded = (itemId: string) => {
     setExpandedItems(prev => {
@@ -414,7 +438,7 @@ export function ExpenseItemsManager({ vendorId, categoryId, calculationMode }: E
       setTotalVendorAmount(sum);
     };
     calculateTotal();
-  }, [expenseItems, lineItems, actualAdults, actualChildren, actualStaff, calculationMode, calculateItemTotal]);
+  }, [expenseItems, lineItems, actualAdults, actualChildren, actualStaff, expectedCounts, calculationMode, calculateItemTotal]);
 
   const calculateAmountPaid = (): number => {
     return Object.values(payments).flat().reduce((sum, payment) => {
