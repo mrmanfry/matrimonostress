@@ -244,6 +244,47 @@ export const GuestNucleoCard = ({
     return respondedGuests[0]?.first_name || null;
   }, [party.guests]);
   
+  // Calculate nucleus-level campaign status
+  // Logic: If ALL members with phone have been sent STD, the whole nucleus is "invited"
+  // Members without phone are "passive" and inherit status from those with phone
+  const nucleusCampaignStatus = useMemo(() => {
+    const guestsWithPhone = party.guests.filter(g => g.phone);
+    const guestsWithStdSent = party.guests.filter(g => g.save_the_date_sent_at);
+    const guestsWithFormalInvite = party.guests.filter(g => g.formal_invite_sent_at);
+    
+    // If no one has a phone, check if anyone has been marked as sent
+    if (guestsWithPhone.length === 0) {
+      // Fall back to checking if any guest has STD sent (manual marking)
+      const anyStdSent = guestsWithStdSent.length > 0;
+      const anyFormalInvite = guestsWithFormalInvite.length > 0;
+      return {
+        saveTheDateSentAt: anyStdSent ? guestsWithStdSent[0]?.save_the_date_sent_at : null,
+        formalInviteSentAt: anyFormalInvite ? guestsWithFormalInvite[0]?.formal_invite_sent_at : null,
+      };
+    }
+    
+    // Check if ALL guests with phone have been sent STD
+    const allPhoneGuestsSentStd = guestsWithPhone.every(g => g.save_the_date_sent_at);
+    const allPhoneGuestsSentFormal = guestsWithPhone.every(g => g.formal_invite_sent_at);
+    
+    // Use the earliest sent date as the nucleus date
+    const stdSentDates = guestsWithPhone
+      .filter(g => g.save_the_date_sent_at)
+      .map(g => g.save_the_date_sent_at!);
+    const formalSentDates = guestsWithPhone
+      .filter(g => g.formal_invite_sent_at)
+      .map(g => g.formal_invite_sent_at!);
+    
+    return {
+      saveTheDateSentAt: allPhoneGuestsSentStd && stdSentDates.length > 0 
+        ? stdSentDates.sort()[0] 
+        : null,
+      formalInviteSentAt: allPhoneGuestsSentFormal && formalSentDates.length > 0 
+        ? formalSentDates.sort()[0] 
+        : null,
+    };
+  }, [party.guests]);
+  
   // Status strip color
   const statusStripColor = getStatusStripColor(party);
 
@@ -283,11 +324,11 @@ export const GuestNucleoCard = ({
                   )}
                 </div>
                 <div className="flex items-center gap-2 flex-wrap text-xs">
-                  {/* Campaign badge based on primary contact */}
+                  {/* Campaign badge based on nucleus-level status (considers all members with phone) */}
                   {party.guests[0] && (
                     <GuestCampaignBadges 
-                      saveTheDateSentAt={party.guests[0].save_the_date_sent_at}
-                      formalInviteSentAt={party.guests[0].formal_invite_sent_at}
+                      saveTheDateSentAt={nucleusCampaignStatus.saveTheDateSentAt}
+                      formalInviteSentAt={nucleusCampaignStatus.formalInviteSentAt}
                       stdResponse={party.guests[0].std_response as 'likely_yes' | 'likely_no' | 'unsure' | null | undefined}
                       rsvpStatus={party.guests[0].rsvp_status}
                       stdRespondedBy={stdResponder}
