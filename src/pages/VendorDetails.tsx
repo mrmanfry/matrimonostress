@@ -311,6 +311,10 @@ export default function VendorDetails() {
           notes: vendor.notes,
           category_id: vendor.category_id,
           staff_meals_count: vendor.staff_meals_count,
+          staff_vegan_count: vendor.staff_vegan_count,
+          staff_vegetarian_count: vendor.staff_vegetarian_count,
+          staff_gluten_free_count: vendor.staff_gluten_free_count,
+          staff_lactose_free_count: vendor.staff_lactose_free_count,
           staff_dietary_notes: vendor.staff_dietary_notes,
         } : null}
         categories={categories}
