@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
+import { createContext, useContext, useEffect, useState, useRef, ReactNode, useCallback } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { weddingStorage } from "@/utils/weddingStorage";
@@ -30,6 +30,11 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [authState, setAuthState] = useState<AuthState>({ status: "loading" });
+  
+  // Ref per prevenire chiamate parallele a handleAuthSession (race condition fix)
+  const isLoadingContext = useRef(false);
+  // Ref per tracciare l'ultimo user.id processato
+  const lastProcessedUserId = useRef<string | null>(null);
 
   /**
    * Verifica in background che il cached ID sia ancora valido (Fire & Forget)
@@ -189,21 +194,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // SIGNED_IN, INITIAL_SESSION e altri eventi: gestione unificata
         if (['SIGNED_IN', 'INITIAL_SESSION'].includes(event)) {
-          // Evita ri-caricamento se stesso utente già autenticato
-          setAuthState(prev => {
-            if (prev.status === 'authenticated' && prev.user.id === session.user.id) {
-              console.log('[AuthContext] Same user already authenticated, skipping reload');
-              return prev;
-            }
-            // Altrimenti triggera il caricamento (gestito sotto)
-            return prev;
-          });
+          // Evita chiamate parallele (race condition fix)
+          if (isLoadingContext.current) {
+            console.log('[AuthContext] Context already loading, skipping duplicate call');
+            return;
+          }
           
-          // Se non siamo già nello stato giusto, carica il contesto
-          const currentState = authState;
-          if (currentState.status !== 'authenticated' || 
-              (currentState.status === 'authenticated' && currentState.user?.id !== session.user.id)) {
+          // Evita ri-caricamento se stesso utente già processato
+          if (lastProcessedUserId.current === session.user.id) {
+            console.log('[AuthContext] Same user already processed, skipping');
+            return;
+          }
+          
+          isLoadingContext.current = true;
+          try {
             await handleAuthSession(session);
+            lastProcessedUserId.current = session.user.id;
+          } finally {
+            isLoadingContext.current = false;
           }
         }
       }
