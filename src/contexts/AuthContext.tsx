@@ -72,10 +72,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { weddingId: cached, role: null };
     }
 
-    // 2. RPC Call: Singola chiamata al database
+    // 2. RPC Call: Singola chiamata al database CON TIMEOUT di sicurezza
     console.log('[AuthContext] ⚡ Fetching user context via RPC...');
     
-    const { data, error } = await supabase.rpc('get_user_context');
+    const timeoutMs = 10000; // 10 secondi
+    const timeoutPromise = new Promise<never>((_, reject) => 
+      setTimeout(() => reject(new Error('RPC timeout: get_user_context non ha risposto in 10s')), timeoutMs)
+    );
+    
+    const rpcPromise = supabase.rpc('get_user_context');
+    
+    // Race: chi finisce prima vince
+    const { data, error } = await Promise.race([rpcPromise, timeoutPromise]);
     
     if (error) {
       console.error('[AuthContext] RPC Error:', error);
@@ -100,7 +108,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   /**
    * Gestore centrale della sessione - chiamato per ogni evento auth
    */
+  /**
+   * Gestore centrale della sessione - chiamato per ogni evento auth
+   * INCLUDE LOCK per evitare race condition tra initSession e onAuthStateChange
+   */
   const handleAuthSession = useCallback(async (session: Session) => {
+    // Lock per evitare chiamate parallele (race condition fix)
+    if (isLoadingContext.current) {
+      console.log('[AuthContext] handleAuthSession already running, skipping');
+      return;
+    }
+    
+    // Skip se stesso utente già processato E siamo già authenticated
+    if (lastProcessedUserId.current === session.user.id) {
+      console.log('[AuthContext] Same user already processed, skipping');
+      return;
+    }
+    
+    isLoadingContext.current = true;
+    
     try {
       const { weddingId, role } = await loadUserContext();
       
@@ -122,6 +148,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           session
         });
       }
+      
+      lastProcessedUserId.current = session.user.id;
     } catch (error) {
       console.error('[AuthContext] Error finalizing auth session:', error);
       setAuthState({
@@ -130,6 +158,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         session,
         error: error instanceof Error ? error : new Error(String(error))
       });
+    } finally {
+      isLoadingContext.current = false;
     }
   }, [loadUserContext]);
 
@@ -193,26 +223,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         // SIGNED_IN, INITIAL_SESSION e altri eventi: gestione unificata
+        // Il lock è ora DENTRO handleAuthSession, quindi basta chiamarlo
         if (['SIGNED_IN', 'INITIAL_SESSION'].includes(event)) {
-          // Evita chiamate parallele (race condition fix)
-          if (isLoadingContext.current) {
-            console.log('[AuthContext] Context already loading, skipping duplicate call');
-            return;
-          }
-          
-          // Evita ri-caricamento se stesso utente già processato
-          if (lastProcessedUserId.current === session.user.id) {
-            console.log('[AuthContext] Same user already processed, skipping');
-            return;
-          }
-          
-          isLoadingContext.current = true;
-          try {
-            await handleAuthSession(session);
-            lastProcessedUserId.current = session.user.id;
-          } finally {
-            isLoadingContext.current = false;
-          }
+          await handleAuthSession(session);
         }
       }
     );
