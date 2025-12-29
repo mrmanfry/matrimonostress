@@ -120,7 +120,7 @@ export function CreatableGroupSelector({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-        <Command shouldFilter={false}>
+        <Command shouldFilter={false} className="h-auto">
           <CommandInput
             placeholder="Cerca o crea gruppo..."
             value={searchValue}
