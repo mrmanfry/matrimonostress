@@ -25,6 +25,7 @@ import { MarkPaymentDialog } from "@/components/treasury/MarkPaymentDialog";
 import { UnallocatedExpensesWidget } from "@/components/treasury/UnallocatedExpensesWidget";
 import { CalculationModeToggle } from "@/components/ui/calculation-mode-toggle";
 import { calculateExpenseAmount } from "@/lib/expenseCalculations";
+import { calculateExpectedCounts, calculateTotalVendorStaff, type Guest, type ExpectedResult } from "@/lib/expectedCalculator";
 
 interface Payment {
   id: string;
@@ -109,6 +110,7 @@ export default function Treasury() {
     pending: { adults: 0, children: 0, staff: 0 },
     declined: { adults: 0, children: 0, staff: 0 }
   });
+  const [expectedDetails, setExpectedDetails] = useState<ExpectedResult | null>(null);
   const [kpis, setKpis] = useState({
     totalCommitment: 0,
     alreadyPaid: 0,
@@ -171,10 +173,16 @@ export default function Treasury() {
         setGlobalMode(weddingData.calculation_mode as 'planned' | 'expected' | 'confirmed');
       }
 
-      // Load guest breakdown
+      // Load guests with STD data for expected calculation
       const { data: allGuests } = await supabase
         .from("guests")
-        .select("is_child, is_staff, rsvp_status")
+        .select("id, is_child, is_staff, rsvp_status, save_the_date_sent_at, std_response")
+        .eq("wedding_id", weddingId);
+
+      // Load all vendors to get total staff
+      const { data: allVendors } = await supabase
+        .from("vendors")
+        .select("staff_meals_count")
         .eq("wedding_id", weddingId);
 
       const breakdown = {
@@ -195,6 +203,20 @@ export default function Treasury() {
         }
       };
       setGuestBreakdown(breakdown);
+
+      // Calculate expected counts with new STD-based logic
+      const vendorStaffTotal = calculateTotalVendorStaff(allVendors || []);
+      const guestsForCalc: Guest[] = (allGuests || []).map(g => ({
+        id: g.id,
+        is_child: g.is_child,
+        is_staff: g.is_staff || false,
+        save_the_date_sent_at: g.save_the_date_sent_at,
+        std_response: g.std_response,
+        rsvp_status: g.rsvp_status
+      }));
+      
+      const expectedResult = calculateExpectedCounts(guestsForCalc, vendorStaffTotal);
+      setExpectedDetails(expectedResult);
 
       // Load expense items with vendor info
       const { data: itemsData, error: itemsError } = await supabase
@@ -298,10 +320,10 @@ export default function Treasury() {
       }
 
       // Generate chart data with explicit mode
-      generateChartData(allPayments, items, lineItems, targets, breakdown, currentMode);
+      generateChartData(allPayments, items, lineItems, targets, breakdown, currentMode, expectedResult);
 
       // Calculate KPIs with explicit mode
-      calculateKPIs(allPayments, items, lineItems, targets, breakdown, currentMode);
+      calculateKPIs(allPayments, items, lineItems, targets, breakdown, currentMode, expectedResult);
     } catch (error) {
       console.error("Error loading treasury data:", error);
     } finally {
@@ -315,19 +337,22 @@ export default function Treasury() {
     lineItems: ExpenseLineItem[],
     targets: { adults: number; children: number; staff: number },
     breakdown: typeof guestBreakdown,
-    mode: 'planned' | 'expected' | 'confirmed'
+    mode: 'planned' | 'expected' | 'confirmed',
+    expectedResult?: ExpectedResult
   ) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Build guest counts for current mode
+    // Build guest counts for current mode - use expectedResult for expected mode
     const guestCounts = {
       planned: targets,
-      expected: {
-        adults: breakdown.confirmed.adults + breakdown.pending.adults,
-        children: breakdown.confirmed.children + breakdown.pending.children,
-        staff: breakdown.confirmed.staff + breakdown.pending.staff
-      },
+      expected: expectedResult 
+        ? { adults: expectedResult.adults, children: expectedResult.children, staff: expectedResult.staff }
+        : {
+            adults: breakdown.confirmed.adults + breakdown.pending.adults,
+            children: breakdown.confirmed.children + breakdown.pending.children,
+            staff: breakdown.confirmed.staff + breakdown.pending.staff
+          },
       confirmed: breakdown.confirmed
     };
 
@@ -384,19 +409,22 @@ export default function Treasury() {
     lineItems: ExpenseLineItem[],
     targets: { adults: number; children: number; staff: number },
     breakdown: typeof guestBreakdown,
-    mode: 'planned' | 'expected' | 'confirmed'
+    mode: 'planned' | 'expected' | 'confirmed',
+    expectedResult?: ExpectedResult
   ) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Build guest counts for current mode
+    // Build guest counts for current mode - use expectedResult for expected mode
     const guestCounts = {
       planned: targets,
-      expected: {
-        adults: breakdown.confirmed.adults + breakdown.pending.adults,
-        children: breakdown.confirmed.children + breakdown.pending.children,
-        staff: breakdown.confirmed.staff + breakdown.pending.staff
-      },
+      expected: expectedResult 
+        ? { adults: expectedResult.adults, children: expectedResult.children, staff: expectedResult.staff }
+        : {
+            adults: breakdown.confirmed.adults + breakdown.pending.adults,
+            children: breakdown.confirmed.children + breakdown.pending.children,
+            staff: breakdown.confirmed.staff + breakdown.pending.staff
+          },
       confirmed: breakdown.confirmed
     };
 
@@ -648,7 +676,8 @@ export default function Treasury() {
                 <Label className="text-base font-semibold">Modalità di Calcolo Globale</Label>
                 <p className="text-sm text-muted-foreground mt-1">
                   {globalMode === 'planned' && 'Stai visualizzando i dati pianificati (target contrattuali)'}
-                  {globalMode === 'expected' && 'Stai visualizzando i previsti (lista invitati - rifiutati)'}
+                  {globalMode === 'expected' && expectedDetails && `Stai visualizzando i previsti: ${expectedDetails.details}`}
+                  {globalMode === 'expected' && !expectedDetails && 'Stai visualizzando i previsti (lista invitati - rifiutati)'}
                   {globalMode === 'confirmed' && 'Stai visualizzando solo gli invitati confermati'}
                 </p>
               </div>
@@ -661,6 +690,7 @@ export default function Treasury() {
                   declined: guestBreakdown.declined.adults + guestBreakdown.declined.children + guestBreakdown.declined.staff
                 }}
                 plannedCounts={weddingTargets}
+                expectedDetails={expectedDetails || undefined}
               />
             </div>
           </CardContent>

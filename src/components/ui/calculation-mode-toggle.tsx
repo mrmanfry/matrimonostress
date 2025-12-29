@@ -14,9 +14,22 @@ interface CalculationModeToggleProps {
     children: number;
     staff: number;
   };
+  expectedDetails?: {
+    source: 'std_responses' | 'full_list';
+    details: string;
+    adults: number;
+    children: number;
+    staff: number;
+  };
 }
 
-export function CalculationModeToggle({ value, onValueChange, breakdown, plannedCounts }: CalculationModeToggleProps) {
+export function CalculationModeToggle({ 
+  value, 
+  onValueChange, 
+  breakdown, 
+  plannedCounts,
+  expectedDetails 
+}: CalculationModeToggleProps) {
   return (
     <div className="flex flex-col gap-2">
       <ToggleGroup 
@@ -57,7 +70,15 @@ export function CalculationModeToggle({ value, onValueChange, breakdown, planned
         </p>
       )}
       
-      {breakdown && value === 'expected' && (
+      {value === 'expected' && expectedDetails && (
+        <p className="text-xs text-muted-foreground">
+          {expectedDetails.adults} adulti, {expectedDetails.children} bambini, {expectedDetails.staff} staff
+          <br />
+          <span className="text-muted-foreground/70">{expectedDetails.details}</span>
+        </p>
+      )}
+      
+      {value === 'expected' && !expectedDetails && breakdown && (
         <p className="text-xs text-muted-foreground">
           {breakdown.confirmed} confermati + {breakdown.pending} in attesa
           {breakdown.declined > 0 && ` (${breakdown.declined} rifiutati esclusi)`}

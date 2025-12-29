@@ -5,6 +5,7 @@ import { DollarSign } from "lucide-react";
 import { CalculationModeToggle } from "@/components/ui/calculation-mode-toggle";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { calculateExpectedCounts, calculateTotalVendorStaff, type Guest, type ExpectedResult } from "@/lib/expectedCalculator";
 
 interface VendorExpensesWidgetProps {
   vendorId: string;
@@ -21,6 +22,7 @@ export function VendorExpensesWidget({ vendorId, categoryId }: VendorExpensesWid
     pending: 0,
     declined: 0
   });
+  const [expectedDetails, setExpectedDetails] = useState<ExpectedResult | null>(null);
 
   useEffect(() => {
     loadWeddingData();
@@ -57,10 +59,16 @@ export function VendorExpensesWidget({ vendorId, categoryId }: VendorExpensesWid
         });
       }
 
-      // Load guest breakdown for toggle display
+      // Load guests with STD data
       const { data: guests } = await supabase
         .from("guests")
-        .select("is_child, is_staff, rsvp_status")
+        .select("id, is_child, is_staff, rsvp_status, save_the_date_sent_at, std_response")
+        .eq("wedding_id", userRole.wedding_id);
+
+      // Load all vendors to get total staff
+      const { data: vendors } = await supabase
+        .from("vendors")
+        .select("staff_meals_count")
         .eq("wedding_id", userRole.wedding_id);
 
       if (guests) {
@@ -68,6 +76,20 @@ export function VendorExpensesWidget({ vendorId, categoryId }: VendorExpensesWid
         const pending = guests.filter(g => g.rsvp_status === 'pending').length;
         const declined = guests.filter(g => g.rsvp_status === 'declined').length;
         setGuestBreakdown({ confirmed, pending, declined });
+
+        // Calculate expected counts with new logic
+        const vendorStaffTotal = calculateTotalVendorStaff(vendors || []);
+        const guestsForCalc: Guest[] = guests.map(g => ({
+          id: g.id,
+          is_child: g.is_child,
+          is_staff: g.is_staff || false,
+          save_the_date_sent_at: g.save_the_date_sent_at,
+          std_response: g.std_response,
+          rsvp_status: g.rsvp_status
+        }));
+        
+        const expected = calculateExpectedCounts(guestsForCalc, vendorStaffTotal);
+        setExpectedDetails(expected);
       }
     } catch (error) {
       console.error("Error loading wedding data:", error);
@@ -89,7 +111,7 @@ export function VendorExpensesWidget({ vendorId, categoryId }: VendorExpensesWid
       
       const modeLabels = {
         planned: 'pianificati (target contrattuali)',
-        expected: 'previsti (lista invitati - rifiutati)',
+        expected: 'previsti (basati su risposte STD)',
         confirmed: 'confermati (solo RSVP confermati)'
       };
       
@@ -119,6 +141,7 @@ export function VendorExpensesWidget({ vendorId, categoryId }: VendorExpensesWid
           onValueChange={handleModeChange}
           breakdown={guestBreakdown}
           plannedCounts={weddingTargets}
+          expectedDetails={expectedDetails || undefined}
         />
       </CardHeader>
       <CardContent>
