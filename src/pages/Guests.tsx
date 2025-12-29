@@ -190,7 +190,7 @@ const Guests = () => {
     // Check if couple members already exist
     const { data: existingCouple } = await supabase
       .from("guests")
-      .select("id")
+      .select("id, party_id")
       .eq("wedding_id", weddingData.id)
       .eq("is_couple_member", true);
 
@@ -211,10 +211,25 @@ const Guests = () => {
     const partner2 = parsePartnerName(weddingData.partner2_name);
 
     // Create couple members if they don't exist
-    const coupleGuests = [];
-    
     if (!existingCouple || existingCouple.length === 0) {
-      coupleGuests.push(
+      // 1. First create the "Gli Sposi" party with confirmed status
+      const { data: partyData, error: partyError } = await supabase
+        .from("invite_parties")
+        .insert({
+          wedding_id: weddingData.id,
+          party_name: "Gli Sposi",
+          rsvp_status: "Confermato"
+        })
+        .select("id")
+        .single();
+
+      if (partyError || !partyData) {
+        console.error("Error creating couple party:", partyError);
+        return;
+      }
+
+      // 2. Create the couple members with the party_id
+      const coupleGuests = [
         {
           wedding_id: weddingData.id,
           first_name: partner1.firstName,
@@ -224,6 +239,7 @@ const Guests = () => {
           rsvp_status: 'confirmed',
           adults_count: 1,
           children_count: 0,
+          party_id: partyData.id,
         },
         {
           wedding_id: weddingData.id,
@@ -234,11 +250,10 @@ const Guests = () => {
           rsvp_status: 'confirmed',
           adults_count: 1,
           children_count: 0,
+          party_id: partyData.id,
         }
-      );
-    }
+      ];
 
-    if (coupleGuests.length > 0) {
       const { error } = await supabase.from("guests").insert(coupleGuests);
       if (error) {
         console.error("Error creating couple members:", error);
