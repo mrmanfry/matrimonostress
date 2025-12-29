@@ -51,9 +51,10 @@ interface Payment {
 interface ExpenseItemsManagerProps {
   vendorId: string;
   categoryId: string | null;
+  calculationMode?: 'planned' | 'expected' | 'confirmed';
 }
 
-export function ExpenseItemsManager({ vendorId, categoryId }: ExpenseItemsManagerProps) {
+export function ExpenseItemsManager({ vendorId, categoryId, calculationMode }: ExpenseItemsManagerProps) {
   const [expenseItems, setExpenseItems] = useState<ExpenseItem[]>([]);
   const [lineItems, setLineItems] = useState<Record<string, ExpenseLineItem[]>>({});
   const [payments, setPayments] = useState<Record<string, Payment[]>>({});
@@ -303,25 +304,30 @@ export function ExpenseItemsManager({ vendorId, categoryId }: ExpenseItemsManage
     // Import centralized calculation library
     const { calculateExpenseAmount, inferExpenseType, resolveGuestCounts } = await import("@/lib/expenseCalculations");
     
-    // Get wedding data for global mode
-    const { data: userData } = await supabase.auth.getUser();
-    if (!userData.user) return 0;
+    // Use calculationMode prop if provided, otherwise fetch from database
+    let globalMode: 'planned' | 'expected' | 'confirmed' = calculationMode || 'planned';
     
-    const { data: userRole } = await supabase
-      .from("user_roles")
-      .select("wedding_id")
-      .eq("user_id", userData.user.id)
-      .single();
-    
-    if (!userRole) return 0;
-    
-    const { data: weddingData } = await supabase
-      .from("weddings")
-      .select("calculation_mode")
-      .eq("id", userRole.wedding_id)
-      .single();
-    
-    const globalMode = weddingData?.calculation_mode || 'planned';
+    if (!calculationMode) {
+      // Fallback: Get wedding data for global mode
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return 0;
+      
+      const { data: userRole } = await supabase
+        .from("user_roles")
+        .select("wedding_id")
+        .eq("user_id", userData.user.id)
+        .single();
+      
+      if (!userRole) return 0;
+      
+      const { data: weddingData } = await supabase
+        .from("weddings")
+        .select("calculation_mode")
+        .eq("id", userRole.wedding_id)
+        .single();
+      
+      globalMode = (weddingData?.calculation_mode as 'planned' | 'expected' | 'confirmed') || 'planned';
+    }
     
     const itemLines = lineItems[item.id] || [];
     const hasLineItems = itemLines.length > 0;
@@ -364,10 +370,10 @@ export function ExpenseItemsManager({ vendorId, categoryId }: ExpenseItemsManage
         planned_staff: resolvedCounts.staff
       },
       itemLines,
-      globalMode as 'planned' | 'expected' | 'confirmed',
+      globalMode,
       guestCounts
     );
-  }, [lineItems, actualAdults, actualChildren, actualStaff, weddingTargets]);
+  }, [lineItems, actualAdults, actualChildren, actualStaff, weddingTargets, calculationMode]);
 
   const toggleExpanded = (itemId: string) => {
     setExpandedItems(prev => {
@@ -408,7 +414,7 @@ export function ExpenseItemsManager({ vendorId, categoryId }: ExpenseItemsManage
       setTotalVendorAmount(sum);
     };
     calculateTotal();
-  }, [expenseItems, lineItems, actualAdults, actualChildren, actualStaff]);
+  }, [expenseItems, lineItems, actualAdults, actualChildren, actualStaff, calculationMode, calculateItemTotal]);
 
   const calculateAmountPaid = (): number => {
     return Object.values(payments).flat().reduce((sum, payment) => {
