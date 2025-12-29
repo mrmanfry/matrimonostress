@@ -1,15 +1,18 @@
+import { useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Phone, Mail, MapPin, ExternalLink, Building2, CreditCard, FileText } from "lucide-react";
+import { ArrowLeft, Phone, Mail, Building2, CreditCard, FileText, Pencil } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { VendorExpensesWidget } from "@/components/vendors/widgets/VendorExpensesWidget";
 import { VendorDocumentsWidget } from "@/components/vendors/widgets/VendorDocumentsWidget";
 import { VendorChecklistWidget } from "@/components/vendors/widgets/VendorChecklistWidget";
+import { VendorDialog } from "@/components/vendors/VendorDialog";
+import { useToast } from "@/hooks/use-toast";
 
 const statusConfig = {
   evaluating: { label: "In Valutazione", bg: "bg-yellow-100 text-yellow-800 border-yellow-200" },
@@ -24,6 +27,9 @@ export default function VendorDetails() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const initialTab = searchParams.get('tab') || 'expenses';
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   // Fetch vendor details
   const { data: vendor, isLoading } = useQuery({
@@ -39,6 +45,66 @@ export default function VendorDetails() {
       return data;
     },
   });
+
+  // Fetch categories for the dialog
+  const { data: categories = [] } = useQuery({
+    queryKey: ["expense-categories-for-vendor", vendor?.wedding_id],
+    queryFn: async () => {
+      if (!vendor?.wedding_id) return [];
+      const { data, error } = await supabase
+        .from("expense_categories")
+        .select("id, name")
+        .eq("wedding_id", vendor.wedding_id)
+        .order("name");
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!vendor?.wedding_id,
+  });
+
+  const handleSaveVendor = async (vendorData: any) => {
+    if (!vendor?.id) return;
+    
+    const { error } = await supabase
+      .from("vendors")
+      .update(vendorData)
+      .eq("id", vendor.id);
+
+    if (error) {
+      toast({
+        title: "Errore",
+        description: "Impossibile salvare le modifiche",
+        variant: "destructive",
+      });
+      throw error;
+    }
+
+    toast({
+      title: "Salvato",
+      description: "Profilo fornitore aggiornato",
+    });
+
+    queryClient.invalidateQueries({ queryKey: ["vendor-details", id] });
+    setEditDialogOpen(false);
+  };
+
+  const handleCreateCategory = async (name: string) => {
+    if (!vendor?.wedding_id) return;
+    const { error } = await supabase
+      .from("expense_categories")
+      .insert({ name, wedding_id: vendor.wedding_id });
+    if (error) throw error;
+    queryClient.invalidateQueries({ queryKey: ["expense-categories-for-vendor"] });
+  };
+
+  const handleDeleteCategory = async (categoryId: string) => {
+    const { error } = await supabase
+      .from("expense_categories")
+      .delete()
+      .eq("id", categoryId);
+    if (error) throw error;
+    queryClient.invalidateQueries({ queryKey: ["expense-categories-for-vendor"] });
+  };
 
   if (isLoading) {
     return (
@@ -102,8 +168,9 @@ export default function VendorDetails() {
               </div>
               <Button
                 variant="outline"
-                onClick={() => navigate(`/app/vendors?edit=${vendor.id}`)}
+                onClick={() => setEditDialogOpen(true)}
               >
+                <Pencil className="w-4 h-4 mr-2" />
                 Modifica Profilo
               </Button>
             </div>
@@ -229,6 +296,28 @@ export default function VendorDetails() {
           </TabsContent>
         </div>
       </Tabs>
+
+      {/* Edit Vendor Dialog */}
+      <VendorDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        vendor={vendor ? {
+          id: vendor.id,
+          name: vendor.name,
+          contact_name: vendor.contact_name,
+          email: vendor.email,
+          phone: vendor.phone,
+          status: vendor.status || "evaluating",
+          notes: vendor.notes,
+          category_id: vendor.category_id,
+          staff_meals_count: vendor.staff_meals_count,
+          staff_dietary_notes: vendor.staff_dietary_notes,
+        } : null}
+        categories={categories}
+        onSave={handleSaveVendor}
+        onCreateCategory={handleCreateCategory}
+        onDeleteCategory={handleDeleteCategory}
+      />
     </div>
   );
 }
