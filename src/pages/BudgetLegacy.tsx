@@ -139,10 +139,10 @@ export default function BudgetLegacy() {
 
       setLineItemsMap(lineItemsData);
 
-      // Load guests with STD data for expected/confirmed counts
+      // Load guests with STD data and nucleus fields for expected/confirmed counts
       const { data: guests } = await supabase
         .from("guests")
-        .select("id, rsvp_status, is_child, is_staff, is_couple_member, save_the_date_sent_at, std_response")
+        .select("id, rsvp_status, is_child, is_staff, is_couple_member, save_the_date_sent_at, std_response, party_id, phone")
         .eq("wedding_id", authState.weddingId);
 
       // Load vendor staff totals
@@ -164,17 +164,20 @@ export default function BudgetLegacy() {
         declined: declinedGuests.length
       });
 
-      // Calculate expected counts with new STD-based logic
-      const guestsForCalc: ExpectedGuest[] = (guests || [])
-        .filter(g => !g.is_couple_member && !g.is_staff)
-        .map(g => ({
-          id: g.id,
-          is_child: g.is_child || false,
-          save_the_date_sent_at: g.save_the_date_sent_at,
-          std_response: g.std_response
-        }));
+      // Calculate expected counts with new STD-based logic (nucleus-aware)
+      const allGuestsForCalc: ExpectedGuest[] = (guests || []).map(g => ({
+        id: g.id,
+        is_child: g.is_child || false,
+        is_staff: g.is_staff || false,
+        save_the_date_sent_at: g.save_the_date_sent_at,
+        std_response: g.std_response,
+        party_id: g.party_id,
+        phone: g.phone
+      }));
+      
+      const guestsForCalc = allGuestsForCalc.filter(g => !((guests || []).find(og => og.id === g.id)?.is_couple_member) && !g.is_staff);
 
-      const expectedResult = calculateExpectedCounts(guestsForCalc, vendorStaffTotal);
+      const expectedResult = calculateExpectedCounts(guestsForCalc, allGuestsForCalc, vendorStaffTotal);
       setExpectedDetails(expectedResult);
       
       const countAdults = (guestList: any[]) => guestList.filter(g => !g.is_child && !g.is_staff).length;

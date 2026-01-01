@@ -173,10 +173,10 @@ export default function Treasury() {
         setGlobalMode(weddingData.calculation_mode as 'planned' | 'expected' | 'confirmed');
       }
 
-      // Load guests with STD data for expected calculation
+      // Load guests with STD data and nucleus fields for expected calculation
       const { data: allGuests } = await supabase
         .from("guests")
-        .select("id, is_child, is_staff, rsvp_status, save_the_date_sent_at, std_response")
+        .select("id, is_child, is_staff, rsvp_status, save_the_date_sent_at, std_response, party_id, phone")
         .eq("wedding_id", weddingId);
 
       // Load all vendors to get total staff
@@ -204,18 +204,20 @@ export default function Treasury() {
       };
       setGuestBreakdown(breakdown);
 
-      // Calculate expected counts with new STD-based logic
+      // Calculate expected counts with new STD-based logic (nucleus-aware)
       const vendorStaffTotal = calculateTotalVendorStaff(allVendors || []);
-      const guestsForCalc: Guest[] = (allGuests || []).map(g => ({
+      const allGuestsForCalc: Guest[] = (allGuests || []).map(g => ({
         id: g.id,
         is_child: g.is_child,
         is_staff: g.is_staff || false,
         save_the_date_sent_at: g.save_the_date_sent_at,
         std_response: g.std_response,
-        rsvp_status: g.rsvp_status
+        rsvp_status: g.rsvp_status,
+        party_id: g.party_id,
+        phone: g.phone
       }));
       
-      const expectedResult = calculateExpectedCounts(guestsForCalc, vendorStaffTotal);
+      const expectedResult = calculateExpectedCounts(allGuestsForCalc, allGuestsForCalc, vendorStaffTotal);
       setExpectedDetails(expectedResult);
 
       // Load expense items with vendor info
