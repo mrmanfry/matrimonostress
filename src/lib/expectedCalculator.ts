@@ -1,9 +1,15 @@
 /**
  * Calcola i conteggi "Previsti" (Expected) basandosi su:
  * - Se STD non inviati: lista completa invitati
- * - Se STD inviati: risposte "likely_yes" + "unsure"
+ * - Se STD inviati: risposte "likely_yes" + "unsure" + "in attesa"
  * - Staff: somma staff_meals_count da tutti i fornitori
+ * 
+ * IMPORTANTE: Usa getEffectiveStatus per l'eredità nucleo (party_id)
+ * Un ospite senza save_the_date_sent_at può comunque essere considerato
+ * "STD inviato" se tutti i membri del suo nucleo con telefono l'hanno ricevuto.
  */
+
+import { getEffectiveStatus } from "@/lib/nucleusStatusHelper";
 
 export interface Guest {
   id: string;
@@ -12,6 +18,9 @@ export interface Guest {
   save_the_date_sent_at: string | null;
   std_response: string | null;
   rsvp_status?: string | null;
+  // Campi necessari per getEffectiveStatus
+  party_id?: string | null;
+  phone?: string | null;
 }
 
 export interface ExpectedResult {
@@ -22,18 +31,28 @@ export interface ExpectedResult {
   details: string;
 }
 
+/**
+ * Calcola i conteggi previsti usando la logica nucleus-aware
+ * @param guests - Lista ospiti da calcolare (filtrati per is_couple_member e is_staff)
+ * @param allGuests - Lista completa ospiti per calcolare l'eredità nucleo
+ * @param vendorStaffTotal - Totale staff dai fornitori
+ */
 export function calculateExpectedCounts(
   guests: Guest[],
+  allGuests: Guest[],
   vendorStaffTotal: number
 ): ExpectedResult {
   // Filtra solo invitati non-staff
   const invitedGuests = guests.filter(g => !g.is_staff);
   
-  // Conta quanti STD sono stati inviati
-  const stdSentCount = invitedGuests.filter(g => g.save_the_date_sent_at).length;
+  // Usa getEffectiveStatus per determinare chi ha STD (con eredità nucleo)
+  const guestsWithEffectiveStd = invitedGuests.filter(g => {
+    const status = getEffectiveStatus(g, allGuests);
+    return status.hasStdSent;
+  });
   
-  // Se nessun STD inviato -> usa lista completa
-  if (stdSentCount === 0) {
+  // Se nessun STD effettivo inviato -> usa lista completa
+  if (guestsWithEffectiveStd.length === 0) {
     const adults = invitedGuests.filter(g => !g.is_child).length;
     const children = invitedGuests.filter(g => g.is_child).length;
     
@@ -46,11 +65,12 @@ export function calculateExpectedCounts(
     };
   }
   
-  // Se STD inviati -> conta likely_yes + unsure
-  const likelyYesGuests = invitedGuests.filter(g => g.std_response === 'likely_yes');
-  const unsureGuests = invitedGuests.filter(g => g.std_response === 'unsure');
-  // Include anche chi non ha ancora risposto (potrebbe essere un sì)
-  const noResponseGuests = invitedGuests.filter(g => g.save_the_date_sent_at && !g.std_response);
+  // Se STD inviati -> conta likely_yes + unsure + in attesa
+  // (basandosi su chi ha STD effettivo, non solo save_the_date_sent_at diretto)
+  const likelyYesGuests = guestsWithEffectiveStd.filter(g => g.std_response === 'likely_yes');
+  const unsureGuests = guestsWithEffectiveStd.filter(g => g.std_response === 'unsure');
+  // In attesa = chi ha STD effettivo ma non ha ancora risposto
+  const noResponseGuests = guestsWithEffectiveStd.filter(g => !g.std_response);
   
   const likelyYesAdults = likelyYesGuests.filter(g => !g.is_child).length;
   const likelyYesChildren = likelyYesGuests.filter(g => g.is_child).length;

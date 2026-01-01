@@ -124,10 +124,10 @@ export function ExpenseItemsManager({ vendorId, categoryId, calculationMode }: E
 
       if (!userRole) return;
 
-      // Load all guests with STD data for expected calculation
+      // Load all guests with STD data and nucleus fields for expected calculation
       const { data: guests } = await supabase
         .from("guests")
-        .select("id, is_child, is_staff, rsvp_status, save_the_date_sent_at, std_response")
+        .select("id, is_child, is_staff, rsvp_status, save_the_date_sent_at, std_response, party_id, phone")
         .eq("wedding_id", userRole.wedding_id);
 
       // Load all vendors to get total staff
@@ -145,19 +145,21 @@ export function ExpenseItemsManager({ vendorId, categoryId, calculationMode }: E
       setActualChildren(confirmedChildren);
       setActualStaff(confirmedStaff);
 
-      // Calculate expected counts with new STD-based logic
+      // Calculate expected counts with new STD-based logic (nucleus-aware)
       if (guests) {
         const vendorStaffTotal = calculateTotalVendorStaff(allVendors || []);
-        const guestsForCalc: Guest[] = guests.map(g => ({
+        const allGuestsForCalc: Guest[] = guests.map(g => ({
           id: g.id,
           is_child: g.is_child,
           is_staff: g.is_staff || false,
           save_the_date_sent_at: g.save_the_date_sent_at,
           std_response: g.std_response,
-          rsvp_status: g.rsvp_status
+          rsvp_status: g.rsvp_status,
+          party_id: g.party_id,
+          phone: g.phone
         }));
         
-        const expected = calculateExpectedCounts(guestsForCalc, vendorStaffTotal);
+        const expected = calculateExpectedCounts(allGuestsForCalc, allGuestsForCalc, vendorStaffTotal);
         setExpectedCounts({
           adults: expected.adults,
           children: expected.children,
