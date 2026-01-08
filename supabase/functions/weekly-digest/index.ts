@@ -66,6 +66,7 @@ serve(async (req: Request): Promise<Response> => {
   const url = new URL(req.url);
   const testMode = url.searchParams.get("test") === "true";
   const testEmail = url.searchParams.get("email"); // Email di test opzionale
+  const testWeddingId = url.searchParams.get("wedding_id"); // Wedding ID specifico per test
 
   // Validate cron secret - skip in test mode
   if (!testMode) {
@@ -81,7 +82,7 @@ serve(async (req: Request): Promise<Response> => {
     }
   }
 
-  console.log(`Weekly digest invoked - testMode: ${testMode}, testEmail: ${testEmail || 'none'}`);
+  console.log(`Weekly digest invoked - testMode: ${testMode}, testEmail: ${testEmail || 'none'}, testWeddingId: ${testWeddingId || 'none'}`);
 
   try {
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -104,7 +105,7 @@ serve(async (req: Request): Promise<Response> => {
 
     console.log(`Generating weekly digest for period: ${todayStr} to ${endOfWeekStr} (end of week)`);
 
-    const { data: weddings, error: weddingsError } = await supabase
+    let weddingsQuery = supabase
       .from("weddings")
       .select(`
         id,
@@ -119,6 +120,13 @@ serve(async (req: Request): Promise<Response> => {
         )
       `)
       .gte("wedding_date", todayStr);
+    
+    // In test mode, filter by specific wedding if provided
+    if (testMode && testWeddingId) {
+      weddingsQuery = weddingsQuery.eq("id", testWeddingId);
+    }
+    
+    const { data: weddings, error: weddingsError } = await weddingsQuery;
 
     if (weddingsError) {
       console.error("Error fetching weddings:", weddingsError);
