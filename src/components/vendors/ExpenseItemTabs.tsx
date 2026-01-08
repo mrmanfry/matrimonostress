@@ -26,6 +26,7 @@ interface ExpenseItemTabsProps {
   categoryId: string | null;
   expenseItemId: string | null;
   onSaved: () => void;
+  calculationMode?: 'planned' | 'expected' | 'confirmed';
 }
 
 export function ExpenseItemTabs({
@@ -35,6 +36,7 @@ export function ExpenseItemTabs({
   categoryId,
   expenseItemId,
   onSaved,
+  calculationMode = 'planned',
 }: ExpenseItemTabsProps) {
   const [expenseItem, setExpenseItem] = useState<ExpenseItem | null>(null);
   const [activeTab, setActiveTab] = useState<string>("spreadsheet");
@@ -146,6 +148,7 @@ export function ExpenseItemTabs({
                 categoryId={categoryId}
                 totalPlanned={totalPlanned}
                 totalActual={totalActual}
+                calculationMode={calculationMode}
               />
             )}
           </TabsContent>
