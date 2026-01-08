@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, ComposedChart } from "recharts";
-import { TrendingUp, AlertCircle, Calendar, Euro, ExternalLink, Check } from "lucide-react";
+import { TrendingUp, AlertCircle, Calendar, Euro, ExternalLink, Check, ChevronDown } from "lucide-react";
 import { format, parseISO, addDays, isBefore, isAfter } from "date-fns";
 import { it } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
@@ -24,6 +24,7 @@ import { useToast } from "@/hooks/use-toast";
 import { MarkPaymentDialog } from "@/components/treasury/MarkPaymentDialog";
 import { UnallocatedExpensesWidget } from "@/components/treasury/UnallocatedExpensesWidget";
 import { CalculationModeToggle } from "@/components/ui/calculation-mode-toggle";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { calculateExpenseAmount } from "@/lib/expenseCalculations";
 import { calculateExpectedCounts, calculateTotalVendorStaff, type Guest, type ExpectedResult } from "@/lib/expectedCalculator";
 
@@ -307,16 +308,42 @@ export default function Treasury() {
       if (contributorsError) throw contributorsError;
       setContributors(contributorsData || []);
 
-      // Load allocations for paid payments
+      // Load allocations for paid payments with detailed info
       const paidPaymentIds = allPayments.filter(p => p.status === 'Pagato').map(p => p.id);
       if (paidPaymentIds.length > 0) {
         const { data: allocationsData, error: allocationsError } = await supabase
           .from("payment_allocations")
-          .select("*")
+          .select(`
+            id,
+            amount,
+            payment_id,
+            contributor_id,
+            payments (
+              id,
+              description,
+              paid_on_date,
+              expense_item_id
+            )
+          `)
           .in("payment_id", paidPaymentIds);
 
         if (allocationsError) throw allocationsError;
-        setAllocations(allocationsData || []);
+        
+        // Enrich with expense item and vendor info
+        const enrichedAllocations = (allocationsData || []).map(alloc => {
+          const payment = alloc.payments as any;
+          const expenseItem = items.find(ei => ei.id === payment?.expense_item_id);
+          return {
+            ...alloc,
+            paymentDescription: payment?.description || '',
+            paidOnDate: payment?.paid_on_date || null,
+            expenseDescription: expenseItem?.description || '',
+            vendorName: expenseItem?.vendors?.name || null,
+            vendorId: expenseItem?.vendor_id || null,
+          };
+        });
+        
+        setAllocations(enrichedAllocations);
       } else {
         setAllocations([]);
       }
@@ -778,7 +805,7 @@ export default function Treasury() {
 
       {/* Cruscotto Fondi di Progetto */}
       {(() => {
-        // Calculate contributions from allocations
+        // Calculate contributions from allocations with detailed breakdown
         const contributionsByContributor = contributors.reduce((acc, contributor) => {
           const contributorAllocations = allocations.filter(a => a.contributor_id === contributor.id);
           const totalPaid = contributorAllocations.reduce((sum, a) => sum + Number(a.amount), 0);
@@ -787,15 +814,51 @@ export default function Treasury() {
             name: contributor.name,
             paid: totalPaid,
             target: contributor.contribution_target || null,
+            allocations: contributorAllocations.map(a => ({
+              id: a.id,
+              amount: Number(a.amount),
+              paymentDescription: a.paymentDescription || '',
+              paidOnDate: a.paidOnDate || null,
+              expenseDescription: a.expenseDescription || '',
+              vendorName: a.vendorName || null,
+              vendorId: a.vendorId || null,
+            })),
           };
           return acc;
-        }, {} as Record<string, { name: string; paid: number; target: number | null }>);
+        }, {} as Record<string, { 
+          name: string; 
+          paid: number; 
+          target: number | null;
+          allocations: Array<{
+            id: string;
+            amount: number;
+            paymentDescription: string;
+            paidOnDate: string | null;
+            expenseDescription: string;
+            vendorName: string | null;
+            vendorId: string | null;
+          }>;
+        }>);
 
         const hasContributors = contributors.length > 0;
         if (!hasContributors) return null;
 
-        const contributionsArray = Object.values(contributionsByContributor) as Array<{ name: string; paid: number; target: number | null }>;
-        const totalPaid = contributionsArray.reduce((sum, c) => sum + c.paid, 0);
+        type ContributorData = { 
+          name: string; 
+          paid: number; 
+          target: number | null;
+          allocations: Array<{
+            id: string;
+            amount: number;
+            paymentDescription: string;
+            paidOnDate: string | null;
+            expenseDescription: string;
+            vendorName: string | null;
+            vendorId: string | null;
+          }>;
+        };
+        const contributionsArray = Object.values(contributionsByContributor) as ContributorData[];
+        const totalPaid = contributionsArray.reduce((sum: number, c: ContributorData) => sum + c.paid, 0);
 
         return (
           <Card>
@@ -804,7 +867,7 @@ export default function Treasury() {
                 💰 Cruscotto Fondi di Progetto
               </CardTitle>
               <CardDescription>
-                Monitora i contributi di ciascun fondo rispetto ai target previsti
+                Monitora i contributi di ciascun fondo rispetto ai target previsti. Clicca su un contributore per vedere i dettagli.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -817,28 +880,89 @@ export default function Treasury() {
                     ? Math.min(100, (contrib.paid / contrib.target) * 100)
                     : 0;
 
+                  const hasAllocations = contrib.allocations.length > 0;
+
                   return (
-                    <div key={contributor.id} className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium">{contrib.name}</span>
-                        <span className="text-sm text-muted-foreground">
-                          {formatCurrency(contrib.paid)}
-                          {contrib.target && ` / ${formatCurrency(contrib.target)}`}
-                        </span>
-                      </div>
-                      {contrib.target ? (
-                        <div className="w-full bg-muted rounded-full h-2.5">
-                          <div
-                            className="bg-primary h-2.5 rounded-full transition-all"
-                            style={{ width: `${percentage}%` }}
-                          />
+                    <Collapsible key={contributor.id}>
+                      <CollapsibleTrigger className="w-full" disabled={!hasAllocations}>
+                        <div className="space-y-2 text-left">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm font-medium flex items-center gap-2">
+                              {hasAllocations && (
+                                <ChevronDown className="h-4 w-4 transition-transform group-data-[state=open]:rotate-180" />
+                              )}
+                              {contrib.name}
+                            </span>
+                            <span className="text-sm text-muted-foreground">
+                              {formatCurrency(contrib.paid)}
+                              {contrib.target && ` / ${formatCurrency(contrib.target)}`}
+                            </span>
+                          </div>
+                          {contrib.target ? (
+                            <div className="w-full bg-muted rounded-full h-2.5">
+                              <div
+                                className="bg-primary h-2.5 rounded-full transition-all"
+                                style={{ width: `${percentage}%` }}
+                              />
+                            </div>
+                          ) : (
+                            <p className="text-xs text-muted-foreground italic">
+                              Nessun target impostato · <a href="/app/settings" className="underline">Imposta in Settings</a>
+                            </p>
+                          )}
                         </div>
-                      ) : (
-                        <p className="text-xs text-muted-foreground italic">
-                          Nessun target impostato · <a href="/app/settings" className="underline">Imposta in Settings</a>
-                        </p>
-                      )}
-                    </div>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        {hasAllocations && (
+                          <div className="mt-3 ml-6 space-y-2 border-l-2 border-muted pl-4">
+                            {contrib.allocations
+                              .sort((a, b) => {
+                                if (!a.paidOnDate && !b.paidOnDate) return 0;
+                                if (!a.paidOnDate) return 1;
+                                if (!b.paidOnDate) return -1;
+                                return new Date(b.paidOnDate).getTime() - new Date(a.paidOnDate).getTime();
+                              })
+                              .map((alloc) => (
+                                <div 
+                                  key={alloc.id} 
+                                  className={`flex justify-between items-start text-sm py-1.5 ${alloc.vendorId ? 'cursor-pointer hover:bg-muted/50 rounded px-2 -mx-2' : ''}`}
+                                  onClick={() => {
+                                    if (alloc.vendorId) {
+                                      navigate(`/app/vendors/${alloc.vendorId}`);
+                                    }
+                                  }}
+                                >
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2 text-muted-foreground">
+                                      <Calendar className="h-3 w-3" />
+                                      <span className="text-xs">
+                                        {alloc.paidOnDate 
+                                          ? format(parseISO(alloc.paidOnDate), "dd/MM/yyyy", { locale: it })
+                                          : "Data N/D"}
+                                      </span>
+                                      {alloc.vendorName && (
+                                        <>
+                                          <span>·</span>
+                                          <span className="text-xs font-medium text-foreground">
+                                            {alloc.vendorName}
+                                          </span>
+                                        </>
+                                      )}
+                                    </div>
+                                    <div className="text-xs text-muted-foreground mt-0.5">
+                                      {alloc.expenseDescription}
+                                      {alloc.paymentDescription && ` · ${alloc.paymentDescription}`}
+                                    </div>
+                                  </div>
+                                  <span className="font-medium text-right ml-4">
+                                    {formatCurrency(alloc.amount)}
+                                  </span>
+                                </div>
+                              ))}
+                          </div>
+                        )}
+                      </CollapsibleContent>
+                    </Collapsible>
                   );
                 })}
                 <div className="pt-3 border-t">
