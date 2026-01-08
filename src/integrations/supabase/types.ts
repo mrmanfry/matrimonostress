@@ -730,6 +730,8 @@ export type Database = {
       profiles: {
         Row: {
           created_at: string
+          digest_enabled: boolean | null
+          digest_frequency: string | null
           first_name: string | null
           id: string
           last_name: string | null
@@ -738,6 +740,8 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          digest_enabled?: boolean | null
+          digest_frequency?: string | null
           first_name?: string | null
           id: string
           last_name?: string | null
@@ -746,6 +750,8 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          digest_enabled?: boolean | null
+          digest_frequency?: string | null
           first_name?: string | null
           id?: string
           last_name?: string | null
@@ -1006,6 +1012,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          partner_role: string | null
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
           wedding_id: string
@@ -1013,6 +1020,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          partner_role?: string | null
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
           wedding_id: string
@@ -1020,6 +1028,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          partner_role?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
           wedding_id?: string

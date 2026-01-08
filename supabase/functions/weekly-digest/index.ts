@@ -19,6 +19,7 @@ interface Task {
   priority: string | null;
   vendor_name?: string;
   category?: string;
+  assigned_to?: string | null;
 }
 
 interface Payment {
@@ -29,14 +30,12 @@ interface Payment {
   status: string;
 }
 
-interface WeddingData {
-  wedding_id: string;
-  partner1_name: string;
-  partner2_name: string;
-  wedding_date: string;
-  recipients: string[];
-  tasks: Task[];
-  payments: Payment[];
+interface RecipientInfo {
+  email: string;
+  user_id: string;
+  partner_role: string | null;
+  digest_enabled: boolean;
+  first_name: string | null;
 }
 
 // Messaggi motivazionali casuali
@@ -115,7 +114,8 @@ serve(async (req: Request): Promise<Response> => {
         created_by,
         user_roles!wedding_id(
           user_id,
-          role
+          role,
+          partner_role
         )
       `)
       .gte("wedding_date", todayStr);
@@ -138,48 +138,87 @@ serve(async (req: Request): Promise<Response> => {
     let digestsSent = 0;
 
     for (const wedding of weddings) {
-      const recipients: string[] = [];
+      // Collect recipient info with partner_role and digest preferences
+      const recipientInfos: RecipientInfo[] = [];
       
+      // Get creator info
       const { data: creatorAuth } = await supabase.auth.admin.getUserById(wedding.created_by);
       if (creatorAuth?.user?.email) {
-        recipients.push(creatorAuth.user.email);
+        // Get creator's profile
+        const { data: creatorProfile } = await supabase
+          .from("profiles")
+          .select("digest_enabled, first_name")
+          .eq("id", wedding.created_by)
+          .single();
+        
+        // Get creator's role in this wedding
+        const creatorRole = (wedding.user_roles || []).find((r: any) => r.user_id === wedding.created_by);
+        
+        if (creatorProfile?.digest_enabled !== false) {
+          recipientInfos.push({
+            email: creatorAuth.user.email,
+            user_id: wedding.created_by,
+            partner_role: creatorRole?.partner_role || null,
+            digest_enabled: creatorProfile?.digest_enabled ?? true,
+            first_name: creatorProfile?.first_name || null,
+          });
+        }
       }
 
+      // Get other collaborators
       for (const role of wedding.user_roles || []) {
-        if (role.role === 'co_planner' || role.role === 'manager') {
+        if ((role.role === 'co_planner' || role.role === 'manager') && role.user_id !== wedding.created_by) {
           const { data: userAuth } = await supabase.auth.admin.getUserById(role.user_id);
-          if (userAuth?.user?.email && !recipients.includes(userAuth.user.email)) {
-            recipients.push(userAuth.user.email);
+          
+          if (userAuth?.user?.email && !recipientInfos.find(r => r.email === userAuth.user.email)) {
+            // Get user's profile
+            const { data: userProfile } = await supabase
+              .from("profiles")
+              .select("digest_enabled, first_name")
+              .eq("id", role.user_id)
+              .single();
+            
+            if (userProfile?.digest_enabled !== false) {
+              recipientInfos.push({
+                email: userAuth.user.email,
+                user_id: role.user_id,
+                partner_role: role.partner_role || null,
+                digest_enabled: userProfile?.digest_enabled ?? true,
+                first_name: userProfile?.first_name || null,
+              });
+            }
           }
         }
       }
 
-      if (recipients.length === 0) {
-        console.log(`No recipients for wedding ${wedding.id}`);
+      if (recipientInfos.length === 0) {
+        console.log(`No recipients with digest enabled for wedding ${wedding.id}`);
         continue;
       }
 
-      // Fetch tasks con vendor info
+      // Fetch tasks con vendor info (una sola volta per wedding)
       const { data: tasksRaw } = await supabase
         .from("checklist_tasks")
         .select(`
-          id, title, due_date, status, priority, category,
+          id, title, due_date, status, priority, category, assigned_to,
           vendors(name)
         `)
         .eq("wedding_id", wedding.id)
         .eq("status", "pending")
         .order("due_date", { ascending: true });
 
-      const tasks: Task[] = (tasksRaw || []).map((t: any) => ({
+      const allTasks: Task[] = (tasksRaw || []).map((t: any) => ({
         id: t.id,
         title: t.title,
         due_date: t.due_date,
         status: t.status,
         priority: t.priority,
         category: t.category,
+        assigned_to: t.assigned_to,
         vendor_name: t.vendors?.name,
       }));
 
+      // Fetch payments (una sola volta per wedding)
       const { data: expenseItems } = await supabase
         .from("expense_items")
         .select("id")
@@ -187,7 +226,7 @@ serve(async (req: Request): Promise<Response> => {
 
       const expenseIds = expenseItems?.map(e => e.id) || [];
       
-      let payments: Payment[] = [];
+      let allPayments: Payment[] = [];
       if (expenseIds.length > 0) {
         const { data: paymentsData } = await supabase
           .from("payments")
@@ -197,86 +236,125 @@ serve(async (req: Request): Promise<Response> => {
           .lte("due_date", endOfWeekStr)
           .order("due_date", { ascending: true });
         
-        payments = paymentsData || [];
-      }
-
-      const overdueTasks = (tasks || []).filter(t => 
-        t.due_date && new Date(t.due_date) < today
-      );
-      const upcomingTasks = (tasks || []).filter(t => 
-        t.due_date && new Date(t.due_date) >= today && new Date(t.due_date) <= endOfWeek
-      );
-      const mustTasks = (tasks || []).filter(t => t.priority === 'must');
-
-      const overduePayments = payments.filter(p => 
-        new Date(p.due_date) < today
-      );
-      const upcomingPayments = payments.filter(p => 
-        new Date(p.due_date) >= today && new Date(p.due_date) <= endOfWeek
-      );
-
-      if (overdueTasks.length === 0 && upcomingTasks.length === 0 && 
-          overduePayments.length === 0 && upcomingPayments.length === 0) {
-        console.log(`No items to report for wedding ${wedding.id}`);
-        continue;
+        allPayments = paymentsData || [];
       }
 
       const weddingDate = new Date(wedding.wedding_date);
       const daysUntilWedding = Math.ceil((weddingDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-
       const weddingName = `${wedding.partner1_name} & ${wedding.partner2_name}`;
       const appUrl = Deno.env.get("APP_URL") || "https://stenders.cloud";
-      
-      // Messaggio motivazionale casuale
-      const randomMessage = motivationalMessages[Math.floor(Math.random() * motivationalMessages.length)];
-      
-      // Consiglio contestuale
-      const weeklyTip = getTip(daysUntilWedding);
 
-      const emailHtml = buildDigestEmail({
-        weddingName,
-        partnerName: wedding.partner1_name,
-        daysUntilWedding,
-        overdueTasks,
-        upcomingTasks,
-        mustTasks,
-        overduePayments,
-        upcomingPayments,
-        appUrl,
-        motivationalMessage: randomMessage,
-        weeklyTip,
-      });
-
-      try {
-        // Subject dinamico come da PRD 4.1
-        const taskCount = overdueTasks.length + upcomingTasks.length + overduePayments.length + upcomingPayments.length;
+      // Invia email personalizzata a ogni destinatario
+      for (const recipient of recipientInfos) {
+        // Filtra task per questo destinatario in base al partner_role
+        let personalTasks = allTasks;
+        let sharedTasks: Task[] = [];
         
-        // In test mode, invia solo all'email di test
-        const finalRecipients = testEmail ? [testEmail] : recipients;
-        
-        await resend.emails.send({
-          from: "Matrimonio Senza Stress <info@stenders.cloud>",
-          to: finalRecipients,
-          subject: `📅 Il tuo piano settimanale: ${taskCount} attività per ${weddingName}`,
-          html: emailHtml,
-        });
-
-        console.log(`Weekly digest sent to: ${finalRecipients.join(", ")} for wedding ${wedding.id}`);
-        digestsSent++;
-        
-        // In test mode, esci dopo il primo invio
-        if (testMode) {
-          return new Response(
-            JSON.stringify({ 
-              message: `Test digest sent to ${testEmail || recipients[0]}`,
-              wedding: weddingName,
-              items: taskCount,
-            }),
-            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        if (recipient.partner_role) {
+          // Task assegnati a questo partner O task condivisi (assigned_to = null)
+          personalTasks = allTasks.filter(t => 
+            t.assigned_to === recipient.partner_role
+          );
+          sharedTasks = allTasks.filter(t => 
+            t.assigned_to === null || t.assigned_to === ''
           );
         }
-      } catch (emailError) {
-        console.error(`Failed to send digest for wedding ${wedding.id}:`, emailError);
+
+        const overdueTasks = personalTasks.filter(t => 
+          t.due_date && new Date(t.due_date) < today
+        );
+        const upcomingTasks = personalTasks.filter(t => 
+          t.due_date && new Date(t.due_date) >= today && new Date(t.due_date) <= endOfWeek
+        ).slice(0, 10); // Top 10
+
+        const overdueSharedTasks = sharedTasks.filter(t => 
+          t.due_date && new Date(t.due_date) < today
+        );
+        const upcomingSharedTasks = sharedTasks.filter(t => 
+          t.due_date && new Date(t.due_date) >= today && new Date(t.due_date) <= endOfWeek
+        ).slice(0, 5); // Top 5 shared
+
+        const overduePayments = allPayments.filter(p => 
+          new Date(p.due_date) < today
+        );
+        const upcomingPayments = allPayments.filter(p => 
+          new Date(p.due_date) >= today && new Date(p.due_date) <= endOfWeek
+        );
+
+        // Skip se non c'è nulla da segnalare per questo destinatario
+        if (overdueTasks.length === 0 && upcomingTasks.length === 0 && 
+            overdueSharedTasks.length === 0 && upcomingSharedTasks.length === 0 &&
+            overduePayments.length === 0 && upcomingPayments.length === 0) {
+          console.log(`No items to report for ${recipient.email} in wedding ${wedding.id}`);
+          continue;
+        }
+
+        // Messaggio motivazionale casuale
+        const randomMessage = motivationalMessages[Math.floor(Math.random() * motivationalMessages.length)];
+        
+        // Consiglio contestuale
+        const weeklyTip = getTip(daysUntilWedding);
+
+        // Nome personalizzato
+        const recipientName = recipient.first_name || 
+          (recipient.partner_role === 'partner1' ? wedding.partner1_name : 
+           recipient.partner_role === 'partner2' ? wedding.partner2_name : 
+           'Ciao');
+
+        const emailHtml = buildDigestEmail({
+          weddingName,
+          recipientName,
+          daysUntilWedding,
+          overdueTasks,
+          upcomingTasks,
+          sharedTasks: [...overdueSharedTasks, ...upcomingSharedTasks],
+          overduePayments,
+          upcomingPayments,
+          appUrl,
+          motivationalMessage: randomMessage,
+          weeklyTip,
+          hasPartnerRole: !!recipient.partner_role,
+        });
+
+        try {
+          // Subject dinamico
+          const totalItems = overdueTasks.length + upcomingTasks.length + 
+                            overdueSharedTasks.length + upcomingSharedTasks.length +
+                            overduePayments.length + upcomingPayments.length;
+          
+          // In test mode, invia solo all'email di test
+          const finalEmail = testEmail || recipient.email;
+          
+          await resend.emails.send({
+            from: "Matrimonio Senza Stress <info@stenders.cloud>",
+            to: [finalEmail],
+            subject: `📅 Il tuo piano settimanale: ${totalItems} attività per ${weddingName}`,
+            html: emailHtml,
+          });
+
+          console.log(`Weekly digest sent to: ${finalEmail} for wedding ${wedding.id}`);
+          digestsSent++;
+          
+          // In test mode, esci dopo il primo invio
+          if (testMode) {
+            return new Response(
+              JSON.stringify({ 
+                message: `Test digest sent to ${finalEmail}`,
+                wedding: weddingName,
+                recipient: recipientName,
+                partnerRole: recipient.partner_role,
+                items: {
+                  personal: overdueTasks.length + upcomingTasks.length,
+                  shared: overdueSharedTasks.length + upcomingSharedTasks.length,
+                  payments: overduePayments.length + upcomingPayments.length,
+                },
+              }),
+              { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+        } catch (emailError) {
+          console.error(`Failed to send digest for ${recipient.email}:`, emailError);
+        }
       }
     }
 
@@ -301,30 +379,32 @@ serve(async (req: Request): Promise<Response> => {
 
 interface DigestEmailParams {
   weddingName: string;
-  partnerName: string;
+  recipientName: string;
   daysUntilWedding: number;
   overdueTasks: Task[];
   upcomingTasks: Task[];
-  mustTasks: Task[];
+  sharedTasks: Task[];
   overduePayments: Payment[];
   upcomingPayments: Payment[];
   appUrl: string;
   motivationalMessage: string;
   weeklyTip: string;
+  hasPartnerRole: boolean;
 }
 
 function buildDigestEmail({
   weddingName,
-  partnerName,
+  recipientName,
   daysUntilWedding,
   overdueTasks,
   upcomingTasks,
-  mustTasks,
+  sharedTasks,
   overduePayments,
   upcomingPayments,
   appUrl,
   motivationalMessage,
   weeklyTip,
+  hasPartnerRole,
 }: DigestEmailParams): string {
   
   const formatDate = (dateStr: string) => 
@@ -345,6 +425,7 @@ function buildDigestEmail({
   // Colori PRD
   const OVERDUE_COLOR = '#e53e3e';   // Rosso
   const UPCOMING_COLOR = '#667eea';   // Blu/Viola
+  const SHARED_COLOR = '#10b981';     // Verde
   
   let sectionsHtml = '';
   const overdueCount = overdueTasks.length + overduePayments.length;
@@ -355,7 +436,7 @@ function buildDigestEmail({
       <div style="background: #FEE2E2; border-left: 4px solid ${OVERDUE_COLOR}; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
         <h3 style="color: ${OVERDUE_COLOR}; margin: 0 0 10px 0;">⚠️ Scaduti (${overdueCount})</h3>
         ${overdueTasks.length > 0 ? `
-          <p style="margin: 5px 0; color: #7F1D1D;"><strong>${overdueTasks.length}</strong> task scaduti</p>
+          <p style="margin: 5px 0; color: #7F1D1D;"><strong>${overdueTasks.length}</strong> task ${hasPartnerRole ? 'tuoi' : ''} scaduti</p>
         ` : ''}
         ${overduePayments.length > 0 ? `
           <p style="margin: 5px 0; color: #7F1D1D;"><strong>${overduePayments.length}</strong> pagamenti scaduti (${formatCurrency(overduePayments.reduce((sum, p) => sum + p.amount, 0))})</p>
@@ -364,15 +445,15 @@ function buildDigestEmail({
     `;
   }
 
-  // Sezione "Questa Settimana" - PRD 4.2 con card arricchite
+  // Sezione "I Tuoi Task" - personali
   if (upcomingTasks.length > 0) {
     sectionsHtml += `
       <div style="margin-bottom: 25px;">
         <h3 style="color: #374151; margin-bottom: 15px; border-bottom: 2px solid ${UPCOMING_COLOR}; padding-bottom: 8px;">
-          📅 Questa Settimana (${upcomingTasks.length})
+          📅 ${hasPartnerRole ? 'I Tuoi Prossimi Task' : 'Questa Settimana'} (${upcomingTasks.length})
         </h3>
         <ul style="list-style: none; padding: 0; margin: 0;">
-          ${upcomingTasks.slice(0, 10).map(task => `
+          ${upcomingTasks.map(task => `
             <li style="padding: 12px; margin-bottom: 8px; background: #F9FAFB; border-radius: 8px; border-left: 3px solid ${UPCOMING_COLOR};">
               <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                 <div>
@@ -388,9 +469,35 @@ function buildDigestEmail({
             </li>
           `).join('')}
         </ul>
-        ${upcomingTasks.length > 10 ? `
+      </div>
+    `;
+  }
+
+  // Sezione "Da Fare Insieme" - task condivisi
+  if (hasPartnerRole && sharedTasks.length > 0) {
+    sectionsHtml += `
+      <div style="margin-bottom: 25px;">
+        <h3 style="color: #374151; margin-bottom: 15px; border-bottom: 2px solid ${SHARED_COLOR}; padding-bottom: 8px;">
+          👫 Da Fare Insieme (${sharedTasks.length})
+        </h3>
+        <ul style="list-style: none; padding: 0; margin: 0;">
+          ${sharedTasks.slice(0, 5).map(task => `
+            <li style="padding: 12px; margin-bottom: 8px; background: #ECFDF5; border-radius: 8px; border-left: 3px solid ${SHARED_COLOR};">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                  <strong style="color: #1F2937; display: block;">${task.title}</strong>
+                  ${task.vendor_name ? `<span style="font-size: 12px; color: ${SHARED_COLOR};">🏢 ${task.vendor_name}</span>` : ''}
+                </div>
+                <div style="text-align: right;">
+                  ${task.due_date ? `<span style="font-size: 12px; color: #6B7280;">📅 ${formatDate(task.due_date)}</span>` : ''}
+                </div>
+              </div>
+            </li>
+          `).join('')}
+        </ul>
+        ${sharedTasks.length > 5 ? `
           <p style="color: #6B7280; font-size: 13px; text-align: center; margin-top: 10px;">
-            +${upcomingTasks.length - 10} altre attività...
+            +${sharedTasks.length - 5} altri task condivisi...
           </p>
         ` : ''}
       </div>
@@ -423,17 +530,6 @@ function buildDigestEmail({
     `;
   }
 
-  if (mustTasks.length > 0 && mustTasks.length <= 5) {
-    sectionsHtml += `
-      <div style="background: #FEF3C7; border-left: 4px solid #F59E0B; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
-        <h4 style="color: #92400E; margin: 0 0 10px 0;">🎯 Priorità "Must Have"</h4>
-        <p style="color: #78350F; margin: 0; font-size: 14px;">
-          ${mustTasks.map(t => t.title).join(', ')}
-        </p>
-      </div>
-    `;
-  }
-
   // Sezione "Consiglio della Settimana"
   const tipSection = `
     <div style="background: #F0F9FF; border-left: 4px solid #0EA5E9; padding: 15px; margin: 20px 0; border-radius: 4px;">
@@ -454,7 +550,7 @@ function buildDigestEmail({
       
       <!-- Header con saluto personalizzato e messaggio motivazionale -->
       <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
-        <h1 style="color: white; margin: 0 0 8px 0; font-size: 24px;">Buon lunedì, ${partnerName}! 👋</h1>
+        <h1 style="color: white; margin: 0 0 8px 0; font-size: 24px;">Buon lunedì, ${recipientName}! 👋</h1>
         <p style="color: rgba(255,255,255,0.85); margin: 0 0 12px 0; font-size: 14px; font-style: italic;">${motivationalMessage}</p>
         <p style="color: rgba(255,255,255,0.95); margin: 0; font-size: 16px;">Ecco il punto della situazione per <strong>${weddingName}</strong></p>
       </div>
@@ -493,7 +589,7 @@ function buildDigestEmail({
         <p style="font-size: 12px; color: #9CA3AF; margin: 0 0 8px 0;">
           Ricevi questa email ogni lunedì perché sei un organizzatore del matrimonio ${weddingName}.
         </p>
-        <a href="${appUrl}/app/settings?tab=notifications" style="color: #667eea; text-decoration: underline; font-size: 12px;">
+        <a href="${appUrl}/app/settings" style="color: #667eea; text-decoration: underline; font-size: 12px;">
           Modifica preferenze email
         </a>
         <p style="font-size: 11px; color: #D1D5DB; margin-top: 15px;">
