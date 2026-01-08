@@ -58,13 +58,22 @@ serve(async (req: Request): Promise<Response> => {
     const supabase = createClient(supabaseUrl, supabaseKey);
     
     const today = new Date();
-    const nextWeek = new Date();
-    nextWeek.setDate(today.getDate() + 7);
     
+    // Calcola la domenica successiva (fine settimana) come da PRD 3.2
+    const getNextSunday = (date: Date): Date => {
+      const result = new Date(date);
+      const day = result.getDay();
+      const diff = day === 0 ? 0 : 7 - day; // Se è domenica, 0; altrimenti giorni fino a domenica
+      result.setDate(result.getDate() + diff);
+      result.setHours(23, 59, 59, 999);
+      return result;
+    };
+    
+    const endOfWeek = getNextSunday(today);
     const todayStr = today.toISOString().split('T')[0];
-    const nextWeekStr = nextWeek.toISOString().split('T')[0];
+    const endOfWeekStr = endOfWeek.toISOString().split('T')[0];
 
-    console.log(`Generating weekly digest for period: ${todayStr} to ${nextWeekStr}`);
+    console.log(`Generating weekly digest for period: ${todayStr} to ${endOfWeekStr} (end of week)`);
 
     const { data: weddings, error: weddingsError } = await supabase
       .from("weddings")
@@ -141,7 +150,7 @@ serve(async (req: Request): Promise<Response> => {
           .select("id, description, amount, due_date, status")
           .in("expense_item_id", expenseIds)
           .eq("status", "Da Pagare")
-          .lte("due_date", nextWeekStr)
+          .lte("due_date", endOfWeekStr)
           .order("due_date", { ascending: true });
         
         payments = paymentsData || [];
@@ -151,7 +160,7 @@ serve(async (req: Request): Promise<Response> => {
         t.due_date && new Date(t.due_date) < today
       );
       const upcomingTasks = (tasks || []).filter(t => 
-        t.due_date && new Date(t.due_date) >= today && new Date(t.due_date) <= nextWeek
+        t.due_date && new Date(t.due_date) >= today && new Date(t.due_date) <= endOfWeek
       );
       const mustTasks = (tasks || []).filter(t => t.priority === 'must');
 
@@ -159,7 +168,7 @@ serve(async (req: Request): Promise<Response> => {
         new Date(p.due_date) < today
       );
       const upcomingPayments = payments.filter(p => 
-        new Date(p.due_date) >= today && new Date(p.due_date) <= nextWeek
+        new Date(p.due_date) >= today && new Date(p.due_date) <= endOfWeek
       );
 
       if (overdueTasks.length === 0 && upcomingTasks.length === 0 && 
@@ -186,10 +195,13 @@ serve(async (req: Request): Promise<Response> => {
       });
 
       try {
+        // Subject dinamico come da PRD 4.1
+        const taskCount = overdueTasks.length + upcomingTasks.length + overduePayments.length + upcomingPayments.length;
+        
         await resend.emails.send({
           from: "Matrimonio Senza Stress <info@stenders.cloud>",
           to: recipients,
-          subject: `📋 Digest Settimanale - ${weddingName} (${daysUntilWedding} giorni al matrimonio)`,
+          subject: `📅 Il tuo piano settimanale: ${taskCount} attività per ${weddingName}`,
           html: emailHtml,
         });
 
@@ -256,12 +268,18 @@ function buildDigestEmail({
     }
   };
 
+  // Colori PRD
+  const OVERDUE_COLOR = '#e53e3e';   // Rosso
+  const UPCOMING_COLOR = '#667eea';   // Blu/Viola
+  
   let sectionsHtml = '';
+  const overdueCount = overdueTasks.length + overduePayments.length;
 
+  // Sezione "Scaduti" - PRD 4.2
   if (overdueTasks.length > 0 || overduePayments.length > 0) {
     sectionsHtml += `
-      <div style="background: #FEE2E2; border-left: 4px solid #DC2626; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
-        <h3 style="color: #DC2626; margin: 0 0 10px 0;">⚠️ Attenzione: Scadenze Superate</h3>
+      <div style="background: #FEE2E2; border-left: 4px solid ${OVERDUE_COLOR}; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
+        <h3 style="color: ${OVERDUE_COLOR}; margin: 0 0 10px 0;">⚠️ Scaduti (${overdueCount})</h3>
         ${overdueTasks.length > 0 ? `
           <p style="margin: 5px 0; color: #7F1D1D;"><strong>${overdueTasks.length}</strong> task scaduti</p>
         ` : ''}
@@ -272,31 +290,31 @@ function buildDigestEmail({
     `;
   }
 
-  if (upcomingTasks.length > 0 || overdueTasks.length > 0) {
-    const allTasks = [...overdueTasks, ...upcomingTasks].slice(0, 10);
+  // Sezione "Questa Settimana" - PRD 4.2
+  if (upcomingTasks.length > 0) {
     sectionsHtml += `
       <div style="margin-bottom: 25px;">
-        <h3 style="color: #374151; margin-bottom: 15px; border-bottom: 2px solid #E5E7EB; padding-bottom: 8px;">
-          ✅ Checklist (${allTasks.length} attività)
+        <h3 style="color: #374151; margin-bottom: 15px; border-bottom: 2px solid ${UPCOMING_COLOR}; padding-bottom: 8px;">
+          📅 Questa Settimana (${upcomingTasks.length})
         </h3>
         <ul style="list-style: none; padding: 0; margin: 0;">
-          ${allTasks.map(task => `
-            <li style="padding: 10px; margin-bottom: 8px; background: #F9FAFB; border-radius: 6px; border-left: 3px solid ${task.due_date && new Date(task.due_date) < new Date() ? '#DC2626' : '#10B981'};">
+          ${upcomingTasks.slice(0, 10).map(task => `
+            <li style="padding: 10px; margin-bottom: 8px; background: #F9FAFB; border-radius: 6px; border-left: 3px solid ${UPCOMING_COLOR};">
               <div style="display: flex; justify-content: space-between;">
                 <strong style="color: #1F2937;">${task.title}</strong>
                 ${task.priority ? `<span style="font-size: 12px;">${getPriorityBadge(task.priority)}</span>` : ''}
               </div>
               ${task.due_date ? `
-                <span style="font-size: 13px; color: ${new Date(task.due_date) < new Date() ? '#DC2626' : '#6B7280'};">
-                  📅 ${formatDate(task.due_date)}${new Date(task.due_date) < new Date() ? ' (SCADUTO)' : ''}
+                <span style="font-size: 13px; color: #6B7280;">
+                  📅 ${formatDate(task.due_date)}
                 </span>
               ` : ''}
             </li>
           `).join('')}
         </ul>
-        ${(overdueTasks.length + upcomingTasks.length) > 10 ? `
+        ${upcomingTasks.length > 10 ? `
           <p style="color: #6B7280; font-size: 13px; text-align: center; margin-top: 10px;">
-            +${(overdueTasks.length + upcomingTasks.length) - 10} altre attività...
+            +${upcomingTasks.length - 10} altre attività...
           </p>
         ` : ''}
       </div>
@@ -349,10 +367,10 @@ function buildDigestEmail({
     </head>
     <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background: #F3F4F6;">
       
-      <!-- Header -->
+      <!-- Header - PRD 4.2 -->
       <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
-        <h1 style="color: white; margin: 0 0 10px 0; font-size: 24px;">📋 Digest Settimanale</h1>
-        <p style="color: rgba(255,255,255,0.9); margin: 0; font-size: 16px;">${weddingName}</p>
+        <h1 style="color: white; margin: 0 0 10px 0; font-size: 24px;">Il tuo piano settimanale 🚀</h1>
+        <p style="color: rgba(255,255,255,0.9); margin: 0; font-size: 16px;">Ciao! Ecco il punto della situazione per ${weddingName}.</p>
       </div>
       
       <!-- Countdown -->
@@ -365,16 +383,24 @@ function buildDigestEmail({
       <div style="background: white; padding: 25px; border-radius: 0 0 12px 12px;">
         ${sectionsHtml || '<p style="text-align: center; color: #6B7280;">Nessuna attività in programma questa settimana! 🎉</p>'}
         
-        <!-- CTA -->
+        <!-- CTA - PRD 4.2 -->
         <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #E5E7EB;">
-          <a href="${appUrl}/app/dashboard" 
+          <a href="${appUrl}/app/checklist" 
              style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 35px; text-decoration: none; border-radius: 25px; font-weight: 600; font-size: 15px;">
-            Apri Dashboard
+            Gestisci Checklist
           </a>
         </div>
         
+        <!-- Footer con link preferenze - PRD 4.2 GDPR -->
         <p style="font-size: 12px; color: #9CA3AF; margin-top: 25px; text-align: center;">
           Ricevi questa email ogni lunedì perché sei un organizzatore del matrimonio ${weddingName}.
+          <br/>
+          <a href="${appUrl}/app/settings?tab=notifications" style="color: #667eea; text-decoration: underline;">
+            Modifica preferenze email
+          </a>
+        </p>
+        <p style="font-size: 11px; color: #D1D5DB; text-align: center; margin-top: 10px;">
+          Inviato con ❤️ da Matrimonio Senza Stress
         </p>
       </div>
     </body>
