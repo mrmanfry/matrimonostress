@@ -252,8 +252,18 @@ serve(async (req: Request): Promise<Response> => {
       const weddingName = `${wedding.partner1_name} & ${wedding.partner2_name}`;
       const appUrl = Deno.env.get("APP_URL") || "https://stenders.cloud";
 
+      // In test mode con email specifica, filtra per quell'utente
+      let recipients = recipientInfos;
+      if (testMode && testEmail) {
+        recipients = recipientInfos.filter(r => r.email === testEmail);
+        if (recipients.length === 0) {
+          console.log(`Test email ${testEmail} not found in wedding ${wedding.id} recipients`);
+          continue;
+        }
+      }
+
       // Invia email personalizzata a ogni destinatario
-      for (const recipient of recipientInfos) {
+      for (const recipient of recipients) {
         // Filtra task per questo destinatario in base al partner_role
         let personalTasks = allTasks;
         let sharedTasks: Task[] = [];
