@@ -40,6 +40,7 @@ interface PaymentPlanTabProps {
   categoryId: string | null;
   totalPlanned: number;
   totalActual: number;
+  calculationMode?: 'planned' | 'expected' | 'confirmed';
 }
 
 export function PaymentPlanTab({
@@ -48,7 +49,12 @@ export function PaymentPlanTab({
   categoryId,
   totalPlanned,
   totalActual,
+  calculationMode = 'planned',
 }: PaymentPlanTabProps) {
+  // Determina automaticamente il totale da usare in base alla modalità globale
+  const activeTotal = calculationMode === 'planned' ? totalPlanned : totalActual;
+  const activeModeLabel = calculationMode === 'planned' ? 'ospiti pianificati' : 
+                          calculationMode === 'expected' ? 'ospiti previsti' : 'ospiti confermati';
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(false);
   const [weddingDate, setWeddingDate] = useState<Date | null>(null);
@@ -314,10 +320,10 @@ export function PaymentPlanTab({
   };
 
   const calculateBalanceAmount = (
-    paymentIndex: number,
-    balanceBase: 'planned' | 'actual'
+    paymentIndex: number
   ): number => {
-    const baseTotal = balanceBase === 'actual' ? totalActual : totalPlanned;
+    // Usa sempre il totale attivo basato sulla modalità globale
+    const baseTotal = activeTotal;
     
     // Somma tutti gli acconti (pagamenti precedenti a questo, esclusi altri balance)
     const previousPayments = payments
@@ -327,8 +333,8 @@ export function PaymentPlanTab({
         if (p.amount_type === 'fixed') {
           return sum + parseFloat(p.amount || '0');
         } else if (p.amount_type === 'percentage') {
-          const percentageBase = p.percentage_base === 'actual' ? totalActual : totalPlanned;
-          return sum + (percentageBase * parseFloat(p.percentage_value || '0') / 100);
+          // Usa sempre activeTotal anche per le percentuali
+          return sum + (activeTotal * parseFloat(p.percentage_value || '0') / 100);
         }
         return sum;
       }, 0);
@@ -343,20 +349,18 @@ export function PaymentPlanTab({
     if (payment.amount_type === 'fixed' && payment.amount) {
       baseAmount = parseFloat(payment.amount);
     }
-    // Scenario 2: Percentuale
+    // Scenario 2: Percentuale - usa sempre activeTotal
     else if (payment.amount_type === 'percentage' && payment.percentage_value) {
       const pct = parseFloat(payment.percentage_value);
-      const base = payment.percentage_base === 'actual' ? totalActual : totalPlanned;
-      baseAmount = (base * pct) / 100;
+      baseAmount = (activeTotal * pct) / 100;
     }
-    // Scenario 3: Saldo (Chiudi Conti)
+    // Scenario 3: Saldo (Chiudi Conti) - usa sempre activeTotal
     else if (payment.amount_type === 'balance') {
-      if (paymentIndex !== undefined && payment.balance_base) {
-        baseAmount = calculateBalanceAmount(paymentIndex, payment.balance_base);
+      if (paymentIndex !== undefined) {
+        baseAmount = calculateBalanceAmount(paymentIndex);
       } else {
-        // Fallback alla vecchia logica
-        const targetTotal = payment.balance_base === 'actual' ? totalActual : totalPlanned;
-        baseAmount = Math.max(0, targetTotal - previousPayments);
+        // Fallback
+        baseAmount = Math.max(0, activeTotal - previousPayments);
       }
     }
     
@@ -390,33 +394,17 @@ export function PaymentPlanTab({
       return;
     }
 
-    if (payment.amount_type === 'percentage') {
-      if (!payment.percentage_value) {
-        toast({
-          title: "Percentuale mancante",
-          description: "Inserisci la percentuale della rata",
-          variant: "destructive",
-        });
-        return;
-      }
-      if (!payment.percentage_base) {
-        toast({
-          title: "Base di calcolo mancante",
-          description: "Seleziona su quale totale calcolare la percentuale",
-          variant: "destructive",
-        });
-        return;
-      }
-    }
-
-    if (payment.amount_type === 'balance' && !payment.balance_base) {
+    if (payment.amount_type === 'percentage' && !payment.percentage_value) {
       toast({
-        title: "Base di calcolo mancante",
-        description: "Seleziona quale totale saldare",
+        title: "Percentuale mancante",
+        description: "Inserisci la percentuale della rata",
         variant: "destructive",
       });
       return;
     }
+
+    // Nota: non serve più validare percentage_base e balance_base perché
+    // usiamo sempre automaticamente la modalità globale (calculationMode)
 
     try {
       const calculatedDate = calculateDueDate(payment);
@@ -436,10 +424,10 @@ export function PaymentPlanTab({
       if (payment.amount_type === 'fixed') {
         calculatedAmount = parseFloat(payment.amount);
       } else if (payment.amount_type === 'percentage') {
-        const percentageBase = payment.percentage_base === 'actual' ? totalActual : totalPlanned;
-        calculatedAmount = (percentageBase * parseFloat(payment.percentage_value || '0') / 100);
-      } else if (payment.amount_type === 'balance' && payment.balance_base) {
-        calculatedAmount = calculateBalanceAmount(index, payment.balance_base);
+        // Usa sempre activeTotal
+        calculatedAmount = (activeTotal * parseFloat(payment.percentage_value || '0') / 100);
+      } else if (payment.amount_type === 'balance') {
+        calculatedAmount = calculateBalanceAmount(index);
       }
 
       const paymentData = {
@@ -448,8 +436,9 @@ export function PaymentPlanTab({
         amount: calculatedAmount,
         amount_type: payment.amount_type,
         percentage_value: payment.amount_type === 'percentage' ? parseFloat(payment.percentage_value) : null,
-        percentage_base: payment.amount_type === 'percentage' ? payment.percentage_base : null,
-        balance_base: payment.amount_type === 'balance' ? payment.balance_base : null,
+        // percentage_base e balance_base non più usati - la modalità è determinata globalmente
+        percentage_base: null,
+        balance_base: null,
         due_date: finalDueDate || format(new Date(), "yyyy-MM-dd"),
         due_date_type: payment.due_date_type,
         days_before_wedding: payment.due_date_type === 'days_before' ? parseInt(payment.days_before_wedding) : null,
@@ -658,68 +647,35 @@ export function PaymentPlanTab({
                                 placeholder="20"
                               />
                             </div>
-                            <div className="space-y-2">
-                              <Label>Percentuale calcolata su:</Label>
-                              <RadioGroup
-                                name={`percentage-base-${index}`}
-                                value={payment.percentage_base || 'planned'}
-                                onValueChange={(val) => updatePayment(index, 'percentage_base', val)}
-                              >
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="planned" id={`pct-planned-${index}`} />
-                                  <Label htmlFor={`pct-planned-${index}`} className="font-normal cursor-pointer">
-                                    Costi con ospiti pianificati ({formatCurrency(totalPlanned)})
-                                  </Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="actual" id={`pct-actual-${index}`} />
-                                  <Label htmlFor={`pct-actual-${index}`} className="font-normal cursor-pointer">
-                                    Costi con ospiti previsti ({formatCurrency(totalActual)})
-                                  </Label>
-                                </div>
-                              </RadioGroup>
-                            </div>
+                            {payment.percentage_value && (
+                              <Alert>
+                                <AlertDescription>
+                                  <span className="text-muted-foreground">
+                                    {payment.percentage_value}% di {formatCurrency(activeTotal)} ({activeModeLabel})
+                                  </span>
+                                  <br />
+                                  <strong className="text-primary">
+                                    = {formatCurrency(activeTotal * parseFloat(payment.percentage_value || '0') / 100)}
+                                  </strong>
+                                </AlertDescription>
+                              </Alert>
+                            )}
                           </>
                         )}
 
                         {/* Scenario C: Saldo (Chiudi Conti) */}
                         {payment.amount_type === 'balance' && (
-                          <>
-                            <div className="space-y-2">
-                              <Label>Saldo calcolato su:</Label>
-                              <RadioGroup
-                                name={`balance-base-${index}`}
-                                value={payment.balance_base || 'planned'}
-                                onValueChange={(val) => updatePayment(index, 'balance_base', val)}
-                              >
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="planned" id={`bal-planned-${index}`} />
-                                  <Label htmlFor={`bal-planned-${index}`} className="font-normal cursor-pointer">
-                                    Costi con ospiti pianificati ({formatCurrency(totalPlanned)})
-                                  </Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="actual" id={`bal-actual-${index}`} />
-                                  <Label htmlFor={`bal-actual-${index}`} className="font-normal cursor-pointer">
-                                    Costi con ospiti previsti ({formatCurrency(totalActual)})
-                                  </Label>
-                                </div>
-                              </RadioGroup>
-                            </div>
-                            
-                            <Alert>
-                              <AlertDescription>
-                                {payment.balance_base === 'actual'
-                                  ? `Saldo = Costi previsti (${formatCurrency(totalActual)}) − acconti già inseriti.`
-                                  : `Saldo = Costi pianificati (${formatCurrency(totalPlanned)}) − acconti già inseriti.`
-                                }
-                                <br />
-                                <strong className="text-primary">
-                                  Importo calcolato: {formatCurrency(calculateBalanceAmount(index, payment.balance_base || 'planned'))}
-                                </strong>
-                              </AlertDescription>
-                            </Alert>
-                          </>
+                          <Alert>
+                            <AlertDescription>
+                              <span className="text-muted-foreground">
+                                Saldo = {formatCurrency(activeTotal)} ({activeModeLabel}) − acconti già inseriti
+                              </span>
+                              <br />
+                              <strong className="text-primary">
+                                Importo calcolato: {formatCurrency(calculateBalanceAmount(index))}
+                              </strong>
+                            </AlertDescription>
+                          </Alert>
                         )}
                       </div>
 

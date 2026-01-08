@@ -547,6 +547,7 @@ export function ExpenseItemsManager({ vendorId, categoryId, calculationMode }: E
         categoryId={categoryId}
         expenseItemId={selectedExpenseItemId}
         onSaved={loadExpenseItems}
+        calculationMode={calculationMode}
       />
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
