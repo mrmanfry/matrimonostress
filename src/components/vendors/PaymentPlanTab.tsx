@@ -659,7 +659,7 @@ export function PaymentPlanTab({
                               />
                             </div>
                             <div className="space-y-2">
-                              <Label>Calcolato su:</Label>
+                              <Label>Percentuale calcolata su:</Label>
                               <RadioGroup
                                 name={`percentage-base-${index}`}
                                 value={payment.percentage_base || 'planned'}
@@ -668,13 +668,13 @@ export function PaymentPlanTab({
                                 <div className="flex items-center space-x-2">
                                   <RadioGroupItem value="planned" id={`pct-planned-${index}`} />
                                   <Label htmlFor={`pct-planned-${index}`} className="font-normal cursor-pointer">
-                                    Totale Pianificato ({formatCurrency(totalPlanned)})
+                                    Costi con ospiti pianificati ({formatCurrency(totalPlanned)})
                                   </Label>
                                 </div>
                                 <div className="flex items-center space-x-2">
                                   <RadioGroupItem value="actual" id={`pct-actual-${index}`} />
                                   <Label htmlFor={`pct-actual-${index}`} className="font-normal cursor-pointer">
-                                    Totale Effettivo (da RSVP)
+                                    Costi con ospiti previsti ({formatCurrency(totalActual)})
                                   </Label>
                                 </div>
                               </RadioGroup>
@@ -686,7 +686,7 @@ export function PaymentPlanTab({
                         {payment.amount_type === 'balance' && (
                           <>
                             <div className="space-y-2">
-                              <Label>Base di Calcolo per il Saldo:</Label>
+                              <Label>Saldo calcolato su:</Label>
                               <RadioGroup
                                 name={`balance-base-${index}`}
                                 value={payment.balance_base || 'planned'}
@@ -695,13 +695,13 @@ export function PaymentPlanTab({
                                 <div className="flex items-center space-x-2">
                                   <RadioGroupItem value="planned" id={`bal-planned-${index}`} />
                                   <Label htmlFor={`bal-planned-${index}`} className="font-normal cursor-pointer">
-                                    Salda il Totale Pianificato ({formatCurrency(totalPlanned)})
+                                    Costi con ospiti pianificati ({formatCurrency(totalPlanned)})
                                   </Label>
                                 </div>
                                 <div className="flex items-center space-x-2">
                                   <RadioGroupItem value="actual" id={`bal-actual-${index}`} />
                                   <Label htmlFor={`bal-actual-${index}`} className="font-normal cursor-pointer">
-                                    Salda il Totale Effettivo (da RSVP)
+                                    Costi con ospiti previsti ({formatCurrency(totalActual)})
                                   </Label>
                                 </div>
                               </RadioGroup>
@@ -710,8 +710,8 @@ export function PaymentPlanTab({
                             <Alert>
                               <AlertDescription>
                                 {payment.balance_base === 'actual'
-                                  ? `Questa rata salderà il Totale Effettivo (${formatCurrency(totalActual)}) meno gli acconti già inseriti.`
-                                  : `Questa rata salderà il Totale Pianificato (${formatCurrency(totalPlanned)}) meno gli acconti già inseriti.`
+                                  ? `Saldo = Costi previsti (${formatCurrency(totalActual)}) − acconti già inseriti.`
+                                  : `Saldo = Costi pianificati (${formatCurrency(totalPlanned)}) − acconti già inseriti.`
                                 }
                                 <br />
                                 <strong className="text-primary">
