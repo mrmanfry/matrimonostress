@@ -72,11 +72,33 @@ export function PaymentPlanTab({
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) return;
 
+      // Try to get wedding via user_roles first (covers co_planners)
+      const { data: roleData } = await supabase
+        .from("user_roles")
+        .select("wedding_id")
+        .eq("user_id", userData.user.id)
+        .limit(1)
+        .maybeSingle();
+
+      let weddingId = roleData?.wedding_id;
+
+      // Fallback to created_by if no role found
+      if (!weddingId) {
+        const { data: weddingData } = await supabase
+          .from("weddings")
+          .select("id")
+          .eq("created_by", userData.user.id)
+          .maybeSingle();
+        weddingId = weddingData?.id;
+      }
+
+      if (!weddingId) return;
+
       const { data: weddingData } = await supabase
         .from("weddings")
         .select("wedding_date")
-        .eq("created_by", userData.user.id)
-        .maybeSingle();
+        .eq("id", weddingId)
+        .single();
 
       if (weddingData?.wedding_date) {
         setWeddingDate(new Date(weddingData.wedding_date));
@@ -91,18 +113,32 @@ export function PaymentPlanTab({
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) return;
 
-      const { data: weddingData } = await supabase
-        .from("weddings")
-        .select("id")
-        .eq("created_by", userData.user.id)
+      // Try to get wedding via user_roles first (covers co_planners)
+      const { data: roleData } = await supabase
+        .from("user_roles")
+        .select("wedding_id")
+        .eq("user_id", userData.user.id)
+        .limit(1)
         .maybeSingle();
 
-      if (!weddingData) return;
+      let weddingId = roleData?.wedding_id;
+
+      // Fallback to created_by if no role found
+      if (!weddingId) {
+        const { data: weddingData } = await supabase
+          .from("weddings")
+          .select("id")
+          .eq("created_by", userData.user.id)
+          .maybeSingle();
+        weddingId = weddingData?.id;
+      }
+
+      if (!weddingId) return;
 
       const { data, error } = await supabase
         .from("financial_contributors")
         .select("*")
-        .eq("wedding_id", weddingData.id)
+        .eq("wedding_id", weddingId)
         .order("is_default", { ascending: false });
 
       if (error) throw error;
