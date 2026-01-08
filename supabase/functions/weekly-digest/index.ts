@@ -17,6 +17,8 @@ interface Task {
   due_date: string | null;
   status: string;
   priority: string | null;
+  vendor_name?: string;
+  category?: string;
 }
 
 interface Payment {
@@ -37,22 +39,50 @@ interface WeddingData {
   payments: Payment[];
 }
 
+// Messaggi motivazionali casuali
+const motivationalMessages = [
+  "Un passo alla volta, sei sulla strada giusta! 💪",
+  "Ogni dettaglio conta. Tu ce la stai mettendo tutta! ✨",
+  "Il matrimonio perfetto si costruisce settimana dopo settimana 🌟",
+  "Respira, pianifica, conquista! 🎯",
+  "Questa sarà una settimana produttiva! 🚀",
+];
+
+// Consigli contestuali in base ai giorni mancanti
+const getTip = (days: number): string => {
+  if (days > 180) return "È il momento perfetto per bloccare i fornitori chiave! Ricorda: i migliori si prenotano con largo anticipo.";
+  if (days > 90) return "Inizia a pensare alle partecipazioni e al Save the Date 💌";
+  if (days > 60) return "Conferma tutti i dettagli con i fornitori e inizia a raccogliere le conferme RSVP.";
+  if (days > 30) return "Ultimo mese di preparativi! Verifica i pagamenti finali e le conferme.";
+  if (days > 7) return "Ultima settimana! Rilassati, hai fatto un ottimo lavoro. Ora goditi il momento 🎉";
+  return "Il grande giorno è quasi arrivato! Respira e lasciati travolgere dalla gioia 💕";
+};
+
 serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Validate cron secret for scheduled invocations
-  const cronSecret = req.headers.get("X-Cron-Secret");
-  const expectedSecret = Deno.env.get("CRON_SECRET");
-  
-  if (!expectedSecret || cronSecret !== expectedSecret) {
-    console.error("Unauthorized cron request - invalid or missing secret");
-    return new Response(
-      JSON.stringify({ error: "Unauthorized" }),
-      { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+  // Parse URL per parametri test
+  const url = new URL(req.url);
+  const testMode = url.searchParams.get("test") === "true";
+  const testEmail = url.searchParams.get("email"); // Email di test opzionale
+
+  // Validate cron secret - skip in test mode
+  if (!testMode) {
+    const cronSecret = req.headers.get("X-Cron-Secret");
+    const expectedSecret = Deno.env.get("CRON_SECRET");
+    
+    if (!expectedSecret || cronSecret !== expectedSecret) {
+      console.error("Unauthorized cron request - invalid or missing secret");
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
   }
+
+  console.log(`Weekly digest invoked - testMode: ${testMode}, testEmail: ${testEmail || 'none'}`);
 
   try {
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -129,12 +159,26 @@ serve(async (req: Request): Promise<Response> => {
         continue;
       }
 
-      const { data: tasks } = await supabase
+      // Fetch tasks con vendor info
+      const { data: tasksRaw } = await supabase
         .from("checklist_tasks")
-        .select("id, title, due_date, status, priority")
+        .select(`
+          id, title, due_date, status, priority, category,
+          vendors(name)
+        `)
         .eq("wedding_id", wedding.id)
         .eq("status", "pending")
         .order("due_date", { ascending: true });
+
+      const tasks: Task[] = (tasksRaw || []).map((t: any) => ({
+        id: t.id,
+        title: t.title,
+        due_date: t.due_date,
+        status: t.status,
+        priority: t.priority,
+        category: t.category,
+        vendor_name: t.vendors?.name,
+      }));
 
       const { data: expenseItems } = await supabase
         .from("expense_items")
@@ -182,9 +226,16 @@ serve(async (req: Request): Promise<Response> => {
 
       const weddingName = `${wedding.partner1_name} & ${wedding.partner2_name}`;
       const appUrl = Deno.env.get("APP_URL") || "https://stenders.cloud";
+      
+      // Messaggio motivazionale casuale
+      const randomMessage = motivationalMessages[Math.floor(Math.random() * motivationalMessages.length)];
+      
+      // Consiglio contestuale
+      const weeklyTip = getTip(daysUntilWedding);
 
       const emailHtml = buildDigestEmail({
         weddingName,
+        partnerName: wedding.partner1_name,
         daysUntilWedding,
         overdueTasks,
         upcomingTasks,
@@ -192,21 +243,38 @@ serve(async (req: Request): Promise<Response> => {
         overduePayments,
         upcomingPayments,
         appUrl,
+        motivationalMessage: randomMessage,
+        weeklyTip,
       });
 
       try {
         // Subject dinamico come da PRD 4.1
         const taskCount = overdueTasks.length + upcomingTasks.length + overduePayments.length + upcomingPayments.length;
         
+        // In test mode, invia solo all'email di test
+        const finalRecipients = testEmail ? [testEmail] : recipients;
+        
         await resend.emails.send({
           from: "Matrimonio Senza Stress <info@stenders.cloud>",
-          to: recipients,
+          to: finalRecipients,
           subject: `📅 Il tuo piano settimanale: ${taskCount} attività per ${weddingName}`,
           html: emailHtml,
         });
 
-        console.log(`Weekly digest sent to: ${recipients.join(", ")} for wedding ${wedding.id}`);
+        console.log(`Weekly digest sent to: ${finalRecipients.join(", ")} for wedding ${wedding.id}`);
         digestsSent++;
+        
+        // In test mode, esci dopo il primo invio
+        if (testMode) {
+          return new Response(
+            JSON.stringify({ 
+              message: `Test digest sent to ${testEmail || recipients[0]}`,
+              wedding: weddingName,
+              items: taskCount,
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
       } catch (emailError) {
         console.error(`Failed to send digest for wedding ${wedding.id}:`, emailError);
       }
@@ -233,6 +301,7 @@ serve(async (req: Request): Promise<Response> => {
 
 interface DigestEmailParams {
   weddingName: string;
+  partnerName: string;
   daysUntilWedding: number;
   overdueTasks: Task[];
   upcomingTasks: Task[];
@@ -240,10 +309,13 @@ interface DigestEmailParams {
   overduePayments: Payment[];
   upcomingPayments: Payment[];
   appUrl: string;
+  motivationalMessage: string;
+  weeklyTip: string;
 }
 
 function buildDigestEmail({
   weddingName,
+  partnerName,
   daysUntilWedding,
   overdueTasks,
   upcomingTasks,
@@ -251,6 +323,8 @@ function buildDigestEmail({
   overduePayments,
   upcomingPayments,
   appUrl,
+  motivationalMessage,
+  weeklyTip,
 }: DigestEmailParams): string {
   
   const formatDate = (dateStr: string) => 
@@ -290,7 +364,7 @@ function buildDigestEmail({
     `;
   }
 
-  // Sezione "Questa Settimana" - PRD 4.2
+  // Sezione "Questa Settimana" - PRD 4.2 con card arricchite
   if (upcomingTasks.length > 0) {
     sectionsHtml += `
       <div style="margin-bottom: 25px;">
@@ -299,16 +373,18 @@ function buildDigestEmail({
         </h3>
         <ul style="list-style: none; padding: 0; margin: 0;">
           ${upcomingTasks.slice(0, 10).map(task => `
-            <li style="padding: 10px; margin-bottom: 8px; background: #F9FAFB; border-radius: 6px; border-left: 3px solid ${UPCOMING_COLOR};">
-              <div style="display: flex; justify-content: space-between;">
-                <strong style="color: #1F2937;">${task.title}</strong>
-                ${task.priority ? `<span style="font-size: 12px;">${getPriorityBadge(task.priority)}</span>` : ''}
+            <li style="padding: 12px; margin-bottom: 8px; background: #F9FAFB; border-radius: 8px; border-left: 3px solid ${UPCOMING_COLOR};">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                  <strong style="color: #1F2937; display: block;">${task.title}</strong>
+                  ${task.vendor_name ? `<span style="font-size: 12px; color: ${UPCOMING_COLOR};">🏢 ${task.vendor_name}</span>` : ''}
+                  ${task.category && !task.vendor_name ? `<span style="font-size: 12px; color: #9CA3AF;">📁 ${task.category}</span>` : ''}
+                </div>
+                <div style="text-align: right;">
+                  ${task.priority ? `<span style="font-size: 11px; display: block;">${getPriorityBadge(task.priority)}</span>` : ''}
+                  ${task.due_date ? `<span style="font-size: 12px; color: #6B7280;">📅 ${formatDate(task.due_date)}</span>` : ''}
+                </div>
               </div>
-              ${task.due_date ? `
-                <span style="font-size: 13px; color: #6B7280;">
-                  📅 ${formatDate(task.due_date)}
-                </span>
-              ` : ''}
             </li>
           `).join('')}
         </ul>
@@ -358,6 +434,15 @@ function buildDigestEmail({
     `;
   }
 
+  // Sezione "Consiglio della Settimana"
+  const tipSection = `
+    <div style="background: #F0F9FF; border-left: 4px solid #0EA5E9; padding: 15px; margin: 20px 0; border-radius: 4px;">
+      <p style="margin: 0; color: #0369A1; font-size: 14px;">
+        💡 <strong>Consiglio:</strong> ${weeklyTip}
+      </p>
+    </div>
+  `;
+
   return `
     <!DOCTYPE html>
     <html>
@@ -367,10 +452,11 @@ function buildDigestEmail({
     </head>
     <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background: #F3F4F6;">
       
-      <!-- Header - PRD 4.2 -->
+      <!-- Header con saluto personalizzato e messaggio motivazionale -->
       <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
-        <h1 style="color: white; margin: 0 0 10px 0; font-size: 24px;">Il tuo piano settimanale 🚀</h1>
-        <p style="color: rgba(255,255,255,0.9); margin: 0; font-size: 16px;">Ciao! Ecco il punto della situazione per ${weddingName}.</p>
+        <h1 style="color: white; margin: 0 0 8px 0; font-size: 24px;">Buon lunedì, ${partnerName}! 👋</h1>
+        <p style="color: rgba(255,255,255,0.85); margin: 0 0 12px 0; font-size: 14px; font-style: italic;">${motivationalMessage}</p>
+        <p style="color: rgba(255,255,255,0.95); margin: 0; font-size: 16px;">Ecco il punto della situazione per <strong>${weddingName}</strong></p>
       </div>
       
       <!-- Countdown -->
@@ -380,10 +466,13 @@ function buildDigestEmail({
       </div>
       
       <!-- Content -->
-      <div style="background: white; padding: 25px; border-radius: 0 0 12px 12px;">
+      <div style="background: white; padding: 25px;">
         ${sectionsHtml || '<p style="text-align: center; color: #6B7280;">Nessuna attività in programma questa settimana! 🎉</p>'}
         
-        <!-- CTA - PRD 4.2 -->
+        <!-- Tip della settimana -->
+        ${tipSection}
+        
+        <!-- CTA principale -->
         <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #E5E7EB;">
           <a href="${appUrl}/app/checklist" 
              style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 35px; text-decoration: none; border-radius: 25px; font-weight: 600; font-size: 15px;">
@@ -391,15 +480,23 @@ function buildDigestEmail({
           </a>
         </div>
         
-        <!-- Footer con link preferenze - PRD 4.2 GDPR -->
-        <p style="font-size: 12px; color: #9CA3AF; margin-top: 25px; text-align: center;">
+        <!-- Link rapidi -->
+        <div style="text-align: center; margin-top: 20px;">
+          <a href="${appUrl}/app/checklist" style="margin: 0 10px; color: #667eea; text-decoration: none; font-size: 13px;">📋 Checklist</a>
+          <a href="${appUrl}/app/vendors" style="margin: 0 10px; color: #667eea; text-decoration: none; font-size: 13px;">🏢 Fornitori</a>
+          <a href="${appUrl}/app/treasury" style="margin: 0 10px; color: #667eea; text-decoration: none; font-size: 13px;">💰 Tesoreria</a>
+        </div>
+      </div>
+      
+      <!-- Footer -->
+      <div style="background: #F9FAFB; padding: 20px; border-radius: 0 0 12px 12px; text-align: center;">
+        <p style="font-size: 12px; color: #9CA3AF; margin: 0 0 8px 0;">
           Ricevi questa email ogni lunedì perché sei un organizzatore del matrimonio ${weddingName}.
-          <br/>
-          <a href="${appUrl}/app/settings?tab=notifications" style="color: #667eea; text-decoration: underline;">
-            Modifica preferenze email
-          </a>
         </p>
-        <p style="font-size: 11px; color: #D1D5DB; text-align: center; margin-top: 10px;">
+        <a href="${appUrl}/app/settings?tab=notifications" style="color: #667eea; text-decoration: underline; font-size: 12px;">
+          Modifica preferenze email
+        </a>
+        <p style="font-size: 11px; color: #D1D5DB; margin-top: 15px;">
           Inviato con ❤️ da Matrimonio Senza Stress
         </p>
       </div>
