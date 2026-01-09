@@ -85,8 +85,8 @@ export const GuestSingleCard = ({
   };
 
   return (
-    <Card className={`p-4 hover:shadow-md transition-all ${selected ? 'ring-2 ring-primary' : ''} ${guest.is_couple_member ? 'border-pink-200 dark:border-pink-900/50 bg-pink-50/30 dark:bg-pink-950/10' : ''}`}>
-      <div className="flex items-start gap-3">
+    <Card className={`p-3 md:p-4 hover:shadow-md transition-all ${selected ? 'ring-2 ring-primary' : ''} ${guest.is_couple_member ? 'border-pink-200 dark:border-pink-900/50 bg-pink-50/30 dark:bg-pink-950/10' : ''}`}>
+      <div className="flex items-start gap-2 md:gap-3">
         {/* Checkbox - hidden for couple members */}
         {!guest.is_couple_member && (
           <Checkbox
@@ -100,11 +100,11 @@ export const GuestSingleCard = ({
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2 mb-2">
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5 md:gap-2 flex-wrap">
                 {guest.is_couple_member && (
-                  <Heart className="w-4 h-4 text-pink-500 fill-pink-500" />
+                  <Heart className="w-4 h-4 text-pink-500 fill-pink-500 flex-shrink-0" />
                 )}
-                <h3 className="font-semibold truncate">{displayName}</h3>
+                <h3 className="font-semibold truncate text-sm md:text-base">{displayName}</h3>
                 {/* Alias Badge */}
                 {guest.alias && (
                   <span className="text-xs font-normal text-muted-foreground bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full border">

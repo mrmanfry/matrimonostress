@@ -1065,13 +1065,13 @@ const Guests = () => {
   return (
     <div className="container mx-auto p-3 md:p-6 space-y-4 md:space-y-6 max-w-7xl overflow-x-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2 md:gap-3">
-            <Users className="w-7 h-7 md:w-8 md:h-8" />
-            Gestione Invitati
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <h1 className="text-xl md:text-3xl font-bold flex items-center gap-2">
+            <Users className="w-6 h-6 md:w-8 md:h-8 flex-shrink-0" />
+            <span className="truncate">Invitati</span>
           </h1>
-          <p className="text-muted-foreground mt-1">
+          <p className="text-muted-foreground text-sm mt-0.5 hidden md:block">
             Organizza i tuoi invitati in nuclei familiari
           </p>
         </div>
@@ -1175,72 +1175,71 @@ const Guests = () => {
             onFilterChange={setFunnelFilter}
           />
           
-          {/* Secondary Stats Row */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
-            <Card className="p-4">
-              <div className="text-sm text-muted-foreground">Coperti Stimati</div>
-              <div className="text-3xl font-bold">{totalGuests + potentialPlusOnes + vendorStaffCount}</div>
-              <div className="text-xs text-muted-foreground mt-1">
+          {/* Secondary Stats Row - compact on mobile */}
+          <div className="grid grid-cols-3 gap-2 md:gap-4">
+            <Card className="p-2 md:p-4">
+              <div className="text-[10px] md:text-sm text-muted-foreground truncate">Coperti</div>
+              <div className="text-lg md:text-3xl font-bold">{totalGuests + potentialPlusOnes + vendorStaffCount}</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5 hidden md:block">
                 {totalGuests} inviti
-                {potentialPlusOnes > 0 && ` + ${potentialPlusOnes} accomp. potenziali`}
+                {potentialPlusOnes > 0 && ` + ${potentialPlusOnes} accomp.`}
                 {vendorStaffCount > 0 && ` + ${vendorStaffCount} staff`}
               </div>
-              <div className="text-xs text-muted-foreground mt-1">
-                {totalAdults} Adult{totalAdults !== 1 ? 'i' : 'o'}, {totalChildren} Bambin{totalChildren !== 1 ? 'i' : 'o'}
-              </div>
-              {confirmedPlusOnes > 0 && (
-                <div className="text-xs mt-1">
-                  <span className="text-green-600">{confirmedPlusOnes} accomp. confermati</span>
-                </div>
-              )}
-            </Card>
-            <Card className="p-4">
-              <div className="text-sm text-muted-foreground">Nuclei di Invito</div>
-              <div className="text-3xl font-bold">{totalNuclei}</div>
-              <div className="text-xs text-muted-foreground mt-1">
-                {parties.length} raggruppati • {ungroupedGuests.length} singoli
+              <div className="text-[10px] text-muted-foreground">
+                <span className="md:hidden">{totalAdults}A {totalChildren}B</span>
+                <span className="hidden md:inline">{totalAdults} Adult{totalAdults !== 1 ? 'i' : 'o'}, {totalChildren} Bambin{totalChildren !== 1 ? 'i' : 'o'}</span>
               </div>
             </Card>
-            <Card className="p-4">
-              <div className="text-sm text-muted-foreground">Contatti Mancanti</div>
-              <div className="text-3xl font-bold text-orange-600">{guestsWithoutPhone}</div>
-              <div className="text-xs text-muted-foreground mt-1">
-                Invitati senza numero di telefono
+            <Card className="p-2 md:p-4">
+              <div className="text-[10px] md:text-sm text-muted-foreground truncate">Nuclei</div>
+              <div className="text-lg md:text-3xl font-bold">{totalNuclei}</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">
+                <span className="md:hidden">{parties.length}g {ungroupedGuests.length}s</span>
+                <span className="hidden md:inline">{parties.length} raggruppati • {ungroupedGuests.length} singoli</span>
+              </div>
+            </Card>
+            <Card className="p-2 md:p-4">
+              <div className="text-[10px] md:text-sm text-muted-foreground truncate">No Tel.</div>
+              <div className="text-lg md:text-3xl font-bold text-orange-600">{guestsWithoutPhone}</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5 hidden md:block">
+                Senza numero
               </div>
             </Card>
           </div>
 
-          {/* Warnings */}
+          {/* Warnings - Compact on mobile */}
           {guestsWithoutPhone > 0 && (
-            <Alert>
+            <Alert className="py-2 md:py-3">
               <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                <strong>{guestsWithoutPhone}</strong> invitati non hanno un numero di telefono.{" "}
+              <AlertDescription className="text-sm">
+                <strong>{guestsWithoutPhone}</strong> senza telefono.{" "}
                 <Button
                   variant="link"
-                  className="p-0 h-auto"
+                  className="p-0 h-auto text-sm"
                   onClick={() => setContactSyncOpen(true)}
                 >
-                  Sincronizza i contatti
+                  Sincronizza
                 </Button>
               </AlertDescription>
             </Alert>
           )}
 
           {ungroupedGuests.length > 0 && (
-            <Alert>
+            <Alert className="py-2 md:py-3">
               <AlertCircle className="h-4 w-4" />
-              <AlertDescription className="flex items-center justify-between">
-                <span>
-                  <strong>{ungroupedGuests.length}</strong> invitati non sono ancora assegnati a un nucleo.
+              <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <span className="text-sm">
+                  <strong>{ungroupedGuests.length}</strong> non assegnati a nuclei
                 </span>
                 <Button
                   variant="outline"
                   size="sm"
+                  className="w-full sm:w-auto"
                   onClick={() => setSmartGrouperOpen(true)}
                 >
                   <Sparkles className="w-4 h-4 mr-2" />
-                  Raggruppa con AI
+                  <span className="sm:hidden">AI Grouping</span>
+                  <span className="hidden sm:inline">Raggruppa con AI</span>
                 </Button>
               </AlertDescription>
             </Alert>
@@ -1383,18 +1382,39 @@ const Guests = () => {
         </>
       )}
 
-      {/* FAB - Mobile Only */}
+      {/* FAB - Mobile Only with dropdown menu */}
       {isMobile && !hasNoGuests && (
-        <Button
-          size="lg"
-          className="fixed bottom-20 right-6 h-14 w-14 rounded-full shadow-lg z-50"
-          onClick={() => {
-            setEditingParty(undefined);
-            setPartyDialogOpen(true);
-          }}
-        >
-          <Plus className="w-6 h-6" />
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              size="lg"
+              className="fixed bottom-20 right-4 h-12 w-12 rounded-full shadow-lg z-50"
+            >
+              <Plus className="w-5 h-5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem onClick={() => setSingleGuestDialogOpen(true)}>
+              <UserPlus className="w-4 h-4 mr-2" />
+              Nuovo Contatto
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => {
+              setEditingParty(undefined);
+              setPartyDialogOpen(true);
+            }}>
+              <Users className="w-4 h-4 mr-2" />
+              Nuovo Nucleo
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setSmartImportOpen(true)}>
+              <Sparkles className="w-4 h-4 mr-2" />
+              Import AI
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setContactSyncOpen(true)}>
+              <Smartphone className="w-4 h-4 mr-2" />
+              Sync Contatti
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       )}
 
       {/* Dialogs */}
