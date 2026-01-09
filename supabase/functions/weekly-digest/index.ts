@@ -588,6 +588,45 @@ function buildDigestEmail({
     `;
   }
 
+  // Sezione "Appuntamenti Settimanali"
+  if (appointments.length > 0) {
+    const APPOINTMENT_COLOR = '#8B5CF6'; // Viola
+    
+    sectionsHtml += `
+      <div style="margin-bottom: 25px;">
+        <h3 style="color: #374151; margin-bottom: 15px; border-bottom: 2px solid ${APPOINTMENT_COLOR}; padding-bottom: 8px;">
+          📆 Appuntamenti Questa Settimana (${appointments.length})
+        </h3>
+        <ul style="list-style: none; padding: 0; margin: 0;">
+          ${appointments.map(apt => {
+            const aptDate = new Date(apt.appointment_date);
+            const dayName = aptDate.toLocaleDateString('it-IT', { weekday: 'short' });
+            const dayNum = aptDate.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
+            const timeStr = apt.appointment_time ? apt.appointment_time.slice(0, 5) : '';
+            
+            return `
+            <li style="padding: 12px; margin-bottom: 8px; background: #FAF5FF; border-radius: 8px; border-left: 3px solid ${APPOINTMENT_COLOR};">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                  <strong style="color: #1F2937; display: block;">${apt.title}</strong>
+                  ${apt.vendor_name ? `<span style="font-size: 12px; color: ${APPOINTMENT_COLOR};">🏢 ${apt.vendor_name}</span>` : ''}
+                  ${apt.location ? `<span style="font-size: 12px; color: #6B7280; display: block; margin-top: 2px;">📍 ${apt.location}</span>` : ''}
+                  ${apt.purpose ? `<span style="font-size: 12px; color: #9CA3AF; display: block; margin-top: 2px;">${apt.purpose}</span>` : ''}
+                </div>
+                <div style="text-align: right; min-width: 70px;">
+                  <span style="font-size: 11px; color: #6B7280; text-transform: uppercase;">${dayName}</span>
+                  <span style="font-size: 13px; color: #1F2937; display: block; font-weight: 600;">${dayNum}</span>
+                  ${timeStr ? `<span style="font-size: 12px; color: ${APPOINTMENT_COLOR}; font-weight: 500;">⏰ ${timeStr}</span>` : ''}
+                </div>
+              </div>
+            </li>
+          `;
+          }).join('')}
+        </ul>
+      </div>
+    `;
+  }
+
   // Sezione "Consiglio della Settimana"
   const tipSection = `
     <div style="background: #F0F9FF; border-left: 4px solid #0EA5E9; padding: 15px; margin: 20px 0; border-radius: 4px;">
