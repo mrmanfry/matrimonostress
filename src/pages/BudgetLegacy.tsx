@@ -480,12 +480,21 @@ export default function BudgetLegacy() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950">
+        <Card className={`bg-gradient-to-br ${getRemainingBudget() >= 0 
+          ? 'from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950' 
+          : 'from-red-50 to-rose-50 dark:from-red-950 dark:to-rose-950'}`}>
           <CardHeader className="pb-3">
-            <CardTitle className="text-xs md:text-sm font-medium">💰 Margine Rimanente</CardTitle>
+            <CardTitle className="text-xs md:text-sm font-medium">
+              {getRemainingBudget() >= 0 ? '💰 Margine Rimanente' : '⚠️ Budget Superato'}
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-xl md:text-2xl font-bold text-green-600 dark:text-green-400">{formatCurrency(getRemainingBudget())}</div>
+            <div className={`text-xl md:text-2xl font-bold ${getRemainingBudget() >= 0 
+              ? 'text-green-600 dark:text-green-400' 
+              : 'text-red-600 dark:text-red-400'}`}>
+              {formatCurrency(Math.abs(getRemainingBudget()))}
+              {getRemainingBudget() < 0 && <span className="text-sm font-normal ml-1">oltre budget</span>}
+            </div>
             <p className="text-xs text-muted-foreground mt-1">{getGuestCountLabel()}</p>
           </CardContent>
         </Card>
