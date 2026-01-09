@@ -25,6 +25,7 @@ import TimelinePublic from "./pages/TimelinePublic";
 import ProgressPublic from "./pages/ProgressPublic";
 import ContactSync from "./pages/ContactSync";
 import RSVPPublic from "./pages/RSVPPublic";
+import Calendar from "./pages/Calendar";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -73,6 +74,7 @@ const App = () => (
               <Route path="vendors" element={<Vendors />} />
               <Route path="vendors/:id" element={<VendorDetails />} />
               <Route path="checklist" element={<Checklist />} />
+              <Route path="calendar" element={<Calendar />} />
               <Route path="tables" element={<Tables />} />
               <Route path="timeline" element={<Timeline />} />
               <Route path="settings" element={<Settings />} />
