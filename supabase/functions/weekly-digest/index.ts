@@ -30,6 +30,16 @@ interface Payment {
   status: string;
 }
 
+interface Appointment {
+  id: string;
+  title: string;
+  appointment_date: string;
+  appointment_time: string | null;
+  location: string | null;
+  purpose: string | null;
+  vendor_name?: string;
+}
+
 interface RecipientInfo {
   email: string;
   user_id: string;
@@ -247,6 +257,30 @@ serve(async (req: Request): Promise<Response> => {
         allPayments = paymentsData || [];
       }
 
+      // Fetch appointments for this week
+      const { data: appointmentsRaw } = await supabase
+        .from("vendor_appointments")
+        .select(`
+          id, title, appointment_date, appointment_time, location, purpose,
+          vendors(name)
+        `)
+        .eq("wedding_id", wedding.id)
+        .eq("status", "scheduled")
+        .gte("appointment_date", todayStr)
+        .lte("appointment_date", endOfWeekStr)
+        .order("appointment_date", { ascending: true })
+        .order("appointment_time", { ascending: true });
+
+      const allAppointments: Appointment[] = (appointmentsRaw || []).map((a: any) => ({
+        id: a.id,
+        title: a.title,
+        appointment_date: a.appointment_date,
+        appointment_time: a.appointment_time,
+        location: a.location,
+        purpose: a.purpose,
+        vendor_name: a.vendors?.name,
+      }));
+
       const weddingDate = new Date(wedding.wedding_date);
       const daysUntilWedding = Math.ceil((weddingDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
       const weddingName = `${wedding.partner1_name} & ${wedding.partner2_name}`;
@@ -302,7 +336,8 @@ serve(async (req: Request): Promise<Response> => {
         // Skip se non c'è nulla da segnalare per questo destinatario
         if (overdueTasks.length === 0 && upcomingTasks.length === 0 && 
             overdueSharedTasks.length === 0 && upcomingSharedTasks.length === 0 &&
-            overduePayments.length === 0 && upcomingPayments.length === 0) {
+            overduePayments.length === 0 && upcomingPayments.length === 0 &&
+            allAppointments.length === 0) {
           console.log(`No items to report for ${recipient.email} in wedding ${wedding.id}`);
           continue;
         }
@@ -328,6 +363,7 @@ serve(async (req: Request): Promise<Response> => {
           sharedTasks: [...overdueSharedTasks, ...upcomingSharedTasks],
           overduePayments,
           upcomingPayments,
+          appointments: allAppointments,
           appUrl,
           motivationalMessage: randomMessage,
           weeklyTip,
@@ -338,7 +374,8 @@ serve(async (req: Request): Promise<Response> => {
           // Subject dinamico
           const totalItems = overdueTasks.length + upcomingTasks.length + 
                             overdueSharedTasks.length + upcomingSharedTasks.length +
-                            overduePayments.length + upcomingPayments.length;
+                            overduePayments.length + upcomingPayments.length +
+                            allAppointments.length;
           
           // In test mode, invia solo all'email di test
           const finalEmail = testEmail || recipient.email;
@@ -365,6 +402,7 @@ serve(async (req: Request): Promise<Response> => {
                   personal: overdueTasks.length + upcomingTasks.length,
                   shared: overdueSharedTasks.length + upcomingSharedTasks.length,
                   payments: overduePayments.length + upcomingPayments.length,
+                  appointments: allAppointments.length,
                 },
               }),
               { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -404,6 +442,7 @@ interface DigestEmailParams {
   sharedTasks: Task[];
   overduePayments: Payment[];
   upcomingPayments: Payment[];
+  appointments: Appointment[];
   appUrl: string;
   motivationalMessage: string;
   weeklyTip: string;
@@ -419,6 +458,7 @@ function buildDigestEmail({
   sharedTasks,
   overduePayments,
   upcomingPayments,
+  appointments,
   appUrl,
   motivationalMessage,
   weeklyTip,

@@ -1043,6 +1043,82 @@ export type Database = {
           },
         ]
       }
+      vendor_appointments: {
+        Row: {
+          appointment_date: string
+          appointment_time: string | null
+          created_at: string
+          end_time: string | null
+          id: string
+          linked_task_id: string | null
+          location: string | null
+          notes_after: string | null
+          notes_before: string | null
+          purpose: string | null
+          status: string
+          title: string
+          updated_at: string
+          vendor_id: string
+          wedding_id: string
+        }
+        Insert: {
+          appointment_date: string
+          appointment_time?: string | null
+          created_at?: string
+          end_time?: string | null
+          id?: string
+          linked_task_id?: string | null
+          location?: string | null
+          notes_after?: string | null
+          notes_before?: string | null
+          purpose?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          vendor_id: string
+          wedding_id: string
+        }
+        Update: {
+          appointment_date?: string
+          appointment_time?: string | null
+          created_at?: string
+          end_time?: string | null
+          id?: string
+          linked_task_id?: string | null
+          location?: string | null
+          notes_after?: string | null
+          notes_before?: string | null
+          purpose?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          vendor_id?: string
+          wedding_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_appointments_linked_task_id_fkey"
+            columns: ["linked_task_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_appointments_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_appointments_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vendor_communications: {
         Row: {
           channel: string
