@@ -53,7 +53,7 @@ export const SmartImportDialog = ({
     setIsAnalyzing(true);
     try {
       const { data, error } = await supabase.functions.invoke("parse-guest-text", {
-        body: { text: rawText },
+        body: { text: rawText, weddingId },
       });
 
       if (error) throw error;

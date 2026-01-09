@@ -35,3 +35,6 @@ verify_jwt = true
 
 [functions.weekly-digest]
 verify_jwt = false
+
+[functions.smart-grouper]
+verify_jwt = false

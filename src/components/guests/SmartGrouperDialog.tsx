@@ -6,6 +6,8 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Sparkles, Check, X, Edit2, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface Guest {
   id: string;
@@ -23,6 +25,7 @@ interface SmartGrouperDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   ungroupedGuests: Guest[];
+  weddingId: string;
   onApprove: (suggestions: GroupSuggestion[]) => Promise<void>;
 }
 
@@ -30,34 +33,53 @@ export const SmartGrouperDialog = ({
   open,
   onOpenChange,
   ungroupedGuests,
+  weddingId,
   onApprove,
 }: SmartGrouperDialogProps) => {
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<GroupSuggestion[]>([]);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editedName, setEditedName] = useState("");
+  const { toast } = useToast();
 
   const generateSuggestions = async () => {
     setLoading(true);
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/smart-grouper`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify({ guests: ungroupedGuests }),
-        }
-      );
+      // Use supabase.functions.invoke which handles auth automatically
+      const { data, error } = await supabase.functions.invoke("smart-grouper", {
+        body: { 
+          guests: ungroupedGuests,
+          weddingId: weddingId
+        },
+      });
 
-      if (!response.ok) throw new Error("Failed to generate suggestions");
+      if (error) {
+        console.error("Smart grouper error:", error);
+        toast({
+          title: "Errore",
+          description: error.message || "Si è verificato un errore durante l'analisi",
+          variant: "destructive",
+        });
+        return;
+      }
 
-      const data = await response.json();
+      if (data.error) {
+        toast({
+          title: "Errore",
+          description: data.error,
+          variant: "destructive",
+        });
+        return;
+      }
+
       setSuggestions(data.suggestions || []);
     } catch (error) {
       console.error("Error generating suggestions:", error);
+      toast({
+        title: "Errore",
+        description: "Si è verificato un errore durante l'analisi",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -93,8 +115,15 @@ export const SmartGrouperDialog = ({
     return guest ? `${guest.first_name} ${guest.last_name}` : '';
   };
 
+  const handleClose = () => {
+    setSuggestions([]);
+    setEditingIndex(null);
+    setEditedName("");
+    onOpenChange(false);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-4xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
