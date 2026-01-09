@@ -138,7 +138,7 @@ export function FunnelKPICards({ guests, activeFilter, onFilterChange }: FunnelK
   ];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+    <div className="flex gap-3 overflow-x-auto pb-2 -mx-3 px-3 md:mx-0 md:px-0 md:grid md:grid-cols-5 md:overflow-visible scrollbar-hide">
       {cards.map((card) => {
         const Icon = card.icon;
         const isActive = activeFilter === card.id;
@@ -147,7 +147,7 @@ export function FunnelKPICards({ guests, activeFilter, onFilterChange }: FunnelK
           <Card 
             key={card.id}
             className={cn(
-              "p-4 cursor-pointer transition-all duration-200",
+              "p-3 md:p-4 cursor-pointer transition-all duration-200 flex-shrink-0 w-[140px] md:w-auto",
               "hover:shadow-lg hover:-translate-y-0.5",
               card.bgColor,
               isActive && "ring-2 ring-primary ring-offset-2 shadow-lg -translate-y-0.5",
@@ -155,27 +155,27 @@ export function FunnelKPICards({ guests, activeFilter, onFilterChange }: FunnelK
             )}
             onClick={() => onFilterChange?.(isActive ? null : card.id)}
           >
-            <div className="flex items-start justify-between mb-2">
-              <Icon className={cn("w-5 h-5", card.color)} />
+            <div className="flex items-start justify-between mb-1 md:mb-2">
+              <Icon className={cn("w-4 h-4 md:w-5 md:h-5", card.color)} />
               {isActive && (
-                <Badge variant="secondary" className="text-[10px] h-5">
-                  Attivo
+                <Badge variant="secondary" className="text-[10px] h-4 md:h-5 px-1">
+                  ✓
                 </Badge>
               )}
             </div>
-            <div className={cn("text-2xl font-bold", card.color)}>
+            <div className={cn("text-xl md:text-2xl font-bold", card.color)}>
               {card.value}
             </div>
-            <div className="text-xs font-medium text-foreground mt-1">
+            <div className="text-xs font-medium text-foreground mt-0.5 md:mt-1 truncate">
               {card.label}
             </div>
-            <div className="text-[10px] text-muted-foreground">
+            <div className="text-[10px] text-muted-foreground hidden md:block">
               {card.description}
             </div>
             
-            {/* Sub-stats for STD responses */}
+            {/* Sub-stats for STD responses - hide on mobile for space */}
             {card.subStats && card.subStats.some(s => s.value > 0) && (
-              <div className="flex gap-2 mt-2 pt-2 border-t border-border/50">
+              <div className="hidden md:flex gap-2 mt-2 pt-2 border-t border-border/50">
                 {card.subStats.map((sub, idx) => {
                   const SubIcon = sub.icon;
                   return sub.value > 0 ? (

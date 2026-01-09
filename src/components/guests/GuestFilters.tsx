@@ -6,11 +6,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { Settings2 } from "lucide-react";
+import { Settings2, Filter, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   FilterSettingsDialog,
   FilterConfig,
@@ -61,10 +69,12 @@ export function GuestFilters({
   onChange,
   onReset,
 }: GuestFiltersProps) {
+  const isMobile = useIsMobile();
   const [filterSettings, setFilterSettings] = useState<FilterConfig[]>(
     loadFilterSettings
   );
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   const [groups, setGroups] = useState<GuestGroup[]>([]);
 
   // Load only groups that have at least one guest assigned
@@ -332,9 +342,88 @@ export function GuestFilters({
     }
   };
 
+  // Mobile: Bottom sheet with all filters
+  if (isMobile) {
+    return (
+      <>
+        <Sheet open={mobileSheetOpen} onOpenChange={setMobileSheetOpen}>
+          <SheetTrigger asChild>
+            <Button variant="outline" className="w-full justify-between h-10">
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4" />
+                Filtri
+              </div>
+              {activeFiltersCount > 0 && (
+                <Badge variant="secondary" className="ml-2">
+                  {activeFiltersCount}
+                </Badge>
+              )}
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="bottom" className="h-[85vh] overflow-y-auto">
+            <SheetHeader className="pb-4 border-b">
+              <div className="flex items-center justify-between">
+                <SheetTitle>Filtra Invitati</SheetTitle>
+                {activeFiltersCount > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      onReset();
+                      setMobileSheetOpen(false);
+                    }}
+                    className="text-muted-foreground"
+                  >
+                    <X className="w-4 h-4 mr-1" />
+                    Reset
+                  </Button>
+                )}
+              </div>
+            </SheetHeader>
+            
+            <div className="grid grid-cols-2 gap-3 py-4">
+              {enabledFilters.map((filter) => renderFilter(filter.id))}
+            </div>
+            
+            <div className="flex gap-2 pt-4 border-t">
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 gap-1.5"
+                onClick={() => setSettingsOpen(true)}
+              >
+                <Settings2 className="w-4 h-4" />
+                Personalizza
+                {hiddenFiltersCount > 0 && (
+                  <Badge variant="secondary" className="px-1.5 py-0 text-xs">
+                    +{hiddenFiltersCount}
+                  </Badge>
+                )}
+              </Button>
+              <Button
+                className="flex-1"
+                onClick={() => setMobileSheetOpen(false)}
+              >
+                Applica
+              </Button>
+            </div>
+          </SheetContent>
+        </Sheet>
+
+        <FilterSettingsDialog
+          open={settingsOpen}
+          onOpenChange={setSettingsOpen}
+          filters={filterSettings}
+          onFiltersChange={setFilterSettings}
+        />
+      </>
+    );
+  }
+
+  // Desktop: Inline filters
   return (
     <>
-      <div className="grid grid-cols-1 xs:grid-cols-2 md:flex md:flex-wrap items-end gap-2 md:gap-3 min-w-0">
+      <div className="flex flex-wrap items-end gap-3 min-w-0">
         {enabledFilters.map((filter) => renderFilter(filter.id))}
 
         {/* Settings button with hidden filters count */}
