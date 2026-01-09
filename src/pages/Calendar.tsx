@@ -13,8 +13,10 @@ import {
   Clock,
   Euro,
   CheckSquare,
-  MapPin
+  MapPin,
+  Plus
 } from "lucide-react";
+import { CalendarCreateDialog } from "@/components/calendar/CalendarCreateDialog";
 import {
   format,
   startOfMonth,
@@ -58,6 +60,8 @@ const Calendar = () => {
   const navigate = useNavigate();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>("month");
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
 
   const weddingId = authState.status === "authenticated" ? authState.weddingId : null;
 
@@ -274,6 +278,11 @@ const Calendar = () => {
     }
   };
 
+  const handleDayClick = (day: Date) => {
+    setSelectedDate(day);
+    setCreateDialogOpen(true);
+  };
+
   // Stats
   const stats = useMemo(() => {
     const today = new Date();
@@ -304,12 +313,19 @@ const Calendar = () => {
           </p>
         </div>
 
-        <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
-          <TabsList>
-            <TabsTrigger value="month">Mese</TabsTrigger>
-            <TabsTrigger value="week">Settimana</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <div className="flex items-center gap-3">
+          <Button onClick={() => { setSelectedDate(new Date()); setCreateDialogOpen(true); }}>
+            <Plus className="w-4 h-4 mr-1" />
+            Nuovo
+          </Button>
+          
+          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
+            <TabsList>
+              <TabsTrigger value="month">Mese</TabsTrigger>
+              <TabsTrigger value="week">Settimana</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
       </div>
 
       {/* Quick Stats */}
@@ -392,9 +408,10 @@ const Calendar = () => {
               return (
                 <div
                   key={idx}
+                  onClick={() => handleDayClick(day)}
                   className={`
-                    min-h-[100px] p-1 border rounded-lg transition-colors
-                    ${isCurrentMonth ? "bg-card" : "bg-muted/30"}
+                    min-h-[100px] p-1 border rounded-lg transition-colors cursor-pointer
+                    ${isCurrentMonth ? "bg-card hover:bg-muted/50" : "bg-muted/30 hover:bg-muted/50"}
                     ${isCurrentDay ? "ring-2 ring-primary" : "border-border"}
                     ${viewMode === "week" ? "min-h-[250px]" : ""}
                   `}
@@ -411,7 +428,7 @@ const Calendar = () => {
                       <HoverCard key={event.id} openDelay={200}>
                         <HoverCardTrigger asChild>
                           <button
-                            onClick={() => handleEventClick(event)}
+                            onClick={(e) => { e.stopPropagation(); handleEventClick(event); }}
                             className={`
                               w-full text-left text-xs px-1.5 py-0.5 rounded truncate
                               text-white flex items-center gap-1
@@ -517,6 +534,16 @@ const Calendar = () => {
           <span>Scaduti</span>
         </div>
       </div>
+
+      {/* Create Dialog */}
+      {weddingId && (
+        <CalendarCreateDialog
+          open={createDialogOpen}
+          onOpenChange={setCreateDialogOpen}
+          weddingId={weddingId}
+          selectedDate={selectedDate}
+        />
+      )}
     </div>
   );
 };
