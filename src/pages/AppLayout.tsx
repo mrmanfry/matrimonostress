@@ -13,6 +13,7 @@ import {
   Package, 
   UtensilsCrossed, 
   Calendar,
+  CalendarDays,
   TrendingUp 
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -44,6 +45,7 @@ const AppLayout = () => {
     { name: "Tesoreria", href: "/app/treasury", icon: TrendingUp },
     { name: "Fornitori", href: "/app/vendors", icon: Package },
     { name: "Checklist", href: "/app/checklist", icon: CheckSquare },
+    { name: "Calendario", href: "/app/calendar", icon: CalendarDays },
     { name: "Tavoli", href: "/app/tables", icon: UtensilsCrossed },
     { name: "Timeline", href: "/app/timeline", icon: Calendar },
     { name: "Impostazioni", href: "/app/settings", icon: Settings },
