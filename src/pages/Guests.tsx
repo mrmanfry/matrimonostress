@@ -1417,6 +1417,7 @@ const Guests = () => {
         open={smartGrouperOpen}
         onOpenChange={setSmartGrouperOpen}
         ungroupedGuests={ungroupedGuests}
+        weddingId={wedding?.id || ""}
         onApprove={handleSmartGrouperApprove}
       />
 

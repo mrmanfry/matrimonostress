@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -21,7 +22,36 @@ serve(async (req) => {
   }
 
   try {
-    const { text } = await req.json();
+    // 1. Validate Authorization header
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      console.error("Missing or invalid Authorization header");
+      return new Response(
+        JSON.stringify({ error: "Unauthorized - missing auth token" }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // 2. Create Supabase client with user's token
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    
+    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    // 3. Verify the user is authenticated
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    if (userError || !user) {
+      console.error("Invalid or expired token:", userError?.message);
+      return new Response(
+        JSON.stringify({ error: "Unauthorized - invalid token" }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // 4. Parse and validate request body
+    const { text, weddingId } = await req.json();
     
     if (!text || typeof text !== 'string') {
       return new Response(
@@ -37,6 +67,26 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // 5. Optional: validate wedding access if weddingId is provided
+    if (weddingId) {
+      const { data: weddingAccess, error: accessError } = await supabaseClient
+        .from("weddings")
+        .select("id")
+        .eq("id", weddingId)
+        .maybeSingle();
+
+      if (accessError || !weddingAccess) {
+        console.error("Wedding access denied:", accessError?.message);
+        return new Response(
+          JSON.stringify({ error: "Access denied to this wedding" }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    // Log the request for audit
+    console.log(`parse-guest-text called by user ${user.id}${weddingId ? ` for wedding ${weddingId}` : ''}, text length: ${text.length}`);
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
