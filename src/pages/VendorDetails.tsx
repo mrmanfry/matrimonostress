@@ -4,14 +4,16 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Phone, Mail, Building2, CreditCard, FileText, Pencil } from "lucide-react";
+import { ArrowLeft, Phone, Mail, Building2, CreditCard, FileText, Pencil, CalendarCheck, ListTodo } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { VendorExpensesWidget } from "@/components/vendors/widgets/VendorExpensesWidget";
 import { VendorDocumentsWidget } from "@/components/vendors/widgets/VendorDocumentsWidget";
 import { VendorChecklistWidget } from "@/components/vendors/widgets/VendorChecklistWidget";
+import { VendorAppointmentsWidget } from "@/components/vendors/widgets/VendorAppointmentsWidget";
 import { VendorDialog } from "@/components/vendors/VendorDialog";
+import { VendorTaskDialog } from "@/components/vendors/VendorTaskDialog";
 import { useToast } from "@/hooks/use-toast";
 
 const statusConfig = {
@@ -28,6 +30,8 @@ export default function VendorDetails() {
   const [searchParams] = useSearchParams();
   const initialTab = searchParams.get('tab') || 'expenses';
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  const [taskDialogType, setTaskDialogType] = useState<"task" | "appointment">("task");
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -274,10 +278,17 @@ export default function VendorDetails() {
             Documenti
           </TabsTrigger>
           <TabsTrigger
+            value="appointments"
+            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary py-3 px-0"
+          >
+            <CalendarCheck className="w-4 h-4 mr-2" />
+            Appuntamenti
+          </TabsTrigger>
+          <TabsTrigger
             value="checklist"
             className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary py-3 px-0"
           >
-            <Building2 className="w-4 h-4 mr-2" />
+            <ListTodo className="w-4 h-4 mr-2" />
             Checklist
           </TabsTrigger>
         </TabsList>
@@ -291,8 +302,26 @@ export default function VendorDetails() {
             <VendorDocumentsWidget vendorId={vendor.id} vendorName={vendor.name} />
           </TabsContent>
 
+          <TabsContent value="appointments" className="mt-0 focus-visible:ring-0">
+            <VendorAppointmentsWidget 
+              vendorId={vendor.id} 
+              vendorName={vendor.name}
+              weddingId={vendor.wedding_id}
+              onCreateAppointment={() => {
+                setTaskDialogType("appointment");
+                setTaskDialogOpen(true);
+              }}
+            />
+          </TabsContent>
+
           <TabsContent value="checklist" className="mt-0 focus-visible:ring-0">
-            <VendorChecklistWidget vendorId={vendor.id} />
+            <VendorChecklistWidget 
+              vendorId={vendor.id}
+              onCreateTask={() => {
+                setTaskDialogType("task");
+                setTaskDialogOpen(true);
+              }}
+            />
           </TabsContent>
         </div>
       </Tabs>
@@ -321,6 +350,16 @@ export default function VendorDetails() {
         onSave={handleSaveVendor}
         onCreateCategory={handleCreateCategory}
         onDeleteCategory={handleDeleteCategory}
+      />
+
+      {/* Task/Appointment Dialog */}
+      <VendorTaskDialog
+        open={taskDialogOpen}
+        onOpenChange={setTaskDialogOpen}
+        vendorId={vendor.id}
+        vendorName={vendor.name}
+        weddingId={vendor.wedding_id}
+        defaultType={taskDialogType}
       />
     </div>
   );

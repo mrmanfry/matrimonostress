@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CheckCircle2, Circle, Calendar, ListTodo, Plus } from "lucide-react";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
 import { PriorityBadge } from "@/components/checklist/PriorityBadge";
 
 interface ChecklistTask {
@@ -21,11 +20,11 @@ interface ChecklistTask {
 
 interface VendorChecklistWidgetProps {
   vendorId: string;
+  onCreateTask?: () => void;
 }
 
-export function VendorChecklistWidget({ vendorId }: VendorChecklistWidgetProps) {
+export function VendorChecklistWidget({ vendorId, onCreateTask }: VendorChecklistWidgetProps) {
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
 
   // Fetch tasks linked to this vendor
   const { data: tasks = [], isLoading } = useQuery({
@@ -95,14 +94,16 @@ export function VendorChecklistWidget({ vendorId }: VendorChecklistWidgetProps) 
           <Badge variant="secondary" className="bg-indigo-50 text-indigo-700">
             {completedCount}/{tasks.length} completate
           </Badge>
-          <Button 
-            size="sm" 
-            onClick={() => navigate("/app/checklist")}
-            className="gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Crea Task
-          </Button>
+          {onCreateTask && (
+            <Button 
+              size="sm" 
+              onClick={onCreateTask}
+              className="gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Crea Task
+            </Button>
+          )}
         </div>
       </CardHeader>
       <CardContent>
@@ -112,14 +113,15 @@ export function VendorChecklistWidget({ vendorId }: VendorChecklistWidgetProps) 
             <div>
               <p className="text-muted-foreground font-medium">Nessuna attività collegata</p>
               <p className="text-xs text-muted-foreground mt-1">
-                Vai alla <button 
-                  onClick={() => navigate("/app/checklist")} 
-                  className="text-indigo-600 hover:underline font-medium"
-                >
-                  Checklist generale
-                </button> per creare e collegare task a questo fornitore
+                Crea task specifici per questo fornitore
               </p>
             </div>
+            {onCreateTask && (
+              <Button variant="outline" size="sm" onClick={onCreateTask}>
+                <Plus className="w-4 h-4 mr-2" />
+                Crea Task
+              </Button>
+            )}
           </div>
         ) : (
           <div className="space-y-3">
