@@ -47,10 +47,17 @@ export function PaymentPlanTab({
   vendorId,
   expenseItemId,
   categoryId,
-  totalPlanned,
-  totalActual,
+  totalPlanned: propTotalPlanned,
+  totalActual: propTotalActual,
   calculationMode = 'planned',
 }: PaymentPlanTabProps) {
+  const [internalTotalPlanned, setInternalTotalPlanned] = useState(propTotalPlanned);
+  const [internalTotalActual, setInternalTotalActual] = useState(propTotalActual);
+  
+  // Usa i totali interni (che vengono aggiornati dal fallback se i props sono 0)
+  const totalPlanned = internalTotalPlanned || propTotalPlanned;
+  const totalActual = internalTotalActual || propTotalActual;
+  
   // Determina automaticamente il totale da usare in base alla modalità globale
   const activeTotal = calculationMode === 'planned' ? totalPlanned : totalActual;
   const activeModeLabel = calculationMode === 'planned' ? 'ospiti pianificati' : 
@@ -64,6 +71,147 @@ export function PaymentPlanTab({
   const [editingPaymentIndex, setEditingPaymentIndex] = useState<number | null>(null);
   const [originalPaymentData, setOriginalPaymentData] = useState<Payment | null>(null);
   const { toast } = useToast();
+
+  // Sincronizza i totali interni quando cambiano i props
+  useEffect(() => {
+    if (propTotalPlanned > 0) setInternalTotalPlanned(propTotalPlanned);
+    if (propTotalActual > 0) setInternalTotalActual(propTotalActual);
+  }, [propTotalPlanned, propTotalActual]);
+
+  // Fallback: se i totali sono 0, ricalcola dal database
+  useEffect(() => {
+    if (expenseItemId && propTotalPlanned === 0) {
+      recalculateTotalsFromDB();
+    }
+  }, [expenseItemId, propTotalPlanned]);
+
+  const recalculateTotalsFromDB = async () => {
+    try {
+      // Importa dinamicamente per evitare dipendenze circolari
+      const { calculateExpenseAmount, resolveGuestCounts, inferExpenseType } = await import('@/lib/expenseCalculations');
+      
+      // Carica expense item
+      const { data: expenseData, error: expenseError } = await supabase
+        .from("expense_items")
+        .select("*")
+        .eq("id", expenseItemId)
+        .single();
+
+      if (expenseError || !expenseData) return;
+
+      // Carica line items
+      const { data: lineItemsData } = await supabase
+        .from("expense_line_items")
+        .select("*")
+        .eq("expense_item_id", expenseItemId)
+        .order("order_index");
+
+      // Carica wedding data
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return;
+
+      const { data: roleData } = await supabase
+        .from("user_roles")
+        .select("wedding_id")
+        .eq("user_id", userData.user.id)
+        .limit(1)
+        .maybeSingle();
+
+      let weddingId = roleData?.wedding_id;
+      if (!weddingId) {
+        const { data: weddingData } = await supabase
+          .from("weddings")
+          .select("id")
+          .eq("created_by", userData.user.id)
+          .maybeSingle();
+        weddingId = weddingData?.id;
+      }
+      if (!weddingId) return;
+
+      const { data: weddingData } = await supabase
+        .from("weddings")
+        .select("target_adults, target_children, target_staff")
+        .eq("id", weddingId)
+        .single();
+
+      // Carica conteggi ospiti
+      const { data: guestsData } = await supabase
+        .from("guests")
+        .select("rsvp_status, is_child, is_staff, adults_count, children_count")
+        .eq("wedding_id", weddingId);
+
+      const guests = guestsData || [];
+      
+      const confirmedAdults = guests
+        .filter(g => !g.is_child && !g.is_staff && g.rsvp_status === 'Confermato')
+        .reduce((sum, g) => sum + (g.adults_count || 1), 0);
+      const confirmedChildren = guests
+        .filter(g => (g.is_child || g.children_count) && g.rsvp_status === 'Confermato')
+        .reduce((sum, g) => sum + (g.children_count || 1), 0);
+      const confirmedStaff = guests
+        .filter(g => g.is_staff && g.rsvp_status === 'Confermato')
+        .length;
+
+      const globalTargets = {
+        adults: weddingData?.target_adults || 100,
+        children: weddingData?.target_children || 10,
+        staff: weddingData?.target_staff || 0
+      };
+
+      const plannedCounts = resolveGuestCounts({
+        planned_adults: expenseData.planned_adults,
+        planned_children: expenseData.planned_children,
+        planned_staff: expenseData.planned_staff,
+      }, globalTargets);
+
+      const guestCounts = {
+        planned: plannedCounts,
+        expected: plannedCounts, // Simplified
+        confirmed: { adults: confirmedAdults, children: confirmedChildren, staff: confirmedStaff }
+      };
+
+      const expenseType = inferExpenseType(
+        { 
+          expense_type: expenseData.expense_type as 'fixed' | 'variable' | 'mixed' | undefined,
+          fixed_amount: expenseData.fixed_amount,
+          total_amount: expenseData.total_amount
+        }, 
+        (lineItemsData || []).length > 0
+      );
+      
+      const calcExpenseItem = {
+        id: expenseData.id,
+        expense_type: expenseType,
+        fixed_amount: expenseData.fixed_amount || expenseData.total_amount || 0,
+        planned_adults: plannedCounts.adults,
+        planned_children: plannedCounts.children,
+        planned_staff: plannedCounts.staff,
+        tax_rate: expenseData.tax_rate || 0,
+        amount_is_tax_inclusive: expenseData.amount_is_tax_inclusive !== false,
+      };
+
+      const calcLineItems = (lineItemsData || []).map(line => ({
+        id: line.id,
+        unit_price: line.unit_price || 0,
+        quantity_type: line.quantity_type || 'fixed',
+        quantity_fixed: line.quantity_fixed,
+        quantity_limit: line.quantity_limit,
+        quantity_range: line.quantity_range || 'all',
+        discount_percentage: line.discount_percentage || 0,
+        tax_rate: line.tax_rate || 0,
+      }));
+
+      const planned = calculateExpenseAmount(calcExpenseItem as any, calcLineItems as any, 'planned', guestCounts as any);
+      const confirmed = calculateExpenseAmount(calcExpenseItem as any, calcLineItems as any, 'confirmed', guestCounts as any);
+
+      console.log('📊 PaymentPlanTab: Totali ricalcolati dal DB:', { planned, confirmed });
+      
+      setInternalTotalPlanned(planned);
+      setInternalTotalActual(confirmed);
+    } catch (error) {
+      console.error("Error recalculating totals:", error);
+    }
+  };
 
   useEffect(() => {
     if (expenseItemId) {
