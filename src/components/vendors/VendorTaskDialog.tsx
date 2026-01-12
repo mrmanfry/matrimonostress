@@ -128,7 +128,7 @@ export function VendorTaskDialog({
           description: notes || null,
           due_date: date ? format(date, "yyyy-MM-dd") : null,
           priority,
-          assigned_to: getAssignedName(),
+          assigned_to: getAssignedValue(),
           status: "pending",
         });
         if (error) throw error;
@@ -148,7 +148,7 @@ export function VendorTaskDialog({
               description: `Reminder: ${reminderDaysBefore === 0 ? "Oggi" : `tra ${reminderDaysBefore} giorno/i`} hai un appuntamento con ${vendorName}${location ? ` presso ${location}` : ""}`,
               due_date: format(reminderDate, "yyyy-MM-dd"),
               priority: "high",
-              assigned_to: getAssignedName(),
+              assigned_to: getAssignedValue(),
               status: "pending",
               category: "Fornitori",
             })
@@ -192,11 +192,11 @@ export function VendorTaskDialog({
     },
   });
 
-  const getAssignedName = () => {
-    if (!wedding) return assignedTo;
-    if (assignedTo === "partner1") return wedding.partner1_name;
-    if (assignedTo === "partner2") return wedding.partner2_name;
-    return "Entrambi";
+  const getAssignedValue = () => {
+    // Database constraint expects: 'partner1', 'partner2', or 'both'
+    if (assignedTo === "partner1") return "partner1";
+    if (assignedTo === "partner2") return "partner2";
+    return "both";
   };
 
   const handleSubmit = (e: React.FormEvent) => {
