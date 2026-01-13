@@ -32,7 +32,7 @@ export function UnallocatedExpensesWidget({ weddingId, globalMode }: Unallocated
   const navigate = useNavigate();
 
   const { data: unallocatedItems, isLoading } = useQuery({
-    queryKey: ["unallocated-expenses", weddingId, globalMode],
+    queryKey: ["unallocated-expenses", weddingId], // Rimosso globalMode dalla key - ora è sempre planned
     queryFn: async () => {
       // 1. Fetch wedding settings per i target globali
       const { data: wedding, error: weddingError } = await supabase
@@ -49,27 +49,7 @@ export function UnallocatedExpensesWidget({ weddingId, globalMode }: Unallocated
         staff: wedding?.target_staff || 0,
       };
 
-      // 2. Fetch guest counts for expected (all - declined) and confirmed
-      const { data: guestCounts, error: guestsError } = await supabase
-        .from("guests")
-        .select("is_child, is_staff, rsvp_status")
-        .eq("wedding_id", weddingId);
-
-      if (guestsError) throw guestsError;
-
-      const expectedCounts = {
-        adults: guestCounts?.filter(g => !g.is_child && !g.is_staff && g.rsvp_status !== 'declined').length || 0,
-        children: guestCounts?.filter(g => g.is_child && g.rsvp_status !== 'declined').length || 0,
-        staff: guestCounts?.filter(g => g.is_staff).length || 0,
-      };
-
-      const confirmedCounts = {
-        adults: guestCounts?.filter(g => !g.is_child && !g.is_staff && g.rsvp_status === 'confirmed').length || 0,
-        children: guestCounts?.filter(g => g.is_child && g.rsvp_status === 'confirmed').length || 0,
-        staff: guestCounts?.filter(g => g.is_staff).length || 0,
-      };
-
-      // 3. Fetch expense_items con vendor, line_items e payments
+      // 2. Fetch expense_items con vendor, line_items e payments
       const { data: expenses, error: expensesError } = await supabase
         .from("expense_items")
         .select(`
@@ -94,7 +74,7 @@ export function UnallocatedExpensesWidget({ weddingId, globalMode }: Unallocated
       const items: UnallocatedExpense[] = [];
 
       for (const expense of expenses || []) {
-        // Risolvi guest counts (locale override o globale)
+        // Risolvi guest counts (locale override o globale) - usa sempre planned targets
         const plannedCounts = resolveGuestCounts(
           {
             planned_adults: expense.planned_adults,
@@ -104,13 +84,15 @@ export function UnallocatedExpensesWidget({ weddingId, globalMode }: Unallocated
           globalTargets
         );
 
+        // Calcola total cost usando SEMPRE 'planned' per le spese non allocate
+        // Le spese da pianificare rappresentano il costo totale del contratto,
+        // non un importo variabile in base ai confermati
         const allGuestCounts = {
           planned: plannedCounts,
-          expected: expectedCounts,
-          confirmed: confirmedCounts,
+          expected: plannedCounts, // Non rilevante, usiamo sempre planned
+          confirmed: plannedCounts, // Non rilevante, usiamo sempre planned
         };
 
-        // Calcola total cost usando la libreria centralizzata
         const totalCost = calculateExpenseAmount(
           expense as any,
           (expense.expense_line_items || []).map(line => ({
@@ -118,7 +100,7 @@ export function UnallocatedExpensesWidget({ weddingId, globalMode }: Unallocated
             quantity_type: line.quantity_type as 'fixed' | 'adults' | 'children' | 'total_guests' | 'staff',
             quantity_range: (line.quantity_range || 'all') as 'all' | 'up_to' | 'over',
           })),
-          globalMode,
+          'planned', // Sempre 'planned' per il costo totale contratto
           allGuestCounts
         );
 
