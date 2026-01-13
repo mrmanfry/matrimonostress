@@ -14,9 +14,17 @@ import {
   Euro,
   CheckSquare,
   MapPin,
-  Plus
+  Plus,
+  X
 } from "lucide-react";
 import { CalendarCreateDialog } from "@/components/calendar/CalendarCreateDialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   format,
   startOfMonth,
@@ -62,6 +70,8 @@ const Calendar = () => {
   const [viewMode, setViewMode] = useState<ViewMode>("month");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [dayPreviewOpen, setDayPreviewOpen] = useState(false);
+  const [previewDate, setPreviewDate] = useState<Date | null>(null);
 
   const weddingId = authState.status === "authenticated" ? authState.weddingId : null;
 
@@ -279,9 +289,17 @@ const Calendar = () => {
   };
 
   const handleDayClick = (day: Date) => {
-    setSelectedDate(day);
+    setPreviewDate(day);
+    setDayPreviewOpen(true);
+  };
+
+  const handleCreateFromPreview = () => {
+    setSelectedDate(previewDate || new Date());
+    setDayPreviewOpen(false);
     setCreateDialogOpen(true);
   };
+
+  const previewEvents = previewDate ? getEventsForDay(previewDate) : [];
 
   // Stats
   const stats = useMemo(() => {
@@ -534,6 +552,108 @@ const Calendar = () => {
           <span>Scaduti</span>
         </div>
       </div>
+
+      {/* Day Preview Dialog */}
+      <Dialog open={dayPreviewOpen} onOpenChange={setDayPreviewOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarIcon className="w-5 h-5 text-primary" />
+              {previewDate && format(previewDate, "EEEE d MMMM yyyy", { locale: it })}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <ScrollArea className="max-h-[400px]">
+            {previewEvents.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <CalendarIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                <p>Nessun evento per questa giornata</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {previewEvents.map((event) => (
+                  <div
+                    key={event.id}
+                    onClick={() => { setDayPreviewOpen(false); handleEventClick(event); }}
+                    className="p-3 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className={`p-2 rounded-lg text-white ${getEventColor(event)}`}>
+                        {getEventIcon(event.type)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge variant={
+                            event.type === "appointment" ? "default" :
+                            event.type === "payment" ? "secondary" : "outline"
+                          } className="text-xs">
+                            {event.type === "appointment" ? "Appuntamento" :
+                             event.type === "payment" ? "Pagamento" : "Task"}
+                          </Badge>
+                          {event.status && (
+                            <Badge variant="outline" className="text-xs">
+                              {event.status}
+                            </Badge>
+                          )}
+                        </div>
+                        
+                        <h4 className="font-medium truncate">{event.title}</h4>
+                        
+                        {event.vendorName && (
+                          <p className="text-sm text-muted-foreground mt-1">
+                            🏢 {event.vendorName}
+                          </p>
+                        )}
+                        
+                        <div className="flex flex-wrap gap-3 mt-2 text-sm text-muted-foreground">
+                          {event.time && (
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {event.time}
+                            </span>
+                          )}
+                          
+                          {event.location && (
+                            <span className="flex items-center gap-1">
+                              <MapPin className="w-3 h-3" />
+                              {event.location}
+                            </span>
+                          )}
+                          
+                          {event.amount && (
+                            <span className="font-semibold text-foreground">
+                              {formatCurrency(event.amount)}
+                            </span>
+                          )}
+                        </div>
+                        
+                        {event.priority && (
+                          <Badge 
+                            variant={
+                              event.priority === "must" ? "destructive" :
+                              event.priority === "should" ? "default" : "secondary"
+                            }
+                            className="mt-2"
+                          >
+                            {event.priority.toUpperCase()}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+          
+          <div className="flex justify-end pt-2 border-t">
+            <Button onClick={handleCreateFromPreview}>
+              <Plus className="w-4 h-4 mr-1" />
+              Aggiungi evento
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Create Dialog */}
       {weddingId && (
