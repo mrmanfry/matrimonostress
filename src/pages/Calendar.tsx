@@ -18,6 +18,7 @@ import {
   X
 } from "lucide-react";
 import { CalendarCreateDialog } from "@/components/calendar/CalendarCreateDialog";
+import { EventDetailDialog } from "@/components/calendar/EventDetailDialog";
 import {
   Dialog,
   DialogContent,
@@ -72,6 +73,8 @@ const Calendar = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [dayPreviewOpen, setDayPreviewOpen] = useState(false);
   const [previewDate, setPreviewDate] = useState<Date | null>(null);
+  const [eventDetailOpen, setEventDetailOpen] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
 
   const weddingId = authState.status === "authenticated" ? authState.weddingId : null;
 
@@ -279,13 +282,8 @@ const Calendar = () => {
     new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(amount);
 
   const handleEventClick = (event: CalendarEvent) => {
-    if (event.vendorId) {
-      navigate(`/app/vendors/${event.vendorId}`);
-    } else if (event.type === "task") {
-      navigate("/app/checklist");
-    } else if (event.type === "payment") {
-      navigate("/app/treasury");
-    }
+    setSelectedEvent(event);
+    setEventDetailOpen(true);
   };
 
   const handleDayClick = (day: Date) => {
@@ -654,6 +652,16 @@ const Calendar = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Event Detail Dialog */}
+      {weddingId && (
+        <EventDetailDialog
+          open={eventDetailOpen}
+          onOpenChange={setEventDetailOpen}
+          event={selectedEvent}
+          weddingId={weddingId}
+        />
+      )}
 
       {/* Create Dialog */}
       {weddingId && (
