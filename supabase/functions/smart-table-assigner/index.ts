@@ -13,12 +13,12 @@ const corsHeaders = {
 type VibeMode = 'CLAN' | 'BALANCED' | 'MIXER';
 type AllocationMode = 'PLANNING' | 'LOGISTICS';
 
-interface TableInput {
-  id: string;
-  type: 'ROUND' | 'RECTANGULAR';
-  capacity: number;
-  is_locked: boolean;
-  current_guests: string[];
+interface TableConfig {
+  include_imperial: boolean;
+  imperial_capacity: number;
+  standard_shape: 'ROUND' | 'RECTANGULAR';
+  capacity_range: { min: number; max: number };
+  preferred_fill_rate: number;
 }
 
 interface GuestInput {
@@ -40,10 +40,20 @@ interface Config {
 interface Payload {
   mode: AllocationMode;
   vibe_mode: VibeMode;
-  available_tables: TableInput[];
   guests: GuestInput[];
+  table_config: TableConfig;
   config: Config;
   weddingId: string;
+}
+
+interface CreatedTable {
+  id: string;
+  name: string;
+  capacity: number;
+  table_type: string;
+  shape: string;
+  position_x: number;
+  position_y: number;
 }
 
 interface Cluster {
@@ -103,7 +113,6 @@ function createClusters(guests: GuestInput[]): Cluster[] {
   const partyMap = new Map<string, GuestInput[]>();
   const singles: GuestInput[] = [];
 
-  // Group by party_id first
   for (const guest of guests) {
     if (guest.party_id) {
       const existing = partyMap.get(guest.party_id) || [];
@@ -116,7 +125,6 @@ function createClusters(guests: GuestInput[]): Cluster[] {
 
   const clusters: Cluster[] = [];
 
-  // Create clusters from parties
   partyMap.forEach((partyGuests, partyId) => {
     clusters.push({
       id: `party-${partyId}`,
@@ -129,7 +137,6 @@ function createClusters(guests: GuestInput[]): Cluster[] {
     });
   });
 
-  // Create single-person clusters
   for (const single of singles) {
     clusters.push({
       id: `single-${single.id}`,
@@ -145,9 +152,79 @@ function createClusters(guests: GuestInput[]): Cluster[] {
   return clusters;
 }
 
-function getFreeSeats(table: TableInput, assignments: Map<string, string[]>): number {
+function calculateOptimalTables(
+  guestCount: number,
+  tableConfig: TableConfig
+): { capacity: number; count: number }[] {
+  const result: { capacity: number; count: number }[] = [];
+  let remainingGuests = guestCount;
+
+  // 1. Imperial table if configured
+  if (tableConfig.include_imperial) {
+    result.push({ capacity: tableConfig.imperial_capacity, count: 1 });
+    remainingGuests = Math.max(0, remainingGuests - tableConfig.imperial_capacity);
+  }
+
+  if (remainingGuests <= 0) return result;
+
+  // 2. Calculate optimal standard table size
+  const { min, max } = tableConfig.capacity_range;
+  const targetFill = tableConfig.preferred_fill_rate;
+  
+  // Try each capacity in range and find the one with least waste
+  let bestCapacity = Math.round((min + max) / 2);
+  let bestWaste = Infinity;
+
+  for (let cap = min; cap <= max; cap++) {
+    const effectiveSeats = Math.floor(cap * targetFill);
+    const numTables = Math.ceil(remainingGuests / effectiveSeats);
+    const totalSeats = numTables * cap;
+    const waste = totalSeats - remainingGuests;
+    
+    if (waste < bestWaste) {
+      bestWaste = waste;
+      bestCapacity = cap;
+    }
+  }
+
+  const effectiveSeats = Math.floor(bestCapacity * targetFill);
+  const numTables = Math.ceil(remainingGuests / effectiveSeats);
+  
+  result.push({ capacity: bestCapacity, count: numTables });
+
+  return result;
+}
+
+function generateTablePositions(count: number, startIndex: number, isImperial: boolean): { x: number; y: number }[] {
+  const positions: { x: number; y: number }[] = [];
+  
+  if (isImperial) {
+    // Imperial table at top center
+    positions.push({ x: 400, y: 50 });
+    return positions;
+  }
+
+  // Grid layout for standard tables
+  const cols = 4;
+  const spacingX = 200;
+  const spacingY = 180;
+  const startY = 250; // Below imperial table
+
+  for (let i = 0; i < count; i++) {
+    const row = Math.floor((startIndex + i) / cols);
+    const col = (startIndex + i) % cols;
+    positions.push({
+      x: 50 + col * spacingX,
+      y: startY + row * spacingY,
+    });
+  }
+
+  return positions;
+}
+
+function getFreeSeats(table: CreatedTable, assignments: Map<string, string[]>): number {
   const assigned = assignments.get(table.id) || [];
-  return table.capacity - assigned.length - table.current_guests.length;
+  return table.capacity - assigned.length;
 }
 
 function isPartyCategory(category: string | null, partyCategories: string[]): boolean {
@@ -157,7 +234,7 @@ function isPartyCategory(category: string | null, partyCategories: string[]): bo
 }
 
 function calculateDynamicAffinity(
-  table: TableInput,
+  table: CreatedTable,
   cluster: Cluster,
   allGuests: GuestInput[],
   weights: typeof VIBE_WEIGHTS['BALANCED'],
@@ -166,10 +243,7 @@ function calculateDynamicAffinity(
   conflicts: Map<string, Set<string>>,
   vibeMode: VibeMode
 ): number {
-  const assignedGuestIds = [
-    ...(assignments.get(table.id) || []),
-    ...table.current_guests
-  ];
+  const assignedGuestIds = assignments.get(table.id) || [];
 
   // HARD CONSTRAINT: Check for explicit conflicts
   for (const memberId of cluster.memberIds) {
@@ -177,18 +251,25 @@ function calculateDynamicAffinity(
     if (memberConflicts) {
       for (const assignedId of assignedGuestIds) {
         if (memberConflicts.has(assignedId)) {
-          return -10000; // Hard conflict penalty
+          return -10000;
         }
       }
     }
   }
 
+  // Imperial table preference for certain categories
+  if (table.table_type === 'imperial') {
+    // Prioritize couples, witnesses, parents
+    const isVIP = cluster.category?.toLowerCase().includes('testimon') ||
+                  cluster.category?.toLowerCase().includes('genitor') ||
+                  cluster.category?.toLowerCase().includes('famil');
+    if (isVIP) return 1000;
+    return -100; // Non-VIPs should avoid imperial
+  }
+
   // Empty table case
   if (assignedGuestIds.length === 0) {
-    // Perfect fit bonus
     if (table.capacity === cluster.size) return 60;
-    
-    // Party table seeding in MIXER mode
     if (vibeMode === 'MIXER' && isPartyCategory(cluster.category, config.party_categories)) {
       return 30;
     }
@@ -201,7 +282,6 @@ function calculateDynamicAffinity(
   const tableGuests = allGuests.filter(g => assignedGuestIds.includes(g.id));
 
   for (const seatedGuest of tableGuests) {
-    // 1. Category affinity
     if (seatedGuest.category === cluster.category && cluster.category) {
       score += weights.SAME_CATEGORY;
       sameCategoryCount++;
@@ -209,17 +289,14 @@ function calculateDynamicAffinity(
       score += weights.DIFF_CATEGORY;
     }
 
-    // 2. Same party (should be rare, but highly rewarded)
     if (seatedGuest.party_id === cluster.partyId && cluster.partyId) {
       score += weights.SAME_PARTY;
     }
 
-    // 3. Same group
     if (seatedGuest.group_id === cluster.groupId && cluster.groupId) {
       score += weights.SAME_GROUP;
     }
 
-    // 4. Party/young people affinity
     if (
       isPartyCategory(seatedGuest.category, config.party_categories) &&
       isPartyCategory(cluster.category, config.party_categories)
@@ -228,7 +305,6 @@ function calculateDynamicAffinity(
     }
   }
 
-  // Penalty for mixed categories in CLAN mode
   if (vibeMode === 'CLAN' && sameCategoryCount === 0 && tableGuests.length > 0) {
     score -= 50;
   }
@@ -240,17 +316,16 @@ function calculateDynamicAffinity(
 // MAIN ALGORITHM
 // ============================================================
 
-function runSmartTableAssigner(
-  tables: TableInput[],
+function runSmartTablePlanner(
   guests: GuestInput[],
+  tables: CreatedTable[],
   config: Config,
   vibeMode: VibeMode,
   conflictsData: { guest_id_1: string; guest_id_2: string }[]
 ): { assignments: Assignment[]; unassigned: UnassignedCluster[] } {
-  // 1. Initialize weights based on vibe
   const weights = VIBE_WEIGHTS[vibeMode];
 
-  // 2. Build conflicts map
+  // Build conflicts map
   const conflicts = new Map<string, Set<string>>();
   for (const c of conflictsData) {
     if (!conflicts.has(c.guest_id_1)) conflicts.set(c.guest_id_1, new Set());
@@ -259,11 +334,10 @@ function runSmartTableAssigner(
     conflicts.get(c.guest_id_2)!.add(c.guest_id_1);
   }
 
-  // 3. Group guests into clusters
+  // Group guests into clusters
   const clusters = createClusters(guests);
 
-  // 4. Strategic sorting
-  // Priority: conflicts > cluster size > party people (in MIXER mode)
+  // Strategic sorting
   clusters.sort((a, b) => {
     const aConflicts = a.memberIds.filter(id => conflicts.has(id)).length;
     const bConflicts = b.memberIds.filter(id => conflicts.has(id)).length;
@@ -275,19 +349,16 @@ function runSmartTableAssigner(
   const assignmentMap = new Map<string, string[]>();
   const unassigned: UnassignedCluster[] = [];
   
-  // Initialize assignment map with locked tables
   for (const table of tables) {
     assignmentMap.set(table.id, []);
   }
 
-  // 5. Allocation loop
+  // Allocation loop
   for (const cluster of clusters) {
     let bestMatch: { tableId: string; score: number } | null = null;
     let highestScore = -Infinity;
 
     for (const table of tables) {
-      if (table.is_locked) continue;
-      
       const freeSeats = getFreeSeats(table, assignmentMap);
       if (freeSeats < cluster.size) continue;
 
@@ -320,7 +391,7 @@ function runSmartTableAssigner(
     }
   }
 
-  // 6. Second pass: try to fit unassigned with relaxed constraints
+  // Second pass for unassigned
   const stillUnassigned: UnassignedCluster[] = [];
   
   for (const unassignedCluster of unassigned) {
@@ -333,11 +404,8 @@ function runSmartTableAssigner(
     let maxFreeSeats = 0;
 
     for (const table of tables) {
-      if (table.is_locked) continue;
-      
       const freeSeats = getFreeSeats(table, assignmentMap);
       if (freeSeats >= unassignedCluster.guestIds.length && freeSeats > maxFreeSeats) {
-        // Check hard conflicts only
         let hasConflict = false;
         const assignedIds = assignmentMap.get(table.id) || [];
         
@@ -369,7 +437,7 @@ function runSmartTableAssigner(
     }
   }
 
-  // 7. Build final assignments array
+  // Build final assignments
   const assignments: Assignment[] = [];
   assignmentMap.forEach((guestIds, tableId) => {
     if (guestIds.length > 0) {
@@ -390,7 +458,7 @@ serve(async (req) => {
   }
 
   try {
-    // 1. Validate Authorization header
+    // 1. Validate Authorization
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       console.error("Missing or invalid Authorization header");
@@ -400,16 +468,19 @@ serve(async (req) => {
       );
     }
 
-    // 2. Create Supabase client with user's token
+    // 2. Create Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
 
-    // 3. Verify user authentication
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
+
+    // 3. Verify user
+    const { data: { user }, error: userError } = await userClient.auth.getUser();
     if (userError || !user) {
       console.error("Invalid or expired token:", userError?.message);
       return new Response(
@@ -418,13 +489,13 @@ serve(async (req) => {
       );
     }
 
-    // 4. Parse request body
+    // 4. Parse request
     const payload: Payload = await req.json();
     const { 
       mode, 
       vibe_mode, 
-      available_tables, 
       guests, 
+      table_config,
       config, 
       weddingId 
     } = payload;
@@ -436,8 +507,8 @@ serve(async (req) => {
       );
     }
 
-    // 5. Verify user has access to this wedding
-    const { data: weddingAccess, error: accessError } = await supabaseClient
+    // 5. Verify wedding access
+    const { data: weddingAccess, error: accessError } = await userClient
       .from("weddings")
       .select("id")
       .eq("id", weddingId)
@@ -451,8 +522,85 @@ serve(async (req) => {
       );
     }
 
-    // 6. Fetch conflicts for this wedding
-    const { data: conflictsData, error: conflictsError } = await supabaseClient
+    console.log(`Smart Table Planner: user=${user.id}, wedding=${weddingId}, mode=${mode}, vibe=${vibe_mode}, guests=${guests.length}`);
+
+    // 6. Calculate optimal table configuration
+    const tableSpecs = calculateOptimalTables(guests.length, table_config);
+    console.log("Calculated table specs:", tableSpecs);
+
+    // 7. Delete existing tables and assignments for this wedding
+    await serviceClient
+      .from("table_assignments")
+      .delete()
+      .in("table_id", (
+        await serviceClient
+          .from("tables")
+          .select("id")
+          .eq("wedding_id", weddingId)
+      ).data?.map(t => t.id) || []);
+
+    await serviceClient
+      .from("tables")
+      .delete()
+      .eq("wedding_id", weddingId);
+
+    // 8. Create new tables
+    const createdTables: CreatedTable[] = [];
+    let tableIndex = 0;
+
+    for (const spec of tableSpecs) {
+      const isImperial = tableIndex === 0 && table_config.include_imperial;
+      const positions = generateTablePositions(
+        spec.count, 
+        isImperial ? 0 : tableIndex,
+        isImperial
+      );
+
+      for (let i = 0; i < spec.count; i++) {
+        const tableName = isImperial 
+          ? "Tavolo Sposi" 
+          : `Tavolo ${tableIndex + (table_config.include_imperial ? 0 : 1)}`;
+
+        const { data: newTable, error: insertError } = await serviceClient
+          .from("tables")
+          .insert({
+            wedding_id: weddingId,
+            name: tableName,
+            capacity: spec.capacity,
+            shape: isImperial ? 'rectangular' : table_config.standard_shape.toLowerCase(),
+            table_type: isImperial ? 'imperial' : 'standard',
+            position_x: positions[i]?.x || 100,
+            position_y: positions[i]?.y || 100,
+            is_locked: false,
+          })
+          .select()
+          .single();
+
+        if (insertError) {
+          console.error("Error creating table:", insertError);
+          throw insertError;
+        }
+
+        createdTables.push({
+          id: newTable.id,
+          name: newTable.name,
+          capacity: newTable.capacity,
+          table_type: newTable.table_type || 'standard',
+          shape: newTable.shape || 'round',
+          position_x: newTable.position_x,
+          position_y: newTable.position_y,
+        });
+
+        if (!isImperial) tableIndex++;
+      }
+
+      if (isImperial) tableIndex = 0;
+    }
+
+    console.log(`Created ${createdTables.length} tables`);
+
+    // 9. Fetch conflicts
+    const { data: conflictsData, error: conflictsError } = await serviceClient
       .from("guest_conflicts")
       .select("guest_id_1, guest_id_2")
       .eq("wedding_id", weddingId);
@@ -461,21 +609,38 @@ serve(async (req) => {
       console.error("Error fetching conflicts:", conflictsError.message);
     }
 
-    console.log(`Smart Table Assigner: user=${user.id}, wedding=${weddingId}, mode=${mode}, vibe=${vibe_mode}, guests=${guests.length}, tables=${available_tables.length}`);
-
-    // 7. Run the algorithm
-    const result = runSmartTableAssigner(
-      available_tables,
+    // 10. Run assignment algorithm
+    const result = runSmartTablePlanner(
       guests,
+      createdTables,
       config || { allow_split_families: false, min_fill_rate: 0.8, party_categories: [] },
       vibe_mode || 'BALANCED',
       conflictsData || []
     );
 
-    console.log(`Algorithm result: ${result.assignments.length} table assignments, ${result.unassigned.length} unassigned clusters`);
+    console.log(`Algorithm result: ${result.assignments.length} assignments, ${result.unassigned.length} unassigned`);
+
+    // 11. Save assignments to database
+    for (const assignment of result.assignments) {
+      for (const guestId of assignment.guestIds) {
+        const { error: assignError } = await serviceClient
+          .from("table_assignments")
+          .insert({
+            table_id: assignment.tableId,
+            guest_id: guestId,
+          });
+
+        if (assignError) {
+          console.error("Error saving assignment:", assignError);
+        }
+      }
+    }
 
     return new Response(
-      JSON.stringify(result),
+      JSON.stringify({
+        ...result,
+        created_tables: createdTables,
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
