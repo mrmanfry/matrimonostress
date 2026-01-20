@@ -2,12 +2,14 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Plus, Download, Heart, Users } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Plus, Download, Heart, Users, Sparkles, ToggleLeft, ToggleRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent } from "@dnd-kit/core";
 import { GuestPool } from "@/components/tables/GuestPool";
 import { TableCanvas } from "@/components/tables/TableCanvas";
 import { ConflictManager } from "@/components/tables/ConflictManager";
+import { SmartGrouperWizard } from "@/components/tables/SmartGrouperWizard";
 import { generateTableReport } from "@/utils/pdfHelpers";
 
 type Guest = {
@@ -20,6 +22,9 @@ type Guest = {
   notes: string | null;
   adults_count: number;
   children_count: number;
+  party_id?: string | null;
+  group_id?: string | null;
+  category?: string | null;
 };
 
 type Table = {
@@ -28,6 +33,9 @@ type Table = {
   capacity: number;
   position_x: number;
   position_y: number;
+  shape?: string;
+  table_type?: string;
+  is_locked?: boolean;
 };
 
 type Assignment = {
@@ -45,17 +53,27 @@ type Conflict = {
 const Tables = () => {
   const [weddingId, setWeddingId] = useState<string | null>(null);
   const [guests, setGuests] = useState<Guest[]>([]);
+  const [allGuests, setAllGuests] = useState<Guest[]>([]);
   const [tables, setTables] = useState<Table[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [conflicts, setConflicts] = useState<Conflict[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [showConfirmedOnly, setShowConfirmedOnly] = useState(true);
+  const [proposedAssignments, setProposedAssignments] = useState<{ tableId: string; guestIds: string[] }[] | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
     fetchWeddingData();
   }, []);
+
+  useEffect(() => {
+    if (weddingId) {
+      fetchGuests(weddingId);
+    }
+  }, [showConfirmedOnly, weddingId]);
 
   const fetchWeddingData = async () => {
     try {
@@ -66,12 +84,13 @@ const Tables = () => {
         .from("weddings")
         .select("id")
         .eq("created_by", user.id)
-        .single();
+        .maybeSingle();
 
       if (weddingData) {
         setWeddingId(weddingData.id);
         await Promise.all([
           fetchGuests(weddingData.id),
+          fetchAllGuests(weddingData.id),
           fetchTables(weddingData.id),
           fetchAssignments(weddingData.id),
           fetchConflicts(weddingData.id),
@@ -85,12 +104,25 @@ const Tables = () => {
   };
 
   const fetchGuests = async (weddingId: string) => {
+    let query = supabase
+      .from("guests")
+      .select("*")
+      .eq("wedding_id", weddingId);
+    
+    if (showConfirmedOnly) {
+      query = query.or("rsvp_status.eq.confirmed,rsvp_status.eq.Confermato");
+    }
+    
+    const { data } = await query;
+    if (data) setGuests(data);
+  };
+
+  const fetchAllGuests = async (weddingId: string) => {
     const { data } = await supabase
       .from("guests")
       .select("*")
-      .eq("wedding_id", weddingId)
-      .eq("rsvp_status", "confirmed");
-    if (data) setGuests(data);
+      .eq("wedding_id", weddingId);
+    if (data) setAllGuests(data);
   };
 
   const fetchTables = async (weddingId: string) => {
@@ -150,10 +182,8 @@ const Tables = () => {
     const guestId = active.id as string;
     const tableId = over.id as string;
 
-    // Check if dropping on a table
     if (!tables.find(t => t.id === tableId)) return;
 
-    // Check for conflicts
     const currentAssignments = assignments.filter(a => a.table_id === tableId);
     const assignedGuestIds = currentAssignments.map(a => a.guest_id);
 
@@ -172,13 +202,11 @@ const Tables = () => {
       return;
     }
 
-    // Remove existing assignment if any
     const existingAssignment = assignments.find(a => a.guest_id === guestId);
     if (existingAssignment) {
       await supabase.from("table_assignments").delete().eq("id", existingAssignment.id);
     }
 
-    // Create new assignment
     const { error } = await supabase.from("table_assignments").insert({
       table_id: tableId,
       guest_id: guestId,
@@ -191,17 +219,38 @@ const Tables = () => {
     }
   };
 
+  const handleApplyAssignments = async (newAssignments: { tableId: string; guestIds: string[] }[]) => {
+    if (!weddingId) return;
+
+    try {
+      for (const assignment of newAssignments) {
+        for (const guestId of assignment.guestIds) {
+          const existing = assignments.find(a => a.guest_id === guestId);
+          if (existing) {
+            await supabase.from("table_assignments").delete().eq("id", existing.id);
+          }
+
+          await supabase.from("table_assignments").insert({
+            table_id: assignment.tableId,
+            guest_id: guestId,
+          });
+        }
+      }
+
+      toast({ title: "Disposizione applicata!", description: "Gli ospiti sono stati assegnati ai tavoli." });
+      fetchAssignments(weddingId);
+      setProposedAssignments(null);
+    } catch (error) {
+      toast({ title: "Errore", description: "Impossibile applicare la disposizione", variant: "destructive" });
+    }
+  };
+
   const exportToPDF = () => {
     if (tables.length === 0) {
-      toast({ 
-        title: "Attenzione",
-        description: "Non ci sono tavoli da esportare", 
-        variant: "destructive" 
-      });
+      toast({ title: "Attenzione", description: "Non ci sono tavoli da esportare", variant: "destructive" });
       return;
     }
 
-    // Prepara i dati nel formato richiesto
     const tableData = tables.map(table => {
       const tableGuests = assignments
         .filter(a => a.table_id === table.id)
@@ -215,21 +264,14 @@ const Tables = () => {
           notes: g.notes,
         }));
 
-      return {
-        name: table.name,
-        capacity: table.capacity,
-        guests: tableGuests,
-      };
+      return { name: table.name, capacity: table.capacity, guests: tableGuests };
     });
 
     generateTableReport(tableData);
     toast({ title: "Report tavoli generato!" });
   };
 
-  const unassignedGuests = guests.filter(
-    g => !assignments.some(a => a.guest_id === g.id)
-  );
-
+  const unassignedGuests = guests.filter(g => !assignments.some(a => a.guest_id === g.id));
   const totalGuests = guests.reduce((sum, g) => sum + g.adults_count + g.children_count, 0);
   const assignedCount = assignments.length;
 
@@ -244,25 +286,43 @@ const Tables = () => {
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold">Disposizione Tavoli</h1>
             <p className="text-muted-foreground mt-1">
-              Invitati da assegnare: {unassignedGuests.length} su {totalGuests}
+              Invitati da assegnare: {unassignedGuests.length} su {guests.length}
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            {/* Toggle Pianificati/Confermati */}
+            <Button
+              variant="outline"
+              onClick={() => setShowConfirmedOnly(!showConfirmedOnly)}
+              className="gap-2"
+            >
+              {showConfirmedOnly ? (
+                <><ToggleRight className="w-4 h-4" /> Confermati</>
+              ) : (
+                <><ToggleLeft className="w-4 h-4" /> Pianificati</>
+              )}
+            </Button>
+            
+            <Button onClick={() => setWizardOpen(true)} variant="default" className="gap-2">
+              <Sparkles className="w-4 h-4" />
+              Suggerisci AI
+            </Button>
+            
             <Button onClick={() => setConflictDialogOpen(true)} variant="outline">
               <Users className="w-4 h-4 mr-2" />
-              Gestisci Conflitti
+              Conflitti
             </Button>
-            <Button onClick={createTable}>
+            <Button onClick={createTable} variant="outline">
               <Plus className="w-4 h-4 mr-2" />
-              Crea Tavolo
+              Nuovo Tavolo
             </Button>
             <Button onClick={exportToPDF} variant="outline">
               <Download className="w-4 h-4 mr-2" />
-              Esporta PDF
+              PDF
             </Button>
           </div>
         </div>
@@ -270,7 +330,11 @@ const Tables = () => {
         <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             <div className="lg:col-span-1">
-              <GuestPool guests={unassignedGuests} />
+              <GuestPool 
+                guests={unassignedGuests} 
+                allGuests={allGuests}
+                assignments={assignments.map(a => ({ guest_id: a.guest_id }))}
+              />
             </div>
             <div className="lg:col-span-3">
               <TableCanvas
@@ -285,6 +349,8 @@ const Tables = () => {
                     weddingId && fetchAssignments(weddingId);
                   });
                 }}
+                proposedAssignments={proposedAssignments || undefined}
+                isProposalMode={!!proposedAssignments}
               />
             </div>
           </div>
@@ -308,6 +374,15 @@ const Tables = () => {
           conflicts={conflicts}
           weddingId={weddingId}
           onUpdate={() => weddingId && fetchConflicts(weddingId)}
+        />
+
+        <SmartGrouperWizard
+          open={wizardOpen}
+          onOpenChange={setWizardOpen}
+          tables={tables}
+          guests={guests}
+          weddingId={weddingId}
+          onApplyAssignments={handleApplyAssignments}
         />
       </div>
     </div>
