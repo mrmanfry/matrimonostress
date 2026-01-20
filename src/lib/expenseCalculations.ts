@@ -15,6 +15,7 @@ export interface ExpenseItem {
   id: string;
   expense_type: 'fixed' | 'variable' | 'mixed';
   fixed_amount: number | null;
+  estimated_amount?: number | null; // Preventivo iniziale (usato come fallback se fixed_amount è null)
   planned_adults: number;
   planned_children: number;
   planned_staff: number;
@@ -61,7 +62,8 @@ export function calculateExpenseAmount(
 ): number {
   // TIPO 1: Spesa Fissa (es: Location €3.000)
   if (expenseItem.expense_type === 'fixed') {
-    const baseAmount = expenseItem.fixed_amount || 0;
+    // Usa fixed_amount, oppure estimated_amount come fallback, oppure 0
+    const baseAmount = expenseItem.fixed_amount ?? expenseItem.estimated_amount ?? 0;
     // Se l'importo è IVA esclusa, aggiungi l'IVA
     if (!expenseItem.amount_is_tax_inclusive && expenseItem.tax_rate) {
       return baseAmount * (1 + expenseItem.tax_rate / 100);
