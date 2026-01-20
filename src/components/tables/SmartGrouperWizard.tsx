@@ -13,11 +13,13 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
-import { Loader2, Shield, Scale, Sparkles, ArrowRight, ArrowLeft, Check, Users, Crown, CircleDot, RectangleHorizontal, Calculator } from "lucide-react";
+import { Loader2, Shield, Scale, Sparkles, ArrowRight, ArrowLeft, Check, Users, Crown, CircleDot, RectangleHorizontal, Calculator, Target, CheckCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { isDeclined, isConfirmed } from "@/lib/rsvpHelpers";
 
 type VibeMode = 'CLAN' | 'BALANCED' | 'MIXER';
+type CalculationMode = 'planned' | 'expected' | 'confirmed';
 
 interface Guest {
   id: string;
@@ -47,12 +49,19 @@ interface CreatedTable {
   table_type: string;
 }
 
+interface WeddingTargets {
+  target_adults: number;
+  target_children: number;
+  target_staff: number;
+}
+
 interface SmartGrouperWizardProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   guests: Guest[];
   weddingId: string | null;
   onComplete: () => void;
+  weddingTargets?: WeddingTargets | null;
 }
 
 const LOADING_MESSAGES = [
@@ -87,12 +96,34 @@ const VIBE_OPTIONS: { mode: VibeMode; icon: React.ReactNode; title: string; desc
   },
 ];
 
+const CALCULATION_MODE_OPTIONS: { mode: CalculationMode; icon: React.ReactNode; title: string; description: string }[] = [
+  {
+    mode: 'planned',
+    icon: <Target className="w-6 h-6" />,
+    title: "Pianificati",
+    description: "Usa i numeri target del matrimonio",
+  },
+  {
+    mode: 'expected',
+    icon: <Users className="w-6 h-6" />,
+    title: "Previsti",
+    description: "Tutti tranne chi ha declinato",
+  },
+  {
+    mode: 'confirmed',
+    icon: <CheckCircle className="w-6 h-6" />,
+    title: "Confermati",
+    description: "Solo chi ha confermato",
+  },
+];
+
 export const SmartGrouperWizard = ({
   open,
   onOpenChange,
   guests,
   weddingId,
   onComplete,
+  weddingTargets,
 }: SmartGrouperWizardProps) => {
   // Step 1: Table Configuration
   const [includeImperial, setIncludeImperial] = useState(true);
@@ -103,8 +134,8 @@ export const SmartGrouperWizard = ({
   // Step 2: Vibe Mode
   const [vibeMode, setVibeMode] = useState<VibeMode>('BALANCED');
 
-  // Step 3: Logistics
-  const [onlyConfirmed, setOnlyConfirmed] = useState(true);
+  // Step 3: Logistics - 3-mode calculation
+  const [calculationMode, setCalculationMode] = useState<CalculationMode>('expected');
   const [allowSplitFamilies, setAllowSplitFamilies] = useState(false);
 
   // State
@@ -118,14 +149,41 @@ export const SmartGrouperWizard = ({
   } | null>(null);
   const { toast } = useToast();
 
+  // Calculate guest counts for each mode
+  const guestCounts = useMemo(() => {
+    const expectedGuests = guests.filter(g => !isDeclined(g.rsvp_status));
+    const confirmedGuests = guests.filter(g => isConfirmed(g.rsvp_status));
+    const plannedTotal = weddingTargets 
+      ? (weddingTargets.target_adults || 0) + (weddingTargets.target_children || 0) + (weddingTargets.target_staff || 0)
+      : expectedGuests.length;
+    
+    return {
+      planned: plannedTotal,
+      expected: expectedGuests.length,
+      confirmed: confirmedGuests.length,
+    };
+  }, [guests, weddingTargets]);
+
+  // Filtered guests for assignment (always use non-declined for actual assignment)
   const filteredGuests = useMemo(() => {
-    return onlyConfirmed 
-      ? guests.filter(g => g.rsvp_status?.toLowerCase() === 'confirmed' || g.rsvp_status === 'Confermato')
-      : guests;
-  }, [guests, onlyConfirmed]);
+    switch (calculationMode) {
+      case 'confirmed':
+        return guests.filter(g => isConfirmed(g.rsvp_status));
+      case 'planned':
+      case 'expected':
+      default:
+        // For planning and expected, use all non-declined guests
+        return guests.filter(g => !isDeclined(g.rsvp_status));
+    }
+  }, [guests, calculationMode]);
+
+  // Guest count to use for table estimation
+  const estimationGuestCount = useMemo(() => {
+    return guestCounts[calculationMode];
+  }, [guestCounts, calculationMode]);
 
   const estimatedTables = useMemo(() => {
-    const guestCount = filteredGuests.length;
+    const guestCount = estimationGuestCount;
     const imperialGuests = includeImperial ? imperialCapacity : 0;
     const remainingGuests = Math.max(0, guestCount - imperialGuests);
     const avgCapacity = (capacityRange[0] + capacityRange[1]) / 2;
@@ -135,7 +193,7 @@ export const SmartGrouperWizard = ({
       standard: standardTables,
       total: (includeImperial ? 1 : 0) + standardTables,
     };
-  }, [filteredGuests.length, includeImperial, imperialCapacity, capacityRange]);
+  }, [estimationGuestCount, includeImperial, imperialCapacity, capacityRange]);
 
   const handleRunAlgorithm = async () => {
     if (!weddingId) return;
@@ -151,7 +209,9 @@ export const SmartGrouperWizard = ({
 
     try {
       const payload = {
-        mode: onlyConfirmed ? 'LOGISTICS' : 'PLANNING',
+        mode: calculationMode === 'confirmed' ? 'LOGISTICS' : 'PLANNING',
+        calculation_mode: calculationMode,
+        target_guest_count: estimationGuestCount,
         vibe_mode: vibeMode,
         guests: filteredGuests.map(g => ({
           id: g.id,
@@ -418,26 +478,46 @@ export const SmartGrouperWizard = ({
         {/* Step 3: Logistics Config */}
         {step === 3 && (
           <div className="space-y-6">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-                <div className="space-y-0.5">
-                  <Label className="text-base">Solo ospiti confermati</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Usa solo chi ha confermato la presenza
-                  </p>
-                </div>
-                <Switch checked={onlyConfirmed} onCheckedChange={setOnlyConfirmed} />
+            {/* Calculation Mode Selection */}
+            <div className="space-y-3">
+              <Label className="text-base font-medium flex items-center gap-2">
+                <Calculator className="w-4 h-4" />
+                Modalità Calcolo Ospiti
+              </Label>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {CALCULATION_MODE_OPTIONS.map(option => (
+                  <Card
+                    key={option.mode}
+                    className={`p-4 cursor-pointer transition-all hover:shadow-md ${
+                      calculationMode === option.mode
+                        ? 'ring-2 ring-primary border-primary'
+                        : 'hover:border-primary/50'
+                    }`}
+                    onClick={() => setCalculationMode(option.mode)}
+                  >
+                    <div className="flex flex-col items-center text-center gap-2">
+                      <div className={`${calculationMode === option.mode ? 'text-primary' : 'text-muted-foreground'}`}>
+                        {option.icon}
+                      </div>
+                      <h4 className="font-medium text-sm">{option.title}</h4>
+                      <p className="text-xs text-muted-foreground">{option.description}</p>
+                      <Badge variant="secondary" className="font-mono">
+                        {guestCounts[option.mode]} ospiti
+                      </Badge>
+                    </div>
+                  </Card>
+                ))}
               </div>
+            </div>
 
-              <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-                <div className="space-y-0.5">
-                  <Label className="text-base">Permetti divisione famiglie</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Consenti di separare nuclei familiari se necessario
-                  </p>
-                </div>
-                <Switch checked={allowSplitFamilies} onCheckedChange={setAllowSplitFamilies} />
+            <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+              <div className="space-y-0.5">
+                <Label className="text-base">Permetti divisione famiglie</Label>
+                <p className="text-sm text-muted-foreground">
+                  Consenti di separare nuclei familiari se necessario
+                </p>
               </div>
+              <Switch checked={allowSplitFamilies} onCheckedChange={setAllowSplitFamilies} />
             </div>
 
             <div className="p-4 bg-accent/10 rounded-lg">
@@ -448,12 +528,12 @@ export const SmartGrouperWizard = ({
                   <Badge variant="secondary">{estimatedTables.total}</Badge>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Modalità:</span>{" "}
+                  <span className="text-muted-foreground">Vibe:</span>{" "}
                   <Badge variant="secondary">{vibeMode}</Badge>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Ospiti:</span>{" "}
-                  <Badge variant="secondary">{filteredGuests.length}</Badge>
+                  <span className="text-muted-foreground">Ospiti ({CALCULATION_MODE_OPTIONS.find(o => o.mode === calculationMode)?.title}):</span>{" "}
+                  <Badge variant="secondary">{estimationGuestCount}</Badge>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Forma:</span>{" "}
