@@ -567,7 +567,7 @@ serve(async (req) => {
             wedding_id: weddingId,
             name: tableName,
             capacity: spec.capacity,
-            shape: isImperial ? 'rectangular' : table_config.standard_shape.toLowerCase(),
+            shape: isImperial ? 'RECTANGULAR' : table_config.standard_shape.toUpperCase(),
             table_type: isImperial ? 'imperial' : 'standard',
             position_x: positions[i]?.x || 100,
             position_y: positions[i]?.y || 100,
