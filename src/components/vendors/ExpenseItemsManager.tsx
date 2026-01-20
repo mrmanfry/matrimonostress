@@ -391,6 +391,7 @@ export function ExpenseItemsManager({ vendorId, categoryId, calculationMode }: E
         ...item, 
         expense_type: expenseType,
         fixed_amount: item.total_amount || null,
+        estimated_amount: (item as any).estimated_amount || null,
         planned_adults: resolvedCounts.adults,
         planned_children: resolvedCounts.children,
         planned_staff: resolvedCounts.staff
