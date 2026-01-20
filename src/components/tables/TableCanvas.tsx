@@ -3,7 +3,17 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { X, AlertTriangle, Edit2, Check } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { 
+  X, 
+  AlertTriangle, 
+  Edit2, 
+  Check, 
+  Lock, 
+  Unlock,
+  Circle,
+  Square,
+} from "lucide-react";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -12,6 +22,8 @@ type Guest = {
   id: string;
   first_name: string;
   last_name: string;
+  dietary_restrictions?: string | null;
+  category?: string | null;
 };
 
 type Table = {
@@ -20,6 +32,9 @@ type Table = {
   capacity: number;
   position_x: number;
   position_y: number;
+  shape?: string;
+  table_type?: string;
+  is_locked?: boolean;
 };
 
 type Assignment = {
@@ -41,6 +56,8 @@ type TableCanvasProps = {
   weddingId: string | null;
   onUpdate: () => void;
   onUnassign: (assignmentId: string) => void;
+  proposedAssignments?: { tableId: string; guestIds: string[] }[];
+  isProposalMode?: boolean;
 };
 
 const DroppableTable = ({
@@ -50,6 +67,8 @@ const DroppableTable = ({
   conflicts,
   onUpdate,
   onUnassign,
+  proposedGuestIds,
+  isProposalMode,
 }: {
   table: Table;
   guests: Guest[];
@@ -57,6 +76,8 @@ const DroppableTable = ({
   conflicts: Conflict[];
   onUpdate: () => void;
   onUnassign: (assignmentId: string) => void;
+  proposedGuestIds?: string[];
+  isProposalMode?: boolean;
 }) => {
   const { setNodeRef, isOver } = useDroppable({ id: table.id });
   const [editing, setEditing] = useState(false);
@@ -69,12 +90,24 @@ const DroppableTable = ({
     .map(a => ({ assignment: a, guest: guests.find(g => g.id === a.guest_id) }))
     .filter(({ guest }) => guest);
 
-  const assignedGuestIds = tableGuests.map(({ guest }) => guest!.id);
+  // Add proposed guests for preview
+  const proposedGuests = proposedGuestIds
+    ?.filter(id => !tableAssignments.some(a => a.guest_id === id))
+    .map(id => guests.find(g => g.id === id))
+    .filter((g): g is Guest => g !== undefined) || [];
+
+  const totalGuests = tableGuests.length + proposedGuests.length;
+  const assignedGuestIds = [...tableGuests.map(({ guest }) => guest!.id), ...proposedGuestIds || []];
+  
   const hasConflicts = conflicts.some(c => {
     const has1 = assignedGuestIds.includes(c.guest_id_1);
     const has2 = assignedGuestIds.includes(c.guest_id_2);
     return has1 && has2;
   });
+
+  const isOverCapacity = totalGuests > table.capacity;
+  const fillRate = (totalGuests / table.capacity) * 100;
+  const isRound = table.shape?.toUpperCase() === 'ROUND' || !table.shape;
 
   const handleSave = async () => {
     const { error } = await supabase
@@ -90,14 +123,47 @@ const DroppableTable = ({
     }
   };
 
+  const handleToggleLock = async () => {
+    const { error } = await supabase
+      .from("tables")
+      .update({ is_locked: !table.is_locked })
+      .eq("id", table.id);
+
+    if (error) {
+      toast({ title: "Errore", description: "Impossibile cambiare lo stato", variant: "destructive" });
+    } else {
+      onUpdate();
+    }
+  };
+
   return (
     <Card
       ref={setNodeRef}
-      className={`p-4 min-h-[200px] transition-all ${
-        isOver ? "ring-2 ring-accent shadow-lg scale-105" : ""
-      } ${hasConflicts ? "border-2 border-red-500" : ""}`}
+      className={`p-4 min-h-[200px] transition-all relative ${
+        isOver ? "ring-2 ring-primary shadow-lg scale-[1.02]" : ""
+      } ${hasConflicts ? "border-2 border-destructive" : ""} ${
+        isOverCapacity ? "border-2 border-amber-500" : ""
+      } ${table.is_locked ? "opacity-75 bg-muted/50" : ""} ${
+        isProposalMode ? "border-dashed border-2 border-primary/50" : ""
+      }`}
     >
-      <div className="flex items-center justify-between mb-3">
+      {/* Shape indicator */}
+      <div className="absolute top-2 right-2 text-muted-foreground">
+        {isRound ? (
+          <Circle className="w-4 h-4" />
+        ) : (
+          <Square className="w-4 h-4" />
+        )}
+      </div>
+
+      {/* Lock indicator */}
+      {table.is_locked && (
+        <div className="absolute top-2 left-2">
+          <Lock className="w-4 h-4 text-muted-foreground" />
+        </div>
+      )}
+
+      <div className="flex items-center justify-between mb-3 pr-6">
         {editing ? (
           <div className="flex items-center gap-2 flex-1">
             <Input
@@ -118,45 +184,89 @@ const DroppableTable = ({
         ) : (
           <div className="flex items-center gap-2 flex-1">
             <h3 className="font-semibold">{table.name}</h3>
-            <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
-              <Edit2 className="w-3 h-3" />
-            </Button>
+            <div className="flex gap-1">
+              <Button size="sm" variant="ghost" onClick={() => setEditing(true)} className="h-6 w-6 p-0">
+                <Edit2 className="w-3 h-3" />
+              </Button>
+              <Button size="sm" variant="ghost" onClick={handleToggleLock} className="h-6 w-6 p-0">
+                {table.is_locked ? (
+                  <Unlock className="w-3 h-3" />
+                ) : (
+                  <Lock className="w-3 h-3" />
+                )}
+              </Button>
+            </div>
           </div>
         )}
-        <Badge variant={tableGuests.length > table.capacity ? "destructive" : "secondary"}>
-          {tableGuests.length}/{table.capacity}
+        <Badge variant={isOverCapacity ? "destructive" : "secondary"}>
+          {totalGuests}/{table.capacity}
         </Badge>
       </div>
 
+      {/* Fill rate indicator */}
+      <Progress 
+        value={Math.min(fillRate, 100)} 
+        className={`h-1 mb-3 ${fillRate > 100 ? '[&>div]:bg-destructive' : fillRate > 80 ? '[&>div]:bg-primary' : ''}`}
+      />
+
       {hasConflicts && (
-        <div className="mb-2 p-2 bg-red-50 dark:bg-red-950 rounded-md flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4 text-red-600" />
-          <span className="text-xs text-red-600 dark:text-red-400">Conflitti rilevati!</span>
+        <div className="mb-2 p-2 bg-destructive/10 rounded-md flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 text-destructive" />
+          <span className="text-xs text-destructive">Conflitti rilevati!</span>
+        </div>
+      )}
+
+      {isOverCapacity && !hasConflicts && (
+        <div className="mb-2 p-2 bg-amber-500/10 rounded-md flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 text-amber-600" />
+          <span className="text-xs text-amber-600">Capacità superata</span>
         </div>
       )}
 
       <div className="space-y-1">
+        {/* Actual assignments */}
         {tableGuests.map(({ assignment, guest }) => (
           <div
             key={assignment.id}
             className="flex items-center justify-between p-2 bg-accent/10 rounded text-sm"
           >
-            <span>
-              {guest!.first_name} {guest!.last_name}
-            </span>
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <span className="truncate">
+                {guest!.first_name} {guest!.last_name}
+              </span>
+              {guest!.dietary_restrictions && (
+                <Badge variant="outline" className="text-[10px] shrink-0">🍽️</Badge>
+              )}
+            </div>
             <Button
               size="sm"
               variant="ghost"
               onClick={() => onUnassign(assignment.id)}
-              className="h-6 w-6 p-0"
+              className="h-6 w-6 p-0 shrink-0"
+              disabled={table.is_locked}
             >
               <X className="w-3 h-3" />
             </Button>
           </div>
         ))}
-        {tableGuests.length === 0 && (
+
+        {/* Proposed assignments (in preview mode) */}
+        {proposedGuests.map(guest => (
+          <div
+            key={guest.id}
+            className="flex items-center justify-between p-2 bg-primary/10 border border-dashed border-primary/30 rounded text-sm"
+          >
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <span className="truncate text-primary">
+                ✨ {guest.first_name} {guest.last_name}
+              </span>
+            </div>
+          </div>
+        ))}
+
+        {totalGuests === 0 && (
           <p className="text-xs text-muted-foreground text-center py-4">
-            Trascina qui gli invitati
+            {table.is_locked ? "🔒 Tavolo bloccato" : "Trascina qui gli invitati"}
           </p>
         )}
       </div>
@@ -172,22 +282,69 @@ export const TableCanvas = ({
   weddingId,
   onUpdate,
   onUnassign,
+  proposedAssignments,
+  isProposalMode,
 }: TableCanvasProps) => {
+  // Group tables by type for potential future layout
+  const standardTables = tables.filter(t => t.table_type !== 'imperial');
+  const imperialTables = tables.filter(t => t.table_type === 'imperial');
+
   return (
     <Card className="p-6 min-h-[calc(100vh-200px)]">
-      <h2 className="text-lg font-semibold mb-4">Sala ({tables.length} tavoli)</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-semibold">
+          Sala ({tables.length} tavoli)
+        </h2>
+        {isProposalMode && (
+          <Badge variant="outline" className="bg-primary/10 text-primary border-primary">
+            ✨ Anteprima AI
+          </Badge>
+        )}
+      </div>
+
+      {/* Imperial tables (if any) */}
+      {imperialTables.length > 0 && (
+        <div className="mb-6">
+          <p className="text-xs text-muted-foreground mb-2">Tavoli Imperiali</p>
+          <div className="grid grid-cols-1 gap-4">
+            {imperialTables.map(table => {
+              const proposed = proposedAssignments?.find(p => p.tableId === table.id);
+              return (
+                <DroppableTable
+                  key={table.id}
+                  table={table}
+                  guests={guests}
+                  assignments={assignments}
+                  conflicts={conflicts}
+                  onUpdate={onUpdate}
+                  onUnassign={onUnassign}
+                  proposedGuestIds={proposed?.guestIds}
+                  isProposalMode={isProposalMode}
+                />
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Standard tables */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {tables.map(table => (
-          <DroppableTable
-            key={table.id}
-            table={table}
-            guests={guests}
-            assignments={assignments}
-            conflicts={conflicts}
-            onUpdate={onUpdate}
-            onUnassign={onUnassign}
-          />
-        ))}
+        {standardTables.map(table => {
+          const proposed = proposedAssignments?.find(p => p.tableId === table.id);
+          return (
+            <DroppableTable
+              key={table.id}
+              table={table}
+              guests={guests}
+              assignments={assignments}
+              conflicts={conflicts}
+              onUpdate={onUpdate}
+              onUnassign={onUnassign}
+              proposedGuestIds={proposed?.guestIds}
+              isProposalMode={isProposalMode}
+            />
+          );
+        })}
         {tables.length === 0 && (
           <p className="text-sm text-muted-foreground col-span-full text-center py-12">
             Nessun tavolo creato. Clicca "Crea Tavolo" per iniziare.

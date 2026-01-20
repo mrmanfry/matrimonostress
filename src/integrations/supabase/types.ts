@@ -420,6 +420,7 @@ export type Database = {
           adults_count: number | null
           alias: string | null
           allow_plus_one: boolean | null
+          category: string | null
           children_count: number | null
           created_at: string
           dietary_restrictions: string | null
@@ -452,6 +453,7 @@ export type Database = {
           adults_count?: number | null
           alias?: string | null
           allow_plus_one?: boolean | null
+          category?: string | null
           children_count?: number | null
           created_at?: string
           dietary_restrictions?: string | null
@@ -484,6 +486,7 @@ export type Database = {
           adults_count?: number | null
           alias?: string | null
           allow_plus_one?: boolean | null
+          category?: string | null
           children_count?: number | null
           created_at?: string
           dietary_restrictions?: string | null
@@ -920,9 +923,13 @@ export type Database = {
           capacity: number
           created_at: string
           id: string
+          is_locked: boolean | null
           name: string
           position_x: number
           position_y: number
+          rotation: number | null
+          shape: string | null
+          table_type: string | null
           updated_at: string
           wedding_id: string
         }
@@ -930,9 +937,13 @@ export type Database = {
           capacity?: number
           created_at?: string
           id?: string
+          is_locked?: boolean | null
           name: string
           position_x?: number
           position_y?: number
+          rotation?: number | null
+          shape?: string | null
+          table_type?: string | null
           updated_at?: string
           wedding_id: string
         }
@@ -940,9 +951,13 @@ export type Database = {
           capacity?: number
           created_at?: string
           id?: string
+          is_locked?: boolean | null
           name?: string
           position_x?: number
           position_y?: number
+          rotation?: number | null
+          shape?: string | null
+          table_type?: string | null
           updated_at?: string
           wedding_id?: string
         }
