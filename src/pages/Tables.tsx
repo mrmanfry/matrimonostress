@@ -50,6 +50,12 @@ type Conflict = {
   guest_id_2: string;
 };
 
+type WeddingTargets = {
+  target_adults: number;
+  target_children: number;
+  target_staff: number;
+};
+
 const Tables = () => {
   const [weddingId, setWeddingId] = useState<string | null>(null);
   const [guests, setGuests] = useState<Guest[]>([]);
@@ -62,6 +68,7 @@ const Tables = () => {
   const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [showConfirmedOnly, setShowConfirmedOnly] = useState(true);
+  const [weddingTargets, setWeddingTargets] = useState<WeddingTargets | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -81,12 +88,17 @@ const Tables = () => {
 
       const { data: weddingData } = await supabase
         .from("weddings")
-        .select("id")
+        .select("id, target_adults, target_children, target_staff")
         .eq("created_by", user.id)
         .maybeSingle();
 
       if (weddingData) {
         setWeddingId(weddingData.id);
+        setWeddingTargets({
+          target_adults: weddingData.target_adults || 0,
+          target_children: weddingData.target_children || 0,
+          target_staff: weddingData.target_staff || 0,
+        });
         await Promise.all([
           fetchGuests(weddingData.id),
           fetchAllGuests(weddingData.id),
@@ -393,9 +405,10 @@ const Tables = () => {
         <SmartGrouperWizard
           open={wizardOpen}
           onOpenChange={setWizardOpen}
-          guests={guests}
+          guests={allGuests}
           weddingId={weddingId}
           onComplete={handleWizardComplete}
+          weddingTargets={weddingTargets}
         />
       </div>
     </div>
