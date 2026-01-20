@@ -431,22 +431,57 @@ export function ExpenseItemsManager({ vendorId, categoryId, calculationMode }: E
 
   const [totalVendorAmount, setTotalVendorAmount] = useState(0);
   
+  // Calcola totale schedulato dai pagamenti (fissi + percentuali)
+  const calculateTotalScheduledPayments = (itemId: string, itemTotal: number): number => {
+    const itemPayments = payments[itemId] || [];
+    return itemPayments.reduce((sum, payment) => {
+      let amount = 0;
+      if (payment.amount_type === 'fixed') {
+        amount = Number(payment.amount);
+      } else if (payment.amount_type === 'percentage' && payment.percentage_value) {
+        amount = itemTotal * (Number(payment.percentage_value) / 100);
+      }
+      // Applica IVA se esclusa
+      if (payment.tax_inclusive === false && payment.tax_rate) {
+        amount = amount * (1 + Number(payment.tax_rate) / 100);
+      }
+      return sum + amount;
+    }, 0);
+  };
+  
   useEffect(() => {
     const calculateTotal = async () => {
       let sum = 0;
       for (const item of expenseItems) {
-        sum += await calculateItemTotal(item);
+        const calculatedTotal = await calculateItemTotal(item);
+        
+        // Se il totale calcolato è 0 ma ci sono pagamenti, usa la somma dei pagamenti
+        // come fallback (significa che l'utente non ha impostato un importo fisso)
+        if (calculatedTotal === 0) {
+          const scheduledTotal = calculateTotalScheduledPayments(item.id, 0);
+          sum += scheduledTotal;
+        } else {
+          sum += calculatedTotal;
+        }
       }
       setTotalVendorAmount(sum);
     };
     calculateTotal();
-  }, [expenseItems, lineItems, actualAdults, actualChildren, actualStaff, expectedCounts, calculationMode, calculateItemTotal]);
+  }, [expenseItems, lineItems, payments, actualAdults, actualChildren, actualStaff, expectedCounts, calculationMode, calculateItemTotal]);
 
   const calculateAmountPaid = (): number => {
     return Object.values(payments).flat().reduce((sum, payment) => {
-      if (payment.status === 'Pagato' && payment.amount_type === 'fixed') {
-        let amount = Number(payment.amount);
-        // Se IVA Esclusa, aggiungi l'IVA all'importo
+      if (payment.status === 'Pagato') {
+        let amount = 0;
+        if (payment.amount_type === 'fixed') {
+          amount = Number(payment.amount);
+        }
+        // Per pagamenti in percentuale, calcoliamo l'importo effettivo
+        // basandoci sul totale del relativo expense item
+        // Nota: per semplicità qui consideriamo solo fixed per "pagato"
+        // perché i pagamenti in percentuale vengono tipicamente convertiti a fixed al momento del pagamento
+        
+        // Applica IVA se esclusa
         if (payment.tax_inclusive === false && payment.tax_rate) {
           amount = amount * (1 + Number(payment.tax_rate) / 100);
         }
