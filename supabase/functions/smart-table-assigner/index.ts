@@ -152,45 +152,51 @@ function createClusters(guests: GuestInput[]): Cluster[] {
   return clusters;
 }
 
+interface TableSpec {
+  capacity: number;
+  count: number;
+  isImperial?: boolean;
+}
+
 function calculateOptimalTables(
   guestCount: number,
   tableConfig: TableConfig
-): { capacity: number; count: number }[] {
-  const result: { capacity: number; count: number }[] = [];
+): TableSpec[] {
+  const result: TableSpec[] = [];
   let remainingGuests = guestCount;
 
   // 1. Imperial table if configured
   if (tableConfig.include_imperial) {
-    result.push({ capacity: tableConfig.imperial_capacity, count: 1 });
+    result.push({ capacity: tableConfig.imperial_capacity, count: 1, isImperial: true });
     remainingGuests = Math.max(0, remainingGuests - tableConfig.imperial_capacity);
   }
 
   if (remainingGuests <= 0) return result;
 
-  // 2. Calculate optimal standard table size
+  // 2. Calculate optimal table distribution with VARYING capacities
   const { min, max } = tableConfig.capacity_range;
-  const targetFill = tableConfig.preferred_fill_rate;
+  const avgCapacity = Math.round((min + max) / 2);
   
-  // Try each capacity in range and find the one with least waste
-  let bestCapacity = Math.round((min + max) / 2);
-  let bestWaste = Infinity;
-
-  for (let cap = min; cap <= max; cap++) {
-    const effectiveSeats = Math.floor(cap * targetFill);
-    const numTables = Math.ceil(remainingGuests / effectiveSeats);
-    const totalSeats = numTables * cap;
-    const waste = totalSeats - remainingGuests;
-    
-    if (waste < bestWaste) {
-      bestWaste = waste;
-      bestCapacity = cap;
-    }
+  // Calculate how many tables we need
+  const numTables = Math.ceil(remainingGuests / avgCapacity);
+  
+  // Distribute guests evenly across tables
+  const baseCapacity = Math.floor(remainingGuests / numTables);
+  const extraGuests = remainingGuests % numTables;
+  
+  // Clamp capacities to the valid range
+  const clampedBase = Math.max(min, Math.min(max, baseCapacity));
+  const clampedExtra = Math.max(min, Math.min(max, baseCapacity + 1));
+  
+  // Some tables get baseCapacity+1, others get baseCapacity
+  if (extraGuests > 0 && clampedExtra !== clampedBase) {
+    result.push({ capacity: clampedExtra, count: extraGuests, isImperial: false });
   }
-
-  const effectiveSeats = Math.floor(bestCapacity * targetFill);
-  const numTables = Math.ceil(remainingGuests / effectiveSeats);
   
-  result.push({ capacity: bestCapacity, count: numTables });
+  const remainingTables = numTables - extraGuests;
+  if (remainingTables > 0) {
+    result.push({ capacity: clampedBase, count: remainingTables, isImperial: false });
+  }
 
   return result;
 }
@@ -267,13 +273,41 @@ function calculateDynamicAffinity(
     return -100; // Non-VIPs should avoid imperial
   }
 
-  // Empty table case
+  // Empty table case - INTELLIGENT CATEGORY SEEDING
   if (assignedGuestIds.length === 0) {
-    if (table.capacity === cluster.size) return 60;
-    if (vibeMode === 'MIXER' && isPartyCategory(cluster.category, config.party_categories)) {
-      return 30;
+    let baseScore = 10;
+    
+    // Perfect size match bonus
+    if (table.capacity === cluster.size) {
+      baseScore += 50;
+    } else if (table.capacity >= cluster.size && table.capacity - cluster.size <= 2) {
+      // Near-perfect fit (1-2 extra seats)
+      baseScore += 30;
     }
-    return 10;
+    
+    // CLAN mode: prioritize seeding tables with specific categories
+    if (vibeMode === 'CLAN') {
+      const cat = cluster.category?.toLowerCase() || '';
+      // Give higher priority to larger groups to start tables
+      if (cluster.size >= 4) baseScore += 40;
+      if (cluster.size >= 6) baseScore += 20;
+      
+      // Category-based priority for seeding
+      if (cat.includes('famil') || cat.includes('genitor')) {
+        baseScore += 30;
+      } else if (cat.includes('amici')) {
+        baseScore += 25;
+      } else if (cat.includes('colleg')) {
+        baseScore += 20;
+      }
+    }
+    
+    // MIXER mode: prefer mixing party categories
+    if (vibeMode === 'MIXER' && isPartyCategory(cluster.category, config.party_categories)) {
+      baseScore += 30;
+    }
+    
+    return baseScore;
   }
 
   // Table with existing guests
@@ -544,22 +578,25 @@ serve(async (req) => {
       .delete()
       .eq("wedding_id", weddingId);
 
-    // 8. Create new tables
+    // 8. Create new tables with PROPER INCREMENTAL NAMING
     const createdTables: CreatedTable[] = [];
-    let tableIndex = 0;
+    let globalTableNumber = 1; // Start numbering from 1
 
     for (const spec of tableSpecs) {
-      const isImperial = tableIndex === 0 && table_config.include_imperial;
+      const isImperial = spec.isImperial === true;
+      
+      // Generate positions for this batch
       const positions = generateTablePositions(
         spec.count, 
-        isImperial ? 0 : tableIndex,
+        isImperial ? 0 : (globalTableNumber - 1),
         isImperial
       );
 
       for (let i = 0; i < spec.count; i++) {
+        // Imperial table gets special name, others get incremental numbers
         const tableName = isImperial 
           ? "Tavolo Sposi" 
-          : `Tavolo ${tableIndex + (table_config.include_imperial ? 0 : 1)}`;
+          : `Tavolo ${globalTableNumber}`;
 
         const { data: newTable, error: insertError } = await serviceClient
           .from("tables")
@@ -591,10 +628,11 @@ serve(async (req) => {
           position_y: newTable.position_y,
         });
 
-        if (!isImperial) tableIndex++;
+        // Only increment for non-imperial tables
+        if (!isImperial) {
+          globalTableNumber++;
+        }
       }
-
-      if (isImperial) tableIndex = 0;
     }
 
     console.log(`Created ${createdTables.length} tables`);
