@@ -250,7 +250,8 @@ const Vendors = () => {
         // Use centralized calculation
         const amount = calculateExpenseAmount({
           ...item,
-          expense_type: expenseType
+          expense_type: expenseType,
+          estimated_amount: item.estimated_amount || null
         }, lineItems, globalMode as 'planned' | 'expected' | 'confirmed', guestCounts);
         return sum + amount;
       }, 0) || 0
