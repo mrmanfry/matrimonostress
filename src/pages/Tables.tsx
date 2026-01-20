@@ -62,7 +62,6 @@ const Tables = () => {
   const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [showConfirmedOnly, setShowConfirmedOnly] = useState(true);
-  const [proposedAssignments, setProposedAssignments] = useState<{ tableId: string; guestIds: string[] }[] | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -129,7 +128,8 @@ const Tables = () => {
     const { data } = await supabase
       .from("tables")
       .select("*")
-      .eq("wedding_id", weddingId);
+      .eq("wedding_id", weddingId)
+      .order("created_at", { ascending: true });
     if (data) setTables(data);
   };
 
@@ -219,30 +219,19 @@ const Tables = () => {
     }
   };
 
-  const handleApplyAssignments = async (newAssignments: { tableId: string; guestIds: string[] }[]) => {
+  const handleWizardComplete = async () => {
     if (!weddingId) return;
+    
+    // Refetch all data after the wizard completes
+    await Promise.all([
+      fetchTables(weddingId),
+      fetchAssignments(weddingId),
+    ]);
 
-    try {
-      for (const assignment of newAssignments) {
-        for (const guestId of assignment.guestIds) {
-          const existing = assignments.find(a => a.guest_id === guestId);
-          if (existing) {
-            await supabase.from("table_assignments").delete().eq("id", existing.id);
-          }
-
-          await supabase.from("table_assignments").insert({
-            table_id: assignment.tableId,
-            guest_id: guestId,
-          });
-        }
-      }
-
-      toast({ title: "Disposizione applicata!", description: "Gli ospiti sono stati assegnati ai tavoli." });
-      fetchAssignments(weddingId);
-      setProposedAssignments(null);
-    } catch (error) {
-      toast({ title: "Errore", description: "Impossibile applicare la disposizione", variant: "destructive" });
-    }
+    toast({
+      title: "Disposizione completata!",
+      description: "I tavoli e le assegnazioni sono stati salvati.",
+    });
   };
 
   const exportToPDF = () => {
@@ -272,8 +261,8 @@ const Tables = () => {
   };
 
   const unassignedGuests = guests.filter(g => !assignments.some(a => a.guest_id === g.id));
-  const totalGuests = guests.reduce((sum, g) => sum + g.adults_count + g.children_count, 0);
   const assignedCount = assignments.length;
+  const totalSeats = tables.reduce((sum, t) => sum + t.capacity, 0);
 
   if (loading) {
     return (
@@ -290,7 +279,15 @@ const Tables = () => {
           <div>
             <h1 className="text-3xl font-bold">Disposizione Tavoli</h1>
             <p className="text-muted-foreground mt-1">
-              Invitati da assegnare: {unassignedGuests.length} su {guests.length}
+              {tables.length > 0 ? (
+                <>
+                  {tables.length} tavoli • {assignedCount}/{guests.length} ospiti seduti • {totalSeats - assignedCount} posti liberi
+                </>
+              ) : (
+                <>
+                  {guests.length} ospiti da assegnare • Clicca "Smart Planner AI" per iniziare
+                </>
+              )}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -303,13 +300,13 @@ const Tables = () => {
               {showConfirmedOnly ? (
                 <><ToggleRight className="w-4 h-4" /> Confermati</>
               ) : (
-                <><ToggleLeft className="w-4 h-4" /> Pianificati</>
+                <><ToggleLeft className="w-4 h-4" /> Tutti</>
               )}
             </Button>
             
             <Button onClick={() => setWizardOpen(true)} variant="default" className="gap-2">
               <Sparkles className="w-4 h-4" />
-              Suggerisci AI
+              Smart Planner AI
             </Button>
             
             <Button onClick={() => setConflictDialogOpen(true)} variant="outline">
@@ -320,52 +317,69 @@ const Tables = () => {
               <Plus className="w-4 h-4 mr-2" />
               Nuovo Tavolo
             </Button>
-            <Button onClick={exportToPDF} variant="outline">
+            <Button onClick={exportToPDF} variant="outline" disabled={tables.length === 0}>
               <Download className="w-4 h-4 mr-2" />
               PDF
             </Button>
           </div>
         </div>
 
-        <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            <div className="lg:col-span-1">
-              <GuestPool 
-                guests={unassignedGuests} 
-                allGuests={allGuests}
-                assignments={assignments.map(a => ({ guest_id: a.guest_id }))}
-              />
+        {tables.length === 0 ? (
+          <Card className="p-12 text-center">
+            <div className="max-w-md mx-auto space-y-4">
+              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+                <Sparkles className="w-8 h-8 text-primary" />
+              </div>
+              <h2 className="text-xl font-semibold">Nessun tavolo creato</h2>
+              <p className="text-muted-foreground">
+                Usa lo <strong>Smart Planner AI</strong> per generare automaticamente 
+                i tavoli ottimali e assegnare gli ospiti in base alle tue preferenze.
+              </p>
+              <Button onClick={() => setWizardOpen(true)} size="lg" className="gap-2">
+                <Sparkles className="w-5 h-5" />
+                Avvia Smart Planner AI
+              </Button>
             </div>
-            <div className="lg:col-span-3">
-              <TableCanvas
-                tables={tables}
-                guests={guests}
-                assignments={assignments}
-                conflicts={conflicts}
-                weddingId={weddingId}
-                onUpdate={() => weddingId && fetchTables(weddingId)}
-                onUnassign={(assignmentId) => {
-                  supabase.from("table_assignments").delete().eq("id", assignmentId).then(() => {
-                    weddingId && fetchAssignments(weddingId);
-                  });
-                }}
-                proposedAssignments={proposedAssignments || undefined}
-                isProposalMode={!!proposedAssignments}
-              />
+          </Card>
+        ) : (
+          <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+              <div className="lg:col-span-1">
+                <GuestPool 
+                  guests={unassignedGuests} 
+                  allGuests={allGuests}
+                  assignments={assignments.map(a => ({ guest_id: a.guest_id }))}
+                />
+              </div>
+              <div className="lg:col-span-3">
+                <TableCanvas
+                  tables={tables}
+                  guests={guests}
+                  assignments={assignments}
+                  conflicts={conflicts}
+                  weddingId={weddingId}
+                  onUpdate={() => weddingId && fetchTables(weddingId)}
+                  onUnassign={(assignmentId) => {
+                    supabase.from("table_assignments").delete().eq("id", assignmentId).then(() => {
+                      weddingId && fetchAssignments(weddingId);
+                    });
+                  }}
+                />
+              </div>
             </div>
-          </div>
 
-          <DragOverlay>
-            {activeId ? (
-              <Card className="p-3 bg-card shadow-lg opacity-80">
-                {(() => {
-                  const guest = guests.find(g => g.id === activeId);
-                  return guest ? `${guest.first_name} ${guest.last_name}` : null;
-                })()}
-              </Card>
-            ) : null}
-          </DragOverlay>
-        </DndContext>
+            <DragOverlay>
+              {activeId ? (
+                <Card className="p-3 bg-card shadow-lg opacity-80">
+                  {(() => {
+                    const guest = guests.find(g => g.id === activeId);
+                    return guest ? `${guest.first_name} ${guest.last_name}` : null;
+                  })()}
+                </Card>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
+        )}
 
         <ConflictManager
           open={conflictDialogOpen}
@@ -379,10 +393,9 @@ const Tables = () => {
         <SmartGrouperWizard
           open={wizardOpen}
           onOpenChange={setWizardOpen}
-          tables={tables}
           guests={guests}
           weddingId={weddingId}
-          onApplyAssignments={handleApplyAssignments}
+          onComplete={handleWizardComplete}
         />
       </div>
     </div>

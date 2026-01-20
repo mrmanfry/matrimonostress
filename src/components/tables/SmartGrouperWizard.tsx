@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -11,20 +11,13 @@ import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Shield, Scale, Sparkles, ArrowRight, ArrowLeft, Check, Users } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
+import { Input } from "@/components/ui/input";
+import { Loader2, Shield, Scale, Sparkles, ArrowRight, ArrowLeft, Check, Users, Crown, CircleDot, RectangleHorizontal, Calculator } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 type VibeMode = 'CLAN' | 'BALANCED' | 'MIXER';
-
-interface Table {
-  id: string;
-  name: string;
-  capacity: number;
-  shape?: string;
-  table_type?: string;
-  is_locked?: boolean;
-}
 
 interface Guest {
   id: string;
@@ -47,17 +40,24 @@ interface UnassignedCluster {
   guestIds: string[];
 }
 
+interface CreatedTable {
+  id: string;
+  name: string;
+  capacity: number;
+  table_type: string;
+}
+
 interface SmartGrouperWizardProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  tables: Table[];
   guests: Guest[];
   weddingId: string | null;
-  onApplyAssignments: (assignments: Assignment[]) => void;
+  onComplete: () => void;
 }
 
 const LOADING_MESSAGES = [
-  "Calcolando le affinità familiari...",
+  "Calcolando il numero ottimale di tavoli...",
+  "Creando la disposizione perfetta...",
   "Negoziando con la zia Maria...",
   "Calcolando la distanza di sicurezza tra ex...",
   "Ottimizzando la distribuzione dei bambini...",
@@ -90,23 +90,52 @@ const VIBE_OPTIONS: { mode: VibeMode; icon: React.ReactNode; title: string; desc
 export const SmartGrouperWizard = ({
   open,
   onOpenChange,
-  tables,
   guests,
   weddingId,
-  onApplyAssignments,
+  onComplete,
 }: SmartGrouperWizardProps) => {
-  const [step, setStep] = useState(1);
+  // Step 1: Table Configuration
+  const [includeImperial, setIncludeImperial] = useState(true);
+  const [imperialCapacity, setImperialCapacity] = useState(12);
+  const [standardShape, setStandardShape] = useState<'ROUND' | 'RECTANGULAR'>('ROUND');
+  const [capacityRange, setCapacityRange] = useState<[number, number]>([8, 10]);
+
+  // Step 2: Vibe Mode
   const [vibeMode, setVibeMode] = useState<VibeMode>('BALANCED');
+
+  // Step 3: Logistics
   const [onlyConfirmed, setOnlyConfirmed] = useState(true);
   const [allowSplitFamilies, setAllowSplitFamilies] = useState(false);
+
+  // State
+  const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("");
-  const [result, setResult] = useState<{ assignments: Assignment[]; unassigned: UnassignedCluster[] } | null>(null);
+  const [result, setResult] = useState<{ 
+    assignments: Assignment[]; 
+    unassigned: UnassignedCluster[];
+    created_tables: CreatedTable[];
+  } | null>(null);
   const { toast } = useToast();
 
-  const filteredGuests = onlyConfirmed 
-    ? guests.filter(g => g.rsvp_status?.toLowerCase() === 'confirmed' || g.rsvp_status === 'Confermato')
-    : guests;
+  const filteredGuests = useMemo(() => {
+    return onlyConfirmed 
+      ? guests.filter(g => g.rsvp_status?.toLowerCase() === 'confirmed' || g.rsvp_status === 'Confermato')
+      : guests;
+  }, [guests, onlyConfirmed]);
+
+  const estimatedTables = useMemo(() => {
+    const guestCount = filteredGuests.length;
+    const imperialGuests = includeImperial ? imperialCapacity : 0;
+    const remainingGuests = Math.max(0, guestCount - imperialGuests);
+    const avgCapacity = (capacityRange[0] + capacityRange[1]) / 2;
+    const standardTables = Math.ceil(remainingGuests / (avgCapacity * 0.9));
+    return {
+      imperial: includeImperial ? 1 : 0,
+      standard: standardTables,
+      total: (includeImperial ? 1 : 0) + standardTables,
+    };
+  }, [filteredGuests.length, includeImperial, imperialCapacity, capacityRange]);
 
   const handleRunAlgorithm = async () => {
     if (!weddingId) return;
@@ -124,13 +153,6 @@ export const SmartGrouperWizard = ({
       const payload = {
         mode: onlyConfirmed ? 'LOGISTICS' : 'PLANNING',
         vibe_mode: vibeMode,
-        available_tables: tables.map(t => ({
-          id: t.id,
-          type: (t.shape?.toUpperCase() as 'ROUND' | 'RECTANGULAR') || 'ROUND',
-          capacity: t.capacity,
-          is_locked: t.is_locked || false,
-          current_guests: [],
-        })),
         guests: filteredGuests.map(g => ({
           id: g.id,
           first_name: g.first_name,
@@ -140,6 +162,13 @@ export const SmartGrouperWizard = ({
           category: g.category,
           rsvp_status: g.rsvp_status,
         })),
+        table_config: {
+          include_imperial: includeImperial,
+          imperial_capacity: imperialCapacity,
+          standard_shape: standardShape,
+          capacity_range: { min: capacityRange[0], max: capacityRange[1] },
+          preferred_fill_rate: 0.9,
+        },
         config: {
           allow_split_families: allowSplitFamilies,
           min_fill_rate: 0.8,
@@ -155,7 +184,7 @@ export const SmartGrouperWizard = ({
       if (error) throw error;
 
       setResult(data);
-      setStep(3);
+      setStep(4);
 
       const totalAssigned = data.assignments.reduce(
         (sum: number, a: Assignment) => sum + a.guestIds.length,
@@ -164,10 +193,10 @@ export const SmartGrouperWizard = ({
       
       toast({
         title: "Algoritmo completato!",
-        description: `${totalAssigned} ospiti assegnati a ${data.assignments.length} tavoli.`,
+        description: `Creati ${data.created_tables?.length || 0} tavoli con ${totalAssigned} ospiti assegnati.`,
       });
     } catch (error) {
-      console.error("Smart Table Assigner error:", error);
+      console.error("Smart Table Planner error:", error);
       toast({
         title: "Errore",
         description: "L'algoritmo ha avuto un problema. Riprova.",
@@ -180,10 +209,8 @@ export const SmartGrouperWizard = ({
   };
 
   const handleApply = () => {
-    if (result) {
-      onApplyAssignments(result.assignments);
-      handleClose();
-    }
+    onComplete();
+    handleClose();
   };
 
   const handleClose = () => {
@@ -197,29 +224,25 @@ export const SmartGrouperWizard = ({
     return guest ? `${guest.first_name} ${guest.last_name}` : guestId;
   };
 
-  const getTableName = (tableId: string) => {
-    const table = tables.find(t => t.id === tableId);
-    return table ? table.name : tableId;
-  };
-
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-primary" />
-            Suggerisci Disposizione AI
+            Smart Table Planner
           </DialogTitle>
           <DialogDescription>
-            {step === 1 && "Scegli lo stile di disposizione che preferisci"}
-            {step === 2 && "Configura le opzioni avanzate"}
-            {step === 3 && "Anteprima della disposizione suggerita"}
+            {step === 1 && "Configura la struttura dei tavoli"}
+            {step === 2 && "Scegli lo stile di disposizione"}
+            {step === 3 && "Configura le opzioni avanzate"}
+            {step === 4 && "Anteprima della disposizione generata"}
           </DialogDescription>
         </DialogHeader>
 
         {/* Step Indicator */}
         <div className="flex items-center justify-center gap-2 mb-4">
-          {[1, 2, 3].map(s => (
+          {[1, 2, 3, 4].map(s => (
             <div
               key={s}
               className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${
@@ -235,8 +258,127 @@ export const SmartGrouperWizard = ({
           ))}
         </div>
 
-        {/* Step 1: Vibe Selection */}
+        {/* Step 1: Table Configuration */}
         {step === 1 && (
+          <div className="space-y-6">
+            {/* Imperial Table */}
+            <Card className="p-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Crown className="w-5 h-5 text-amber-500" />
+                  <div>
+                    <Label className="text-base font-medium">Tavolo Imperiale</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Sposi, testimoni e genitori
+                    </p>
+                  </div>
+                </div>
+                <Switch checked={includeImperial} onCheckedChange={setIncludeImperial} />
+              </div>
+              
+              {includeImperial && (
+                <div className="flex items-center gap-4 pl-8">
+                  <Label>Capacità:</Label>
+                  <Input
+                    type="number"
+                    value={imperialCapacity}
+                    onChange={(e) => setImperialCapacity(Number(e.target.value))}
+                    className="w-20"
+                    min={6}
+                    max={20}
+                  />
+                  <span className="text-muted-foreground">persone</span>
+                </div>
+              )}
+            </Card>
+
+            {/* Standard Tables */}
+            <Card className="p-4 space-y-4">
+              <div className="flex items-center gap-3">
+                <Users className="w-5 h-5 text-primary" />
+                <div>
+                  <Label className="text-base font-medium">Tavoli Ospiti</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Configurazione tavoli standard
+                  </p>
+                </div>
+              </div>
+
+              {/* Shape Selection */}
+              <div className="space-y-2">
+                <Label>Forma tavoli</Label>
+                <div className="flex gap-4">
+                  <Button
+                    type="button"
+                    variant={standardShape === 'ROUND' ? 'default' : 'outline'}
+                    onClick={() => setStandardShape('ROUND')}
+                    className="flex-1 gap-2"
+                  >
+                    <CircleDot className="w-4 h-4" />
+                    Tondi
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={standardShape === 'RECTANGULAR' ? 'default' : 'outline'}
+                    onClick={() => setStandardShape('RECTANGULAR')}
+                    className="flex-1 gap-2"
+                  >
+                    <RectangleHorizontal className="w-4 h-4" />
+                    Rettangolari
+                  </Button>
+                </div>
+              </div>
+
+              {/* Capacity Range */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label>Posti per tavolo</Label>
+                  <Badge variant="secondary" className="font-mono">
+                    {capacityRange[0]} - {capacityRange[1]}
+                  </Badge>
+                </div>
+                <Slider
+                  value={capacityRange}
+                  onValueChange={(value) => setCapacityRange(value as [number, number])}
+                  min={6}
+                  max={14}
+                  step={1}
+                  className="w-full"
+                />
+                <p className="text-xs text-muted-foreground">
+                  L'algoritmo sceglierà la capacità ottimale in questo range
+                </p>
+              </div>
+            </Card>
+
+            {/* Estimate */}
+            <Card className="p-4 bg-accent/10 border-accent/50">
+              <div className="flex items-center gap-3">
+                <Calculator className="w-5 h-5 text-accent" />
+                <div>
+                  <p className="font-medium">Stima preliminare</p>
+                  <p className="text-sm text-muted-foreground">
+                    Con <strong>{filteredGuests.length}</strong> ospiti servono circa{" "}
+                    <strong>{estimatedTables.total} tavoli</strong>
+                    {estimatedTables.imperial > 0 && (
+                      <> (1 imperiale + {estimatedTables.standard} standard)</>
+                    )}
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            <div className="flex justify-end">
+              <Button onClick={() => setStep(2)}>
+                Avanti
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 2: Vibe Selection */}
+        {step === 2 && (
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {VIBE_OPTIONS.map(option => (
@@ -260,8 +402,12 @@ export const SmartGrouperWizard = ({
               ))}
             </div>
 
-            <div className="flex justify-end">
-              <Button onClick={() => setStep(2)}>
+            <div className="flex justify-between">
+              <Button variant="outline" onClick={() => setStep(1)}>
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Indietro
+              </Button>
+              <Button onClick={() => setStep(3)}>
                 Avanti
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
@@ -269,15 +415,15 @@ export const SmartGrouperWizard = ({
           </div>
         )}
 
-        {/* Step 2: Logistics Config */}
-        {step === 2 && (
+        {/* Step 3: Logistics Config */}
+        {step === 3 && (
           <div className="space-y-6">
             <div className="space-y-4">
               <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
                 <div className="space-y-0.5">
                   <Label className="text-base">Solo ospiti confermati</Label>
                   <p className="text-sm text-muted-foreground">
-                    Usa solo chi ha confermato la presenza (Mode: LOGISTICS)
+                    Usa solo chi ha confermato la presenza
                   </p>
                 </div>
                 <Switch checked={onlyConfirmed} onCheckedChange={setOnlyConfirmed} />
@@ -295,29 +441,29 @@ export const SmartGrouperWizard = ({
             </div>
 
             <div className="p-4 bg-accent/10 rounded-lg">
-              <h4 className="font-medium mb-2">Riepilogo</h4>
+              <h4 className="font-medium mb-2">Riepilogo Configurazione</h4>
               <div className="grid grid-cols-2 gap-2 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Tavoli stimati:</span>{" "}
+                  <Badge variant="secondary">{estimatedTables.total}</Badge>
+                </div>
                 <div>
                   <span className="text-muted-foreground">Modalità:</span>{" "}
                   <Badge variant="secondary">{vibeMode}</Badge>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Tavoli:</span>{" "}
-                  <Badge variant="secondary">{tables.length}</Badge>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Ospiti:</span>{" "}
                   <Badge variant="secondary">{filteredGuests.length}</Badge>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Posti totali:</span>{" "}
-                  <Badge variant="secondary">{tables.reduce((sum, t) => sum + t.capacity, 0)}</Badge>
+                  <span className="text-muted-foreground">Forma:</span>{" "}
+                  <Badge variant="secondary">{standardShape === 'ROUND' ? 'Tondi' : 'Rettangolari'}</Badge>
                 </div>
               </div>
             </div>
 
             <div className="flex justify-between">
-              <Button variant="outline" onClick={() => setStep(1)}>
+              <Button variant="outline" onClick={() => setStep(2)}>
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Indietro
               </Button>
@@ -330,7 +476,7 @@ export const SmartGrouperWizard = ({
                 ) : (
                   <>
                     <Sparkles className="w-4 h-4 mr-2" />
-                    Genera Disposizione
+                    Genera Tavoli e Disposizione
                   </>
                 )}
               </Button>
@@ -344,14 +490,14 @@ export const SmartGrouperWizard = ({
           </div>
         )}
 
-        {/* Step 3: Preview Results */}
-        {step === 3 && result && (
+        {/* Step 4: Preview Results */}
+        {step === 4 && result && (
           <div className="space-y-4">
             {/* Stats */}
             <div className="grid grid-cols-3 gap-4">
               <Card className="p-3 text-center">
-                <p className="text-2xl font-bold text-primary">{result.assignments.length}</p>
-                <p className="text-xs text-muted-foreground">Tavoli assegnati</p>
+                <p className="text-2xl font-bold text-primary">{result.created_tables?.length || 0}</p>
+                <p className="text-xs text-muted-foreground">Tavoli creati</p>
               </Card>
               <Card className="p-3 text-center">
                 <p className="text-2xl font-bold text-green-600">
@@ -367,28 +513,34 @@ export const SmartGrouperWizard = ({
               </Card>
             </div>
 
-            {/* Assignments Preview */}
+            {/* Created Tables Preview */}
             <div className="max-h-60 overflow-y-auto space-y-2">
-              {result.assignments.slice(0, 5).map(assignment => (
-                <Card key={assignment.tableId} className="p-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Users className="w-4 h-4 text-muted-foreground" />
-                      <span className="font-medium">{getTableName(assignment.tableId)}</span>
+              {result.created_tables?.map((table) => {
+                const assignment = result.assignments.find(a => a.tableId === table.id);
+                return (
+                  <Card key={table.id} className="p-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {table.table_type === 'imperial' ? (
+                          <Crown className="w-4 h-4 text-amber-500" />
+                        ) : (
+                          <Users className="w-4 h-4 text-muted-foreground" />
+                        )}
+                        <span className="font-medium">{table.name}</span>
+                      </div>
+                      <Badge variant="secondary">
+                        {assignment?.guestIds.length || 0}/{table.capacity}
+                      </Badge>
                     </div>
-                    <Badge variant="secondary">{assignment.guestIds.length} ospiti</Badge>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1 truncate">
-                    {assignment.guestIds.slice(0, 3).map(id => getGuestName(id)).join(", ")}
-                    {assignment.guestIds.length > 3 && ` +${assignment.guestIds.length - 3} altri`}
-                  </p>
-                </Card>
-              ))}
-              {result.assignments.length > 5 && (
-                <p className="text-sm text-center text-muted-foreground">
-                  ...e altri {result.assignments.length - 5} tavoli
-                </p>
-              )}
+                    {assignment && assignment.guestIds.length > 0 && (
+                      <p className="text-xs text-muted-foreground mt-1 truncate">
+                        {assignment.guestIds.slice(0, 3).map(id => getGuestName(id)).join(", ")}
+                        {assignment.guestIds.length > 3 && ` +${assignment.guestIds.length - 3} altri`}
+                      </p>
+                    )}
+                  </Card>
+                );
+              })}
             </div>
 
             {/* Unassigned Warning */}
@@ -411,17 +563,17 @@ export const SmartGrouperWizard = ({
             )}
 
             <div className="flex justify-between">
-              <Button variant="outline" onClick={() => setStep(2)}>
+              <Button variant="outline" onClick={() => setStep(1)}>
                 <ArrowLeft className="w-4 h-4 mr-2" />
-                Modifica Opzioni
+                Riconfigura
               </Button>
               <div className="flex gap-2">
                 <Button variant="outline" onClick={handleClose}>
-                  Scarta
+                  Scarta Tutto
                 </Button>
                 <Button onClick={handleApply} className="bg-green-600 hover:bg-green-700">
                   <Check className="w-4 h-4 mr-2" />
-                  Accetta e Salva
+                  Completa
                 </Button>
               </div>
             </div>
