@@ -30,10 +30,10 @@ interface Guest {
   id: string;
   first_name: string;
   last_name: string;
-  party_id: string | null;
-  group_id: string | null;
-  category: string | null;
-  rsvp_status: string | null;
+  party_id?: string | null;
+  group_id?: string | null;
+  category?: string | null;
+  rsvp_status?: string | null;
 }
 
 interface Assignment {
