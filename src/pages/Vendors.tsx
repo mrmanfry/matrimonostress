@@ -174,6 +174,7 @@ const Vendors = () => {
           id,
           expense_type,
           fixed_amount,
+          estimated_amount,
           total_amount,
           planned_adults,
           planned_children,
