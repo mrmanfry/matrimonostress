@@ -655,12 +655,12 @@ const Vendors = () => {
                     </div>}
                   
                   {/* Total Expenses for Vendor */}
-                  {vendor.expenses_total !== undefined && vendor.expenses_total > 0 && <div className="border-t pt-3">
+                  {vendor.expenses_total !== undefined && <div className="border-t pt-3">
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-muted-foreground">Totale Spese</span>
-                        <span className="text-lg font-semibold">€{vendor.expenses_total.toLocaleString('it-IT', {
-                    minimumFractionDigits: 2
-                  })}</span>
+                        <span className={`text-lg font-semibold ${vendor.expenses_total === 0 ? 'text-muted-foreground' : ''}`}>
+                          €{vendor.expenses_total.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                        </span>
                       </div>
                     </div>}
                   
