@@ -8,7 +8,8 @@ import {
   XCircle,
   ThumbsUp,
   ThumbsDown,
-  HelpCircle
+  HelpCircle,
+  Clock
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getEffectiveStatus } from "@/lib/nucleusStatusHelper";
@@ -103,6 +104,7 @@ export function FunnelKPICards({ guests, activeFilter, onFilterChange }: FunnelK
         { icon: ThumbsUp, value: stats.std_likely_yes, color: 'text-green-500' },
         { icon: HelpCircle, value: stats.std_unsure, color: 'text-amber-500' },
         { icon: ThumbsDown, value: stats.std_likely_no, color: 'text-red-500' },
+        { icon: Clock, value: stats.std_no_response, color: 'text-slate-400' },
       ] : undefined,
     },
     {
