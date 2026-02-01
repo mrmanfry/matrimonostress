@@ -1,6 +1,8 @@
 // Guest Analytics Utility Functions
 // Calculates comprehensive statistics for the wedding guest management system
 
+import { getEffectiveStatus } from "@/lib/nucleusStatusHelper";
+
 export interface GuestForAnalytics {
   id: string;
   first_name: string;
@@ -175,16 +177,28 @@ export function calculateGuestAnalytics(
   const withoutPhone = regularGuests.length - withPhone;
 
   // Campaign funnel (regular guests only - couple members don't go through funnel)
-  // Note: if someone has std_response, they effectively "received" the STD (maybe via family referent)
-  const hasStdInfo = (g: GuestForAnalytics) => g.save_the_date_sent_at || g.std_response;
-  const draftCount = regularGuests.filter(g => !hasStdInfo(g) && !g.formal_invite_sent_at).length;
-  const stdSentCount = regularGuests.filter(g => hasStdInfo(g) && !g.formal_invite_sent_at).length;
-  const stdRespondedCount = regularGuests.filter(g => g.std_responded_at || g.std_response).length;
+  // Uses nucleus-aware logic: if party referent is contacted, all members are considered contacted
+  const draftCount = regularGuests.filter(g => {
+    const status = getEffectiveStatus(g, guests);
+    return !status.hasStdSent && !status.hasFormalInvite;
+  }).length;
+
+  const stdSentCount = regularGuests.filter(g => {
+    const status = getEffectiveStatus(g, guests);
+    return status.hasStdSent && !status.hasFormalInvite;
+  }).length;
+
+  const invitedCount = regularGuests.filter(g => {
+    const status = getEffectiveStatus(g, guests);
+    return status.hasFormalInvite;
+  }).length;
+
+  // STD responses remain on individual guest (who actually responded)
+  const stdRespondedCount = regularGuests.filter(g => g.std_response).length;
   const stdResponseRate = stdSentCount > 0 ? (stdRespondedCount / stdSentCount) * 100 : 0;
   const stdLikelyYes = regularGuests.filter(g => g.std_response === 'likely_yes').length;
   const stdUnsure = regularGuests.filter(g => g.std_response === 'unsure').length;
   const stdLikelyNo = regularGuests.filter(g => g.std_response === 'likely_no').length;
-  const invitedCount = regularGuests.filter(g => g.formal_invite_sent_at).length;
 
   // Menu breakdown (includes everyone)
   const menuCounts: Record<string, number> = {};
