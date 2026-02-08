@@ -91,7 +91,7 @@ export function CalculationModeToggle({
       {value === 'expected' && expectedDetails && (
         <p className="text-xs text-muted-foreground">
           <span className="font-medium">
-            {expectedDetails.totalHeadCount ?? (expectedDetails.adults + expectedDetails.children + expectedDetails.staff + (expectedDetails.plusOnesConfirmed || 0))} coperti previsti
+            {expectedDetails.totalHeadCount ?? (expectedDetails.adults + expectedDetails.children + expectedDetails.staff + (expectedDetails.plusOnesConfirmed || 0) + (expectedDetails.plusOnesPotential || 0))} coperti previsti
           </span>
           <br />
           <span className="text-muted-foreground/80">
@@ -99,12 +99,12 @@ export function CalculationModeToggle({
               expectedDetails.adults, 
               expectedDetails.children, 
               expectedDetails.staff, 
-              expectedDetails.plusOnesConfirmed
+              (expectedDetails.plusOnesConfirmed || 0) + (expectedDetails.plusOnesPotential || 0)
             )}
           </span>
-          {expectedDetails.plusOnesPotential && expectedDetails.plusOnesPotential > 0 && (
+          {expectedDetails.plusOnesPotential && expectedDetails.plusOnesPotential > 0 && expectedDetails.plusOnesConfirmed && expectedDetails.plusOnesConfirmed > 0 && (
             <span className="text-muted-foreground/60 ml-1">
-              (+{expectedDetails.plusOnesPotential} potenziali)
+              ({expectedDetails.plusOnesConfirmed} confermati)
             </span>
           )}
         </p>

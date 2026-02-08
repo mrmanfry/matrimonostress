@@ -71,7 +71,8 @@ export function calculateExpectedCounts(
       g => g.allow_plus_one && (!g.plus_one_name || g.plus_one_name.trim() === '')
     ).length;
     
-    const totalHeadCount = adults + children + vendorStaffTotal + plusOnesConfirmed;
+    // In modalità "Previsti" includi TUTTI i +1 (confermati + potenziali) per pianificazione catering
+    const totalHeadCount = adults + children + vendorStaffTotal + plusOnesConfirmed + plusOnesPotential;
     
     return {
       adults,
@@ -80,7 +81,7 @@ export function calculateExpectedCounts(
       plusOnesConfirmed,
       plusOnesPotential,
       source: 'full_list',
-      details: `Lista completa (${adults + children} invitati${plusOnesConfirmed > 0 ? ` + ${plusOnesConfirmed} accomp.` : ''}, STD non ancora inviati)`,
+      details: `Lista completa (${adults + children} invitati${(plusOnesConfirmed + plusOnesPotential) > 0 ? ` + ${plusOnesConfirmed + plusOnesPotential} accomp.` : ''}, STD non ancora inviati)`,
       totalHeadCount
     };
   }
@@ -115,7 +116,8 @@ export function calculateExpectedCounts(
     g => g.allow_plus_one && (!g.plus_one_name || g.plus_one_name.trim() === '')
   ).length;
   
-  const totalHeadCount = totalAdults + totalChildren + vendorStaffTotal + plusOnesConfirmed;
+  // In modalità "Previsti" includi TUTTI i +1 (confermati + potenziali) per pianificazione catering
+  const totalHeadCount = totalAdults + totalChildren + vendorStaffTotal + plusOnesConfirmed + plusOnesPotential;
   
   // Costruisci la stringa di dettaglio
   const detailParts: string[] = [];
@@ -136,11 +138,14 @@ export function calculateExpectedCounts(
   if (vendorStaffTotal > 0) {
     responseDetails += ` + ${vendorStaffTotal} staff`;
   }
-  if (plusOnesConfirmed > 0) {
-    responseDetails += ` + ${plusOnesConfirmed} accomp.`;
-  }
-  if (plusOnesPotential > 0) {
-    responseDetails += ` (+ ${plusOnesPotential} potenziali)`;
+  
+  // Mostra tutti i +1 insieme (confermati + potenziali)
+  const totalPlusOnes = plusOnesConfirmed + plusOnesPotential;
+  if (totalPlusOnes > 0) {
+    responseDetails += ` + ${totalPlusOnes} accomp.`;
+    if (plusOnesPotential > 0 && plusOnesConfirmed > 0) {
+      responseDetails += ` (${plusOnesConfirmed} confermati)`;
+    }
   }
   
   return {
