@@ -7,9 +7,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Upload, Loader2, Smartphone, Type, Palette } from "lucide-react";
+import { Upload, Loader2, Smartphone, Type, Palette, MapPin } from "lucide-react";
 import { CampaignConfig, CampaignsConfig } from "./CampaignCard";
 import { SaveTheDateView } from "@/components/rsvp/SaveTheDateView";
+import { FormalInviteView } from "@/components/rsvp/FormalInviteView";
 
 interface CampaignConfigDialogProps {
   open: boolean;
@@ -47,24 +48,38 @@ const CampaignConfigDialog = ({
   const [fontFamily, setFontFamily] = useState<"serif" | "sans" | "elegant">("serif");
   const [primaryColor, setPrimaryColor] = useState("#D4AF37");
 
+  // Location state (RSVP only)
+  const [ceremonyVenueName, setCeremonyVenueName] = useState("");
+  const [ceremonyVenueAddress, setCeremonyVenueAddress] = useState("");
+  const [receptionVenueName, setReceptionVenueName] = useState("");
+  const [receptionVenueAddress, setReceptionVenueAddress] = useState("");
+  const [receptionStartTime, setReceptionStartTime] = useState("");
+  const [ceremonyStartTimeState, setCeremonyStartTimeState] = useState("");
+
   const isSTD = campaignType === "save_the_date";
   const title = isSTD ? "Configura Save The Date" : "Configura Invito RSVP";
 
-  // Load wedding location
+  // Load wedding location and venue details
   useEffect(() => {
-    const loadWeddingLocation = async () => {
+    const loadWeddingDetails = async () => {
       if (open && weddingId) {
         const { data } = await supabase
           .from("weddings")
-          .select("location")
+          .select("location, ceremony_venue_name, ceremony_venue_address, ceremony_start_time, reception_venue_name, reception_venue_address, reception_start_time")
           .eq("id", weddingId)
           .single();
-        if (data?.location) {
-          setWeddingLocationState(data.location);
+        if (data) {
+          setWeddingLocationState(data.location || "");
+          setCeremonyVenueName(data.ceremony_venue_name || "");
+          setCeremonyVenueAddress(data.ceremony_venue_address || "");
+          setCeremonyStartTimeState(data.ceremony_start_time || "");
+          setReceptionVenueName(data.reception_venue_name || "");
+          setReceptionVenueAddress(data.reception_venue_address || "");
+          setReceptionStartTime(data.reception_start_time || "");
         }
       }
     };
-    loadWeddingLocation();
+    loadWeddingDetails();
   }, [open, weddingId]);
 
   useEffect(() => {
@@ -191,10 +206,24 @@ const CampaignConfigDialog = ({
         show_countdown: false, // Always false now
       };
 
-      // Also update wedding location
+      // Also update wedding location and venue details
+      const venueUpdate: Record<string, any> = {
+        location: weddingLocationState || null,
+      };
+
+      // For RSVP campaign, also save venue details
+      if (!isSTDCampaign) {
+        venueUpdate.ceremony_venue_name = ceremonyVenueName || null;
+        venueUpdate.ceremony_venue_address = ceremonyVenueAddress || null;
+        venueUpdate.ceremony_start_time = ceremonyStartTimeState || null;
+        venueUpdate.reception_venue_name = receptionVenueName || null;
+        venueUpdate.reception_venue_address = receptionVenueAddress || null;
+        venueUpdate.reception_start_time = receptionStartTime || null;
+      }
+
       const { error: locationError } = await supabase
         .from("weddings")
-        .update({ location: weddingLocationState || null })
+        .update(venueUpdate)
         .eq("id", weddingId);
 
       if (locationError) throw locationError;
@@ -239,11 +268,17 @@ const CampaignConfigDialog = ({
           {/* Configuration Panel */}
           <div className="space-y-6">
             <Tabs defaultValue="content" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className={`grid w-full ${isSTD ? 'grid-cols-2' : 'grid-cols-3'}`}>
                 <TabsTrigger value="content" className="flex items-center gap-1">
                   <Type className="w-4 h-4" />
                   Contenuti
                 </TabsTrigger>
+                {!isSTD && (
+                  <TabsTrigger value="location" className="flex items-center gap-1">
+                    <MapPin className="w-4 h-4" />
+                    Location
+                  </TabsTrigger>
+                )}
                 <TabsTrigger value="design" className="flex items-center gap-1">
                   <Palette className="w-4 h-4" />
                   Design
@@ -354,6 +389,83 @@ const CampaignConfigDialog = ({
                   </div>
                 )}
               </TabsContent>
+
+              {/* Location Tab (RSVP only) */}
+              {!isSTD && (
+                <TabsContent value="location" className="space-y-4 mt-4">
+                  {/* Ceremony Section */}
+                  <div className="space-y-3">
+                    <h4 className="font-medium text-sm flex items-center gap-2">
+                      <span className="text-lg">⛪</span> La Cerimonia
+                    </h4>
+                    <div className="space-y-2">
+                      <Label htmlFor="ceremonyVenueName">Nome Location</Label>
+                      <Input
+                        id="ceremonyVenueName"
+                        value={ceremonyVenueName}
+                        onChange={(e) => setCeremonyVenueName(e.target.value)}
+                        placeholder="Es: Cattedrale di Trani"
+                        maxLength={100}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="ceremonyVenueAddress">Indirizzo</Label>
+                      <Input
+                        id="ceremonyVenueAddress"
+                        value={ceremonyVenueAddress}
+                        onChange={(e) => setCeremonyVenueAddress(e.target.value)}
+                        placeholder="Es: Piazza Duomo 1, Trani"
+                        maxLength={200}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="ceremonyStartTime">Orario Cerimonia</Label>
+                      <Input
+                        id="ceremonyStartTime"
+                        type="time"
+                        value={ceremonyStartTimeState}
+                        onChange={(e) => setCeremonyStartTimeState(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Reception Section */}
+                  <div className="space-y-3 pt-4 border-t">
+                    <h4 className="font-medium text-sm flex items-center gap-2">
+                      <span className="text-lg">🎉</span> Il Ricevimento
+                    </h4>
+                    <div className="space-y-2">
+                      <Label htmlFor="receptionVenueName">Nome Location</Label>
+                      <Input
+                        id="receptionVenueName"
+                        value={receptionVenueName}
+                        onChange={(e) => setReceptionVenueName(e.target.value)}
+                        placeholder="Es: Tenuta Montevitolo"
+                        maxLength={100}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="receptionVenueAddress">Indirizzo</Label>
+                      <Input
+                        id="receptionVenueAddress"
+                        value={receptionVenueAddress}
+                        onChange={(e) => setReceptionVenueAddress(e.target.value)}
+                        placeholder="Es: Via Vecchia Spinazzola Km 9,200, Andria"
+                        maxLength={200}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="receptionStartTime">Orario Ricevimento</Label>
+                      <Input
+                        id="receptionStartTime"
+                        type="time"
+                        value={receptionStartTime}
+                        onChange={(e) => setReceptionStartTime(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </TabsContent>
+              )}
 
               <TabsContent value="design" className="space-y-4 mt-4">
                 {/* Font Family */}
@@ -466,51 +578,40 @@ const CampaignConfigDialog = ({
                       }}
                     />
                   ) : (
-                    // RSVP Preview - simplified mockup for now
-                    <div className="min-h-screen bg-background">
-                      {heroImageUrl && (
-                        <div className="h-48 w-full overflow-hidden">
-                          <img src={heroImageUrl} alt="Hero" className="w-full h-full object-cover" />
-                        </div>
-                      )}
-                      <div className="p-6 space-y-4">
-                        <h1 
-                          className={`text-2xl font-bold text-center ${
-                            fontFamily === "serif" ? "font-serif" :
-                            fontFamily === "sans" ? "font-sans" :
-                            "font-serif italic"
-                          }`}
-                          style={{ color: primaryColor }}
-                        >
-                          {partnerNames || "Marco & Giulia"}
-                        </h1>
-                        <p className="text-center text-muted-foreground">
-                          {weddingDate 
-                            ? new Date(weddingDate).toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" })
-                            : "14 Giugno 2026"
-                          }
-                        </p>
-                        <div className="bg-muted/30 rounded-lg p-4 text-center">
-                          <h2 className="font-semibold mb-2">{welcomeTitle || "Conferma la tua Presenza"}</h2>
-                          <p className="text-sm text-muted-foreground">{welcomeText || "Non vediamo l'ora di festeggiare con voi!"}</p>
-                        </div>
-                        <div className="space-y-3">
-                          <div className="border rounded-lg p-3">
-                            <p className="text-sm font-medium mb-2">Mario Rossi</p>
-                            <div className="flex gap-2">
-                              <button className="flex-1 py-2 rounded border text-sm hover:bg-muted transition-colors">Ci sarò</button>
-                              <button className="flex-1 py-2 rounded border text-sm hover:bg-muted transition-colors">Non ci sarò</button>
-                            </div>
-                          </div>
-                        </div>
-                        <button 
-                          className="w-full py-3 rounded-lg text-white font-medium"
-                          style={{ backgroundColor: primaryColor }}
-                        >
-                          Conferma Presenza
-                        </button>
-                      </div>
-                    </div>
+                    // RSVP Preview - Real FormalInviteView Component
+                    <FormalInviteView
+                      coupleName={partnerNames || "Marco & Giulia"}
+                      weddingDate={weddingDate || new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
+                      ceremonyVenueName={ceremonyVenueName || "Cattedrale di Trani"}
+                      ceremonyVenueAddress={ceremonyVenueAddress || "Piazza Duomo 1, Trani"}
+                      ceremonyStartTime={ceremonyStartTimeState || "16:00"}
+                      receptionVenueName={receptionVenueName || "Tenuta Montevitolo"}
+                      receptionVenueAddress={receptionVenueAddress || "Via Vecchia Spinazzola Km 9,200, Andria"}
+                      receptionStartTime={receptionStartTime || "19:00"}
+                      guestFirstName="Mario"
+                      isSingleGuest={false}
+                      partyName="Famiglia Rossi"
+                      members={[
+                        { id: "1", first_name: "Mario", last_name: "Rossi", is_child: false, allow_plus_one: true, rsvp_status: "pending", menu_choice: null, dietary_restrictions: null, plus_one_name: null, plus_one_menu: null },
+                        { id: "2", first_name: "Laura", last_name: "Rossi", is_child: false, allow_plus_one: false, rsvp_status: "pending", menu_choice: null, dietary_restrictions: null, plus_one_name: null, plus_one_menu: null },
+                      ]}
+                      heroImageUrl={heroImageUrl}
+                      welcomeTitle={welcomeTitle || "Conferma la tua Presenza"}
+                      welcomeText={welcomeText || "Non vediamo l'ora di festeggiare con voi!"}
+                      theme={{
+                        font_family: fontFamily,
+                        primary_color: primaryColor,
+                        show_countdown: false,
+                      }}
+                      isPreview={true}
+                      memberData={{}}
+                      onMemberDataChange={() => {}}
+                      onSubmit={async () => {
+                        toast({ title: "Anteprima", description: "Questo è solo un test!" });
+                      }}
+                      submitting={false}
+                      submitted={false}
+                    />
                   )}
                 </div>
               </div>
