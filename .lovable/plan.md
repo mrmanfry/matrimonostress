@@ -1,105 +1,206 @@
 
-## Piano: Razionalizzare il Calcolo Ospiti con +1
+## Piano: Implementare l'Invito Ufficiale RSVP Immersivo
 
-### Problema Identificato
-Il tooltip del "Calculation Mode Toggle" mostra solo gli ospiti nel database (166 adulti, 9 bambini, 4 staff), ma **ignora completamente i +1 (accompagnatori)**:
-- **+1 Confermati**: ospiti con `plus_one_name` compilato (persone fisiche reali)
-- **+1 Potenziali**: ospiti con `allow_plus_one = true` ma senza nome (coperti da prevedere per catering)
+### Analisi del Design Fornito
 
-Questo causa confusione perché il numero di "coperti" reali è diverso dal numero mostrato.
+Dal codice HTML fornito, l'invito ufficiale ha questa struttura:
 
-### Soluzione Proposta
+1. **Header/Nav**: Pulsanti RSVP e Instagram (link social)
+2. **Hero Section**: Full-screen con nomi sposi + data + decorazioni floreali
+3. **Sezione Cerimonia**: Location chiesa con indirizzo, orario e link Maps
+4. **Sezione Ricevimento**: Location venue con indirizzo, orario e link Maps
+5. **Form RSVP**: Nome, email, conferma si/no
+6. **Lista Nozze**: IBAN e dettagli bonifico
+7. **FAQ/Info Utili**: Domande frequenti (bambini, parcheggio, etc.)
+8. **Footer**: Nomi sposi e data
 
-#### 1. Estendere `ExpectedResult` in `expectedCalculator.ts`
-Aggiungere campi per i +1:
+### Cosa Esiste Gia
+
+| Componente | Stato |
+|------------|-------|
+| `SaveTheDateView.tsx` | Funzionante (hero immersivo, temi, calendario) |
+| `RSVPPublic.tsx` | Form card-based funzionante (menu, +1, allergie) |
+| `rsvp-handler` edge function | Gestisce fetch/submit per STD e RSVP |
+| `CampaignConfigDialog.tsx` | Configura hero, testi, tema (solo STD ha preview live) |
+| Campo `ceremony_start_time` | Esiste nel DB |
+| Campo `location` | Esiste nel DB (citta generica) |
+
+### Cosa Manca nel Database
+
+Nuovi campi da aggiungere alla tabella `weddings`:
+
+| Campo | Tipo | Descrizione |
+|-------|------|-------------|
+| `ceremony_venue_name` | TEXT | Nome chiesa/luogo cerimonia |
+| `ceremony_venue_address` | TEXT | Indirizzo completo cerimonia |
+| `reception_venue_name` | TEXT | Nome location ricevimento |
+| `reception_venue_address` | TEXT | Indirizzo completo ricevimento |
+| `reception_start_time` | TIME | Orario inizio ricevimento |
+
+### Differenze Chiave con l'HTML Fornito
+
+L'HTML fornito richiede che l'utente cerchi il proprio nome. Il nostro sistema e migliore perche:
+
+- Usiamo link personalizzati con token univoco
+- Sappiamo gia chi e l'ospite (nome, cognome, alias)
+- Sappiamo se fa parte di un nucleo familiare
+- Sappiamo se ha diritto al +1
+
+Questo elimina il form di ricerca e permette un saluto personalizzato immediato.
+
+### Struttura del Nuovo `FormalInviteView.tsx`
+
+```text
++-----------------------------------------------+
+|  [Nav sticky: RSVP button | Social links]     |
++-----------------------------------------------+
+|                                               |
+|   [HERO - 100vh con immagine sfondo]          |
+|                                               |
+|         Marco  e  Giulia                      |
+|                                               |
+|       Venerdi 26 Luglio 2025                  |
+|                                               |
+|         [Decorazione floreale]                |
+|                                               |
++-----------------------------------------------+
+|                                               |
+|              LA CERIMONIA                     |
+|                                               |
+|    [Icona Chiesa]                             |
+|    Cattedrale di Trani                        |
+|    Piazza Duomo 1, Trani                      |
+|    ORE 16:00                                  |
+|    [Apri in Maps]                             |
+|                                               |
++-----------------------------------------------+
+|                                               |
+|             IL RICEVIMENTO                    |
+|                                               |
+|    [Icona Location]                           |
+|    Tenuta Montevitolo                         |
+|    Via Vecchia Spinazzola Km 9,200            |
+|    ORE 19:00                                  |
+|    [Apri in Maps]                             |
+|                                               |
++-----------------------------------------------+
+|                                               |
+|   RSVP - Ciao Mario! Conferma la tua presenza |
+|                                               |
+|   [Card per ogni membro nucleo]               |
+|   - Mario Rossi     [Ci saro] [Non ci saro]   |
+|     > Vegetariano/Vegano                      |
+|     > Allergie                                |
+|     > +1 (se abilitato): [Nome accomp.]       |
+|                                               |
+|   - Laura Rossi     [Ci saro] [Non ci saro]   |
+|     > ...                                     |
+|                                               |
+|            [CONFERMA PRESENZA]                |
+|                                               |
++-----------------------------------------------+
+|                                               |
+|           [Footer con nomi e data]            |
+|                                               |
++-----------------------------------------------+
+```
+
+### Modifiche da Implementare
+
+#### 1. Migrazione Database
+Aggiungere 5 nuovi campi alla tabella `weddings`:
+- `ceremony_venue_name` (TEXT)
+- `ceremony_venue_address` (TEXT)
+- `reception_venue_name` (TEXT)
+- `reception_venue_address` (TEXT)
+- `reception_start_time` (TIME)
+
+#### 2. Nuovo Componente `FormalInviteView.tsx`
+Creare componente React con:
+- Hero full-screen immersivo (riusa stile SaveTheDateView)
+- Sezione "La Cerimonia" con nome venue, indirizzo, orario, link Maps
+- Sezione "Il Ricevimento" con nome venue, indirizzo, orario, link Maps
+- Saluto personalizzato con nome ospite/nucleo
+- Form RSVP granulare per-membro (riusa logica da RSVPPublic.tsx)
+- Styling coerente con tema configurato (font, colori)
+- Responsive mobile-first
+
+#### 3. Aggiornare `rsvp-handler` Edge Function
+- Aggiungere i nuovi campi alla SELECT query del wedding
+- Includerli nella risposta API
+
+#### 4. Aggiornare `RSVPPublic.tsx`
+- Importare e usare `FormalInviteView` quando NON in STD mode
+- Passare i nuovi campi location al componente
+
+#### 5. Aggiornare `CampaignConfigDialog.tsx`
+- Aggiungere tab "Location" per campagna RSVP (non STD)
+- Campi: nome chiesa, indirizzo chiesa, nome venue, indirizzo venue, orario ricevimento
+- Preview live del FormalInviteView (come gia fatto per STD)
+
+### Props del Nuovo Componente
+
 ```typescript
-export interface ExpectedResult {
-  adults: number;
-  children: number;
-  staff: number;
-  plusOnesConfirmed: number;   // +1 con nome
-  plusOnesPotential: number;   // +1 solo permessi
-  source: 'std_responses' | 'full_list';
-  details: string;
-  totalHeadCount: number;      // Totale coperti (adulti + bambini + staff + +1)
+interface FormalInviteViewProps {
+  // Coppia e data
+  coupleName: string;
+  weddingDate: string;
+  timezone?: string;
+  
+  // Cerimonia
+  ceremonyVenueName?: string;
+  ceremonyVenueAddress?: string;
+  ceremonyStartTime?: string;
+  
+  // Ricevimento
+  receptionVenueName?: string;
+  receptionVenueAddress?: string;
+  receptionStartTime?: string;
+  
+  // Ospite
+  guestFirstName: string;
+  guestAlias?: string | null;
+  isSingleGuest: boolean;
+  partyName?: string;
+  members: GuestMember[];
+  
+  // Config visuale
+  heroImageUrl?: string | null;
+  welcomeTitle?: string;
+  welcomeText?: string;
+  theme?: Theme | null;
+  
+  // Stato
+  isReadOnly?: boolean;
+  isPreview?: boolean;
+  deadlineDate?: string | null;
+  
+  // Callbacks
+  memberData: Record<string, MemberData>;
+  onMemberDataChange: (data: Record<string, MemberData>) => void;
+  onSubmit: () => Promise<void>;
+  submitting: boolean;
 }
 ```
 
-#### 2. Aggiornare `calculateExpectedCounts()` per Contare +1
-Modificare la funzione per:
-- Recuperare `allow_plus_one` e `plus_one_name` dagli ospiti
-- Contare +1 confermati (con nome) e potenziali (solo permesso)
-- Calcolare `totalHeadCount` = adulti + bambini + staff + +1
+### Flusso di Configurazione per Utente
 
-#### 3. Aggiornare l'Interfaccia `Guest` in `expectedCalculator.ts`
-Aggiungere:
-```typescript
-export interface Guest {
-  // ... campi esistenti
-  allow_plus_one?: boolean;
-  plus_one_name?: string | null;
-}
-```
+1. **Settings -> Comunicazioni -> Invito RSVP -> Configura**
+2. Tab "Contenuti": hero image, titolo, messaggio, deadline
+3. Tab "Location" (NUOVO):
+   - Cerimonia: nome chiesa, indirizzo, orario
+   - Ricevimento: nome venue, indirizzo, orario
+4. Tab "Design": font, colore primario
+5. Preview live con `FormalInviteView`
 
-#### 4. Aggiornare i Chiamanti (Treasury, BudgetLegacy, VendorExpensesWidget)
-Passare i campi `allow_plus_one` e `plus_one_name` quando mappano gli ospiti.
+### Stima Implementazione
 
-#### 5. Aggiornare `calculation-mode-toggle.tsx`
-Migliorare il tooltip per mostrare anche i +1:
-```
-Previsti: 166 adulti, 9 bambini, 4 staff, 12 accompagnatori
-125 sì + 4 forse + 46 in attesa + 4 staff + 12 +1 confermati
-```
+| Fase | File | Complessita |
+|------|------|-------------|
+| 1 | Migrazione DB (5 campi) | Bassa |
+| 2 | `FormalInviteView.tsx` (~400 righe) | Alta |
+| 3 | `rsvp-handler` update | Bassa |
+| 4 | `RSVPPublic.tsx` update | Media |
+| 5 | `CampaignConfigDialog.tsx` update | Media |
 
-Oppure, mostrare direttamente il **totale coperti** in modo più chiaro:
-```
-191 coperti previsti (166 adulti, 9 bambini, 4 staff, 12 +1)
-```
-
-### File da Modificare
-
-| File | Modifica |
-|------|----------|
-| `src/lib/expectedCalculator.ts` | Estendere interface + calcolare +1 |
-| `src/components/ui/calculation-mode-toggle.tsx` | Mostrare +1 nel tooltip |
-| `src/pages/Treasury.tsx` | Passare campi +1 al calcolo |
-| `src/pages/BudgetLegacy.tsx` | Passare campi +1 al calcolo |
-| `src/components/vendors/widgets/VendorExpensesWidget.tsx` | Passare campi +1 al calcolo |
-
-### Risultato Atteso
-L'utente vedrà nel toggle:
-- **Totale coperti** che include +1 confermati
-- **Breakdown** chiaro con adulti, bambini, staff, accompagnatori
-- Quando in "Previsti", anche i +1 potenziali vengono mostrati come nota (per pianificazione catering)
-
-### Dettagli Tecnici
-
-#### Logica +1 nel Contesto STD
-Quando calcoliamo i "Previsti" basandoci sulle risposte STD:
-- Se un ospite risponde "likely_yes" e ha `allow_plus_one = true`, il +1 è "potenziale"
-- Se lo stesso ospite ha `plus_one_name = "Giulia"`, il +1 è "confermato"
-- Solo i +1 confermati contano come coperti certi
-
-```typescript
-// Nuova logica in calculateExpectedCounts
-const plusOnesConfirmed = expectedGuests.filter(
-  g => g.plus_one_name && g.plus_one_name.trim() !== ''
-).length;
-
-const plusOnesPotential = expectedGuests.filter(
-  g => g.allow_plus_one && (!g.plus_one_name || g.plus_one_name.trim() === '')
-).length;
-
-const totalHeadCount = adults + children + staff + plusOnesConfirmed;
-```
-
-#### Presentazione UI Consigliata
-```
-┌─────────────────────────────────────────────────┐
-│ ○ Pianificato  ● Previsti  ○ Confermati         │
-├─────────────────────────────────────────────────┤
-│ 191 coperti previsti                            │
-│ 166 adulti + 9 bambini + 4 staff + 12 accomp.   │
-│ (+ 8 accompagnatori potenziali)                 │
-└─────────────────────────────────────────────────┘
-```
+**Totale stimato**: 4-5 messaggi di implementazione
