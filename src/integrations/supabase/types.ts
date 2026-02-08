@@ -1383,12 +1383,17 @@ export type Database = {
           calculation_mode: string | null
           campaigns_config: Json | null
           ceremony_start_time: string | null
+          ceremony_venue_address: string | null
+          ceremony_venue_name: string | null
           created_at: string
           created_by: string
           id: string
           location: string | null
           partner1_name: string
           partner2_name: string
+          reception_start_time: string | null
+          reception_venue_address: string | null
+          reception_venue_name: string | null
           rsvp_config: Json | null
           slug: string | null
           target_adults: number | null
@@ -1404,12 +1409,17 @@ export type Database = {
           calculation_mode?: string | null
           campaigns_config?: Json | null
           ceremony_start_time?: string | null
+          ceremony_venue_address?: string | null
+          ceremony_venue_name?: string | null
           created_at?: string
           created_by: string
           id?: string
           location?: string | null
           partner1_name: string
           partner2_name: string
+          reception_start_time?: string | null
+          reception_venue_address?: string | null
+          reception_venue_name?: string | null
           rsvp_config?: Json | null
           slug?: string | null
           target_adults?: number | null
@@ -1425,12 +1435,17 @@ export type Database = {
           calculation_mode?: string | null
           campaigns_config?: Json | null
           ceremony_start_time?: string | null
+          ceremony_venue_address?: string | null
+          ceremony_venue_name?: string | null
           created_at?: string
           created_by?: string
           id?: string
           location?: string | null
           partner1_name?: string
           partner2_name?: string
+          reception_start_time?: string | null
+          reception_venue_address?: string | null
+          reception_venue_name?: string | null
           rsvp_config?: Json | null
           slug?: string | null
           target_adults?: number | null
