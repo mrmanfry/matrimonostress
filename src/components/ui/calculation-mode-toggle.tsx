@@ -20,6 +20,9 @@ interface CalculationModeToggleProps {
     adults: number;
     children: number;
     staff: number;
+    plusOnesConfirmed?: number;
+    plusOnesPotential?: number;
+    totalHeadCount?: number;
   };
 }
 
@@ -30,6 +33,21 @@ export function CalculationModeToggle({
   plannedCounts,
   expectedDetails 
 }: CalculationModeToggleProps) {
+  // Helper per formattare il breakdown con +1
+  const formatBreakdown = (
+    adults: number, 
+    children: number, 
+    staff: number, 
+    plusOnes?: number
+  ) => {
+    const parts: string[] = [];
+    if (adults > 0) parts.push(`${adults} adulti`);
+    if (children > 0) parts.push(`${children} bambini`);
+    if (staff > 0) parts.push(`${staff} staff`);
+    if (plusOnes && plusOnes > 0) parts.push(`${plusOnes} accomp.`);
+    return parts.join(', ');
+  };
+
   return (
     <div className="flex flex-col gap-2">
       <ToggleGroup 
@@ -66,15 +84,29 @@ export function CalculationModeToggle({
       
       {plannedCounts && value === 'planned' && (
         <p className="text-xs text-muted-foreground">
-          {plannedCounts.adults} adulti, {plannedCounts.children} bambini, {plannedCounts.staff} staff
+          {formatBreakdown(plannedCounts.adults, plannedCounts.children, plannedCounts.staff)}
         </p>
       )}
       
       {value === 'expected' && expectedDetails && (
         <p className="text-xs text-muted-foreground">
-          {expectedDetails.adults} adulti, {expectedDetails.children} bambini, {expectedDetails.staff} staff
+          <span className="font-medium">
+            {expectedDetails.totalHeadCount ?? (expectedDetails.adults + expectedDetails.children + expectedDetails.staff + (expectedDetails.plusOnesConfirmed || 0))} coperti previsti
+          </span>
           <br />
-          <span className="text-muted-foreground/70">{expectedDetails.details}</span>
+          <span className="text-muted-foreground/80">
+            {formatBreakdown(
+              expectedDetails.adults, 
+              expectedDetails.children, 
+              expectedDetails.staff, 
+              expectedDetails.plusOnesConfirmed
+            )}
+          </span>
+          {expectedDetails.plusOnesPotential && expectedDetails.plusOnesPotential > 0 && (
+            <span className="text-muted-foreground/60 ml-1">
+              (+{expectedDetails.plusOnesPotential} potenziali)
+            </span>
+          )}
         </p>
       )}
       

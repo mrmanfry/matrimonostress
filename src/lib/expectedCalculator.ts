@@ -3,6 +3,7 @@
  * - Se STD non inviati: lista completa invitati
  * - Se STD inviati: risposte "likely_yes" + "unsure" + "in attesa"
  * - Staff: somma staff_meals_count da tutti i fornitori
+ * - +1 (accompagnatori): conta quelli confermati (con nome) e potenziali (solo permesso)
  * 
  * IMPORTANTE: Usa getEffectiveStatus per l'eredità nucleo (party_id)
  * Un ospite senza save_the_date_sent_at può comunque essere considerato
@@ -21,14 +22,20 @@ export interface Guest {
   // Campi necessari per getEffectiveStatus
   party_id?: string | null;
   phone?: string | null;
+  // Campi per +1
+  allow_plus_one?: boolean;
+  plus_one_name?: string | null;
 }
 
 export interface ExpectedResult {
   adults: number;
   children: number;
   staff: number;
+  plusOnesConfirmed: number;   // +1 con nome compilato
+  plusOnesPotential: number;   // +1 solo permessi (allow_plus_one=true senza nome)
   source: 'std_responses' | 'full_list';
   details: string;
+  totalHeadCount: number;      // Totale coperti (adulti + bambini + staff + +1 confermati)
 }
 
 /**
@@ -56,12 +63,25 @@ export function calculateExpectedCounts(
     const adults = invitedGuests.filter(g => !g.is_child).length;
     const children = invitedGuests.filter(g => g.is_child).length;
     
+    // Conta +1 dalla lista completa
+    const plusOnesConfirmed = invitedGuests.filter(
+      g => g.plus_one_name && g.plus_one_name.trim() !== ''
+    ).length;
+    const plusOnesPotential = invitedGuests.filter(
+      g => g.allow_plus_one && (!g.plus_one_name || g.plus_one_name.trim() === '')
+    ).length;
+    
+    const totalHeadCount = adults + children + vendorStaffTotal + plusOnesConfirmed;
+    
     return {
       adults,
       children,
       staff: vendorStaffTotal,
+      plusOnesConfirmed,
+      plusOnesPotential,
       source: 'full_list',
-      details: `Lista completa (${adults + children} invitati, STD non ancora inviati)`
+      details: `Lista completa (${adults + children} invitati${plusOnesConfirmed > 0 ? ` + ${plusOnesConfirmed} accomp.` : ''}, STD non ancora inviati)`,
+      totalHeadCount
     };
   }
   
@@ -71,6 +91,9 @@ export function calculateExpectedCounts(
   const unsureGuests = guestsWithEffectiveStd.filter(g => g.std_response === 'unsure');
   // In attesa = chi ha STD effettivo ma non ha ancora risposto
   const noResponseGuests = guestsWithEffectiveStd.filter(g => !g.std_response);
+  
+  // Ospiti previsti = likely_yes + unsure + no_response
+  const expectedGuests = [...likelyYesGuests, ...unsureGuests, ...noResponseGuests];
   
   const likelyYesAdults = likelyYesGuests.filter(g => !g.is_child).length;
   const likelyYesChildren = likelyYesGuests.filter(g => g.is_child).length;
@@ -84,6 +107,16 @@ export function calculateExpectedCounts(
   const totalAdults = likelyYesAdults + unsureAdults + noResponseAdults;
   const totalChildren = likelyYesChildren + unsureChildren + noResponseChildren;
   
+  // Conta +1 solo dagli ospiti previsti (non da chi ha risposto "likely_no")
+  const plusOnesConfirmed = expectedGuests.filter(
+    g => g.plus_one_name && g.plus_one_name.trim() !== ''
+  ).length;
+  const plusOnesPotential = expectedGuests.filter(
+    g => g.allow_plus_one && (!g.plus_one_name || g.plus_one_name.trim() === '')
+  ).length;
+  
+  const totalHeadCount = totalAdults + totalChildren + vendorStaffTotal + plusOnesConfirmed;
+  
   // Costruisci la stringa di dettaglio
   const detailParts: string[] = [];
   if (likelyYesGuests.length > 0) {
@@ -96,18 +129,29 @@ export function calculateExpectedCounts(
     detailParts.push(`${noResponseGuests.length} in attesa`);
   }
   
-  const responseDetails = detailParts.length > 0 
+  let responseDetails = detailParts.length > 0 
     ? detailParts.join(' + ') + ' (da risposte STD)'
     : 'Nessuna risposta positiva STD';
   
-  const staffDetails = vendorStaffTotal > 0 ? ` + ${vendorStaffTotal} staff fornitori` : '';
+  if (vendorStaffTotal > 0) {
+    responseDetails += ` + ${vendorStaffTotal} staff`;
+  }
+  if (plusOnesConfirmed > 0) {
+    responseDetails += ` + ${plusOnesConfirmed} accomp.`;
+  }
+  if (plusOnesPotential > 0) {
+    responseDetails += ` (+ ${plusOnesPotential} potenziali)`;
+  }
   
   return {
     adults: totalAdults,
     children: totalChildren,
     staff: vendorStaffTotal,
+    plusOnesConfirmed,
+    plusOnesPotential,
     source: 'std_responses',
-    details: responseDetails + staffDetails
+    details: responseDetails,
+    totalHeadCount
   };
 }
 

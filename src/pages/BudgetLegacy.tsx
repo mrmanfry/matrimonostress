@@ -139,10 +139,10 @@ export default function BudgetLegacy() {
 
       setLineItemsMap(lineItemsData);
 
-      // Load guests with STD data and nucleus fields for expected/confirmed counts
+      // Load guests with STD data, nucleus fields, and +1 fields for expected/confirmed counts
       const { data: guests } = await supabase
         .from("guests")
-        .select("id, rsvp_status, is_child, is_staff, is_couple_member, save_the_date_sent_at, std_response, party_id, phone")
+        .select("id, rsvp_status, is_child, is_staff, is_couple_member, save_the_date_sent_at, std_response, party_id, phone, allow_plus_one, plus_one_name")
         .eq("wedding_id", authState.weddingId);
 
       // Load vendor staff totals
@@ -164,7 +164,7 @@ export default function BudgetLegacy() {
         declined: declinedGuests.length
       });
 
-      // Calculate expected counts with new STD-based logic (nucleus-aware)
+      // Calculate expected counts with new STD-based logic (nucleus-aware) + +1
       const allGuestsForCalc: ExpectedGuest[] = (guests || []).map(g => ({
         id: g.id,
         is_child: g.is_child || false,
@@ -172,7 +172,9 @@ export default function BudgetLegacy() {
         save_the_date_sent_at: g.save_the_date_sent_at,
         std_response: g.std_response,
         party_id: g.party_id,
-        phone: g.phone
+        phone: g.phone,
+        allow_plus_one: g.allow_plus_one || false,
+        plus_one_name: g.plus_one_name
       }));
       
       const guestsForCalc = allGuestsForCalc.filter(g => !((guests || []).find(og => og.id === g.id)?.is_couple_member) && !g.is_staff);
