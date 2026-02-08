@@ -1,6 +1,6 @@
 # Piano: Invito Ufficiale RSVP Immersivo
 
-## Stato: ✅ IMPLEMENTATO (Fase 1)
+## Stato: ✅ IMPLEMENTATO (Fase 1 e 2)
 
 ### Cosa è stato completato
 
@@ -36,20 +36,29 @@ Aggiornata la SELECT query per includere i nuovi campi venue:
 - Passaggio di tutti i nuovi campi location al componente
 - Rimossi import non utilizzati
 
+#### 5. CampaignConfigDialog.tsx ✅
+- Aggiunto tab "Location" per campagna RSVP (non per STD)
+- Campi configurabili: nome chiesa, indirizzo chiesa, orario cerimonia
+- Campi configurabili: nome venue ricevimento, indirizzo, orario
+- Preview live con FormalInviteView reale
+- Salvataggio automatico dei campi venue nel DB
+
 ---
 
-## Prossimi Step (Fase 2)
+## Prossimi Step (Fase 3 - Opzionale)
 
-### 1. Aggiornare CampaignConfigDialog
-Aggiungere tab "Location" per la campagna RSVP con:
-- Cerimonia: nome chiesa, indirizzo, orario (già esistente)
-- Ricevimento: nome venue, indirizzo, orario
-- Preview live del FormalInviteView
+### 1. FAQ/Info Utili Configurabili
+Aggiungere sezione FAQ nell'invito ufficiale:
+- Array di domande/risposte configurabili
+- Gestione nel CampaignConfigDialog
+- Rendering in FormalInviteView
 
-### 2. Aggiornare Settings.tsx
-- Caricare e salvare i nuovi campi location
+### 2. Lista Nozze
+Aggiungere sezione Lista Nozze:
+- Campi: IBAN, intestatario, messaggio personalizzato
+- Opzione mostra/nascondi
+- Pulsante copia IBAN
 
-### 3. Considerazioni Future
-- FAQ/Info Utili configurabili
-- Lista Nozze (IBAN, ecc.)
-- Link social (Instagram)
+### 3. Link Social
+- Campo Instagram handle configurabile
+- Pulsante nel header dell'invito
