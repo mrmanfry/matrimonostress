@@ -29,8 +29,10 @@ import {
   SidebarMenuItem,
   SidebarProvider,
   SidebarTrigger,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { NavLink } from "react-router-dom";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const AppLayout = () => {
   const { authState, signOut } = useAuth();
@@ -106,96 +108,124 @@ const AppLayout = () => {
     );
   }
 
-  const isActive = (path: string) => location.pathname === path;
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full">
-        {/* Sidebar */}
-        <Sidebar collapsible="icon">
-          <SidebarHeader className="border-b border-border p-4">
-            <div className="flex items-center gap-2">
-              <Heart className="w-6 h-6 text-accent fill-accent shrink-0" />
-              <div className="flex-1 overflow-hidden">
-                <p className="font-bold text-sm truncate">Nozze Senza Stress</p>
-                {weddingInfo && (
-                  <p className="text-xs text-muted-foreground truncate">
-                    {weddingInfo.partner1} & {weddingInfo.partner2}
-                  </p>
-                )}
-              </div>
-            </div>
-          </SidebarHeader>
-
-          <SidebarContent>
-            <SidebarGroup>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {navigation.map((item) => {
-                    const Icon = item.icon;
-                    const active = isActive(item.href);
-                    
-                    return (
-                      <SidebarMenuItem key={item.name}>
-                        <SidebarMenuButton asChild isActive={active}>
-                          <NavLink
-                            to={item.href}
-                            className={active ? "bg-accent/20 text-foreground font-medium" : ""}
-                          >
-                            <Icon className="w-5 h-5" />
-                            <span>{item.name}</span>
-                          </NavLink>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    );
-                  })}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          </SidebarContent>
-
-          <SidebarFooter className="border-t border-border p-4">
-            {weddingInfo && (
-              <div className="mb-3 p-3 bg-gradient-hero rounded-lg text-center">
-                <div className="text-3xl font-bold text-accent">{weddingInfo.daysUntil}</div>
-                <div className="text-xs text-muted-foreground">giorni al matrimonio</div>
-              </div>
-            )}
-            <Button
-              variant="ghost"
-              className="w-full justify-start"
-              onClick={signOut}
-            >
-              <LogOut className="w-5 h-5 mr-3" />
-              Esci
-            </Button>
-          </SidebarFooter>
-        </Sidebar>
-
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col">
-          {/* Header with Trigger */}
-          <header className="h-14 border-b border-border bg-card flex items-center px-4 gap-4">
-            <SidebarTrigger />
-            {weddingInfo && (
-              <div className="flex-1 text-center">
-                <h2 className="text-sm font-semibold">
-                  {weddingInfo.partner1} & {weddingInfo.partner2}
-                </h2>
-                <p className="text-xs text-muted-foreground">
-                  {weddingInfo.daysUntil} giorni al matrimonio
-                </p>
-              </div>
-            )}
-          </header>
-
-          {/* Page Content */}
-          <main className="flex-1 overflow-auto">
-            <Outlet />
-          </main>
-        </div>
-      </div>
+      <AppLayoutInner
+        weddingInfo={weddingInfo}
+        navigation={navigation}
+        signOut={signOut}
+        location={location}
+      />
     </SidebarProvider>
+  );
+};
+
+const AppLayoutInner = ({
+  weddingInfo,
+  navigation,
+  signOut,
+  location,
+}: {
+  weddingInfo: { partner1: string; partner2: string; daysUntil: number } | null;
+  navigation: { name: string; href: string; icon: any }[];
+  signOut: () => void;
+  location: ReturnType<typeof useLocation>;
+}) => {
+  const { setOpenMobile } = useSidebar();
+  const isMobile = useIsMobile();
+
+  const isActive = (path: string) => location.pathname === path;
+
+  const handleNavClick = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex w-full">
+      <Sidebar collapsible="icon">
+        <SidebarHeader className="border-b border-border p-4">
+          <div className="flex items-center gap-2">
+            <Heart className="w-6 h-6 text-accent fill-accent shrink-0" />
+            <div className="flex-1 overflow-hidden">
+              <p className="font-bold text-sm truncate">Nozze Senza Stress</p>
+              {weddingInfo && (
+                <p className="text-xs text-muted-foreground truncate">
+                  {weddingInfo.partner1} & {weddingInfo.partner2}
+                </p>
+              )}
+            </div>
+          </div>
+        </SidebarHeader>
+
+        <SidebarContent>
+          <SidebarGroup>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {navigation.map((item) => {
+                  const Icon = item.icon;
+                  const active = isActive(item.href);
+                  
+                  return (
+                    <SidebarMenuItem key={item.name}>
+                      <SidebarMenuButton asChild isActive={active}>
+                        <NavLink
+                          to={item.href}
+                          onClick={handleNavClick}
+                          className={active ? "bg-accent/20 text-foreground font-medium" : ""}
+                        >
+                          <Icon className="w-5 h-5" />
+                          <span>{item.name}</span>
+                        </NavLink>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </SidebarContent>
+
+        <SidebarFooter className="border-t border-border p-4">
+          {weddingInfo && (
+            <div className="mb-3 p-3 bg-gradient-hero rounded-lg text-center">
+              <div className="text-3xl font-bold text-accent">{weddingInfo.daysUntil}</div>
+              <div className="text-xs text-muted-foreground">giorni al matrimonio</div>
+            </div>
+          )}
+          <Button
+            variant="ghost"
+            className="w-full justify-start"
+            onClick={signOut}
+          >
+            <LogOut className="w-5 h-5 mr-3" />
+            Esci
+          </Button>
+        </SidebarFooter>
+      </Sidebar>
+
+      <div className="flex-1 flex flex-col min-w-0">
+        <header className="h-14 border-b border-border bg-card flex items-center px-4 gap-4">
+          <SidebarTrigger />
+          {weddingInfo && (
+            <div className="flex-1 text-center">
+              <h2 className="text-sm font-semibold">
+                {weddingInfo.partner1} & {weddingInfo.partner2}
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                {weddingInfo.daysUntil} giorni al matrimonio
+              </p>
+            </div>
+          )}
+        </header>
+
+        <main className="flex-1 overflow-auto">
+          <Outlet />
+        </main>
+      </div>
+    </div>
   );
 };
 
