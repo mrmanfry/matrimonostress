@@ -150,6 +150,10 @@ const Vendors = () => {
       inferExpenseType,
       resolveGuestCounts
     } = await import("@/lib/expenseCalculations");
+    const {
+      calculateExpectedCounts,
+      calculateTotalVendorStaff
+    } = await import("@/lib/expectedCalculator");
 
     // Load global calculation mode and wedding targets
     const {
@@ -190,7 +194,7 @@ const Vendors = () => {
       return;
     }
 
-    // Load guest counts for calculations
+    // Load confirmed guest counts (for "confirmed" mode)
     const {
       data: parties
     } = await supabase.from("invite_parties").select("id, guests(*)").eq("wedding_id", weddingId).eq("rsvp_status", "Confermato");
@@ -208,6 +212,18 @@ const Vendors = () => {
         }
       });
     });
+
+    // Load ALL guests for expected calculation (STD responses, +1 potentials, etc.)
+    const { data: allGuests } = await supabase
+      .from("guests")
+      .select("id, is_child, is_staff, save_the_date_sent_at, std_response, rsvp_status, party_id, phone, allow_plus_one, plus_one_name, is_couple_member")
+      .eq("wedding_id", weddingId);
+
+    const nonCoupleGuests = (allGuests || []).filter((g: any) => !g.is_couple_member);
+    const vendorStaffTotal = calculateTotalVendorStaff(
+      (data || []).map((v: any) => ({ staff_meals_count: v.staff_meals_count }))
+    );
+    const expectedResult = calculateExpectedCounts(nonCoupleGuests, allGuests || [], vendorStaffTotal);
 
     // Load expense line items for all vendors
     const allExpenseItemIds = data.flatMap((v: any) => v.expense_items?.map((item: any) => item.id) || []);
@@ -237,9 +253,9 @@ const Vendors = () => {
         const guestCounts = {
           planned: resolvedCounts,
           expected: {
-            adults: actualAdults,
-            children: actualChildren,
-            staff: actualStaff
+            adults: expectedResult.adults,
+            children: expectedResult.children,
+            staff: expectedResult.staff + expectedResult.plusOnesConfirmed + expectedResult.plusOnesPotential
           },
           confirmed: {
             adults: actualAdults,
