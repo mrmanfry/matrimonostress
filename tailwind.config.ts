@@ -12,7 +12,9 @@ export default {
         "2xl": "1400px",
       },
     },
-    extend: {
+      screens: {
+        'xs': '400px',
+      },
       fontFamily: {
         'cormorant': ['Cormorant Garamond', 'serif'],
         'playfair': ['Playfair Display', 'serif'],

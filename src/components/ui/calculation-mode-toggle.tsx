@@ -54,31 +54,34 @@ export function CalculationModeToggle({
         type="single" 
         value={value} 
         onValueChange={(v) => v && onValueChange(v as any)}
-        className="justify-start"
+        className="justify-start flex-wrap"
       >
         <ToggleGroupItem 
           value="planned" 
           aria-label="Pianificato"
-          className="gap-2"
+          className="gap-1.5 text-xs sm:text-sm sm:gap-2 px-2.5 sm:px-3"
         >
-          <Target className="h-4 w-4" />
-          Pianificato
+          <Target className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+          <span className="hidden xs:inline">Pianificato</span>
+          <span className="xs:hidden">Plan.</span>
         </ToggleGroupItem>
         <ToggleGroupItem 
           value="expected" 
           aria-label="Previsti"
-          className="gap-2"
+          className="gap-1.5 text-xs sm:text-sm sm:gap-2 px-2.5 sm:px-3"
         >
-          <Users className="h-4 w-4" />
-          Previsti
+          <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+          <span className="hidden xs:inline">Previsti</span>
+          <span className="xs:hidden">Prev.</span>
         </ToggleGroupItem>
         <ToggleGroupItem 
           value="confirmed" 
           aria-label="Confermati"
-          className="gap-2"
+          className="gap-1.5 text-xs sm:text-sm sm:gap-2 px-2.5 sm:px-3"
         >
-          <CheckCircle2 className="h-4 w-4" />
-          Confermati
+          <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+          <span className="hidden xs:inline">Confermati</span>
+          <span className="xs:hidden">Conf.</span>
         </ToggleGroupItem>
       </ToggleGroup>
       
