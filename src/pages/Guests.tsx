@@ -1063,7 +1063,7 @@ const Guests = () => {
   const hasNoGuests = allGuests.length === 0;
 
   return (
-    <div className="container mx-auto p-3 md:p-6 space-y-4 md:space-y-6 max-w-7xl overflow-x-hidden">
+    <div className="container mx-auto p-3 md:p-6 space-y-3 md:space-y-6 max-w-7xl overflow-x-hidden">
       {/* Header */}
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
@@ -1071,9 +1071,16 @@ const Guests = () => {
             <Users className="w-6 h-6 md:w-8 md:h-8 flex-shrink-0" />
             <span className="truncate">Invitati</span>
           </h1>
-          <p className="text-muted-foreground text-sm mt-0.5 hidden md:block">
-            Organizza i tuoi invitati in nuclei familiari
-          </p>
+          {/* Mobile: inline counter instead of subtitle */}
+          {isMobile && !hasNoGuests ? (
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {totalGuests} coperti · {totalNuclei} nuclei
+            </p>
+          ) : (
+            <p className="text-muted-foreground text-sm mt-0.5 hidden md:block">
+              Organizza i tuoi invitati in nuclei familiari
+            </p>
+          )}
         </div>
 
         {!isMobile && !hasNoGuests && (
@@ -1174,124 +1181,133 @@ const Guests = () => {
             activeFilter={funnelFilter}
             onFilterChange={setFunnelFilter}
           />
-          
-          {/* Secondary Stats Row - compact on mobile */}
-          <div className="grid grid-cols-3 gap-2 md:gap-4">
-            <Card className="p-2 md:p-4">
-              <div className="text-[10px] md:text-sm text-muted-foreground truncate">Coperti</div>
-              <div className="text-lg md:text-3xl font-bold">{totalGuests + potentialPlusOnes + vendorStaffCount}</div>
-              <div className="text-[10px] text-muted-foreground mt-0.5 hidden md:block">
+
+          {/* Secondary Stats Row - hidden on mobile (info is in header counter) */}
+          <div className="hidden md:grid grid-cols-3 gap-4">
+            <Card className="p-4">
+              <div className="text-sm text-muted-foreground truncate">Coperti</div>
+              <div className="text-3xl font-bold">{totalGuests + potentialPlusOnes + vendorStaffCount}</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">
                 {totalGuests} inviti
                 {potentialPlusOnes > 0 && ` + ${potentialPlusOnes} accomp.`}
                 {vendorStaffCount > 0 && ` + ${vendorStaffCount} staff`}
               </div>
               <div className="text-[10px] text-muted-foreground">
-                <span className="md:hidden">{totalAdults}A {totalChildren}B</span>
-                <span className="hidden md:inline">{totalAdults} Adult{totalAdults !== 1 ? 'i' : 'o'}, {totalChildren} Bambin{totalChildren !== 1 ? 'i' : 'o'}</span>
+                {totalAdults} Adult{totalAdults !== 1 ? 'i' : 'o'}, {totalChildren} Bambin{totalChildren !== 1 ? 'i' : 'o'}
               </div>
             </Card>
-            <Card className="p-2 md:p-4">
-              <div className="text-[10px] md:text-sm text-muted-foreground truncate">Nuclei</div>
-              <div className="text-lg md:text-3xl font-bold">{totalNuclei}</div>
+            <Card className="p-4">
+              <div className="text-sm text-muted-foreground truncate">Nuclei</div>
+              <div className="text-3xl font-bold">{totalNuclei}</div>
               <div className="text-[10px] text-muted-foreground mt-0.5">
-                <span className="md:hidden">{parties.length}g {ungroupedGuests.length}s</span>
-                <span className="hidden md:inline">{parties.length} raggruppati • {ungroupedGuests.length} singoli</span>
+                {parties.length} raggruppati • {ungroupedGuests.length} singoli
               </div>
             </Card>
-            <Card className="p-2 md:p-4">
-              <div className="text-[10px] md:text-sm text-muted-foreground truncate">No Tel.</div>
-              <div className="text-lg md:text-3xl font-bold text-orange-600">{guestsWithoutPhone}</div>
-              <div className="text-[10px] text-muted-foreground mt-0.5 hidden md:block">
+            <Card className="p-4">
+              <div className="text-sm text-muted-foreground truncate">No Tel.</div>
+              <div className="text-3xl font-bold text-orange-600">{guestsWithoutPhone}</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">
                 Senza numero
               </div>
             </Card>
           </div>
 
-          {/* Warnings - Compact on mobile */}
-          {guestsWithoutPhone > 0 && (
-            <Alert className="py-2 md:py-3">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription className="text-sm">
-                <strong>{guestsWithoutPhone}</strong> senza telefono.{" "}
-                <Button
-                  variant="link"
-                  className="p-0 h-auto text-sm"
-                  onClick={() => setContactSyncOpen(true)}
-                >
-                  Sincronizza
-                </Button>
-              </AlertDescription>
-            </Alert>
+          {/* Warnings - Single compact banner on mobile, separate on desktop */}
+          {isMobile ? (
+            (guestsWithoutPhone > 0 || ungroupedGuests.length > 0) && (
+              <Alert className="py-1.5">
+                <AlertCircle className="h-3.5 w-3.5" />
+                <AlertDescription className="text-xs">
+                  {guestsWithoutPhone > 0 && <><strong>{guestsWithoutPhone}</strong> senza tel. </>}
+                  {guestsWithoutPhone > 0 && ungroupedGuests.length > 0 && '· '}
+                  {ungroupedGuests.length > 0 && <><strong>{ungroupedGuests.length}</strong> non raggruppati</>}
+                </AlertDescription>
+              </Alert>
+            )
+          ) : (
+            <>
+              {guestsWithoutPhone > 0 && (
+                <Alert className="py-3">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription className="text-sm">
+                    <strong>{guestsWithoutPhone}</strong> senza telefono.{" "}
+                    <Button
+                      variant="link"
+                      className="p-0 h-auto text-sm"
+                      onClick={() => setContactSyncOpen(true)}
+                    >
+                      Sincronizza
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {ungroupedGuests.length > 0 && (
+                <Alert className="py-3">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <span className="text-sm">
+                      <strong>{ungroupedGuests.length}</strong> non assegnati a nuclei
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSmartGrouperOpen(true)}
+                    >
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Raggruppa con AI
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              )}
+            </>
           )}
 
-          {ungroupedGuests.length > 0 && (
-            <Alert className="py-2 md:py-3">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                <span className="text-sm">
-                  <strong>{ungroupedGuests.length}</strong> non assegnati a nuclei
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full sm:w-auto"
-                  onClick={() => setSmartGrouperOpen(true)}
-                >
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  <span className="sm:hidden">AI Grouping</span>
-                  <span className="hidden sm:inline">Raggruppa con AI</span>
-                </Button>
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {/* Analytics Dashboard */}
-          <GuestAnalyticsDashboard 
-            guests={allGuests} 
-            parties={parties} 
-            activeFilter={activeAnalyticsFilter}
-            onClearFilter={handleResetFilters}
-            onFilterClick={(filter: AnalyticsFilterType) => {
-              // Reset all filters first
-              setFilterValues(DEFAULT_FILTER_VALUES);
-              setFunnelFilter(null);
-              // Set the active filter for visual indicator
-              setActiveAnalyticsFilter(filter);
-              // Apply the specific filter
-              switch (filter.type) {
-                case 'rsvp':
-                  const rsvpMap = { confirmed: 'Confermato', pending: 'In attesa', declined: 'Rifiutato' };
-                  handleFilterChange('rsvpStatus', rsvpMap[filter.value] || 'all');
-                  break;
-                case 'composition':
-                  if (filter.value === 'staff') handleFilterChange('staff', 'staff_only');
-                  else handleFilterChange('age', filter.value === 'children' ? 'children' : 'adults');
-                  break;
-                case 'contact':
-                  handleFilterChange('contact', filter.value);
-                  break;
-                case 'menu':
-                  handleFilterChange('menu', filter.value);
-                  break;
-                case 'dietary':
-                  // Filter guests with dietary restrictions - use menu filter with special value
-                  handleFilterChange('menu', 'dietary');
-                  break;
-                case 'plusOne':
-                  handleFilterChange('plusOne', filter.value);
-                  break;
-                case 'funnel':
-                  setFunnelFilter(filter.value);
-                  break;
-                case 'group':
-                  handleFilterChange('group', filter.value);
-                  break;
-                case 'std':
-                  handleFilterChange('stdStatus', filter.value);
-                  break;
-              }
-            }}
-          />
+          {/* Analytics Dashboard - hidden on mobile */}
+          <div className="hidden md:block">
+            <GuestAnalyticsDashboard 
+              guests={allGuests} 
+              parties={parties} 
+              activeFilter={activeAnalyticsFilter}
+              onClearFilter={handleResetFilters}
+              onFilterClick={(filter: AnalyticsFilterType) => {
+                setFilterValues(DEFAULT_FILTER_VALUES);
+                setFunnelFilter(null);
+                setActiveAnalyticsFilter(filter);
+                switch (filter.type) {
+                  case 'rsvp':
+                    const rsvpMap = { confirmed: 'Confermato', pending: 'In attesa', declined: 'Rifiutato' };
+                    handleFilterChange('rsvpStatus', rsvpMap[filter.value] || 'all');
+                    break;
+                  case 'composition':
+                    if (filter.value === 'staff') handleFilterChange('staff', 'staff_only');
+                    else handleFilterChange('age', filter.value === 'children' ? 'children' : 'adults');
+                    break;
+                  case 'contact':
+                    handleFilterChange('contact', filter.value);
+                    break;
+                  case 'menu':
+                    handleFilterChange('menu', filter.value);
+                    break;
+                  case 'dietary':
+                    handleFilterChange('menu', 'dietary');
+                    break;
+                  case 'plusOne':
+                    handleFilterChange('plusOne', filter.value);
+                    break;
+                  case 'funnel':
+                    setFunnelFilter(filter.value);
+                    break;
+                  case 'group':
+                    handleFilterChange('group', filter.value);
+                    break;
+                  case 'std':
+                    handleFilterChange('stdStatus', filter.value);
+                    break;
+                }
+              }}
+            />
+          </div>
 
           {/* Filters - New Configurable Filter System */}
           <div className="space-y-3">
@@ -1310,10 +1326,9 @@ const Guests = () => {
                 onClick={handleBulkSendRSVP}
                 disabled={parties.length === 0}
                 variant="default"
-                className="gap-2 w-full sm:w-auto sm:whitespace-nowrap"
+                className="hidden sm:flex gap-2 sm:w-auto sm:whitespace-nowrap"
               >
-                <span className="sm:hidden">💬 Campagna</span>
-                <span className="hidden sm:inline">💬 Campagna RSVP</span>
+                💬 Campagna RSVP
               </Button>
             </div>
 
@@ -1336,7 +1351,7 @@ const Guests = () => {
               </div>
             </Card>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2 md:space-y-3">
               {hybridList.map((item) => {
                 if (item.type === 'party') {
                   const party = item.data as InviteParty;
