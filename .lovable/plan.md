@@ -1,75 +1,115 @@
 
 
-## Piano: Revisione Logica Calcolo Totale Spese Vendor
+## Piano: Ottimizzazione Mobile Pagina Invitati (Apple-Style)
 
 ### Problema Attuale
 
-Il valore "Totale Spese" mostrato nella card del vendor ha tre problemi:
+La pagina Guests su mobile e' sovraccarica di informazioni:
+- 5 KPI card orizzontali scrollabili (troppi colori, font piccoli)
+- 3 stats card secondarie (ridondanti con le KPI)
+- Analytics Dashboard con grafici a torta e barre (troppe informazioni, troppi colori)
+- 2 alert banner (telefono mancante + invitati non raggruppati)
+- Barra filtri complessa
+- Card invitati dense con molti badge colorati (campaign badges, group tags, +1 badges, status strips)
 
-1. **Guest counts "expected" errati**: usa i confermati RSVP anche per la modalita "previsti", quando dovrebbe usare la logica del `expectedCalculator` (che include STD responses, +1 potenziali, etc.)
-2. **Ridondanza campi importo**: tre campi (`fixed_amount`, `estimated_amount`, `total_amount`) nella tabella `expense_items` creano confusione su quale sia la "verita"
-3. **Nessun feedback visivo**: l'utente non capisce se sta vedendo un preventivo o un contratto confermato
+### Filosofia di Design
+
+Ispirarsi a iOS: **informazione progressiva**, superfici pulite, tipografia come ornamento, colori usati con parsimonia e solo per comunicare stato.
 
 ### Modifiche Proposte
 
-#### 1. Correggere i guest counts "expected" in `Vendors.tsx`
+#### 1. Header Compatto + Counter Unico (`Guests.tsx`)
 
-Attualmente (riga 237-248):
+Sostituire le 3 stats card secondarie con un singolo counter inline nell'header:
+
 ```
-expected: { adults: actualAdults, ... }   // SBAGLIATO: usa confermati
-confirmed: { adults: actualAdults, ... }  // Corretto
+Invitati                    [+ FAB]
+142 coperti · 38 nuclei
 ```
 
-La fix: caricare i guest completi e usare `calculateExpectedCounts()` da `expectedCalculator.ts` per popolare i counts "expected", come gia fatto in `VendorExpensesWidget.tsx` e `Treasury.tsx`.
+Eliminare completamente le 3 card "Coperti / Nuclei / No Tel." su mobile. Sono ridondanti con le funnel KPI.
 
-#### 2. Allineare la logica con `VendorExpensesWidget`
+#### 2. Funnel KPI Cards Semplificate (`FunnelKPICards.tsx`)
 
-Il widget spese dentro la pagina dettaglio vendor (`VendorExpensesWidget.tsx`) gia implementa correttamente il calcolo con `expectedCalculator`. La pagina lista vendor (`Vendors.tsx`) deve usare la stessa logica per coerenza.
+- Ridurre le card a **una riga compatta** su mobile: solo numero + label, senza icone, senza background colorato
+- Usare un layout a "pill" orizzontale, non card:
 
-#### 3. Pulizia ridondanza database (non bloccante)
+```
+Da Lavorare 12  ·  STD 45  ·  Invitati 8  ·  OK 30  ·  No 3
+```
 
-Non serve una migrazione: i tre campi hanno ruoli diversi nel workflow:
-- `estimated_amount`: preventivo iniziale (fase budget planning)
-- `fixed_amount`: importo contrattuale confermato (fase vendor assignment)  
-- `total_amount`: legacy, non piu usato
+- Sfondo neutro, testo monocromatico, solo il numero attivo evidenziato
 
-La logica di fallback `fixed_amount ?? estimated_amount ?? 0` e corretta. Il problema e solo la mancanza di visibilita su quale campo sta "vincendo".
+#### 3. Nascondere Analytics Dashboard su Mobile (`Guests.tsx`)
+
+La `GuestAnalyticsDashboard` con i suoi grafici a torta e barre va nascosta su mobile. E' troppa informazione. L'utente mobile vuole **agire**, non analizzare. Si puo' rendere accessibile tramite un bottone "Vedi Statistiche" che apre un bottom sheet.
+
+#### 4. Compattare gli Alert (`Guests.tsx`)
+
+Unificare i 2 alert (telefono mancante + non raggruppati) in **un singolo banner** discreto su mobile, con testo piu' corto.
+
+#### 5. Card Invitato Singolo Pulita (`GuestSingleCard.tsx`)
+
+Semplificare drasticamente su mobile:
+- Rimuovere la riga telefono (informazione secondaria, visibile in edit)
+- Nascondere il toggle "+1" (spostarlo nell'edit dialog)
+- Mostrare solo: **Nome**, **1 badge di stato** (il piu' importante tra campaign badges), e il **bottone edit**
+- Rimuovere badge alias, badge bambino, badge gruppo su mobile (sono nel dettaglio)
+- Ridurre padding e spacing
+
+Layout mobile target:
+```
+[x] Mario Rossi          [STD badge]  [pencil]
+```
+
+#### 6. Card Nucleo Pulita (`GuestNucleoCard.tsx`)
+
+Semplificare su mobile:
+- Collassare la lista membri: mostrare solo il **nome nucleo**, **conteggio** (3 adulti, 1 bambino), e **1 badge di stato**
+- Rimuovere la strip colorata laterale (usa spazio e aggiunge colore)
+- Nascondere badge gruppo, badge +1, badge discrepanza STD su mobile
+- Nascondere icone STD/response individuali per ogni membro
+- Nascondere switch +1 per ogni membro
+- Mostrare i membri in modo piu' compatto: solo nome, senza alias/phone/badges
+
+Layout mobile target:
+```
+[x] Fam. Rossi           [STD badge]  [pencil]
+    3 adulti, 1 bambino
+```
+
+#### 7. Barra Ricerca + Filtri (`Guests.tsx`)
+
+- Nascondere il bottone "Campagna RSVP" su mobile (gia' nel FAB dropdown)
+- Solo la barra di ricerca + icona filtro che apre il bottom sheet
 
 ### File da Modificare
 
 | File | Modifica |
 |------|----------|
-| `src/pages/Vendors.tsx` | Caricare guests completi + usare `calculateExpectedCounts()` per popolare `guestCounts.expected` invece di riusare i confermati |
+| `src/pages/Guests.tsx` | Nascondere stats card, analytics dashboard, alert compatti su mobile. Semplificare header. Nascondere bottone campagna. |
+| `src/components/guests/FunnelKPICards.tsx` | Layout "pill" compatto su mobile |
+| `src/components/guests/GuestSingleCard.tsx` | Card minimale su mobile: solo nome + 1 badge + edit |
+| `src/components/guests/GuestNucleoCard.tsx` | Card compatta su mobile: nome nucleo + conteggio + 1 badge + edit. Membri collassati. |
+| `src/components/guests/GuestCampaignBadges.tsx` | Modalita' "ultra-compact" per mobile: singolo dot/emoji invece di badge completo |
 
 ### Dettagli Tecnici
 
-In `loadVendors()` di `Vendors.tsx`:
+**Approccio**: usare `useIsMobile()` gia' presente e classi Tailwind responsive (`md:` prefix) per differenziare mobile/desktop. Non si cambiano le viste desktop.
 
-1. Caricare tutti i guests del wedding (non solo i confermati via `invite_parties`):
-   ```
-   SELECT id, is_child, is_staff, rsvp_status, 
-          save_the_date_sent_at, std_response, 
-          party_id, phone, allow_plus_one, plus_one_name
-   FROM guests WHERE wedding_id = ?
-   ```
+**FunnelKPICards mobile**: Sostituire le `Card` con semplici `button` con stile pill (`rounded-full px-3 py-1 text-xs`), sfondo `bg-muted` e testo `text-muted-foreground`. Solo il filtro attivo avra' `bg-primary text-primary-foreground`.
 
-2. Caricare i vendors per lo staff count:
-   ```
-   SELECT staff_meals_count FROM vendors WHERE wedding_id = ?
-   ```
+**GuestSingleCard mobile**: Wrappare i contenuti secondari (phone, +1 toggle, alias badge, child badge, group badge) in `<div className="hidden md:flex">`. Mantenere solo nome + campaign badge (con prop `ultraCompact`) + edit button.
 
-3. Usare `calculateExpectedCounts()` e `calculateTotalVendorStaff()` da `expectedCalculator.ts` per calcolare i counts expected
+**GuestNucleoCard mobile**: Aggiungere uno state `collapsed` (default `true` su mobile) che nasconde la lista membri. Mostrare solo header con nome, conteggio compatto, e badge campagna. Tap per espandere.
 
-4. Costruire `guestCounts` correttamente:
-   ```
-   planned: resolvedCounts (da target wedding)
-   expected: { adults: expected.adults, children: expected.children, staff: expected.totalHeadCount - expected.adults - expected.children }
-   confirmed: { adults: confirmedAdults, children: confirmedChildren, staff: confirmedStaff }
-   ```
+**GuestCampaignBadges**: Aggiungere prop `ultraCompact` che mostra solo un singolo dot colorato (verde = confermato, viola = STD, blu = invitato, grigio = da lavorare) senza testo.
 
 ### Risultato Atteso
 
-- Il "Totale Spese" sara coerente con quello mostrato nella pagina dettaglio vendor
-- La modalita "previsti" usera i conteggi corretti (STD + +1 potenziali)
-- Nessuna modifica al database necessaria
+- La pagina mobile passa da "dashboard analitica" a "lista di contatti pulita"
+- Riduzione del 70% dei colori visibili su mobile
+- Ogni card occupa circa 44-48px di altezza (vs ~120px attuali)
+- L'utente puo' scorrere e agire rapidamente
+- Tutte le informazioni dettagliate restano accessibili tramite tap (edit dialog, espansione nucleo)
 
