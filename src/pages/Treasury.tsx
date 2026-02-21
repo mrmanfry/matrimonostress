@@ -689,11 +689,11 @@ export default function Treasury() {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="container mx-auto px-4 py-4 sm:p-6 space-y-4 sm:space-y-6">
       {/* Header with Global Toggle */}
       <div className="space-y-4">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Orizzonte Liquidità</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold mb-1 sm:mb-2">Orizzonte Liquidità</h1>
           <p className="text-muted-foreground">
             Monitora i tuoi impegni di pagamento e la disponibilità futura
           </p>
@@ -734,7 +734,7 @@ export default function Treasury() {
       )}
 
       {/* KPI Cards - INTERACTIVE */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Card 
           className="cursor-pointer hover:shadow-lg transition-shadow"
           onClick={() => {
@@ -748,7 +748,7 @@ export default function Treasury() {
             <Euro className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">{formatCurrency(kpis.totalCommitment)}</div>
+            <div className="text-lg sm:text-2xl font-bold text-orange-600 dark:text-orange-400 truncate">{formatCurrency(kpis.totalCommitment)}</div>
             <p className="text-xs text-muted-foreground">Da pagare · Clicca per dettagli</p>
           </CardContent>
         </Card>
@@ -759,7 +759,7 @@ export default function Treasury() {
             <TrendingUp className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{formatCurrency(kpis.alreadyPaid)}</div>
+            <div className="text-lg sm:text-2xl font-bold text-green-600 truncate">{formatCurrency(kpis.alreadyPaid)}</div>
             <p className="text-xs text-muted-foreground">Pagamenti completati</p>
           </CardContent>
         </Card>
@@ -777,7 +777,7 @@ export default function Treasury() {
             <AlertCircle className="h-4 w-4 text-yellow-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
+            <div className="text-lg sm:text-2xl font-bold text-yellow-600 dark:text-yellow-400 truncate">
               {formatCurrency(kpis.next7DaysAmount)}
             </div>
             <p className="text-xs text-muted-foreground">In scadenza · Clicca per dettagli</p>
@@ -797,7 +797,7 @@ export default function Treasury() {
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(kpis.busiestMonth.amount)}</div>
+            <div className="text-lg sm:text-2xl font-bold truncate">{formatCurrency(kpis.busiestMonth.amount)}</div>
             <p className="text-xs text-muted-foreground">
               {kpis.busiestMonth.month || "Nessun mese"}
             </p>
@@ -998,7 +998,7 @@ export default function Treasury() {
               </AlertDescription>
             </Alert>
           ) : (
-            <ResponsiveContainer width="100%" height={400}>
+            <ResponsiveContainer width="100%" height={window.innerWidth < 640 ? 250 : 400}>
               <ComposedChart 
                 data={chartData}
               >
@@ -1079,7 +1079,7 @@ export default function Treasury() {
           <CardDescription>
             Lista azionabile dei pagamenti in scadenza. Clicca su un fornitore per vedere i dettagli.
           </CardDescription>
-          <div className="flex gap-2 mt-4 flex-wrap">
+          <div className="flex gap-2 mt-3 sm:mt-4 flex-wrap">
             {dateFilter && (
               <Button
                 variant="outline"
@@ -1140,74 +1140,135 @@ export default function Treasury() {
               </AlertDescription>
             </Alert>
           ) : (
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Data Scadenza</TableHead>
-                    <TableHead>Descrizione</TableHead>
-                    <TableHead>Fornitore</TableHead>
-                    <TableHead className="text-right">Importo</TableHead>
-                    <TableHead className="text-right">Azioni</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredFuturePayments.map((payment) => {
-                    const vendorId = getVendorId(payment.expense_item_id);
-                    const vendorName = getVendorName(payment.expense_item_id);
-                    return (
-                      <TableRow key={payment.id}>
-                        <TableCell>
-                          {format(parseISO(payment.due_date), "dd MMM yyyy", { locale: it })}
-                        </TableCell>
-                        <TableCell>{payment.description}</TableCell>
-                        <TableCell>
+            <>
+              {/* Desktop Table */}
+              <div className="rounded-md border hidden sm:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Data Scadenza</TableHead>
+                      <TableHead>Descrizione</TableHead>
+                      <TableHead>Fornitore</TableHead>
+                      <TableHead className="text-right">Importo</TableHead>
+                      <TableHead className="text-right">Azioni</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredFuturePayments.map((payment) => {
+                      const vendorId = getVendorId(payment.expense_item_id);
+                      const vendorName = getVendorName(payment.expense_item_id);
+                      return (
+                        <TableRow key={payment.id}>
+                          <TableCell>
+                            {format(parseISO(payment.due_date), "dd MMM yyyy", { locale: it })}
+                          </TableCell>
+                          <TableCell>{payment.description}</TableCell>
+                          <TableCell>
+                            {vendorId ? (
+                              <button
+                                onClick={() => navigate(`/app/vendors?vendor=${vendorId}`)}
+                                className="text-primary hover:underline flex items-center gap-1"
+                              >
+                                {vendorName}
+                                <ExternalLink className="h-3 w-3" />
+                              </button>
+                            ) : (
+                              <span className="text-muted-foreground">{vendorName}</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right font-semibold">
+                            {formatCurrency(calculatePaymentTotalDynamic(
+                              payment,
+                              expenseItems,
+                              expenseLineItems,
+                              {
+                                planned: weddingTargets,
+                                expected: { 
+                                  adults: guestBreakdown.confirmed.adults + guestBreakdown.pending.adults,
+                                  children: guestBreakdown.confirmed.children + guestBreakdown.pending.children,
+                                  staff: guestBreakdown.confirmed.staff + guestBreakdown.pending.staff
+                                },
+                                confirmed: guestBreakdown.confirmed
+                              },
+                              globalMode
+                            ))}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setPaymentToMark(payment)}
+                              className="text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950"
+                            >
+                              <Check className="h-4 w-4 mr-1" />
+                              Segna Pagato
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Card Layout */}
+              <div className="sm:hidden space-y-3">
+                {filteredFuturePayments.map((payment) => {
+                  const vendorId = getVendorId(payment.expense_item_id);
+                  const vendorName = getVendorName(payment.expense_item_id);
+                  const amount = calculatePaymentTotalDynamic(
+                    payment,
+                    expenseItems,
+                    expenseLineItems,
+                    {
+                      planned: weddingTargets,
+                      expected: { 
+                        adults: guestBreakdown.confirmed.adults + guestBreakdown.pending.adults,
+                        children: guestBreakdown.confirmed.children + guestBreakdown.pending.children,
+                        staff: guestBreakdown.confirmed.staff + guestBreakdown.pending.staff
+                      },
+                      confirmed: guestBreakdown.confirmed
+                    },
+                    globalMode
+                  );
+                  return (
+                    <div key={payment.id} className="border rounded-lg p-3 space-y-2">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{payment.description}</p>
                           {vendorId ? (
                             <button
                               onClick={() => navigate(`/app/vendors?vendor=${vendorId}`)}
-                              className="text-primary hover:underline flex items-center gap-1"
+                              className="text-xs text-primary hover:underline flex items-center gap-1 mt-0.5"
                             >
                               {vendorName}
                               <ExternalLink className="h-3 w-3" />
                             </button>
                           ) : (
-                            <span className="text-muted-foreground">{vendorName}</span>
+                            <p className="text-xs text-muted-foreground mt-0.5">{vendorName}</p>
                           )}
-                        </TableCell>
-                        <TableCell className="text-right font-semibold">
-                          {formatCurrency(calculatePaymentTotalDynamic(
-                            payment,
-                            expenseItems,
-                            expenseLineItems,
-                            {
-                              planned: weddingTargets,
-                              expected: { 
-                                adults: guestBreakdown.confirmed.adults + guestBreakdown.pending.adults,
-                                children: guestBreakdown.confirmed.children + guestBreakdown.pending.children,
-                                staff: guestBreakdown.confirmed.staff + guestBreakdown.pending.staff
-                              },
-                              confirmed: guestBreakdown.confirmed
-                            },
-                            globalMode
-                          ))}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => setPaymentToMark(payment)}
-                            className="text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950"
-                          >
-                            <Check className="h-4 w-4 mr-1" />
-                            Segna Pagato
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
+                        </div>
+                        <span className="text-base font-bold ml-2 shrink-0">{formatCurrency(amount)}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-muted-foreground">
+                          {format(parseISO(payment.due_date), "dd MMM yyyy", { locale: it })}
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setPaymentToMark(payment)}
+                          className="text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950 h-7 text-xs"
+                        >
+                          <Check className="h-3 w-3 mr-1" />
+                          Pagato
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
