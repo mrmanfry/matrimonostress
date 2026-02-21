@@ -4,12 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Users, Edit, Baby, Edit2, UserPlus2, Tag, AlertTriangle, CalendarCheck, ThumbsUp, HelpCircle, ThumbsDown } from "lucide-react";
+import { Users, Edit, Baby, Edit2, UserPlus2, Tag, AlertTriangle, CalendarCheck, ThumbsUp, HelpCircle, ThumbsDown, ChevronDown, ChevronRight } from "lucide-react";
 import { useState, useMemo } from "react";
 import { GuestEditDialog } from "./GuestEditDialog";
 import { GuestCampaignBadges } from "./GuestCampaignBadges";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface Guest {
   id: string;
@@ -27,7 +28,6 @@ interface Guest {
   dietary_restrictions?: string;
   group_id?: string | null;
   group_name?: string | null;
-  // Wedding CRM fields
   save_the_date_sent_at?: string | null;
   formal_invite_sent_at?: string | null;
   std_response?: string | null;
@@ -51,25 +51,16 @@ interface GuestNucleoCardProps {
   onGuestUpdate?: () => void;
 }
 
-/**
- * Detects if family members have different STD responses (discrepancy).
- * Returns details about the discrepancy if found.
- */
 function detectStdDiscrepancy(guests: Guest[]): { hasDiscrepancy: boolean; details: string } {
   const responses = guests
     .filter(g => g.std_response)
     .map(g => ({ name: g.first_name, response: g.std_response }));
   
-  if (responses.length <= 1) {
-    return { hasDiscrepancy: false, details: "" };
-  }
+  if (responses.length <= 1) return { hasDiscrepancy: false, details: "" };
 
   const uniqueResponses = new Set(responses.map(r => r.response));
-  if (uniqueResponses.size <= 1) {
-    return { hasDiscrepancy: false, details: "" };
-  }
+  if (uniqueResponses.size <= 1) return { hasDiscrepancy: false, details: "" };
 
-  // Build details string showing who said what
   const responseLabels: Record<string, string> = {
     'likely_yes': 'Probabile Sì',
     'likely_no': 'Probabile No',
@@ -83,14 +74,10 @@ function detectStdDiscrepancy(guests: Guest[]): { hasDiscrepancy: boolean; detai
   return { hasDiscrepancy: true, details };
 }
 
-/**
- * Gets the status strip color based on party/STD status.
- */
 function getStatusStripColor(party: InviteParty): string {
   if (party.rsvp_status === 'Confermato') return 'bg-green-500';
   if (party.rsvp_status === 'Rifiutato') return 'bg-red-500';
   
-  // Check STD response from primary guest
   const primaryStd = party.guests[0]?.std_response;
   if (primaryStd === 'likely_yes') return 'bg-violet-500';
   if (primaryStd === 'likely_no') return 'bg-orange-500';
@@ -109,6 +96,8 @@ export const GuestNucleoCard = ({
   const [editingGuest, setEditingGuest] = useState<Guest | null>(null);
   const [guestEditDialogOpen, setGuestEditDialogOpen] = useState(false);
   const [togglingPlusOne, setTogglingPlusOne] = useState<string | null>(null);
+  const isMobile = useIsMobile();
+  const [expanded, setExpanded] = useState(!isMobile);
 
   const handleEditGuest = (guest: Guest) => {
     setEditingGuest(guest);
@@ -128,7 +117,6 @@ export const GuestNucleoCard = ({
         .eq("id", guestId);
 
       if (error) throw error;
-      
       toast.success(checked ? "+1 abilitato" : "+1 disabilitato");
       onGuestUpdate?.();
     } catch (error: any) {
@@ -162,10 +150,8 @@ export const GuestNucleoCard = ({
 
   const getStdSentIcon = (guest: Guest) => {
     if (!guest.save_the_date_sent_at) return null;
-    
     const sentDate = new Date(guest.save_the_date_sent_at);
     const formattedDate = sentDate.toLocaleDateString('it-IT', { day: '2-digit', month: 'short' });
-    
     return (
       <TooltipProvider>
         <Tooltip>
@@ -184,27 +170,13 @@ export const GuestNucleoCard = ({
 
   const getStdResponseIcon = (guest: Guest) => {
     if (!guest.std_response) return null;
-    
     const responseConfig = {
-      likely_yes: {
-        icon: ThumbsUp,
-        label: "Probabile Sì",
-        color: "text-green-600 dark:text-green-400",
-      },
-      unsure: {
-        icon: HelpCircle,
-        label: "Incerto",
-        color: "text-amber-600 dark:text-amber-400",
-      },
-      likely_no: {
-        icon: ThumbsDown,
-        label: "Improbabile",
-        color: "text-red-600 dark:text-red-400",
-      },
+      likely_yes: { icon: ThumbsUp, label: "Probabile Sì", color: "text-green-600 dark:text-green-400" },
+      unsure: { icon: HelpCircle, label: "Incerto", color: "text-amber-600 dark:text-amber-400" },
+      likely_no: { icon: ThumbsDown, label: "Improbabile", color: "text-red-600 dark:text-red-400" },
     }[guest.std_response];
 
     if (!responseConfig) return null;
-
     const ResponseIcon = responseConfig.icon;
     const respondedAt = guest.std_responded_at 
       ? new Date(guest.std_responded_at).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' })
@@ -230,13 +202,10 @@ export const GuestNucleoCard = ({
   const adults = party.guests.filter(g => !g.is_child);
   const children = party.guests.filter(g => g.is_child);
   const guestsWithPlusOne = party.guests.filter(g => g.allow_plus_one).length;
-  // Get group name from the first guest that has one assigned
   const groupName = party.guests.find(g => g.group_name)?.group_name;
   
-  // Detect STD discrepancy within family nucleus
   const stdDiscrepancy = useMemo(() => detectStdDiscrepancy(party.guests), [party.guests]);
   
-  // Find who responded to STD (first person with std_responded_at)
   const stdResponder = useMemo(() => {
     const respondedGuests = party.guests
       .filter(g => g.std_responded_at)
@@ -244,17 +213,12 @@ export const GuestNucleoCard = ({
     return respondedGuests[0]?.first_name || null;
   }, [party.guests]);
   
-  // Calculate nucleus-level campaign status
-  // Logic: If ALL members with phone have been sent STD, the whole nucleus is "invited"
-  // Members without phone are "passive" and inherit status from those with phone
   const nucleusCampaignStatus = useMemo(() => {
     const guestsWithPhone = party.guests.filter(g => g.phone);
     const guestsWithStdSent = party.guests.filter(g => g.save_the_date_sent_at);
     const guestsWithFormalInvite = party.guests.filter(g => g.formal_invite_sent_at);
     
-    // If no one has a phone, check if anyone has been marked as sent
     if (guestsWithPhone.length === 0) {
-      // Fall back to checking if any guest has STD sent (manual marking)
       const anyStdSent = guestsWithStdSent.length > 0;
       const anyFormalInvite = guestsWithFormalInvite.length > 0;
       return {
@@ -263,55 +227,119 @@ export const GuestNucleoCard = ({
       };
     }
     
-    // Check if ALL guests with phone have been sent STD
     const allPhoneGuestsSentStd = guestsWithPhone.every(g => g.save_the_date_sent_at);
     const allPhoneGuestsSentFormal = guestsWithPhone.every(g => g.formal_invite_sent_at);
     
-    // Use the LATEST sent date as the nucleus date (most recent = last element after sorting)
-    const stdSentDates = guestsWithPhone
-      .filter(g => g.save_the_date_sent_at)
-      .map(g => g.save_the_date_sent_at!)
-      .sort();
-    const formalSentDates = guestsWithPhone
-      .filter(g => g.formal_invite_sent_at)
-      .map(g => g.formal_invite_sent_at!)
-      .sort();
+    const stdSentDates = guestsWithPhone.filter(g => g.save_the_date_sent_at).map(g => g.save_the_date_sent_at!).sort();
+    const formalSentDates = guestsWithPhone.filter(g => g.formal_invite_sent_at).map(g => g.formal_invite_sent_at!).sort();
     
     return {
-      saveTheDateSentAt: allPhoneGuestsSentStd && stdSentDates.length > 0 
-        ? stdSentDates[stdSentDates.length - 1]  // Last = most recent
-        : null,
-      formalInviteSentAt: allPhoneGuestsSentFormal && formalSentDates.length > 0 
-        ? formalSentDates[formalSentDates.length - 1]  // Last = most recent
-        : null,
+      saveTheDateSentAt: allPhoneGuestsSentStd && stdSentDates.length > 0 ? stdSentDates[stdSentDates.length - 1] : null,
+      formalInviteSentAt: allPhoneGuestsSentFormal && formalSentDates.length > 0 ? formalSentDates[formalSentDates.length - 1] : null,
     };
   }, [party.guests]);
   
-  // Status strip color
   const statusStripColor = getStatusStripColor(party);
 
+  // Mobile: compact collapsed card
+  if (isMobile) {
+    return (
+      <Card className={`transition-all ${selected ? 'ring-2 ring-primary' : ''}`}>
+        {/* Compact header row */}
+        <div className="p-2.5 flex items-center gap-2">
+          <Checkbox
+            checked={selected}
+            onCheckedChange={() => onToggleSelect(party.id)}
+            className="flex-shrink-0"
+          />
+          <button
+            className="flex-1 min-w-0 flex items-center gap-2 text-left"
+            onClick={() => setExpanded(!expanded)}
+          >
+            {expanded ? (
+              <ChevronDown className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+            ) : (
+              <ChevronRight className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+            )}
+            <div className="flex-1 min-w-0">
+              <span className="text-sm font-medium truncate block">{party.party_name}</span>
+              <span className="text-[11px] text-muted-foreground">
+                {adults.length} adult{adults.length !== 1 ? 'i' : 'o'}
+                {children.length > 0 && `, ${children.length} bamb.`}
+              </span>
+            </div>
+          </button>
+          <GuestCampaignBadges 
+            saveTheDateSentAt={nucleusCampaignStatus.saveTheDateSentAt}
+            formalInviteSentAt={nucleusCampaignStatus.formalInviteSentAt}
+            stdResponse={party.guests[0]?.std_response as 'likely_yes' | 'likely_no' | 'unsure' | null | undefined}
+            rsvpStatus={party.guests[0]?.rsvp_status}
+            stdRespondedBy={stdResponder}
+            ultraCompact
+          />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 flex-shrink-0"
+            onClick={() => onEdit(party)}
+          >
+            <Edit className="w-3.5 h-3.5" />
+          </Button>
+        </div>
+
+        {/* Expanded members */}
+        {expanded && (
+          <div className="px-2.5 pb-2.5 pt-0 border-t">
+            <div className="space-y-1 pt-2">
+              {party.guests.map(guest => (
+                <div key={guest.id} className="flex items-center justify-between text-sm py-0.5">
+                  <span className={`truncate flex-1 ${guest.is_child ? 'text-muted-foreground text-xs' : ''}`}>
+                    {guest.is_child && '· '}
+                    {guest.first_name} {guest.last_name}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 flex-shrink-0"
+                    onClick={() => handleEditGuest(guest)}
+                  >
+                    <Edit2 className="w-3 h-3" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <GuestEditDialog
+          open={guestEditDialogOpen}
+          onOpenChange={setGuestEditDialogOpen}
+          guest={editingGuest}
+          onSuccess={handleGuestUpdateSuccess}
+        />
+      </Card>
+    );
+  }
+
+  // Desktop: full card (unchanged)
   return (
     <Card className={`relative overflow-hidden hover:shadow-md transition-all ${selected ? 'ring-2 ring-primary' : ''}`}>
-      {/* Status Strip - colored bar on the left */}
       <div className={`absolute left-0 top-0 bottom-0 w-1 ${statusStripColor}`} />
       
-      <div className="p-3 sm:p-4 pl-4 sm:pl-5">
-        <div className="flex items-start gap-2 sm:gap-3">
-          {/* Checkbox */}
+      <div className="p-4 pl-5">
+        <div className="flex items-start gap-3">
           <Checkbox
             checked={selected}
             onCheckedChange={() => onToggleSelect(party.id)}
             className="mt-1"
           />
 
-          {/* Content */}
           <div className="flex-1 min-w-0">
-            {/* Header */}
             <div className="flex items-start justify-between gap-2 mb-3">
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1 sm:gap-2 mb-2 flex-wrap">
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
                   <Users className="w-4 h-4 text-primary flex-shrink-0" />
-                  <h3 className="font-semibold truncate text-sm sm:text-base">{party.party_name}</h3>
+                  <h3 className="font-semibold truncate text-base">{party.party_name}</h3>
                   {groupName && (
                     <Badge variant="outline" className="text-xs gap-1 bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/20 dark:border-blue-700 dark:text-blue-300">
                       <Tag className="w-3 h-3" />
@@ -326,7 +354,6 @@ export const GuestNucleoCard = ({
                   )}
                 </div>
                 <div className="flex items-center gap-2 flex-wrap text-xs">
-                  {/* Campaign badge based on nucleus-level status (considers all members with phone) */}
                   {party.guests[0] && (
                     <GuestCampaignBadges 
                       saveTheDateSentAt={nucleusCampaignStatus.saveTheDateSentAt}
@@ -337,7 +364,6 @@ export const GuestNucleoCard = ({
                       compact
                     />
                   )}
-                  {/* STD Discrepancy Warning */}
                   {stdDiscrepancy.hasDiscrepancy && (
                     <TooltipProvider>
                       <Tooltip>
@@ -364,7 +390,6 @@ export const GuestNucleoCard = ({
                 </div>
               </div>
 
-              {/* Actions */}
               <div className="flex gap-1 flex-shrink-0">
                 <Button
                   variant="ghost"
@@ -373,21 +398,19 @@ export const GuestNucleoCard = ({
                   onClick={() => onEdit(party)}
                 >
                   <Edit className="w-3.5 h-3.5" />
-                  <span className="text-xs hidden sm:inline">Modifica Nucleo</span>
+                  <span className="text-xs">Modifica Nucleo</span>
                 </Button>
               </div>
             </div>
 
-            {/* Divider */}
             <div className="border-t my-3" />
 
-            {/* Members List */}
             <div className="space-y-1">
               <h4 className="text-xs font-medium text-muted-foreground mb-2">👥 Membri:</h4>
               <div className="space-y-2 pl-3">
                 {adults.map(guest => (
                   <div key={guest.id} className="flex items-center justify-between text-sm group gap-1 min-w-0">
-                    <div className="flex items-center gap-1 sm:gap-2 min-w-0 flex-1">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
                       <span className="truncate">{guest.first_name} {guest.last_name}</span>
                       {guest.alias && (
                         <span className="text-xs text-muted-foreground bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded border">
@@ -412,7 +435,7 @@ export const GuestNucleoCard = ({
                         className="flex items-center gap-0.5"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <span className="text-xs text-muted-foreground hidden sm:inline">+1</span>
+                        <span className="text-xs text-muted-foreground">+1</span>
                         <Switch
                           checked={guest.allow_plus_one || false}
                           onCheckedChange={(checked) => handleTogglePlusOne(guest.id, checked)}
@@ -467,7 +490,6 @@ export const GuestNucleoCard = ({
         </div>
       </div>
 
-      {/* Guest Edit Dialog */}
       <GuestEditDialog
         open={guestEditDialogOpen}
         onOpenChange={setGuestEditDialogOpen}

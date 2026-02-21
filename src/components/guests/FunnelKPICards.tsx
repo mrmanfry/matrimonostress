@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getEffectiveStatus } from "@/lib/nucleusStatusHelper";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface Guest {
   id: string;
@@ -32,20 +33,16 @@ interface FunnelKPICardsProps {
 }
 
 export function FunnelKPICards({ guests, activeFilter, onFilterChange }: FunnelKPICardsProps) {
-  // Separate couple members (always confirmed) from regular guests
+  const isMobile = useIsMobile();
+  
   const coupleMembers = guests.filter(g => g.is_couple_member);
   const regularGuests = guests.filter(g => !g.is_couple_member);
   
-  // Calculate funnel stats using nucleus-aware logic
-  // This ensures guests without phone inherit STD status from party members with phone
   const stats = {
-    // Draft: No effective STD sent, no formal invite (excludes couple)
     draft: regularGuests.filter(g => {
       const status = getEffectiveStatus(g, guests);
       return !status.hasStdSent && !status.hasFormalInvite;
     }).length,
-    
-    // Awareness: Effective STD sent but no formal invite (excludes couple)
     std_sent: regularGuests.filter(g => {
       const status = getEffectiveStatus(g, guests);
       return status.hasStdSent && !status.hasFormalInvite;
@@ -66,21 +63,31 @@ export function FunnelKPICards({ guests, activeFilter, onFilterChange }: FunnelK
       const status = getEffectiveStatus(g, guests);
       return status.hasStdSent && !status.hasFormalInvite && !g.std_response;
     }).length,
-    
-    // Invited: Effective formal invite but RSVP pending (excludes couple)
     invited: regularGuests.filter(g => {
       const status = getEffectiveStatus(g, guests);
       return status.hasFormalInvite && (!g.rsvp_status || g.rsvp_status === 'pending');
     }).length,
-    
-    // Confirmed: includes couple members (always confirmed) + confirmed regular guests
     confirmed: coupleMembers.length + regularGuests.filter(g => g.rsvp_status === 'confirmed').length,
-    
-    // Declined (excludes couple)
     declined: regularGuests.filter(g => g.rsvp_status === 'declined').length,
   };
 
   const cards = [
+    { id: 'draft', label: 'Da Lavorare', shortLabel: 'Da Lav.', value: stats.draft },
+    { id: 'std_sent', label: 'STD Inviato', shortLabel: 'STD', value: stats.std_sent,
+      subStats: stats.std_sent > 0 ? [
+        { icon: ThumbsUp, value: stats.std_likely_yes, color: 'text-green-500' },
+        { icon: HelpCircle, value: stats.std_unsure, color: 'text-amber-500' },
+        { icon: ThumbsDown, value: stats.std_likely_no, color: 'text-red-500' },
+        { icon: Clock, value: stats.std_no_response, color: 'text-muted-foreground' },
+      ] : undefined,
+    },
+    { id: 'invited', label: 'Invitati', shortLabel: 'Invitati', value: stats.invited },
+    { id: 'confirmed', label: 'Confermati', shortLabel: 'OK', value: stats.confirmed },
+    { id: 'declined', label: 'Rifiutati', shortLabel: 'No', value: stats.declined },
+  ];
+
+  // Desktop cards config (unchanged from before)
+  const desktopCards = [
     {
       id: 'draft',
       label: 'Da Lavorare',
@@ -139,9 +146,36 @@ export function FunnelKPICards({ guests, activeFilter, onFilterChange }: FunnelK
     },
   ];
 
+  // Mobile: pill layout
+  if (isMobile) {
+    return (
+      <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-3 px-3 scrollbar-hide">
+        {cards.map((card) => {
+          const isActive = activeFilter === card.id;
+          return (
+            <button
+              key={card.id}
+              className={cn(
+                "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-all flex-shrink-0",
+                isActive
+                  ? "bg-foreground text-background shadow-sm"
+                  : "bg-muted text-muted-foreground"
+              )}
+              onClick={() => onFilterChange?.(isActive ? null : card.id)}
+            >
+              <span className="font-semibold">{card.value}</span>
+              <span>{card.shortLabel}</span>
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
+  // Desktop: full card layout (unchanged)
   return (
-    <div className="flex gap-3 overflow-x-auto pb-2 -mx-3 px-3 md:mx-0 md:px-0 md:grid md:grid-cols-5 md:overflow-visible scrollbar-hide">
-      {cards.map((card) => {
+    <div className="grid grid-cols-5 gap-3">
+      {desktopCards.map((card) => {
         const Icon = card.icon;
         const isActive = activeFilter === card.id;
         
@@ -149,7 +183,7 @@ export function FunnelKPICards({ guests, activeFilter, onFilterChange }: FunnelK
           <Card 
             key={card.id}
             className={cn(
-              "p-3 md:p-4 cursor-pointer transition-all duration-200 flex-shrink-0 w-[140px] md:w-auto",
+              "p-4 cursor-pointer transition-all duration-200",
               "hover:shadow-lg hover:-translate-y-0.5",
               card.bgColor,
               isActive && "ring-2 ring-primary ring-offset-2 shadow-lg -translate-y-0.5",
@@ -157,27 +191,26 @@ export function FunnelKPICards({ guests, activeFilter, onFilterChange }: FunnelK
             )}
             onClick={() => onFilterChange?.(isActive ? null : card.id)}
           >
-            <div className="flex items-start justify-between mb-1 md:mb-2">
-              <Icon className={cn("w-4 h-4 md:w-5 md:h-5", card.color)} />
+            <div className="flex items-start justify-between mb-2">
+              <Icon className={cn("w-5 h-5", card.color)} />
               {isActive && (
-                <Badge variant="secondary" className="text-[10px] h-4 md:h-5 px-1">
+                <Badge variant="secondary" className="text-[10px] h-5 px-1">
                   ✓
                 </Badge>
               )}
             </div>
-            <div className={cn("text-xl md:text-2xl font-bold", card.color)}>
+            <div className={cn("text-2xl font-bold", card.color)}>
               {card.value}
             </div>
-            <div className="text-xs font-medium text-foreground mt-0.5 md:mt-1 truncate">
+            <div className="text-xs font-medium text-foreground mt-1 truncate">
               {card.label}
             </div>
-            <div className="text-[10px] text-muted-foreground hidden md:block">
+            <div className="text-[10px] text-muted-foreground">
               {card.description}
             </div>
             
-            {/* Sub-stats for STD responses - hide on mobile for space */}
             {card.subStats && card.subStats.some(s => s.value > 0) && (
-              <div className="hidden md:flex gap-2 mt-2 pt-2 border-t border-border/50">
+              <div className="flex gap-2 mt-2 pt-2 border-t border-border/50">
                 {card.subStats.map((sub, idx) => {
                   const SubIcon = sub.icon;
                   return sub.value > 0 ? (
