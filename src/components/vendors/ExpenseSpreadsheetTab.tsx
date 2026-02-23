@@ -428,7 +428,7 @@ export function ExpenseSpreadsheetTab({
                 </Label>
               </div>
               
-              <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="planned_adults">N° Adulti Pianificati</Label>
                   <div className="relative">
@@ -502,7 +502,7 @@ export function ExpenseSpreadsheetTab({
           {globalMode === 'actual' && (
             <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900 rounded-lg p-4">
               <p className="text-sm font-medium mb-2">Invitati Confermati (da RSVP):</p>
-              <div className="grid grid-cols-3 gap-4 text-sm">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                 <div>
                   <span className="text-muted-foreground">Adulti:</span>
                   <span className="ml-2 font-semibold text-green-700 dark:text-green-400">{actualAdults}</span>
@@ -524,9 +524,9 @@ export function ExpenseSpreadsheetTab({
       {/* Tabella Righe di Costo */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>Righe di Costo</span>
-            <Button onClick={handleAddLineItem} size="sm">
+          <CardTitle className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <span className="text-base md:text-lg">Righe di Costo</span>
+            <Button onClick={handleAddLineItem} size="sm" className="w-full md:w-auto">
               <Plus className="h-4 w-4 mr-2" />
               Aggiungi Riga
             </Button>
