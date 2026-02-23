@@ -334,8 +334,8 @@ const Dashboard = () => {
             {wedding.partner1_name} & {wedding.partner2_name}
           </h1>
           <div className="flex items-center justify-center gap-2">
-            <Calendar className="w-6 h-6 lg:w-8 lg:h-8 text-accent" />
-            <div className="text-4xl lg:text-7xl font-bold text-accent">
+            <Calendar className="w-6 h-6 lg:w-8 lg:h-8 text-primary" />
+            <div className="text-4xl lg:text-7xl font-bold text-primary">
               {daysUntilWedding !== null && daysUntilWedding > 0 ? daysUntilWedding : 0}
             </div>
           </div>
@@ -371,7 +371,7 @@ const Dashboard = () => {
           onClick={() => navigate("/app/budget")}
         >
           <div className="flex items-center gap-2 mb-4">
-            <Euro className="w-6 h-6 text-gold" />
+            <Euro className="w-6 h-6 text-primary" />
             <h3 className="text-lg md:text-xl font-semibold">Stato del Budget</h3>
           </div>
 
@@ -390,8 +390,8 @@ const Dashboard = () => {
                 </div>
               </div>
               <div className="flex items-center justify-between mt-1.5 px-1">
-                <span className="text-[10px] md:text-xs text-muted-foreground uppercase tracking-wider">Min: €0</span>
-                <span className="text-[10px] md:text-xs text-muted-foreground uppercase tracking-wider">
+                <span className="text-xs text-foreground/60 uppercase tracking-wider">Min: €0</span>
+                <span className="text-xs text-foreground/60 uppercase tracking-wider">
                   Target: €{stats.budgetTotal.toLocaleString("it-IT")}
                 </span>
               </div>
@@ -410,7 +410,7 @@ const Dashboard = () => {
                   Ancora da Pagare
                   <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
-                <div className="text-xl font-bold text-orange-600">
+                <div className="text-xl font-bold text-orange-700">
                   €{Math.round(stats.budgetToBePaid).toLocaleString("it-IT")}
                 </div>
               </div>
@@ -427,7 +427,7 @@ const Dashboard = () => {
                   Liquidità Rimanente
                   <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
-                <div className="text-xl font-bold text-green-600">
+                <div className="text-xl font-bold text-green-700">
                   €{Math.round(stats.budgetRemaining).toLocaleString("it-IT")}
                 </div>
               </div>
@@ -462,8 +462,8 @@ const Dashboard = () => {
                         onClick={() => navigate(`/app/treasury?payment_id=${payment.id}&action=pay`)}
                       >
                         <div className="flex-1">
-                          <div className="font-medium text-sm group-hover:text-accent transition-colors">
-                            {payment.description}
+                          <div className="font-medium text-sm group-hover:text-primary transition-colors">
+                             {payment.description}
                           </div>
                           <div className="text-xs text-muted-foreground">
                             Scade tra {daysUntil} {daysUntil === 1 ? 'giorno' : 'giorni'}
@@ -501,8 +501,8 @@ const Dashboard = () => {
                         onClick={() => navigate(`/app/checklist?task_id=${task.id}`)}
                       >
                         <div className="flex-1">
-                          <div className="font-medium text-sm group-hover:text-accent transition-colors">
-                            {task.title}
+                          <div className="font-medium text-sm group-hover:text-primary transition-colors">
+                             {task.title}
                           </div>
                           <div className="text-xs text-muted-foreground">
                             Scade tra {daysUntil} {daysUntil === 1 ? 'giorno' : 'giorni'}

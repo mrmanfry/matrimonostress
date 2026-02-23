@@ -36,7 +36,7 @@ export function GuestSummaryWidget({ stats, onClick }: GuestSummaryWidgetProps) 
     >
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <Users className="w-6 h-6 text-accent" />
+          <Users className="w-6 h-6 text-primary" />
           <h3 className="text-lg md:text-xl font-semibold">Riepilogo Invitati</h3>
         </div>
         {metrics.unclassifiedCount > 0 && (
@@ -59,7 +59,7 @@ export function GuestSummaryWidget({ stats, onClick }: GuestSummaryWidgetProps) 
       <div className="space-y-6">
         {/* Numeri Principali - usando metriche unificate */}
         <div className="text-center">
-          <div className="text-4xl md:text-5xl font-bold text-accent mb-1">
+          <div className="text-4xl md:text-5xl font-bold text-primary mb-1">
             {metrics.estimatedMaxHeadCount || stats.guestsTotal}
           </div>
           <div className="text-sm text-muted-foreground mb-1">Coperti Stimati</div>
