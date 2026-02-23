@@ -1336,7 +1336,7 @@ const Guests = () => {
               </div>
             </Card>
           ) : (
-            <div className="space-y-3">
+            <div className={`space-y-3 ${isMobile ? 'pb-24' : ''}`}>
               {hybridList.map((item) => {
                 if (item.type === 'party') {
                   const party = item.data as InviteParty;
