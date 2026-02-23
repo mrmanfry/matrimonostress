@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Heart, RefreshCw, LogOut, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useIsOnline } from "@/hooks/useIsOnline";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -29,6 +30,7 @@ export function ProtectedRoute({
 }: ProtectedRouteProps) {
   const { authState, refreshAuth, signOut } = useAuth();
   const location = useLocation();
+  const isOnline = useIsOnline();
 
   // 1. Loading State - Spinner mentre Supabase/RPC lavorano
   if (authState.status === "loading") {
@@ -37,6 +39,21 @@ export function ProtectedRoute({
         <div className="text-center space-y-4">
           <Heart className="w-16 h-16 text-accent fill-accent animate-pulse mx-auto" />
           <p className="text-lg text-muted-foreground">Caricamento...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 1b. Offline guard — prevent redirect loops when offline
+  if (!isOnline && (authState.status === "unauthenticated" || authState.status === "error")) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-hero p-6">
+        <div className="text-center space-y-4">
+          <WifiOff className="w-16 h-16 text-muted-foreground mx-auto" />
+          <h2 className="text-xl font-semibold">Sei Offline</h2>
+          <p className="text-muted-foreground max-w-sm">
+            Connettiti a Internet per accedere all'app. I tuoi dati sono al sicuro.
+          </p>
         </div>
       </div>
     );

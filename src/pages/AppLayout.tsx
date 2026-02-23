@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
+import { OfflineBanner } from "@/components/OfflineBanner";
+import { InstallPrompt } from "@/components/InstallPrompt";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { 
@@ -207,7 +209,7 @@ const AppLayoutInner = ({
       </Sidebar>
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-14 border-b border-border bg-card flex items-center px-4 gap-4">
+        <header className="h-14 border-b border-border bg-card flex items-center px-4 gap-4 safe-top">
           <SidebarTrigger />
           {weddingInfo && (
             <div className="flex-1 text-center">
@@ -221,9 +223,12 @@ const AppLayoutInner = ({
           )}
         </header>
 
-        <main className="flex-1 overflow-auto">
+        <OfflineBanner />
+
+        <main className="flex-1 overflow-auto safe-bottom">
           <Outlet />
         </main>
+        <InstallPrompt />
       </div>
     </div>
   );

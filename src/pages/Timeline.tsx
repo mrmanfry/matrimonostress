@@ -1,12 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Plus, Share2, Printer, Heart, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { EventDialog } from "@/components/timeline/EventDialog";
-import { format } from "date-fns";
-import { it } from "date-fns/locale";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
+import { useIsOnline } from "@/hooks/useIsOnline";
 
 type TimelineEvent = {
   id: string;
@@ -18,65 +19,52 @@ type TimelineEvent = {
 };
 
 const Timeline = () => {
-  const [weddingId, setWeddingId] = useState<string | null>(null);
-  const [events, setEvents] = useState<TimelineEvent[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { authState } = useAuth();
+  const weddingId = authState.status === "authenticated" ? authState.weddingId : null;
+  const isOnline = useIsOnline();
+  const queryClient = useQueryClient();
+
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<TimelineEvent | null>(null);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const { toast } = useToast();
 
-  useEffect(() => {
-    fetchWeddingData();
-  }, []);
+  // Cached query — persisted to IndexedDB for offline access
+  const { data: events = [], isLoading } = useQuery({
+    queryKey: ["timeline-events", weddingId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("timeline_events")
+        .select("*")
+        .eq("wedding_id", weddingId!)
+        .order("time", { ascending: true });
+      return (data ?? []) as TimelineEvent[];
+    },
+    enabled: !!weddingId,
+  });
 
-  const fetchWeddingData = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data: weddingData } = await supabase
-        .from("weddings")
-        .select("id")
-        .eq("created_by", user.id)
+  // Check for existing share token
+  const { data: existingToken } = useQuery({
+    queryKey: ["timeline-token", weddingId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("timeline_tokens")
+        .select("token")
+        .eq("wedding_id", weddingId!)
+        .gt("expires_at", new Date().toISOString())
         .single();
+      return data?.token ?? null;
+    },
+    enabled: !!weddingId,
+    staleTime: 60 * 60 * 1000,
+  });
 
-      if (weddingData) {
-        setWeddingId(weddingData.id);
-        await fetchEvents(weddingData.id);
-        await checkExistingToken(weddingData.id);
-      }
-    } catch (error) {
-      console.error("Error:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchEvents = async (weddingId: string) => {
-    const { data } = await supabase
-      .from("timeline_events")
-      .select("*")
-      .eq("wedding_id", weddingId)
-      .order("time", { ascending: true });
-    if (data) setEvents(data);
-  };
-
-  const checkExistingToken = async (weddingId: string) => {
-    const { data } = await supabase
-      .from("timeline_tokens")
-      .select("token")
-      .eq("wedding_id", weddingId)
-      .gt("expires_at", new Date().toISOString())
-      .single();
-
-    if (data) {
-      setShareUrl(`${window.location.origin}/timeline/${data.token}`);
-    }
-  };
+  const computedShareUrl = existingToken
+    ? `${window.location.origin}/timeline/${existingToken}`
+    : shareUrl;
 
   const handleSave = async (event: Omit<TimelineEvent, "id" | "order_index">) => {
-    if (!weddingId) return;
+    if (!weddingId || !isOnline) return;
 
     if (editingEvent) {
       const { error } = await supabase
@@ -88,7 +76,7 @@ const Timeline = () => {
         toast({ title: "Errore", description: "Impossibile aggiornare l'evento", variant: "destructive" });
       } else {
         toast({ title: "Evento aggiornato" });
-        fetchEvents(weddingId);
+        queryClient.invalidateQueries({ queryKey: ["timeline-events", weddingId] });
       }
     } else {
       const { error } = await supabase
@@ -103,7 +91,7 @@ const Timeline = () => {
         toast({ title: "Errore", description: "Impossibile creare l'evento", variant: "destructive" });
       } else {
         toast({ title: "Evento creato" });
-        fetchEvents(weddingId);
+        queryClient.invalidateQueries({ queryKey: ["timeline-events", weddingId] });
       }
     }
 
@@ -112,6 +100,7 @@ const Timeline = () => {
   };
 
   const handleDelete = async (eventId: string) => {
+    if (!isOnline) return;
     const { error } = await supabase
       .from("timeline_events")
       .delete()
@@ -121,15 +110,15 @@ const Timeline = () => {
       toast({ title: "Errore", description: "Impossibile eliminare l'evento", variant: "destructive" });
     } else {
       toast({ title: "Evento eliminato" });
-      weddingId && fetchEvents(weddingId);
+      queryClient.invalidateQueries({ queryKey: ["timeline-events", weddingId] });
     }
   };
 
   const handleShare = async () => {
-    if (!weddingId) return;
+    if (!weddingId || !isOnline) return;
 
-    if (shareUrl) {
-      navigator.clipboard.writeText(shareUrl);
+    if (computedShareUrl) {
+      navigator.clipboard.writeText(computedShareUrl);
       toast({ title: "Link copiato negli appunti!" });
       return;
     }
@@ -137,10 +126,7 @@ const Timeline = () => {
     const token = crypto.randomUUID();
     const { error } = await supabase
       .from("timeline_tokens")
-      .insert({
-        wedding_id: weddingId,
-        token,
-      });
+      .insert({ wedding_id: weddingId, token });
 
     if (error) {
       toast({ title: "Errore", description: "Impossibile generare il link", variant: "destructive" });
@@ -156,7 +142,7 @@ const Timeline = () => {
     window.print();
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Heart className="w-12 h-12 text-accent fill-accent animate-pulse" />
@@ -175,9 +161,9 @@ const Timeline = () => {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button onClick={handleShare} variant="outline">
+            <Button onClick={handleShare} variant="outline" disabled={!isOnline}>
               <Share2 className="w-4 h-4 mr-2" />
-              {shareUrl ? "Copia Link" : "Condividi"}
+              {computedShareUrl ? "Copia Link" : "Condividi"}
             </Button>
             <Button onClick={handlePrint} variant="outline">
               <Printer className="w-4 h-4 mr-2" />
@@ -186,7 +172,7 @@ const Timeline = () => {
             <Button onClick={() => {
               setEditingEvent(null);
               setDialogOpen(true);
-            }}>
+            }} disabled={!isOnline}>
               <Plus className="w-4 h-4 mr-2" />
               Aggiungi Evento
             </Button>
@@ -205,12 +191,10 @@ const Timeline = () => {
             <div className="space-y-4">
               {events.map((event, index) => (
                 <div key={event.id} className="relative pl-8 pb-8 last:pb-0">
-                  {/* Timeline line */}
                   {index < events.length - 1 && (
                     <div className="absolute left-[11px] top-8 bottom-0 w-0.5 bg-border" />
                   )}
                   
-                  {/* Timeline dot */}
                   <div className="absolute left-0 top-1 w-6 h-6 rounded-full bg-accent flex items-center justify-center">
                     <div className="w-3 h-3 rounded-full bg-background" />
                   </div>
@@ -237,6 +221,7 @@ const Timeline = () => {
                         <Button
                           size="sm"
                           variant="ghost"
+                          disabled={!isOnline}
                           onClick={() => {
                             setEditingEvent(event);
                             setDialogOpen(true);
@@ -247,6 +232,7 @@ const Timeline = () => {
                         <Button
                           size="sm"
                           variant="ghost"
+                          disabled={!isOnline}
                           onClick={() => handleDelete(event.id)}
                         >
                           Elimina
