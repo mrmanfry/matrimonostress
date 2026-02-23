@@ -6,6 +6,8 @@ import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/contexts/AuthContext";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   Users,
   Plus,
@@ -15,6 +17,8 @@ import {
   Smartphone,
   UserPlus,
   ChevronDown,
+  BarChart3,
+  ChevronRight,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -38,6 +42,7 @@ import { SelectionToolbar } from "@/components/guests/SelectionToolbar";
 import { FunnelKPICards } from "@/components/guests/FunnelKPICards";
 import { GuestDialog } from "@/components/guests/GuestDialog";
 import { GuestCampaignBadges } from "@/components/guests/GuestCampaignBadges";
+import { cn } from "@/lib/utils";
 import { generateCateringReport } from "@/utils/pdfHelpers";
 import { CSVImportDialog } from "@/components/guests/CSVImportDialog";
 import { generateCSVTemplate, downloadCSV, exportGuestsToCSV } from "@/utils/csvHelpers";
@@ -124,6 +129,8 @@ const Guests = () => {
   const [singleGuestDialogOpen, setSingleGuestDialogOpen] = useState(false);
   const [rsvpCampaignOpen, setRsvpCampaignOpen] = useState(false);
   const [selectedPartiesForRSVP, setSelectedPartiesForRSVP] = useState<InviteParty[]>([]);
+  const [analyticsSheetOpen, setAnalyticsSheetOpen] = useState(false);
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
   
   // Selection state for multi-select
   const [selectedGuestIds, setSelectedGuestIds] = useState<Set<string>>(new Set());
@@ -1070,6 +1077,9 @@ const Guests = () => {
           <h1 className="text-xl md:text-3xl font-bold flex items-center gap-2">
             <Users className="w-6 h-6 md:w-8 md:h-8 flex-shrink-0" />
             <span className="truncate">Invitati</span>
+            {allGuests.length > 0 && (
+              <span className="text-muted-foreground font-normal text-base md:text-xl">({allGuests.filter(g => !g.is_couple_member).length})</span>
+            )}
           </h1>
           <p className="text-muted-foreground text-sm mt-0.5 hidden md:block">
             Organizza i tuoi invitati in nuclei familiari
@@ -1175,124 +1185,162 @@ const Guests = () => {
             onFilterChange={setFunnelFilter}
           />
           
-          {/* Secondary Stats Row - compact on mobile */}
-          <div className="grid grid-cols-3 gap-2 md:gap-4">
-            <Card className="p-2 md:p-4">
-              <div className="text-[10px] md:text-sm text-muted-foreground truncate">Coperti</div>
-              <div className="text-lg md:text-3xl font-bold">{totalGuests + potentialPlusOnes + vendorStaffCount}</div>
-              <div className="text-[10px] text-muted-foreground mt-0.5 hidden md:block">
-                {totalGuests} inviti
-                {potentialPlusOnes > 0 && ` + ${potentialPlusOnes} accomp.`}
-                {vendorStaffCount > 0 && ` + ${vendorStaffCount} staff`}
-              </div>
-              <div className="text-[10px] text-muted-foreground">
-                <span className="md:hidden">{totalAdults}A {totalChildren}B</span>
-                <span className="hidden md:inline">{totalAdults} Adult{totalAdults !== 1 ? 'i' : 'o'}, {totalChildren} Bambin{totalChildren !== 1 ? 'i' : 'o'}</span>
-              </div>
-            </Card>
-            <Card className="p-2 md:p-4">
-              <div className="text-[10px] md:text-sm text-muted-foreground truncate">Nuclei</div>
-              <div className="text-lg md:text-3xl font-bold">{totalNuclei}</div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">
-                <span className="md:hidden">{parties.length}g {ungroupedGuests.length}s</span>
-                <span className="hidden md:inline">{parties.length} raggruppati • {ungroupedGuests.length} singoli</span>
-              </div>
-            </Card>
-            <Card className="p-2 md:p-4">
-              <div className="text-[10px] md:text-sm text-muted-foreground truncate">No Tel.</div>
-              <div className="text-lg md:text-3xl font-bold text-orange-600">{guestsWithoutPhone}</div>
-              <div className="text-[10px] text-muted-foreground mt-0.5 hidden md:block">
-                Senza numero
-              </div>
-            </Card>
-          </div>
-
-          {/* Warnings - Compact on mobile */}
-          {guestsWithoutPhone > 0 && (
-            <Alert className="py-2 md:py-3">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription className="text-sm">
-                <strong>{guestsWithoutPhone}</strong> senza telefono.{" "}
-                <Button
-                  variant="link"
-                  className="p-0 h-auto text-sm"
-                  onClick={() => setContactSyncOpen(true)}
-                >
-                  Sincronizza
-                </Button>
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {ungroupedGuests.length > 0 && (
-            <Alert className="py-2 md:py-3">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                <span className="text-sm">
-                  <strong>{ungroupedGuests.length}</strong> non assegnati a nuclei
+          {/* Compact Warnings */}
+          {(guestsWithoutPhone > 0 || ungroupedGuests.length > 0) && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground px-1">
+              {guestsWithoutPhone > 0 && (
+                <span className="flex items-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5 text-orange-500" />
+                  <strong className="text-foreground">{guestsWithoutPhone}</strong> senza telefono
+                  <Button
+                    variant="link"
+                    className="p-0 h-auto text-sm"
+                    onClick={() => setContactSyncOpen(true)}
+                  >
+                    Sincronizza
+                  </Button>
                 </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full sm:w-auto"
-                  onClick={() => setSmartGrouperOpen(true)}
-                >
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  <span className="sm:hidden">AI Grouping</span>
-                  <span className="hidden sm:inline">Raggruppa con AI</span>
-                </Button>
-              </AlertDescription>
-            </Alert>
+              )}
+              {guestsWithoutPhone > 0 && ungroupedGuests.length > 0 && (
+                <span className="text-border">·</span>
+              )}
+              {ungroupedGuests.length > 0 && (
+                <span className="flex items-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
+                  <strong className="text-foreground">{ungroupedGuests.length}</strong> non raggruppati
+                  <Button
+                    variant="link"
+                    className="p-0 h-auto text-sm"
+                    onClick={() => setSmartGrouperOpen(true)}
+                  >
+                    <Sparkles className="w-3 h-3 mr-1" />
+                    Raggruppa
+                  </Button>
+                </span>
+              )}
+            </div>
           )}
 
-          {/* Analytics Dashboard */}
-          <GuestAnalyticsDashboard 
-            guests={allGuests} 
-            parties={parties} 
-            activeFilter={activeAnalyticsFilter}
-            onClearFilter={handleResetFilters}
-            onFilterClick={(filter: AnalyticsFilterType) => {
-              // Reset all filters first
-              setFilterValues(DEFAULT_FILTER_VALUES);
-              setFunnelFilter(null);
-              // Set the active filter for visual indicator
-              setActiveAnalyticsFilter(filter);
-              // Apply the specific filter
-              switch (filter.type) {
-                case 'rsvp':
-                  const rsvpMap = { confirmed: 'Confermato', pending: 'In attesa', declined: 'Rifiutato' };
-                  handleFilterChange('rsvpStatus', rsvpMap[filter.value] || 'all');
-                  break;
-                case 'composition':
-                  if (filter.value === 'staff') handleFilterChange('staff', 'staff_only');
-                  else handleFilterChange('age', filter.value === 'children' ? 'children' : 'adults');
-                  break;
-                case 'contact':
-                  handleFilterChange('contact', filter.value);
-                  break;
-                case 'menu':
-                  handleFilterChange('menu', filter.value);
-                  break;
-                case 'dietary':
-                  // Filter guests with dietary restrictions - use menu filter with special value
-                  handleFilterChange('menu', 'dietary');
-                  break;
-                case 'plusOne':
-                  handleFilterChange('plusOne', filter.value);
-                  break;
-                case 'funnel':
-                  setFunnelFilter(filter.value);
-                  break;
-                case 'group':
-                  handleFilterChange('group', filter.value);
-                  break;
-                case 'std':
-                  handleFilterChange('stdStatus', filter.value);
-                  break;
-              }
-            }}
-          />
-
+          {/* Analytics - Progressive Disclosure */}
+          {isMobile ? (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => setAnalyticsSheetOpen(true)}
+              >
+                <BarChart3 className="w-4 h-4 mr-2" />
+                Vedi Statistiche
+              </Button>
+              <Sheet open={analyticsSheetOpen} onOpenChange={setAnalyticsSheetOpen}>
+                <SheetContent side="bottom" className="h-[85vh] overflow-y-auto">
+                  <SheetHeader>
+                    <SheetTitle>Statistiche Invitati</SheetTitle>
+                  </SheetHeader>
+                  <div className="mt-4">
+                    <GuestAnalyticsDashboard 
+                      guests={allGuests} 
+                      parties={parties} 
+                      activeFilter={activeAnalyticsFilter}
+                      onClearFilter={handleResetFilters}
+                      onFilterClick={(filter: AnalyticsFilterType) => {
+                        setFilterValues(DEFAULT_FILTER_VALUES);
+                        setFunnelFilter(null);
+                        setActiveAnalyticsFilter(filter);
+                        switch (filter.type) {
+                          case 'rsvp':
+                            const rsvpMap = { confirmed: 'Confermato', pending: 'In attesa', declined: 'Rifiutato' };
+                            handleFilterChange('rsvpStatus', rsvpMap[filter.value] || 'all');
+                            break;
+                          case 'composition':
+                            if (filter.value === 'staff') handleFilterChange('staff', 'staff_only');
+                            else handleFilterChange('age', filter.value === 'children' ? 'children' : 'adults');
+                            break;
+                          case 'contact':
+                            handleFilterChange('contact', filter.value);
+                            break;
+                          case 'menu':
+                            handleFilterChange('menu', filter.value);
+                            break;
+                          case 'dietary':
+                            handleFilterChange('menu', 'dietary');
+                            break;
+                          case 'plusOne':
+                            handleFilterChange('plusOne', filter.value);
+                            break;
+                          case 'funnel':
+                            setFunnelFilter(filter.value);
+                            break;
+                          case 'group':
+                            handleFilterChange('group', filter.value);
+                            break;
+                          case 'std':
+                            handleFilterChange('stdStatus', filter.value);
+                            break;
+                        }
+                        setAnalyticsSheetOpen(false);
+                      }}
+                    />
+                  </div>
+                </SheetContent>
+              </Sheet>
+            </>
+          ) : (
+            <Collapsible open={analyticsOpen} onOpenChange={setAnalyticsOpen}>
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground">
+                  <BarChart3 className="w-4 h-4" />
+                  Analisi Dettagliata
+                  <ChevronRight className={cn("w-4 h-4 transition-transform", analyticsOpen && "rotate-90")} />
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-2">
+                <GuestAnalyticsDashboard 
+                  guests={allGuests} 
+                  parties={parties} 
+                  activeFilter={activeAnalyticsFilter}
+                  onClearFilter={handleResetFilters}
+                  onFilterClick={(filter: AnalyticsFilterType) => {
+                    setFilterValues(DEFAULT_FILTER_VALUES);
+                    setFunnelFilter(null);
+                    setActiveAnalyticsFilter(filter);
+                    switch (filter.type) {
+                      case 'rsvp':
+                        const rsvpMap = { confirmed: 'Confermato', pending: 'In attesa', declined: 'Rifiutato' };
+                        handleFilterChange('rsvpStatus', rsvpMap[filter.value] || 'all');
+                        break;
+                      case 'composition':
+                        if (filter.value === 'staff') handleFilterChange('staff', 'staff_only');
+                        else handleFilterChange('age', filter.value === 'children' ? 'children' : 'adults');
+                        break;
+                      case 'contact':
+                        handleFilterChange('contact', filter.value);
+                        break;
+                      case 'menu':
+                        handleFilterChange('menu', filter.value);
+                        break;
+                      case 'dietary':
+                        handleFilterChange('menu', 'dietary');
+                        break;
+                      case 'plusOne':
+                        handleFilterChange('plusOne', filter.value);
+                        break;
+                      case 'funnel':
+                        setFunnelFilter(filter.value);
+                        break;
+                      case 'group':
+                        handleFilterChange('group', filter.value);
+                        break;
+                      case 'std':
+                        handleFilterChange('stdStatus', filter.value);
+                        break;
+                    }
+                  }}
+                />
+              </CollapsibleContent>
+            </Collapsible>
+          )}
           {/* Filters - New Configurable Filter System */}
           <div className="space-y-3">
             <div className="flex flex-col gap-2 sm:flex-row sm:gap-3 min-w-0">
