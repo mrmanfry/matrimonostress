@@ -1,55 +1,64 @@
 
 
-## Piano: Ottimizzazione Mobile VendorDetails (Apple-Style)
+## Piano: Fix Mobile per Dialog "Open Bar" (ExpenseItemTabs)
 
-### Problemi Attuali (visibili dallo screenshot)
+### Problema
 
-1. **Hero Card**: L'avatar 96x96px occupa troppo spazio verticale su mobile. Nome, badge, bottone "Modifica Profilo" e contatti sono impilati con troppo padding
-2. **Tabs**: Le 4 tab con testo completo ("Spese & Pagamenti", "Documenti", "Appuntamenti", "Checklist") traboccano orizzontalmente -- si vede "App..." troncato
-3. **VendorExpensesWidget**: Il titolo "Gestione Spese e Pagamenti" con il toggle a 3 modalita' (Plan./Prev./Conf.) + i conteggi coperti occupa troppo spazio
-4. **ExpenseItemsManager**: Le card spesa con i totali pagato/da pagare in grid 2 colonne sono strette
-5. **Dettagli fiscali** (Ragione Sociale, P.IVA, IBAN): Visibili nella hero card, informazione secondaria che occupa spazio
+Quando si apre una spesa (es. "Open bar") dalla tab Spese su mobile, il dialog `ExpenseItemTabs` presenta gravi problemi di layout:
 
-### Modifiche Proposte
+1. **Dialog troppo largo**: usa `max-w-6xl` (1152px) dentro un viewport di 390px
+2. **Griglia a 12 colonne**: `ExpenseLineRow` usa `grid-cols-12` con 7-8 colonne di input affiancate -- completamente illeggibile su mobile
+3. **Labels sotto ogni riga**: le etichette (Descrizione, Prezzo Unitario, Tipo Quantita'...) ripetute sotto ogni riga occupano spazio inutile
+4. **ExpenseSummaryCard**: testi "Totale Pianificato (Preventivo)" troppo lunghi per mobile
 
-#### 1. Hero Card Compatta (`VendorDetails.tsx`)
+### Soluzione
 
-- Avatar ridotto a 56x56px su mobile (da 96x96)
-- Layout header in una riga: avatar + nome + status badge affiancati
-- Bottone "Modifica Profilo" diventa un icon-only button (solo icona matita) su mobile
-- Contatti (telefono, email, referente) in riga compatta con solo icone cliccabili su mobile
-- **Nascondere i dettagli fiscali** (Ragione Sociale, P.IVA, IBAN, Intestatario) su mobile -- sono accessibili dal dialog di modifica
-- Nascondere le note su mobile -- accessibili dal dialog di modifica
-- Ridurre padding card da p-6 a p-4 su mobile
+Convertire il dialog in un **Drawer bottom-sheet** su mobile (come fa gia' il progetto in altri punti), e riformattare `ExpenseLineRow` in un layout a **stack verticale** su mobile.
 
-#### 2. Tabs Solo Icone su Mobile (`VendorDetails.tsx`)
+### Modifiche
 
-- Su mobile: mostrare solo le icone (CreditCard, FileText, CalendarCheck, ListTodo) senza testo
-- Rimuovere `space-x-8` su mobile e distribuire equamente con `justify-around`
-- Ridurre lo spazio tra tabs e contenuto
+#### 1. `ExpenseItemTabs.tsx` -- Drawer su mobile
 
-#### 3. VendorExpensesWidget Compatta (`VendorExpensesWidget.tsx`)
+- Importare `useIsMobile()` e il componente `Drawer`
+- Su mobile: renderizzare come `Drawer` (bottom-sheet a schermo pieno con `max-h-[95vh]`)
+- Su desktop: mantenere il `Dialog` con `max-w-6xl` attuale
+- Il contenuto interno (Tabs) resta identico
 
-- Su mobile: nascondere il titolo "Gestione Spese e Pagamenti" (ridondante con la tab)
-- Toggle modalita' (Plan/Prev/Conf) piu' compatto: nascondere i conteggi dettagliati su mobile, mostrare solo le pill
+#### 2. `ExpenseLineRow.tsx` -- Layout verticale su mobile
 
-#### 4. ExpenseItemsManager Compatta (`ExpenseItemsManager.tsx`)
+- Su mobile: sostituire la griglia 12 colonne con un layout a **card verticale**:
+  - Riga 1: Descrizione (full width) + bottone elimina
+  - Riga 2: Prezzo unitario + Tipo quantita' + Quantita' affiancati (3 colonne)
+  - Riga 3: Sconto + IVA + Totale affiancati (3 colonne)
+  - Ogni campo ha la propria label sopra
+- Su desktop: mantenere la griglia 12 colonne attuale
+- Usare `useIsMobile()` per switch
 
-- "TOTALE FORNITORE" con font piu' piccolo su mobile
-- Card Importo Pagato / Da Pagare: passare da grid-cols-2 a stack verticale compatto su mobile, senza bordi colorati -- solo testo con dot colorato
+#### 3. `ExpenseSpreadsheetTab.tsx` -- Compattare su mobile
+
+- "Righe di Costo" + "Aggiungi Riga": stack verticale su mobile
+- Info box "Modalita' di Calcolo Attiva": testo piu' compatto su mobile
+- Grid conteggi ospiti: da `grid-cols-3` a `grid-cols-1` su mobile
+
+#### 4. `ExpenseSummaryCard.tsx` -- Testi compatti
+
+- Su mobile: abbreviare le label ("Pianificato" invece di "Totale Pianificato (Preventivo)")
+- Font size ridotto da `text-lg`/`text-xl` a `text-base`/`text-lg`
 
 ### File da Modificare
 
 | File | Modifica |
 |------|----------|
-| `src/pages/VendorDetails.tsx` | Hero compatta, tabs icon-only, avatar piccolo, dettagli fiscali/note nascosti su mobile |
-| `src/components/vendors/widgets/VendorExpensesWidget.tsx` | Header piu' compatto su mobile, titolo nascosto |
-| `src/components/vendors/ExpenseItemsManager.tsx` | Totali compatti su mobile |
+| `src/components/vendors/ExpenseItemTabs.tsx` | Dialog -> Drawer su mobile |
+| `src/components/vendors/ExpenseLineRow.tsx` | Grid 12 col -> stack verticale su mobile |
+| `src/components/vendors/ExpenseSpreadsheetTab.tsx` | Layout compatto su mobile |
+| `src/components/vendors/ExpenseSummaryCard.tsx` | Testi abbreviati su mobile |
 
 ### Dettagli Tecnici
 
-- Usare `useIsMobile()` hook gia' presente nel progetto
-- Classi Tailwind responsive (`md:` prefix) dove possibile
-- Nessuna modifica alla vista desktop
-- Le informazioni nascoste su mobile (dettagli fiscali, note) restano accessibili tramite il dialog "Modifica Profilo"
+- Usare `useIsMobile()` da `@/hooks/use-mobile`
+- Componente `Drawer` gia' disponibile in `@/components/ui/drawer`
+- Pattern Drawer/Dialog gia' usato nel progetto (il Drawer usa `vaul` con bottom-sheet nativo)
+- Nessuna modifica alla logica di calcolo o al flusso dati
+- Desktop rimane invariato
 
