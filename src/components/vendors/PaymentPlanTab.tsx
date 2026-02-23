@@ -7,7 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Plus, CalendarIcon, Edit, X, Check } from "lucide-react";
+import { Trash2, Plus, CalendarIcon, Edit, X, Check, Sparkles } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
@@ -1005,6 +1005,24 @@ export function PaymentPlanTab({
                                 </div>
                               </Card>
                             ))}
+
+                            {editingAllocations.length >= 2 && (
+                              <Button
+                                variant="outline"
+                                className="w-full"
+                                type="button"
+                                onClick={() => {
+                                  const paymentAmount = calculatePaymentAmount(payment, 0, index);
+                                  const perContributor = parseFloat((paymentAmount / editingAllocations.length).toFixed(2));
+                                  setEditingAllocations(
+                                    editingAllocations.map(a => ({ ...a, amount: perContributor.toString() }))
+                                  );
+                                }}
+                              >
+                                <Sparkles className="h-4 w-4 mr-2" />
+                                Dividi Equamente tra {editingAllocations.length} Contributori
+                              </Button>
+                            )}
 
                             {editingAllocations.length > 0 && (() => {
                               const totalAllocated = editingAllocations.reduce((sum, alloc) => sum + (parseFloat(alloc.amount) || 0), 0);
