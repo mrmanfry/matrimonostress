@@ -393,21 +393,21 @@ export function ExpenseSpreadsheetTab({
             </div>
           </div>
 
-          <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
-            <div className="space-y-2">
-              <Label className="font-semibold">Modalità di Calcolo Attiva</Label>
-              <div className="flex items-center gap-2">
+          <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 md:p-4">
+            <div className="space-y-1.5">
+              <Label className="font-semibold text-xs md:text-sm">Modalità di Calcolo Attiva</Label>
+              <div className="flex flex-wrap items-center gap-2">
                 <Badge variant={globalMode === 'planned' ? 'default' : 'secondary'}>
-                  {globalMode === 'planned' ? '📊 Pianificato' : '✅ Effettivo'}
+                  {globalMode === 'planned' ? '🎯 Plan.' : '✅ Conf.'}
                 </Badge>
-                <span className="text-sm text-muted-foreground">
+                <span className="text-xs md:text-sm text-muted-foreground">
                   {globalMode === 'planned' 
-                    ? 'Stai usando i dati pianificati (preventivo manuale)'
-                    : 'Stai usando i dati effettivi (da conferme RSVP)'}
+                    ? `Target: ${plannedAdults ?? weddingTargets.adults} adulti, ${plannedChildren ?? weddingTargets.children} bambini, ${plannedStaff ?? weddingTargets.staff} staff`
+                    : `Confermati: ${actualAdults} adulti, ${actualChildren} bambini, ${actualStaff} staff`}
                 </span>
               </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                💡 Cambia la modalità globale dalla pagina Treasury per passare tra pianificato ed effettivo
+              <p className="text-[10px] md:text-xs text-muted-foreground mt-1">
+                💡 Cambia modalità (Plan. / Prev. / Conf.) dalla sezione Spese del fornitore
               </p>
             </div>
           </div>
