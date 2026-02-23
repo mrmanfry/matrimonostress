@@ -12,6 +12,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { useGuestMetrics } from "@/hooks/useGuestMetrics";
 import { GuestSummaryWidget } from "@/components/dashboard/GuestSummaryWidget";
+import { calculateExpenseAmount, resolveGuestCounts, inferExpenseType, formatCurrency } from "@/lib/expenseCalculations";
+import type { ExpenseItem, ExpenseLineItem, GuestCounts } from "@/lib/expenseCalculations";
+import { calculateExpectedCounts, calculateTotalVendorStaff } from "@/lib/expectedCalculator";
 
 interface Wedding {
   id: string;
@@ -112,18 +115,30 @@ const Dashboard = () => {
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       setDaysUntilWedding(diffDays);
 
-      // Load stats with payments
-      const [guestsResponse, expenseItemsResponse, tasksResponse, paymentsResponse] = await Promise.all([
+      // Load stats with payments + expense items for centralized calculation
+      const [guestsResponse, expenseItemsFullResponse, expenseLineItemsResponse, tasksResponse, paymentsResponse, vendorsResponse] = await Promise.all([
         supabase.from("guests").select("*").eq("wedding_id", weddingData.id),
-        supabase.from("expense_items").select("id").eq("wedding_id", weddingData.id),
+        supabase.from("expense_items").select("id, description, expense_type, fixed_amount, estimated_amount, planned_adults, planned_children, planned_staff, tax_rate, amount_is_tax_inclusive, total_amount, calculation_mode, vendor_id, category_id").eq("wedding_id", weddingData.id),
+        supabase.from("expense_line_items").select("*, expense_items!inner(wedding_id)").eq("expense_items.wedding_id", weddingData.id),
         supabase.from("checklist_tasks").select("*").eq("wedding_id", weddingData.id),
         supabase.from("payments").select("*, expense_items!inner(wedding_id)").eq("expense_items.wedding_id", weddingData.id),
+        supabase.from("vendors").select("id, staff_meals_count").eq("wedding_id", weddingData.id),
       ]);
 
       const guests = guestsResponse.data || [];
-      const expenseItems = expenseItemsResponse.data || [];
+      const expenseItems = expenseItemsFullResponse.data || [];
+      const allLineItems = expenseLineItemsResponse.data || [];
       const tasks = tasksResponse.data || [];
       const payments = paymentsResponse.data || [];
+      const vendors = vendorsResponse.data || [];
+
+      // Guest counts (same logic as Treasury)
+      const globalMode = (weddingData.calculation_mode as 'planned' | 'expected' | 'confirmed') || 'planned';
+      const targets = {
+        adults: weddingData.target_adults || 100,
+        children: weddingData.target_children || 0,
+        staff: weddingData.target_staff || 0,
+      };
 
       const guestsConfirmed = guests.filter(g => g.rsvp_status === 'confirmed');
       const totalAdultsConfirmed = guestsConfirmed.reduce((sum, g) => sum + (g.adults_count || 0), 0);
@@ -131,9 +146,66 @@ const Dashboard = () => {
       const totalAdults = guests.reduce((sum, g) => sum + (g.adults_count || 0), 0);
       const totalChildren = guests.reduce((sum, g) => sum + (g.children_count || 0), 0);
 
-      const totalCommitment = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
-      const totalPaid = payments.filter(p => p.status === 'Pagato').reduce((sum, p) => sum + Number(p.amount), 0);
-      const totalToBePaid = payments.filter(p => p.status === 'Da Pagare').reduce((sum, p) => sum + Number(p.amount), 0);
+      // Calculate expected counts
+      const vendorStaffTotal = calculateTotalVendorStaff(vendors);
+      const expectedResult = calculateExpectedCounts(guests as any, guests as any, vendorStaffTotal);
+
+      const guestCounts: GuestCounts = {
+        planned: targets,
+        expected: {
+          adults: expectedResult.adults,
+          children: expectedResult.children,
+          staff: expectedResult.staff,
+        },
+        confirmed: {
+          adults: totalAdultsConfirmed,
+          children: totalChildrenConfirmed,
+          staff: vendorStaffTotal,
+        },
+      };
+
+      // Calculate total commitment using centralized logic (same as Treasury)
+      const totalCommitment = expenseItems.reduce((sum, item) => {
+        const itemLines = allLineItems
+          .filter((li: any) => li.expense_item_id === item.id)
+          .map((li: any) => ({
+            unit_price: li.unit_price || 0,
+            quantity_type: li.quantity_type || 'fixed',
+            quantity_fixed: li.quantity_fixed,
+            quantity_limit: li.quantity_limit,
+            quantity_range: li.quantity_range || 'all',
+            discount_percentage: li.discount_percentage || 0,
+            tax_rate: li.tax_rate || 0,
+            price_is_tax_inclusive: li.price_is_tax_inclusive || false,
+          })) as ExpenseLineItem[];
+
+        const resolved = resolveGuestCounts(
+          { planned_adults: item.planned_adults, planned_children: item.planned_children, planned_staff: item.planned_staff },
+          targets
+        );
+
+        const expenseCalcItem: ExpenseItem = {
+          id: item.id,
+          expense_type: (item.expense_type as 'fixed' | 'variable' | 'mixed') || inferExpenseType(item as any, itemLines.length > 0),
+          fixed_amount: item.fixed_amount,
+          estimated_amount: item.estimated_amount,
+          planned_adults: resolved.adults,
+          planned_children: resolved.children,
+          planned_staff: resolved.staff,
+          tax_rate: item.tax_rate,
+          amount_is_tax_inclusive: item.amount_is_tax_inclusive ?? true,
+          total_amount: item.total_amount,
+        };
+
+        return sum + calculateExpenseAmount(expenseCalcItem, itemLines, globalMode, guestCounts);
+      }, 0);
+
+      const totalPaid = payments.filter(p => p.status === 'Pagato').reduce((sum, p) => {
+        const base = Number(p.amount || 0);
+        if (!p.tax_inclusive && p.tax_rate) return sum + base * (1 + p.tax_rate / 100);
+        return sum + base;
+      }, 0);
+      const totalToBePaid = totalCommitment - totalPaid;
 
       setStats({
         guestsTotal: guests.reduce((sum, g) => sum + (g.adults_count || 0) + (g.children_count || 0), 0),
@@ -147,18 +219,16 @@ const Dashboard = () => {
         budgetTotal: weddingData.total_budget || 0,
         budgetSpent: totalCommitment,
         budgetPaid: totalPaid,
-        budgetToBePaid: totalToBePaid,
+        budgetToBePaid: Math.max(totalToBePaid, 0),
         budgetRemaining: (weddingData.total_budget || 0) - totalCommitment,
         tasksTotal: tasks.length,
         tasksCompleted: tasks.filter(t => t.status === 'completed').length,
         urgentPayments: payments.filter(p => {
-          // FR-DB-2.0: Escludere pagamenti già completati
           if (p.status === 'Pagato') return false;
           const dueDate = new Date(p.due_date);
           const today = new Date();
           today.setHours(0, 0, 0, 0);
           const daysUntil = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-          // Solo pagamenti futuri entro 7 giorni
           return daysUntil >= 0 && daysUntil <= 7;
         }).slice(0, 3),
         urgentTasks: tasks.filter(t => {
@@ -323,7 +393,8 @@ const Dashboard = () => {
     { name: "Rifiutati", value: stats.guestsDeclined, color: "#6b7280" },
   ];
 
-  const budgetPercentage = stats.budgetTotal > 0 ? (stats.budgetSpent / stats.budgetTotal) * 100 : 0;
+  const paidPercentage = stats.budgetSpent > 0 ? (stats.budgetPaid / stats.budgetSpent) * 100 : 0;
+  const toBePaidPercentage = stats.budgetSpent > 0 ? (stats.budgetToBePaid / stats.budgetSpent) * 100 : 0;
 
   return (
     <div className="p-4 lg:p-8 max-w-7xl mx-auto space-y-4 lg:space-y-6">
@@ -331,7 +402,7 @@ const Dashboard = () => {
       <Card className="p-4 lg:p-8 bg-gradient-hero border-2 border-accent/30">
         <div className="text-center space-y-2 lg:space-y-3">
           <h1 className="text-2xl lg:text-4xl font-bold">
-            {wedding.partner1_name} & {wedding.partner2_name}
+            {wedding.partner1_name} &amp; {wedding.partner2_name}
           </h1>
           <div className="flex items-center justify-center gap-2">
             <Calendar className="w-6 h-6 lg:w-8 lg:h-8 text-primary" />
@@ -359,46 +430,51 @@ const Dashboard = () => {
 
       {/* Widget Grid 2x2 */}
       <div className="grid md:grid-cols-2 gap-4 lg:gap-6">
-        {/* Widget 1: Riepilogo Invitati con Grafico - usando useGuestMetrics */}
+        {/* Widget 1: Riepilogo Invitati */}
         <GuestSummaryWidget 
           stats={stats} 
           onClick={() => navigate("/app/guests")} 
         />
 
-        {/* Widget 2: Stato Budget con Barra */}
+        {/* Widget 2: Finanze - Impegno/Pagato/Da Pagare */}
         <Card 
           className="p-4 md:p-6 hover:shadow-elegant transition-all cursor-pointer"
-          onClick={() => navigate("/app/budget")}
+          onClick={() => navigate("/app/treasury")}
         >
-          <div className="flex items-center gap-2 mb-4">
+          <div className="flex items-center gap-2 mb-3">
             <Euro className="w-6 h-6 text-primary" />
-            <h3 className="text-lg md:text-xl font-semibold">Stato del Budget</h3>
+            <h3 className="text-lg md:text-xl font-semibold">Finanze</h3>
           </div>
 
           <div className="space-y-4">
-            <div>
-              <div className="relative h-10 md:h-12 bg-muted rounded-full overflow-hidden">
-                <div 
-                  className="absolute h-full bg-gradient-to-r from-gold to-gold/80 transition-all duration-500 flex items-center justify-center"
-                  style={{ width: `${Math.min(budgetPercentage, 100)}%` }}
-                >
-                  {budgetPercentage > 15 && (
-                    <span className="text-xs md:text-sm font-bold text-white">
-                      €{Math.round(stats.budgetSpent).toLocaleString("it-IT")}
-                    </span>
-                  )}
-                </div>
+            {/* Hero: Impegno Totale */}
+            <div className="text-center py-1">
+              <div className="text-3xl font-bold">
+                {formatCurrency(stats.budgetSpent)}
               </div>
-              <div className="flex items-center justify-between mt-1.5 px-1">
-                <span className="text-xs text-foreground/60 uppercase tracking-wider">Min: €0</span>
-                <span className="text-xs text-foreground/60 uppercase tracking-wider">
-                  Target: €{stats.budgetTotal.toLocaleString("it-IT")}
-                </span>
-              </div>
+              <div className="text-sm text-muted-foreground">Impegno Totale</div>
             </div>
 
+            {/* Barra segmentata Pagato + Da Pagare */}
+            <div className="h-3 rounded-full overflow-hidden flex bg-muted">
+              {stats.budgetSpent > 0 ? (
+                <>
+                  <div
+                    className="h-full bg-emerald-500 transition-all duration-500"
+                    style={{ width: `${paidPercentage}%` }}
+                  />
+                  <div
+                    className="h-full bg-amber-500 transition-all duration-500"
+                    style={{ width: `${toBePaidPercentage}%` }}
+                  />
+                </>
+              ) : (
+                <div className="h-full w-full bg-muted" />
+              )}
+            </div>
+
+            {/* KPI: Pagato e Da Pagare */}
             <div className="grid grid-cols-2 gap-4">
-              {/* FR-DB-3.3 - Ancora da Pagare -> Treasury */}
               <div 
                 className="space-y-1 cursor-pointer hover:bg-muted/50 p-2 rounded transition-colors group"
                 onClick={(e) => {
@@ -406,32 +482,40 @@ const Dashboard = () => {
                   navigate("/app/treasury");
                 }}
               >
-                <div className="text-sm text-muted-foreground flex items-center gap-1">
-                  Ancora da Pagare
-                  <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="text-sm text-muted-foreground flex items-center gap-1.5">
+                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                  Pagato
                 </div>
-                <div className="text-xl font-bold text-orange-700">
-                  €{Math.round(stats.budgetToBePaid).toLocaleString("it-IT")}
+                <div className="text-xl font-bold text-emerald-700 dark:text-emerald-400">
+                  {formatCurrency(stats.budgetPaid)}
                 </div>
               </div>
-              
-              {/* FR-DB-3.2 - Liquidità Rimanente -> Budget */}
               <div 
                 className="space-y-1 cursor-pointer hover:bg-muted/50 p-2 rounded transition-colors group"
                 onClick={(e) => {
                   e.stopPropagation();
-                  navigate("/app/budget");
+                  navigate("/app/treasury");
                 }}
               >
-                <div className="text-sm text-muted-foreground flex items-center gap-1">
-                  Liquidità Rimanente
-                  <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="text-sm text-muted-foreground flex items-center gap-1.5">
+                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-500" />
+                  Da Pagare
                 </div>
-                <div className="text-xl font-bold text-green-700">
-                  €{Math.round(stats.budgetRemaining).toLocaleString("it-IT")}
+                <div className="text-xl font-bold text-amber-700 dark:text-amber-400">
+                  {formatCurrency(stats.budgetToBePaid)}
                 </div>
               </div>
             </div>
+
+            {/* Riga secondaria: Budget target e Liquidità */}
+            {stats.budgetTotal > 0 && (
+              <div className="border-t pt-2 flex items-center justify-between text-xs text-muted-foreground">
+                <span>Budget target: {formatCurrency(stats.budgetTotal)}</span>
+                <span className={stats.budgetRemaining < 0 ? 'text-destructive font-medium' : ''}>
+                  Liquidità: {formatCurrency(stats.budgetRemaining)}
+                </span>
+              </div>
+            )}
           </div>
         </Card>
 
