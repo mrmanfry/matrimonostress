@@ -1,62 +1,81 @@
 
 
-# Voci di Budget Cliccabili e Eliminabili
+# Riprogettazione della Riga di Costo (`ExpenseLineRow`)
 
-## Cosa cambia
+## Problemi Attuali
 
-Quando espandi una categoria nel Budget Spreadsheet e vedi le singole voci di spesa:
+1. **IVA**: Non c'e modo di indicare se il prezzo inserito e IVA inclusa o esclusa. L'utente inserisce il prezzo e poi una percentuale IVA, ma non e chiaro se il prezzo gia include l'IVA.
+2. **"Tipo Qta"**: Il select mescola il concetto di "fissa vs variabile" con il dettaglio "adulti/bambini/staff/tutti", risultando confuso. L'utente non capisce al volo cosa scegliere.
 
-1. **Voci assegnate a un fornitore**: cliccando sulla riga si apre la schermata dettaglio spesa (la stessa che c'e nella pagina fornitore, con le tab "Dettaglio Costi" e "Piano Pagamenti")
-2. **Voci placeholder (non assegnate)**: mostrano due azioni:
-   - Pulsante "Da assegnare" (gia presente) per assegnare un fornitore
-   - Icona cestino per eliminare la voce dal budget
-3. **Le righe diventano cliccabili** con hover evidenziato per indicare che sono interattive
+## Soluzione
 
-## Dettaglio Tecnico
+### 1. Prezzo con toggle IVA inclusa/esclusa
 
-**File: `src/components/budget/BudgetSpreadsheet.tsx`**
+Accanto al campo "Prezzo unitario" e al campo "IVA %", aggiungere un toggle compatto (Switch o piccolo bottone) che indica:
+- **IVA inclusa**: il prezzo inserito gia contiene l'IVA. Il sistema scorporera l'IVA per calcolare l'imponibile.
+- **IVA esclusa** (default): il prezzo e netto, l'IVA viene aggiunta sopra.
 
-### Nuovo stato e import
-- Importare `ExpenseItemTabs` da `@/components/vendors/ExpenseItemTabs`
-- Importare `Trash2` da `lucide-react`
-- Aggiungere `AlertDialog` per conferma eliminazione
-- Nuovo stato: `expenseTabsOpen`, `selectedExpenseItem` (con id, vendorId, categoryId), `deleteDialogOpen`, `itemToDelete`
+Questo richiede un nuovo campo `price_is_tax_inclusive` (boolean, default false) nella tabella `expense_line_items`.
 
-### Logica di apertura dettaglio
-- Cliccando su una riga con fornitore assegnato (`!isPlaceholder`): apre `ExpenseItemTabs` passando `vendorId`, `categoryId`, `expenseItemId`
-- Cliccando su una riga placeholder: apre comunque `ExpenseItemTabs` ma con il `vendorId` fittizio (l'item esiste gia nel DB con `vendor_id = null`, ma `ExpenseItemTabs` richiede un `vendorId` -- servira un piccolo adattamento)
+Impatto sul calcolo del totale riga:
+- Se IVA esclusa: `prezzo * qta * (1 - sconto%) * (1 + iva%)` (come oggi)
+- Se IVA inclusa: `prezzo * qta * (1 - sconto%)` (il prezzo GIA contiene l'IVA, non si aggiunge)
 
-### Problema `vendorId` per placeholder
-`ExpenseItemTabs` filtra le spese per `vendor_id`. Per i placeholder (senza fornitore), si passera direttamente l'`expenseItemId` e si aprira il dialog in modalita "edit singolo item". Il componente gia supporta `expenseItemId` non-null, che carica direttamente quell'item specifico dal DB.
+### 2. Quantita semplificata: Fissa vs Variabile
 
-### Eliminazione voci placeholder
-- Icona cestino accanto a "Da assegnare" per le voci non assegnate
-- Click sull'icona apre un `AlertDialog` di conferma ("Sei sicuro di voler eliminare questa voce?")
-- La conferma esegue: DELETE `payments` dove `expense_item_id`, DELETE `expense_line_items` dove `expense_item_id`, DELETE `expense_items` dove `id`, poi invalidate query `["budget-spreadsheet"]`
+Sostituire il select "Tipo Qta" con un approccio a due livelli:
 
-### Modifiche alla UI (desktop + mobile)
+**Livello 1: Toggle Fissa / Variabile**
+- Un select semplice con solo due opzioni: "Fissa" e "Variabile"
 
-**Desktop (`renderDesktopView`)**:
-- `TableRow` delle voci: aggiungere `onClick` per aprire il dettaglio, `cursor-pointer`
-- Per i placeholder: aggiungere icona cestino nella colonna "Voce di Spesa"
+**Livello 2 (solo se Variabile): Dettaglio**
+- Se "Variabile" selezionato, appare una seconda riga con:
+  - Select "Conteggio": Adulti (default), Bambini, Staff, Tutti
+  - Select "Scaglione": Tutti (default), Fino a, Oltre
+  - Input "Limite" (solo se scaglione e "Fino a" o "Oltre")
 
-**Mobile (`renderMobileView`)**:
-- La card di ogni voce diventa cliccabile (apre il dettaglio)
-- Per i placeholder: aggiungere icona cestino accanto a "Da assegnare"
+Questo separa chiaramente la decisione "e un costo fisso o dipende dagli ospiti?" dalla configurazione di dettaglio.
 
-### Nuovo dialog nel render
-```
-<ExpenseItemTabs
-  open={expenseTabsOpen}
-  onOpenChange={setExpenseTabsOpen}
-  vendorId={selectedExpenseItem?.vendorId || ""}
-  categoryId={selectedExpenseItem?.categoryId || null}
-  expenseItemId={selectedExpenseItem?.id || null}
-  onSaved={() => queryClient.invalidateQueries({ queryKey: ["budget-spreadsheet"] })}
-  calculationMode={globalMode}
-/>
-```
+### 3. Layout Mobile Ripensato
 
-### Gestione vendor_id vuoto
-Per i placeholder senza vendor, `ExpenseItemTabs` riceve `vendorId=""`. Il componente carica l'item tramite `expenseItemId` (che funziona gia -- il `loadExpenseItem` fa una query per ID, non filtra per vendor). L'unico punto critico e `createNewExpenseItem` che non verra chiamato perche passiamo sempre un `expenseItemId` esistente.
+La card mobile avra questa struttura:
+
+- **Riga 1**: Descrizione + Elimina
+- **Riga 2**: Prezzo unitario + Qta (fissa o calcolata) + Totale riga
+- **Riga 3**: Toggle Fissa/Variabile + (se variabile) Conteggio
+- **Riga 4** (se variabile): Scaglione + Limite
+- **Riga 5**: IVA % + IVA incl/escl toggle + Sconto %
+
+### 4. Layout Desktop Ripensato
+
+Griglia semplificata:
+- Descrizione | Prezzo | Fissa/Var. | Qta | Sconto | IVA + toggle | Totale | Elimina
+- Se "Variabile": sotto la riga appare una sotto-riga con Conteggio + Scaglione + Limite
+
+## Modifiche Tecniche
+
+### Migrazione DB
+- Aggiungere colonna `price_is_tax_inclusive` (boolean, default false) alla tabella `expense_line_items`
+
+### File: `src/components/vendors/ExpenseLineRow.tsx`
+- Aggiungere stato locale per `price_is_tax_inclusive`
+- Sostituire il select "Tipo Qta" con select "Fissa/Variabile"
+- Aggiungere sotto-riga condizionale per dettagli variabile (conteggio, scaglione, limite)
+- Aggiungere Switch/toggle per IVA inclusa/esclusa accanto al campo IVA %
+- Aggiornare `getQuantityDisplay()` (nessun cambio logico, solo riorganizzazione UI)
+- Aggiornare il calcolo del totale per rispettare `price_is_tax_inclusive`
+
+### File: `src/components/vendors/ExpenseSpreadsheetTab.tsx`
+- Aggiornare `calculateLineTotal()` per gestire `price_is_tax_inclusive`
+- Aggiornare l'interfaccia `ExpenseLineItem` con il nuovo campo
+- Aggiornare `handleAddLineItem()` per includere il default `price_is_tax_inclusive: false`
+
+### File: `src/lib/expenseCalculations.ts`
+- Aggiungere `price_is_tax_inclusive` all'interfaccia `ExpenseLineItem`
+- Aggiornare `calculateLineTotal()` centralizzato: se `price_is_tax_inclusive` e true, non aggiungere l'IVA sopra il prezzo
+
+### Mappatura dati (nessun campo rimosso)
+Il campo `quantity_type` nel DB resta invariato (`fixed`, `adults`, `children`, `staff`, `total_guests`). La UI semplicemente lo presenta in modo diverso:
+- Select "Fissa/Variabile" mappa a `fixed` vs tutto il resto
+- Select "Conteggio" mappa ai valori `adults`, `children`, `staff`, `total_guests`
 
