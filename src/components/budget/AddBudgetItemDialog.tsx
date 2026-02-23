@@ -98,7 +98,7 @@ export function AddBudgetItemDialog() {
           description,
           category_id: categoryId,
           expense_type: type,
-          estimated_amount: type === "fixed" ? numAmount : null,
+          fixed_amount: type === "fixed" ? numAmount : null,
           vendor_id: null, // PLACEHOLDER
           planned_adults: null, // Eredita dal wedding.target_adults
           planned_children: null,

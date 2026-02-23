@@ -24,7 +24,6 @@ interface BudgetRowData {
   isPlaceholder: boolean;
   expenseType: "fixed" | "variable" | "mixed";
   isVariableExpense: boolean;
-  estimated: number;
   actual: number;
   paid: number;
   remaining: number;
@@ -34,7 +33,6 @@ interface CategoryGroup {
   categoryName: string;
   categoryId: string;
   rows: BudgetRowData[];
-  totalEstimated: number;
   totalActual: number;
   totalPaid: number;
   totalRemaining: number;
@@ -186,21 +184,7 @@ export function BudgetSpreadsheet({ globalMode }: BudgetSpreadsheetProps) {
     }
   }, [budgetData]);
 
-  // Mutation per aggiornare estimated_amount (solo placeholder)
-  const updateEstimate = useMutation({
-    mutationFn: async ({ id, value }: { id: string; value: number }) => {
-      const { error } = await supabase
-        .from("expense_items")
-        .update({ estimated_amount: value })
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["budget-spreadsheet"] });
-      toast.success("Budget stimato aggiornato");
-    },
-    onError: () => toast.error("Errore nel salvataggio"),
-  });
+  // (updateEstimate rimossa - non più necessaria con colonna unificata)
 
   // Calcola i dati delle righe
   const groupedData = useMemo(() => {
@@ -253,9 +237,6 @@ export function BudgetSpreadsheet({ globalMode }: BudgetSpreadsheetProps) {
       const hasVariableLineItems = itemLineItems.some((li: any) => li.quantity_type !== 'fixed');
       const isVariable = hasVariableLineItems;
       
-      // Calcola importo stimato (solo per placeholder)
-      const estimatedAmount = Number(item.estimated_amount || 0);
-
       const row: BudgetRowData = {
         id: item.id,
         description: item.description,
@@ -265,7 +246,6 @@ export function BudgetSpreadsheet({ globalMode }: BudgetSpreadsheetProps) {
         isPlaceholder,
         expenseType: (item.expense_type || "fixed") as "fixed" | "variable" | "mixed",
         isVariableExpense: isVariable,
-        estimated: estimatedAmount,
         actual: actualAmount,
         paid: paidAmount,
         remaining: Math.max(0, actualAmount - paidAmount)
@@ -276,7 +256,6 @@ export function BudgetSpreadsheet({ globalMode }: BudgetSpreadsheetProps) {
           categoryName,
           categoryId,
           rows: [],
-          totalEstimated: 0,
           totalActual: 0,
           totalPaid: 0,
           totalRemaining: 0
@@ -285,7 +264,6 @@ export function BudgetSpreadsheet({ globalMode }: BudgetSpreadsheetProps) {
 
       const group = groups.get(categoryId)!;
       group.rows.push(row);
-      group.totalEstimated += row.estimated;
       group.totalActual += row.actual;
       group.totalPaid += row.paid;
       group.totalRemaining += row.remaining;
@@ -334,11 +312,10 @@ export function BudgetSpreadsheet({ globalMode }: BudgetSpreadsheetProps) {
   // Calculate grand totals across all categories
   const grandTotals = useMemo(() => {
     return groupedData.reduce((acc, category) => ({
-      estimated: acc.estimated + category.totalEstimated,
       actual: acc.actual + category.totalActual,
       paid: acc.paid + category.totalPaid,
       remaining: acc.remaining + category.totalRemaining
-    }), { estimated: 0, actual: 0, paid: 0, remaining: 0 });
+    }), { actual: 0, paid: 0, remaining: 0 });
   }, [groupedData]);
 
   if (isLoading) {
@@ -379,14 +356,13 @@ export function BudgetSpreadsheet({ globalMode }: BudgetSpreadsheetProps) {
           <Table>
           <TableHeader className="bg-muted/50">
             <TableRow>
-              <TableHead className="w-[32%]">Voce di Spesa</TableHead>
-              <TableHead className="w-[13%] text-right">Stimato</TableHead>
-              <TableHead className="w-[18%] text-right">
-                Effettivo {getGuestCountLabel()}
+              <TableHead className="w-[35%]">Voce di Spesa</TableHead>
+              <TableHead className="w-[20%] text-right">
+                Importo {getGuestCountLabel()}
               </TableHead>
-              <TableHead className="w-[13%] text-right">Pagato</TableHead>
-              <TableHead className="w-[13%] text-right">Residuo</TableHead>
-              <TableHead className="w-[11%]">Stato</TableHead>
+              <TableHead className="w-[15%] text-right">Pagato</TableHead>
+              <TableHead className="w-[15%] text-right">Residuo</TableHead>
+              <TableHead className="w-[15%]">Stato</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -411,9 +387,6 @@ export function BudgetSpreadsheet({ globalMode }: BudgetSpreadsheetProps) {
                         {category.categoryName}
                       </span>
                     </div>
-                  </TableCell>
-                  <TableCell className="text-right py-3 text-sm font-semibold text-muted-foreground">
-                    {formatCurrency(category.totalEstimated)}
                   </TableCell>
                   <TableCell className="text-right py-3 text-sm font-semibold">
                     {formatCurrency(category.totalActual)}
@@ -466,28 +439,6 @@ export function BudgetSpreadsheet({ globalMode }: BudgetSpreadsheetProps) {
                             </div>
                           </div>
                         </div>
-                      </TableCell>
-
-                      {/* Colonna Stimato - Solo per placeholder */}
-                      <TableCell className="text-right p-1">
-                        {row.isPlaceholder ? (
-                          <Input
-                            type="number"
-                            defaultValue={row.estimated || ""}
-                            placeholder="0"
-                            className="text-right h-9 w-32 ml-auto border-transparent hover:border-input focus:border-primary bg-transparent"
-                            onBlur={(e) => {
-                              const val = parseFloat(e.target.value) || 0;
-                              if (val !== row.estimated) {
-                                updateEstimate.mutate({ id: row.id, value: val });
-                              }
-                            }}
-                            step="0.01"
-                            min="0"
-                          />
-                        ) : (
-                          <span className="text-muted-foreground italic text-sm pr-3">-</span>
-                        )}
                       </TableCell>
 
                       <TableCell className="text-right">
@@ -545,9 +496,6 @@ export function BudgetSpreadsheet({ globalMode }: BudgetSpreadsheetProps) {
             <TableRow className="bg-primary/5 font-bold border-t-2 border-primary/20">
               <TableCell className="py-4">
                 <span className="text-base">TOTALE GENERALE</span>
-              </TableCell>
-              <TableCell className="text-right py-4 text-base text-muted-foreground">
-                {formatCurrency(grandTotals.estimated)}
               </TableCell>
               <TableCell className="text-right py-4 text-base text-orange-600 dark:text-orange-400">
                 {formatCurrency(grandTotals.actual)}
