@@ -1,13 +1,10 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient } from "@tanstack/react-query";
-import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
-import { createIDBPersister } from "@/lib/queryPersister";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/guards/ProtectedRoute";
-import { PWAUpdatePrompt } from "@/components/PWAUpdatePrompt";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -31,29 +28,14 @@ import RSVPPublic from "./pages/RSVPPublic";
 import Calendar from "./pages/Calendar";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 5 * 60 * 1000, // 5 min
-      gcTime: 24 * 60 * 60 * 1000, // 24h
-      retry: 1,
-      networkMode: "offlineFirst",
-    },
-  },
-});
-
-const persister = createIDBPersister();
+const queryClient = new QueryClient();
 
 const App = () => (
-  <PersistQueryClientProvider
-    client={queryClient}
-    persistOptions={{ persister, maxAge: 24 * 60 * 60 * 1000 }}
-  >
+  <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <PWAUpdatePrompt />
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
@@ -103,7 +85,7 @@ const App = () => (
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>
-  </PersistQueryClientProvider>
+  </QueryClientProvider>
 );
 
 export default App;
