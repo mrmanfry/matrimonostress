@@ -544,14 +544,15 @@ export function ExpenseItemsManager({ vendorId, categoryId, calculationMode }: E
               ))}
 
               <div className="pt-4 border-t">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-lg font-bold">TOTALE FORNITORE:</span>
-                  <span className="text-2xl font-bold text-primary">
+                <div className="flex items-center justify-between mb-3 md:mb-4">
+                  <span className="text-sm md:text-lg font-bold">TOTALE FORNITORE:</span>
+                  <span className="text-lg md:text-2xl font-bold text-primary">
                     {formatCurrency(totalVendorAmount)}
                   </span>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-3 mb-4 text-sm">
+                {/* Desktop: grid 2 colonne con bordi colorati */}
+                <div className="hidden md:grid grid-cols-2 gap-3 mb-4 text-sm">
                   <div className="flex items-center justify-between px-3 py-2 rounded bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900">
                     <span className="text-green-700 dark:text-green-400">Importo Pagato:</span>
                     <span className="font-semibold text-green-700 dark:text-green-400">
@@ -563,6 +564,24 @@ export function ExpenseItemsManager({ vendorId, categoryId, calculationMode }: E
                     <span className="font-semibold text-amber-700 dark:text-amber-400">
                       {formatCurrency(amountRemaining)}
                     </span>
+                  </div>
+                </div>
+                
+                {/* Mobile: stack compatto con dot colorato */}
+                <div className="flex md:hidden flex-col gap-1 mb-3 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                      <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
+                      Pagato
+                    </span>
+                    <span className="font-semibold">{formatCurrency(amountPaid)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                      <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+                      Da Pagare
+                    </span>
+                    <span className="font-semibold">{formatCurrency(amountRemaining)}</span>
                   </div>
                 </div>
                 

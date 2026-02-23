@@ -15,6 +15,7 @@ import { VendorAppointmentsWidget } from "@/components/vendors/widgets/VendorApp
 import { VendorDialog } from "@/components/vendors/VendorDialog";
 import { VendorTaskDialog } from "@/components/vendors/VendorTaskDialog";
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const statusConfig = {
   evaluating: { label: "In Valutazione", bg: "bg-yellow-100 text-yellow-800 border-yellow-200" },
@@ -34,6 +35,7 @@ export default function VendorDetails() {
   const [taskDialogType, setTaskDialogType] = useState<"task" | "appointment">("task");
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
   // Fetch vendor details
   const { data: vendor, isLoading } = useQuery({
@@ -147,44 +149,56 @@ export default function VendorDetails() {
       </Button>
 
       {/* Hero Card */}
-      <div className="bg-card rounded-xl shadow-sm border p-6 space-y-6">
-        <div className="flex flex-col md:flex-row gap-6 items-start">
-          <Avatar className="w-24 h-24 border-4 border-primary/10">
-            <AvatarFallback className="bg-primary/10 text-primary text-2xl font-bold">
+      <div className="bg-card rounded-xl shadow-sm border p-4 md:p-6 space-y-4 md:space-y-6">
+        <div className="flex flex-row gap-3 md:gap-6 items-start">
+          <Avatar className="w-14 h-14 md:w-24 md:h-24 border-4 border-primary/10 shrink-0">
+            <AvatarFallback className="bg-primary/10 text-primary text-lg md:text-2xl font-bold">
               {vendor.name.substring(0, 2).toUpperCase()}
             </AvatarFallback>
           </Avatar>
 
-          <div className="flex-1 space-y-4">
-            <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-              <div>
-                <h1 className="text-3xl font-bold text-foreground">{vendor.name}</h1>
-                <div className="flex flex-wrap gap-2 mt-2">
+          <div className="flex-1 min-w-0 space-y-3 md:space-y-4">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <h1 className="text-xl md:text-3xl font-bold text-foreground truncate">{vendor.name}</h1>
+                <div className="flex flex-wrap gap-1.5 md:gap-2 mt-1.5 md:mt-2">
                   {vendor.expense_categories?.name && (
-                    <Badge variant="secondary" className="bg-primary/10 text-primary">
+                    <Badge variant="secondary" className="bg-primary/10 text-primary text-xs">
                       {vendor.expense_categories.name}
                     </Badge>
                   )}
-                  <Badge className={`border ${statusInfo.bg}`}>
+                  <Badge className={`border text-xs ${statusInfo.bg}`}>
                     {statusInfo.label}
                   </Badge>
                 </div>
               </div>
-              <Button
-                variant="outline"
-                onClick={() => setEditDialogOpen(true)}
-              >
-                <Pencil className="w-4 h-4 mr-2" />
-                Modifica Profilo
-              </Button>
+              {isMobile ? (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="shrink-0 h-8 w-8"
+                  onClick={() => setEditDialogOpen(true)}
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  onClick={() => setEditDialogOpen(true)}
+                >
+                  <Pencil className="w-4 h-4 mr-2" />
+                  Modifica Profilo
+                </Button>
+              )}
             </div>
 
             {/* Contact Information */}
-            <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground pt-2">
+            <div className="flex flex-wrap gap-x-4 md:gap-x-6 gap-y-1.5 md:gap-y-2 text-sm text-muted-foreground">
               {vendor.contact_name && (
                 <div className="flex items-center gap-1.5">
-                  <Building2 className="w-4 h-4" />
-                  <span>{vendor.contact_name}</span>
+                  <Building2 className="w-4 h-4 shrink-0" />
+                  {isMobile ? null : <span>{vendor.contact_name}</span>}
+                  {isMobile && <span className="truncate">{vendor.contact_name}</span>}
                 </div>
               )}
               {vendor.phone && (
@@ -192,8 +206,8 @@ export default function VendorDetails() {
                   href={`tel:${vendor.phone}`}
                   className="flex items-center gap-1.5 hover:text-primary transition-colors"
                 >
-                  <Phone className="w-4 h-4" />
-                  {vendor.phone}
+                  <Phone className="w-4 h-4 shrink-0" />
+                  {!isMobile && vendor.phone}
                 </a>
               )}
               {vendor.email && (
@@ -201,14 +215,14 @@ export default function VendorDetails() {
                   href={`mailto:${vendor.email}`}
                   className="flex items-center gap-1.5 hover:text-primary transition-colors"
                 >
-                  <Mail className="w-4 h-4" />
-                  {vendor.email}
+                  <Mail className="w-4 h-4 shrink-0" />
+                  {!isMobile && vendor.email}
                 </a>
               )}
             </div>
 
-            {/* Financial Details */}
-            {(vendor.ragione_sociale || vendor.partita_iva_cf || vendor.iban) && (
+            {/* Financial Details - hidden on mobile */}
+            {!isMobile && (vendor.ragione_sociale || vendor.partita_iva_cf || vendor.iban) && (
               <>
                 <Separator />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
@@ -246,8 +260,8 @@ export default function VendorDetails() {
               </>
             )}
 
-            {/* Notes */}
-            {vendor.notes && (
+            {/* Notes - hidden on mobile */}
+            {!isMobile && vendor.notes && (
               <>
                 <Separator />
                 <div>
@@ -262,34 +276,34 @@ export default function VendorDetails() {
 
       {/* Tabs */}
       <Tabs defaultValue={initialTab} className="w-full">
-        <TabsList className="w-full justify-start border-b rounded-none bg-transparent h-auto p-0 space-x-8">
+        <TabsList className={`w-full border-b rounded-none bg-transparent h-auto p-0 ${isMobile ? 'justify-around' : 'justify-start space-x-8'}`}>
           <TabsTrigger
             value="expenses"
             className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary py-3 px-0"
           >
-            <CreditCard className="w-4 h-4 mr-2" />
-            Spese & Pagamenti
+            <CreditCard className="w-4 h-4 md:mr-2" />
+            <span className="hidden md:inline">Spese & Pagamenti</span>
           </TabsTrigger>
           <TabsTrigger
             value="documents"
             className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary py-3 px-0"
           >
-            <FileText className="w-4 h-4 mr-2" />
-            Documenti
+            <FileText className="w-4 h-4 md:mr-2" />
+            <span className="hidden md:inline">Documenti</span>
           </TabsTrigger>
           <TabsTrigger
             value="appointments"
             className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary py-3 px-0"
           >
-            <CalendarCheck className="w-4 h-4 mr-2" />
-            Appuntamenti
+            <CalendarCheck className="w-4 h-4 md:mr-2" />
+            <span className="hidden md:inline">Appuntamenti</span>
           </TabsTrigger>
           <TabsTrigger
             value="checklist"
             className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary py-3 px-0"
           >
-            <ListTodo className="w-4 h-4 mr-2" />
-            Checklist
+            <ListTodo className="w-4 h-4 md:mr-2" />
+            <span className="hidden md:inline">Checklist</span>
           </TabsTrigger>
         </TabsList>
 
