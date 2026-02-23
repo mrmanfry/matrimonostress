@@ -569,15 +569,15 @@ export default function BudgetLegacy() {
 
               <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                 {categoryData.map((category, index) => (
-                  <div key={index} className="flex items-center gap-3 p-3 border rounded-lg">
-                    <div
-                      className="w-4 h-4 rounded-full shrink-0"
-                      style={{ backgroundColor: category.color }}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{category.name}</p>
-                      <p className="text-xs text-muted-foreground">{formatCurrency(category.value)}</p>
+                  <div key={index} className="flex items-center justify-between gap-3 p-3 border rounded-lg bg-card">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className="w-3 h-3 rounded-full shrink-0"
+                        style={{ backgroundColor: category.color }}
+                      />
+                      <span className="text-sm font-medium truncate">{category.name}</span>
                     </div>
+                    <span className="text-sm font-semibold shrink-0 text-right">{formatCurrency(category.value)}</span>
                   </div>
                 ))}
               </div>
