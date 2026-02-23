@@ -41,7 +41,7 @@ export function AssignVendorDialog({ itemId, itemDescription, isOpen, onClose }:
     queryFn: async () => {
       const { data, error } = await supabase
         .from("expense_items")
-        .select("id, description, estimated_amount, fixed_amount, total_amount, amount_is_tax_inclusive, tax_rate")
+        .select("id, description, estimated_amount, fixed_amount, total_amount, amount_is_tax_inclusive, tax_rate, vendor_id")
         .eq("id", itemId)
         .single();
       if (error) throw error;
@@ -65,14 +65,15 @@ export function AssignVendorDialog({ itemId, itemDescription, isOpen, onClose }:
     enabled: !!weddingId && isOpen,
   });
 
-  // Check if we need contract confirmation step
-  const needsContractConfirmation = expenseItem && 
-    expenseItem.estimated_amount != null && 
-    expenseItem.fixed_amount == null;
+  // Always show contract confirmation when assigning vendor to a placeholder
+  const needsContractConfirmation = expenseItem && !expenseItem.vendor_id;
 
-  // Pre-populate contract amount from estimated_amount
+  // Pre-populate contract amount from fixed_amount (set at budget creation)
   useEffect(() => {
-    if (expenseItem?.estimated_amount != null && !contractAmount) {
+    if (expenseItem?.fixed_amount != null && !contractAmount) {
+      setContractAmount(expenseItem.fixed_amount.toString());
+    } else if (expenseItem?.estimated_amount != null && !contractAmount) {
+      // Legacy fallback
       setContractAmount(expenseItem.estimated_amount.toString());
     }
     if (expenseItem?.amount_is_tax_inclusive != null) {
@@ -191,7 +192,7 @@ export function AssignVendorDialog({ itemId, itemDescription, isOpen, onClose }:
                 <div className="flex items-start gap-2">
                   <Info className="h-4 w-4 mt-0.5 shrink-0" />
                   <div>
-                    <p className="font-medium">Preventivo attuale: €{expenseItem?.estimated_amount?.toLocaleString('it-IT')}</p>
+                    <p className="font-medium">Importo attuale: €{(expenseItem?.fixed_amount ?? expenseItem?.estimated_amount)?.toLocaleString('it-IT')}</p>
                     <p className="text-xs mt-1">Nel prossimo step potrai confermare o modificare l'importo del contratto.</p>
                   </div>
                 </div>
@@ -241,10 +242,10 @@ export function AssignVendorDialog({ itemId, itemDescription, isOpen, onClose }:
           </div>
         ) : (
           <div className="space-y-4 py-4">
-            {/* Original estimate reference */}
+            {/* Current amount reference */}
             <div className="rounded-lg border bg-muted/50 p-3">
-              <p className="text-xs text-muted-foreground mb-1">Preventivo originale (riferimento)</p>
-              <p className="font-medium">€{expenseItem?.estimated_amount?.toLocaleString('it-IT')}</p>
+              <p className="text-xs text-muted-foreground mb-1">Importo budget attuale (riferimento)</p>
+              <p className="font-medium">€{(expenseItem?.fixed_amount ?? expenseItem?.estimated_amount)?.toLocaleString('it-IT')}</p>
             </div>
 
             {/* Contract amount input */}
