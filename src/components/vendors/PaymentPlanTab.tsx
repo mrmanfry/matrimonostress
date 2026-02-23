@@ -615,6 +615,20 @@ export function PaymentPlanTab({
         paymentId = data.id;
       }
 
+      // Validazione: controlla contributori duplicati
+      if (payment.status === 'Pagato' && editingAllocations.length > 0) {
+        const contributorIds = editingAllocations.map(a => a.contributor_id);
+        const uniqueIds = new Set(contributorIds);
+        if (uniqueIds.size !== contributorIds.length) {
+          toast({
+            title: "Errore",
+            description: "Non puoi selezionare lo stesso contributore più di una volta",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
       // Gestione allocazioni di pagamento
       if (payment.status === 'Pagato' && editingAllocations.length > 0) {
         // Elimina allocazioni esistenti
@@ -930,19 +944,27 @@ export function PaymentPlanTab({
                           <div className="space-y-3">
                             <div className="flex items-center justify-between">
                               <Label>Allocazione Pagamento</Label>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  if (contributors.length > 0) {
-                                    setEditingAllocations([...editingAllocations, { contributor_id: contributors[0].id, amount: '' }]);
-                                  }
-                                }}
-                              >
-                                <Plus className="h-4 w-4 mr-2" />
-                                Aggiungi Contributore
-                              </Button>
+                              {(() => {
+                                const usedIds = new Set(editingAllocations.map(a => a.contributor_id));
+                                const nextAvailable = contributors.find(c => !usedIds.has(c.id));
+                                const allUsed = !nextAvailable;
+                                return (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={allUsed || contributors.length === 0}
+                                    onClick={() => {
+                                      if (nextAvailable) {
+                                        setEditingAllocations([...editingAllocations, { contributor_id: nextAvailable.id, amount: '' }]);
+                                      }
+                                    }}
+                                  >
+                                    <Plus className="h-4 w-4 mr-2" />
+                                    Aggiungi Contributore
+                                  </Button>
+                                );
+                              })()}
                             </div>
 
                             {editingAllocations.length === 0 && (
@@ -970,11 +992,16 @@ export function PaymentPlanTab({
                                         <SelectValue placeholder="Seleziona contributore" />
                                       </SelectTrigger>
                                       <SelectContent>
-                                        {contributors.map((contributor) => (
-                                          <SelectItem key={contributor.id} value={contributor.id}>
-                                            {contributor.name}
-                                          </SelectItem>
-                                        ))}
+                                        {contributors.map((contributor) => {
+                                          const isUsedElsewhere = editingAllocations.some(
+                                            (a, i) => i !== allocIndex && a.contributor_id === contributor.id
+                                          );
+                                          return (
+                                            <SelectItem key={contributor.id} value={contributor.id} disabled={isUsedElsewhere}>
+                                              {contributor.name}
+                                            </SelectItem>
+                                          );
+                                        })}
                                       </SelectContent>
                                     </Select>
                                   </div>
