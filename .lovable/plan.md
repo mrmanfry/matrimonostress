@@ -1,64 +1,51 @@
 
+# Allineamento Formula "Previsti" in Tutto il Programma
 
-## Piano: Fix Mobile per Dialog "Open Bar" (ExpenseItemTabs)
+## Problema Identificato
 
-### Problema
+Esistono **3 componenti** che calcolano gli ospiti "Previsti" con una formula semplificata e sbagliata (`!isDeclined(rsvp_status)` = "tutti i non-rifiutati"), invece di usare la formula canonica `calculateExpectedCounts()` che considera:
 
-Quando si apre una spesa (es. "Open bar") dalla tab Spese su mobile, il dialog `ExpenseItemTabs` presenta gravi problemi di layout:
+- Risposte Save the Date (likely_yes, unsure, no response -- esclude likely_no)
+- Eredita stato STD dal nucleo familiare (party)
+- Accompagnatori (+1) confermati e potenziali
+- Staff dai fornitori (`staff_meals_count`)
 
-1. **Dialog troppo largo**: usa `max-w-6xl` (1152px) dentro un viewport di 390px
-2. **Griglia a 12 colonne**: `ExpenseLineRow` usa `grid-cols-12` con 7-8 colonne di input affiancate -- completamente illeggibile su mobile
-3. **Labels sotto ogni riga**: le etichette (Descrizione, Prezzo Unitario, Tipo Quantita'...) ripetute sotto ogni riga occupano spazio inutile
-4. **ExpenseSummaryCard**: testi "Totale Pianificato (Preventivo)" troppo lunghi per mobile
+### Mappa delle discrepanze
 
-### Soluzione
+| Componente | Formula usata | Corretta? |
+|---|---|---|
+| `BudgetLegacy.tsx` (KPI cards) | `calculateExpectedCounts()` | Si |
+| `Treasury.tsx` | `calculateExpectedCounts()` | Si |
+| `Vendors.tsx` (lista) | `calculateExpectedCounts()` | Si |
+| `VendorExpensesWidget.tsx` | `calculateExpectedCounts()` | Si |
+| `ExpenseItemsManager.tsx` | `calculateExpectedCounts()` | Si |
+| **`BudgetSpreadsheet.tsx`** | `!isDeclined()` | **NO** |
+| **`SmartGrouperWizard.tsx`** | `!isDeclined()` | **NO** |
+| **`ExpenseSpreadsheetTab.tsx`** | `invite_parties` con status "Confermato" | **NO** (nessuna modalita "expected") |
 
-Convertire il dialog in un **Drawer bottom-sheet** su mobile (come fa gia' il progetto in altri punti), e riformattare `ExpenseLineRow` in un layout a **stack verticale** su mobile.
+## Piano di Intervento
 
-### Modifiche
+### 1. `BudgetSpreadsheet.tsx` -- Priorita massima (causa la discrepanza KPI vs spreadsheet)
 
-#### 1. `ExpenseItemTabs.tsx` -- Drawer su mobile
+- Importare `calculateExpectedCounts` e `calculateTotalVendorStaff` da `expectedCalculator.ts`
+- Ampliare la query `guests` per includere i campi necessari: `save_the_date_sent_at`, `std_response`, `party_id`, `phone`, `allow_plus_one`, `plus_one_name`, `is_couple_member`
+- Aggiungere query `vendors` per `staff_meals_count`
+- Sostituire le righe 137-139 (il calcolo `!isDeclined`) con una chiamata a `calculateExpectedCounts()`
+- Usare i risultati (`adults`, `children`, `staff`) per popolare `guestCounts.expected`
 
-- Importare `useIsMobile()` e il componente `Drawer`
-- Su mobile: renderizzare come `Drawer` (bottom-sheet a schermo pieno con `max-h-[95vh]`)
-- Su desktop: mantenere il `Dialog` con `max-w-6xl` attuale
-- Il contenuto interno (Tabs) resta identico
+### 2. `SmartGrouperWizard.tsx` -- Allineamento tavoli
 
-#### 2. `ExpenseLineRow.tsx` -- Layout verticale su mobile
+- Importare `calculateExpectedCounts` e `calculateTotalVendorStaff`
+- Caricare i dati guests completi (STD, party, +1) e vendors (`staff_meals_count`)
+- Sostituire `guests.filter(g => !isDeclined(g.rsvp_status))` con il risultato di `calculateExpectedCounts()` per il conteggio
+- Per il filtraggio effettivo degli ospiti da assegnare ai tavoli, mantenere la logica attuale (serve la lista di oggetti Guest, non solo i conteggi)
 
-- Su mobile: sostituire la griglia 12 colonne con un layout a **card verticale**:
-  - Riga 1: Descrizione (full width) + bottone elimina
-  - Riga 2: Prezzo unitario + Tipo quantita' + Quantita' affiancati (3 colonne)
-  - Riga 3: Sconto + IVA + Totale affiancati (3 colonne)
-  - Ogni campo ha la propria label sopra
-- Su desktop: mantenere la griglia 12 colonne attuale
-- Usare `useIsMobile()` per switch
+### 3. `ExpenseSpreadsheetTab.tsx` -- Allineamento editor spese
 
-#### 3. `ExpenseSpreadsheetTab.tsx` -- Compattare su mobile
+- Aggiungere il supporto per la modalita "expected" (attualmente ha solo "planned"/"actual")
+- Caricare i dati guests completi e vendors per calcolare `calculateExpectedCounts()`
+- Usare i conteggi expected per il calcolo dei totali delle righe di costo variabile
 
-- "Righe di Costo" + "Aggiungi Riga": stack verticale su mobile
-- Info box "Modalita' di Calcolo Attiva": testo piu' compatto su mobile
-- Grid conteggi ospiti: da `grid-cols-3` a `grid-cols-1` su mobile
+### Risultato atteso
 
-#### 4. `ExpenseSummaryCard.tsx` -- Testi compatti
-
-- Su mobile: abbreviare le label ("Pianificato" invece di "Totale Pianificato (Preventivo)")
-- Font size ridotto da `text-lg`/`text-xl` a `text-base`/`text-lg`
-
-### File da Modificare
-
-| File | Modifica |
-|------|----------|
-| `src/components/vendors/ExpenseItemTabs.tsx` | Dialog -> Drawer su mobile |
-| `src/components/vendors/ExpenseLineRow.tsx` | Grid 12 col -> stack verticale su mobile |
-| `src/components/vendors/ExpenseSpreadsheetTab.tsx` | Layout compatto su mobile |
-| `src/components/vendors/ExpenseSummaryCard.tsx` | Testi abbreviati su mobile |
-
-### Dettagli Tecnici
-
-- Usare `useIsMobile()` da `@/hooks/use-mobile`
-- Componente `Drawer` gia' disponibile in `@/components/ui/drawer`
-- Pattern Drawer/Dialog gia' usato nel progetto (il Drawer usa `vaul` con bottom-sheet nativo)
-- Nessuna modifica alla logica di calcolo o al flusso dati
-- Desktop rimane invariato
-
+Dopo queste modifiche, la formula dei "Previsti" sara identica ovunque nel programma: **stessi ospiti contati, stesso totale finanziario**, dalla KPI card al foglio di calcolo, dalla tesoreria ai tavoli.
