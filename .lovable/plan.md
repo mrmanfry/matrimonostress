@@ -1,51 +1,61 @@
 
-# Allineamento Formula "Previsti" in Tutto il Programma
 
-## Problema Identificato
+# Semplificazione Budget: Eliminare la colonna "Stimato"
 
-Esistono **3 componenti** che calcolano gli ospiti "Previsti" con una formula semplificata e sbagliata (`!isDeclined(rsvp_status)` = "tutti i non-rifiutati"), invece di usare la formula canonica `calculateExpectedCounts()` che considera:
+## Il Problema Attuale
 
-- Risposte Save the Date (likely_yes, unsure, no response -- esclude likely_no)
-- Eredita stato STD dal nucleo familiare (party)
-- Accompagnatori (+1) confermati e potenziali
-- Staff dai fornitori (`staff_meals_count`)
+Oggi il budget ha due colonne separate: "Stimato" e "Effettivo".
+- Quando aggiungi una voce placeholder (senza fornitore), l'importo finisce in "Stimato" (`estimated_amount`)
+- La colonna "Effettivo" resta a zero finche non assegni un fornitore e confermi il contratto (`fixed_amount`)
+- Il totale generale degli "Effettivi" NON include le voci placeholder, rendendo il totale ingannevole e confusionario
 
-### Mappa delle discrepanze
+## La Soluzione
 
-| Componente | Formula usata | Corretta? |
-|---|---|---|
-| `BudgetLegacy.tsx` (KPI cards) | `calculateExpectedCounts()` | Si |
-| `Treasury.tsx` | `calculateExpectedCounts()` | Si |
-| `Vendors.tsx` (lista) | `calculateExpectedCounts()` | Si |
-| `VendorExpensesWidget.tsx` | `calculateExpectedCounts()` | Si |
-| `ExpenseItemsManager.tsx` | `calculateExpectedCounts()` | Si |
-| **`BudgetSpreadsheet.tsx`** | `!isDeclined()` | **NO** |
-| **`SmartGrouperWizard.tsx`** | `!isDeclined()` | **NO** |
-| **`ExpenseSpreadsheetTab.tsx`** | `invite_parties` con status "Confermato" | **NO** (nessuna modalita "expected") |
+Eliminare la colonna "Stimato" e far confluire TUTTO in un'unica colonna "Importo". Quando aggiungi una voce di budget, il suo importo va subito nel calcolo totale -- che abbia un fornitore assegnato o meno.
 
-## Piano di Intervento
+## Modifiche Tecniche
 
-### 1. `BudgetSpreadsheet.tsx` -- Priorita massima (causa la discrepanza KPI vs spreadsheet)
+### 1. `AddBudgetItemDialog.tsx` -- Salvare in `fixed_amount` invece di `estimated_amount`
 
-- Importare `calculateExpectedCounts` e `calculateTotalVendorStaff` da `expectedCalculator.ts`
-- Ampliare la query `guests` per includere i campi necessari: `save_the_date_sent_at`, `std_response`, `party_id`, `phone`, `allow_plus_one`, `plus_one_name`, `is_couple_member`
-- Aggiungere query `vendors` per `staff_meals_count`
-- Sostituire le righe 137-139 (il calcolo `!isDeclined`) con una chiamata a `calculateExpectedCounts()`
-- Usare i risultati (`adults`, `children`, `staff`) per popolare `guestCounts.expected`
+Quando si crea una nuova voce di budget:
+- Per tipo "fixed": salvare l'importo in `fixed_amount` (non piu in `estimated_amount`)
+- Per tipo "variable": nessun cambiamento (il totale viene gia dalle `expense_line_items`)
+- Il campo `estimated_amount` diventa un semplice "memo" storico, non influenza piu i calcoli
 
-### 2. `SmartGrouperWizard.tsx` -- Allineamento tavoli
+### 2. `BudgetSpreadsheet.tsx` -- Rimuovere la colonna "Stimato"
 
-- Importare `calculateExpectedCounts` e `calculateTotalVendorStaff`
-- Caricare i dati guests completi (STD, party, +1) e vendors (`staff_meals_count`)
-- Sostituire `guests.filter(g => !isDeclined(g.rsvp_status))` con il risultato di `calculateExpectedCounts()` per il conteggio
-- Per il filtraggio effettivo degli ospiti da assegnare ai tavoli, mantenere la logica attuale (serve la lista di oggetti Guest, non solo i conteggi)
+- Rimuovere la colonna "Stimato" dall'header della tabella (6 colonne diventano 5)
+- Rimuovere la cella con l'input inline per `estimated_amount` nelle righe
+- Rimuovere `totalEstimated` e `grandTotals.estimated` dai totali di categoria e generali
+- L'importo di ogni voce (placeholder o meno) appare nella colonna "Importo" (ex "Effettivo")
+- Le voci placeholder restano cliccabili con il pulsante "Da assegnare"
+- Le voci placeholder senza importo mostrano un trattino nella colonna Importo
+- Rimuovere la mutation `updateEstimate` (non serve piu l'editing inline dello stimato)
+- Rinominare la colonna "Effettivo" in "Importo" per chiarezza (dato che ora include anche i preventivi)
 
-### 3. `ExpenseSpreadsheetTab.tsx` -- Allineamento editor spese
+### 3. `AssignVendorDialog.tsx` -- Adattare il flusso Quote-to-Contract
 
-- Aggiungere il supporto per la modalita "expected" (attualmente ha solo "planned"/"actual")
-- Caricare i dati guests completi e vendors per calcolare `calculateExpectedCounts()`
-- Usare i conteggi expected per il calcolo dei totali delle righe di costo variabile
+Attualmente il dialog mostra uno step 2 di "conferma contratto" SOLO se `estimated_amount != null && fixed_amount == null`. Con la nuova logica:
+- L'item avra gia `fixed_amount` impostato dal budget
+- Lo step 2 mostra comunque l'importo corrente come riferimento e permette di modificarlo
+- La condizione `needsContractConfirmation` cambia: si attiva quando `vendor_id` e null (placeholder), indipendentemente dai campi amount
+- Il dialog pre-popola con `fixed_amount` invece di `estimated_amount`
 
-### Risultato atteso
+### 4. `BudgetRowData` interface -- Semplificazione
 
-Dopo queste modifiche, la formula dei "Previsti" sara identica ovunque nel programma: **stessi ospiti contati, stesso totale finanziario**, dalla KPI card al foglio di calcolo, dalla tesoreria ai tavoli.
+- Rimuovere il campo `estimated` dalla interface `BudgetRowData`
+- Rimuovere `totalEstimated` dalla interface `CategoryGroup`
+- Il campo `actual` diventa l'unica colonna importo (calcolata come oggi da `calculateExpenseAmount`)
+
+### 5. Impatto sui calcoli
+
+- `calculateExpenseAmount()` gia usa `fixed_amount` come fonte primaria per le spese "fixed": nessuna modifica necessaria
+- Il fallback `estimated_amount` nella libreria di calcolo (`fixed_amount ?? estimated_amount ?? 0`) continua a funzionare per dati legacy
+
+## Risultato
+
+- Una sola colonna importo: piu chiara, zero confusione
+- Ogni voce contribuisce al totale, che abbia un fornitore o meno
+- Il flusso "aggiungi placeholder -> assegna fornitore -> conferma importo" resta intatto ma piu lineare
+- KPI e spreadsheet mostreranno sempre lo stesso totale
+
