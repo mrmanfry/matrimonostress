@@ -1,81 +1,40 @@
 
+# Suddivisione Equa Allocazioni Contributori
 
-# Riprogettazione della Riga di Costo (`ExpenseLineRow`)
-
-## Problemi Attuali
-
-1. **IVA**: Non c'e modo di indicare se il prezzo inserito e IVA inclusa o esclusa. L'utente inserisce il prezzo e poi una percentuale IVA, ma non e chiaro se il prezzo gia include l'IVA.
-2. **"Tipo Qta"**: Il select mescola il concetto di "fissa vs variabile" con il dettaglio "adulti/bambini/staff/tutti", risultando confuso. L'utente non capisce al volo cosa scegliere.
+## Problema
+Quando segni un pagamento come "Pagato" e aggiungi i contributori, devi calcolare a mano quanto spetta a ciascuno. Es: 671 EUR diviso 2 = 335.50 EUR ciascuno, da inserire manualmente.
 
 ## Soluzione
+Aggiungere un pulsante "Dividi Equamente" che appare quando ci sono 2 o piu contributori nell'allocazione. Cliccandolo, l'importo della rata viene diviso automaticamente tra tutti i contributori presenti.
 
-### 1. Prezzo con toggle IVA inclusa/esclusa
+Stessa logica gia implementata con successo nel `MarkPaymentDialog` (il dialog della Tesoreria), dove esiste gia il pulsante "Suddividi Equamente tra N Contributori".
 
-Accanto al campo "Prezzo unitario" e al campo "IVA %", aggiungere un toggle compatto (Switch o piccolo bottone) che indica:
-- **IVA inclusa**: il prezzo inserito gia contiene l'IVA. Il sistema scorporera l'IVA per calcolare l'imponibile.
-- **IVA esclusa** (default): il prezzo e netto, l'IVA viene aggiunta sopra.
+## Dettaglio Tecnico
 
-Questo richiede un nuovo campo `price_is_tax_inclusive` (boolean, default false) nella tabella `expense_line_items`.
+**File: `src/components/vendors/PaymentPlanTab.tsx`**
 
-Impatto sul calcolo del totale riga:
-- Se IVA esclusa: `prezzo * qta * (1 - sconto%) * (1 + iva%)` (come oggi)
-- Se IVA inclusa: `prezzo * qta * (1 - sconto%)` (il prezzo GIA contiene l'IVA, non si aggiunge)
+### Modifiche
+1. Aggiungere un pulsante con icona `Sparkles` (come nel MarkPaymentDialog) tra la lista contributori e il riepilogo allocazione
+2. Il pulsante appare solo quando `editingAllocations.length >= 2`
+3. Al click: calcola `paymentAmount / editingAllocations.length`, arrotonda a 2 decimali, e imposta l'importo su ogni allocazione
+4. Testo del pulsante: "Dividi Equamente tra N Contributori"
 
-### 2. Quantita semplificata: Fissa vs Variabile
+### Posizione nel layout
+Il pulsante viene inserito dopo la lista delle card contributori (riga ~1007) e prima del blocco di riepilogo allocazione (riga ~1009).
 
-Sostituire il select "Tipo Qta" con un approccio a due livelli:
+### Logica
+```
+const handleAutoDivide = () => {
+  const paymentAmount = calculatePaymentAmount(payment, 0, index);
+  const perContributor = paymentAmount / editingAllocations.length;
+  const rounded = parseFloat(perContributor.toFixed(2));
+  setEditingAllocations(
+    editingAllocations.map(a => ({ ...a, amount: rounded.toString() }))
+  );
+};
+```
 
-**Livello 1: Toggle Fissa / Variabile**
-- Un select semplice con solo due opzioni: "Fissa" e "Variabile"
+### Import
+Aggiungere `Sparkles` agli import da `lucide-react` (gia usato nel progetto).
 
-**Livello 2 (solo se Variabile): Dettaglio**
-- Se "Variabile" selezionato, appare una seconda riga con:
-  - Select "Conteggio": Adulti (default), Bambini, Staff, Tutti
-  - Select "Scaglione": Tutti (default), Fino a, Oltre
-  - Input "Limite" (solo se scaglione e "Fino a" o "Oltre")
-
-Questo separa chiaramente la decisione "e un costo fisso o dipende dagli ospiti?" dalla configurazione di dettaglio.
-
-### 3. Layout Mobile Ripensato
-
-La card mobile avra questa struttura:
-
-- **Riga 1**: Descrizione + Elimina
-- **Riga 2**: Prezzo unitario + Qta (fissa o calcolata) + Totale riga
-- **Riga 3**: Toggle Fissa/Variabile + (se variabile) Conteggio
-- **Riga 4** (se variabile): Scaglione + Limite
-- **Riga 5**: IVA % + IVA incl/escl toggle + Sconto %
-
-### 4. Layout Desktop Ripensato
-
-Griglia semplificata:
-- Descrizione | Prezzo | Fissa/Var. | Qta | Sconto | IVA + toggle | Totale | Elimina
-- Se "Variabile": sotto la riga appare una sotto-riga con Conteggio + Scaglione + Limite
-
-## Modifiche Tecniche
-
-### Migrazione DB
-- Aggiungere colonna `price_is_tax_inclusive` (boolean, default false) alla tabella `expense_line_items`
-
-### File: `src/components/vendors/ExpenseLineRow.tsx`
-- Aggiungere stato locale per `price_is_tax_inclusive`
-- Sostituire il select "Tipo Qta" con select "Fissa/Variabile"
-- Aggiungere sotto-riga condizionale per dettagli variabile (conteggio, scaglione, limite)
-- Aggiungere Switch/toggle per IVA inclusa/esclusa accanto al campo IVA %
-- Aggiornare `getQuantityDisplay()` (nessun cambio logico, solo riorganizzazione UI)
-- Aggiornare il calcolo del totale per rispettare `price_is_tax_inclusive`
-
-### File: `src/components/vendors/ExpenseSpreadsheetTab.tsx`
-- Aggiornare `calculateLineTotal()` per gestire `price_is_tax_inclusive`
-- Aggiornare l'interfaccia `ExpenseLineItem` con il nuovo campo
-- Aggiornare `handleAddLineItem()` per includere il default `price_is_tax_inclusive: false`
-
-### File: `src/lib/expenseCalculations.ts`
-- Aggiungere `price_is_tax_inclusive` all'interfaccia `ExpenseLineItem`
-- Aggiornare `calculateLineTotal()` centralizzato: se `price_is_tax_inclusive` e true, non aggiungere l'IVA sopra il prezzo
-
-### Mappatura dati (nessun campo rimosso)
-Il campo `quantity_type` nel DB resta invariato (`fixed`, `adults`, `children`, `staff`, `total_guests`). La UI semplicemente lo presenta in modo diverso:
-- Select "Fissa/Variabile" mappa a `fixed` vs tutto il resto
-- Select "Conteggio" mappa ai valori `adults`, `children`, `staff`, `total_guests`
-
+Nessuna modifica al DB, nessun cambio di logica di salvataggio. Solo un pulsante di utilita nella UI.
