@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Loader2, CheckCircle2, ChevronDown, ChevronRight, AlertCircle } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
 import { calculateExpenseAmount, resolveGuestCounts, ExpenseItem, ExpenseLineItem, GuestCounts } from "@/lib/expenseCalculations";
 import { calculateExpectedCounts, calculateTotalVendorStaff } from "@/lib/expectedCalculator";
@@ -45,6 +46,7 @@ interface BudgetSpreadsheetProps {
 export function BudgetSpreadsheet({ globalMode }: BudgetSpreadsheetProps) {
   const { authState } = useAuth();
   const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<{ id: string; description: string } | null>(null);
@@ -341,19 +343,140 @@ export function BudgetSpreadsheet({ globalMode }: BudgetSpreadsheetProps) {
     );
   }
 
-  return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center flex-wrap gap-4">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">Budget Spreadsheet</h2>
-          <p className="text-muted-foreground">Panoramica completa delle spese pianificate</p>
-        </div>
-        <AddBudgetItemDialog />
-      </div>
+  const renderStatusBadge = (row: BudgetRowData) => {
+    const isPaidOff = row.actual > 0 && row.remaining <= 0;
+    if (isPaidOff) {
+      return (
+        <Badge className="gap-1 bg-green-100 text-green-700 hover:bg-green-100 dark:bg-green-950 dark:text-green-300">
+          <CheckCircle2 className="w-3 h-3" />
+          Saldato
+        </Badge>
+      );
+    }
+    if (row.paid > 0) {
+      return (
+        <Badge variant="outline" className="gap-1 text-amber-600 border-amber-300">
+          <AlertCircle className="w-3 h-3" />
+          Parziale
+        </Badge>
+      );
+    }
+    return <Badge variant="secondary" className="gap-1 text-xs">In Attesa</Badge>;
+  };
 
-      <Card className="overflow-hidden">
-        <div className="overflow-x-auto">
-          <Table>
+  const renderMobileView = () => (
+    <div className="space-y-3">
+      {/* Sottotitolo con guest count */}
+      <p className="text-xs text-muted-foreground px-1">
+        Importo {getGuestCountLabel()}
+      </p>
+
+      {groupedData.map((category) => (
+        <div key={`cat-m-${category.categoryId}`} className="rounded-lg border bg-card overflow-hidden">
+          {/* Category header */}
+          <button
+            onClick={() => toggleCategory(category.categoryId)}
+            className="w-full flex items-center justify-between px-3 py-2.5 bg-muted/30 hover:bg-muted/50 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              {expandedCategories.has(category.categoryId) ? (
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              ) : (
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              )}
+              <span className="uppercase tracking-wider text-xs font-semibold text-muted-foreground">
+                {category.categoryName}
+              </span>
+            </div>
+            <span className="text-sm font-semibold">{formatCurrency(category.totalActual)}</span>
+          </button>
+
+          {/* Expense rows */}
+          {expandedCategories.has(category.categoryId) && (
+            <div className="divide-y">
+              {category.rows.map((row) => (
+                <div key={row.id} className="px-3 py-2.5 space-y-1.5">
+                  {/* Row 1: Name + Amount */}
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="font-medium text-sm leading-tight">{row.description}</p>
+                    <span className="font-medium text-sm whitespace-nowrap">
+                      {row.actual > 0 ? formatCurrency(row.actual) : "-"}
+                    </span>
+                  </div>
+                  {/* Row 2: Vendor/placeholder + Status badge */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5">
+                      {row.isPlaceholder ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedItem({ id: row.id, description: row.description });
+                            setAssignDialogOpen(true);
+                          }}
+                          className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 h-5 text-xs gap-1 px-1.5"
+                        >
+                          <AlertCircle className="w-3 h-3" />
+                          Da assegnare
+                        </Button>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">{row.vendorName}</p>
+                      )}
+                      {row.isVariableExpense && (
+                        <Badge variant="outline" className="text-[10px] gap-0.5 h-4 px-1">
+                          🔄 Var.
+                        </Badge>
+                      )}
+                    </div>
+                    {renderStatusBadge(row)}
+                  </div>
+                  {/* Row 3: Paid + Remaining (only if relevant) */}
+                  {(row.paid > 0 || row.remaining > 0) && (
+                    <div className="flex items-center gap-4 text-xs">
+                      {row.paid > 0 && (
+                        <span className="text-green-600 dark:text-green-400">
+                          Pagato: {formatCurrency(row.paid)}
+                        </span>
+                      )}
+                      {row.remaining > 0 && (
+                        <span className="text-orange-600 dark:text-orange-400">
+                          Residuo: {formatCurrency(row.remaining)}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+
+      {/* Grand Total card */}
+      <div className="rounded-lg border-2 border-primary/20 bg-primary/5 p-3">
+        <p className="text-xs font-semibold text-muted-foreground mb-2">TOTALE GENERALE</p>
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <div>
+            <p className="text-[10px] text-muted-foreground uppercase">Importo</p>
+            <p className="text-sm font-bold">{formatCurrency(grandTotals.actual)}</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-muted-foreground uppercase">Pagato</p>
+            <p className="text-sm font-bold text-green-600 dark:text-green-400">{formatCurrency(grandTotals.paid)}</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-muted-foreground uppercase">Residuo</p>
+            <p className="text-sm font-bold text-orange-600 dark:text-orange-400">{formatCurrency(grandTotals.remaining)}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderDesktopView = () => (
+    <Card className="overflow-hidden">
+      <div className="overflow-x-auto">
+        <Table>
           <TableHeader className="bg-muted/50">
             <TableRow>
               <TableHead className="w-[35%]">Voce di Spesa</TableHead>
@@ -368,7 +491,6 @@ export function BudgetSpreadsheet({ globalMode }: BudgetSpreadsheetProps) {
           <TableBody>
             {groupedData.map((category) => (
               <>
-                {/* Header Categoria */}
                 <TableRow
                   key={`category-${category.categoryId}`}
                   className="bg-muted/30 hover:bg-muted/50 cursor-pointer font-semibold"
@@ -400,10 +522,8 @@ export function BudgetSpreadsheet({ globalMode }: BudgetSpreadsheetProps) {
                   <TableCell className="py-3" />
                 </TableRow>
 
-                {/* Righe Spese (se espansa) */}
                 {expandedCategories.has(category.categoryId) && category.rows.map((row) => {
                   const isPaidOff = row.actual > 0 && row.remaining <= 0;
-
                   return (
                     <TableRow key={row.id} className="hover:bg-accent/50 transition-colors">
                       <TableCell>
@@ -428,8 +548,8 @@ export function BudgetSpreadsheet({ globalMode }: BudgetSpreadsheetProps) {
                                 <p className="text-xs text-muted-foreground">{row.vendorName}</p>
                               )}
                               {row.isVariableExpense && (
-                                <Badge 
-                                  variant="outline" 
+                                <Badge
+                                  variant="outline"
                                   className="text-xs gap-1 h-5 cursor-help"
                                   title="Spesa variabile: l'importo dipende dal numero di invitati"
                                 >
@@ -440,7 +560,6 @@ export function BudgetSpreadsheet({ globalMode }: BudgetSpreadsheetProps) {
                           </div>
                         </div>
                       </TableCell>
-
                       <TableCell className="text-right">
                         {row.actual > 0 ? (
                           <span className="font-medium">{formatCurrency(row.actual)}</span>
@@ -448,7 +567,6 @@ export function BudgetSpreadsheet({ globalMode }: BudgetSpreadsheetProps) {
                           <span className="text-muted-foreground">-</span>
                         )}
                       </TableCell>
-
                       <TableCell className="text-right">
                         {row.paid > 0 ? (
                           <span className="font-medium text-green-600 dark:text-green-400">
@@ -458,7 +576,6 @@ export function BudgetSpreadsheet({ globalMode }: BudgetSpreadsheetProps) {
                           <span className="text-muted-foreground">-</span>
                         )}
                       </TableCell>
-
                       <TableCell className="text-right">
                         {row.remaining > 0 ? (
                           <span className="font-medium text-orange-600 dark:text-orange-400">
@@ -468,31 +585,13 @@ export function BudgetSpreadsheet({ globalMode }: BudgetSpreadsheetProps) {
                           <span className="text-muted-foreground">-</span>
                         )}
                       </TableCell>
-
-                      <TableCell>
-                        {isPaidOff ? (
-                          <Badge className="gap-1 bg-green-100 text-green-700 hover:bg-green-100 dark:bg-green-950 dark:text-green-300">
-                            <CheckCircle2 className="w-3 h-3" />
-                            Saldato
-                          </Badge>
-                        ) : row.paid > 0 ? (
-                          <Badge variant="outline" className="gap-1 text-amber-600 border-amber-300">
-                            <AlertCircle className="w-3 h-3" />
-                            Parziale
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary" className="gap-1">
-                            In Attesa
-                          </Badge>
-                        )}
-                      </TableCell>
+                      <TableCell>{renderStatusBadge(row)}</TableCell>
                     </TableRow>
                   );
                 })}
               </>
             ))}
-            
-            {/* Riga Totale Generale */}
+
             <TableRow className="bg-primary/5 font-bold border-t-2 border-primary/20">
               <TableCell className="py-4">
                 <span className="text-base">TOTALE GENERALE</span>
@@ -510,10 +609,22 @@ export function BudgetSpreadsheet({ globalMode }: BudgetSpreadsheetProps) {
             </TableRow>
           </TableBody>
         </Table>
-        </div>
-      </Card>
+      </div>
+    </Card>
+  );
 
-      {/* Dialog per assegnare fornitore */}
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center flex-wrap gap-4">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Budget Spreadsheet</h2>
+          <p className="text-muted-foreground">Panoramica completa delle spese pianificate</p>
+        </div>
+        <AddBudgetItemDialog />
+      </div>
+
+      {isMobile ? renderMobileView() : renderDesktopView()}
+
       {selectedItem && (
         <AssignVendorDialog
           isOpen={assignDialogOpen}
