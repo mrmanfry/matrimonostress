@@ -1,40 +1,30 @@
 
-# Suddivisione Equa Allocazioni Contributori
 
-## Problema
-Quando segni un pagamento come "Pagato" e aggiungi i contributori, devi calcolare a mano quanto spetta a ciascuno. Es: 671 EUR diviso 2 = 335.50 EUR ciascuno, da inserire manualmente.
+# Fix: Errore "duplicate key" nel salvataggio allocazioni contributori
+
+## Causa del Bug
+
+Quando aggiungi un contributore cliccando "Aggiungi Contributore", il sistema inserisce sempre il **primo contributore della lista** (`contributors[0].id`) come default. Se aggiungi due contributori senza cambiare il select dropdown del secondo, entrambi hanno lo **stesso `contributor_id`**.
+
+Al salvataggio, il sistema tenta di inserire due righe con la stessa coppia `(payment_id, contributor_id)` nella tabella `payment_allocations`, che ha un vincolo di unicita su questa coppia. Da qui l'errore "duplicate key".
 
 ## Soluzione
-Aggiungere un pulsante "Dividi Equamente" che appare quando ci sono 2 o piu contributori nell'allocazione. Cliccandolo, l'importo della rata viene diviso automaticamente tra tutti i contributori presenti.
 
-Stessa logica gia implementata con successo nel `MarkPaymentDialog` (il dialog della Tesoreria), dove esiste gia il pulsante "Suddividi Equamente tra N Contributori".
+Due correzioni nel file `src/components/vendors/PaymentPlanTab.tsx`:
 
-## Dettaglio Tecnico
+1. **Prevenzione**: quando si aggiunge un nuovo contributore, selezionare automaticamente il **primo contributore non ancora presente** nella lista. Se tutti sono gia presenti, non permettere l'aggiunta (disabilitare il pulsante).
 
-**File: `src/components/vendors/PaymentPlanTab.tsx`**
+2. **Validazione al salvataggio**: prima di inserire le allocazioni, verificare che non ci siano `contributor_id` duplicati. Se ci sono, mostrare un errore e bloccare il salvataggio.
 
-### Modifiche
-1. Aggiungere un pulsante con icona `Sparkles` (come nel MarkPaymentDialog) tra la lista contributori e il riepilogo allocazione
-2. Il pulsante appare solo quando `editingAllocations.length >= 2`
-3. Al click: calcola `paymentAmount / editingAllocations.length`, arrotonda a 2 decimali, e imposta l'importo su ogni allocazione
-4. Testo del pulsante: "Dividi Equamente tra N Contributori"
+### Modifica 1 - Pulsante "Aggiungi Contributore" (riga ~937)
+- Trovare il primo contributore il cui `id` non e gia in `editingAllocations`
+- Usare quello come default invece di `contributors[0].id`
+- Disabilitare il pulsante se tutti i contributori sono gia presenti
 
-### Posizione nel layout
-Il pulsante viene inserito dopo la lista delle card contributori (riga ~1007) e prima del blocco di riepilogo allocazione (riga ~1009).
+### Modifica 2 - Validazione in `handleSavePayment` (riga ~619)
+- Prima dell'insert, controllare che non ci siano `contributor_id` duplicati in `editingAllocations`
+- Se duplicati trovati, mostrare toast di errore e interrompere il salvataggio
 
-### Logica
-```
-const handleAutoDivide = () => {
-  const paymentAmount = calculatePaymentAmount(payment, 0, index);
-  const perContributor = paymentAmount / editingAllocations.length;
-  const rounded = parseFloat(perContributor.toFixed(2));
-  setEditingAllocations(
-    editingAllocations.map(a => ({ ...a, amount: rounded.toString() }))
-  );
-};
-```
+### Modifica 3 - Select contributore (riga ~960)
+- Nel dropdown di selezione contributore, disabilitare i contributori gia selezionati in altre righe per evitare duplicati visivamente
 
-### Import
-Aggiungere `Sparkles` agli import da `lucide-react` (gia usato nel progetto).
-
-Nessuna modifica al DB, nessun cambio di logica di salvataggio. Solo un pulsante di utilita nella UI.
