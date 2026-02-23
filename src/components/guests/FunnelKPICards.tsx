@@ -140,7 +140,7 @@ export function FunnelKPICards({ guests, activeFilter, onFilterChange }: FunnelK
   ];
 
   return (
-    <div className="flex gap-3 overflow-x-auto pb-2 -mx-3 px-3 md:mx-0 md:px-0 md:grid md:grid-cols-5 md:overflow-visible scrollbar-hide">
+    <div className="flex gap-2 overflow-x-auto pb-2 -mx-3 px-3 snap-x snap-mandatory md:mx-0 md:px-0 md:grid md:grid-cols-5 md:overflow-visible md:gap-3 scrollbar-hide">
       {cards.map((card) => {
         const Icon = card.icon;
         const isActive = activeFilter === card.id;
@@ -149,7 +149,7 @@ export function FunnelKPICards({ guests, activeFilter, onFilterChange }: FunnelK
           <Card 
             key={card.id}
             className={cn(
-              "p-3 md:p-4 cursor-pointer transition-all duration-200 flex-shrink-0 w-[140px] md:w-auto",
+              "p-2.5 md:p-4 cursor-pointer transition-all duration-200 flex-shrink-0 w-[120px] md:w-auto snap-start",
               "hover:shadow-lg hover:-translate-y-0.5",
               card.bgColor,
               isActive && "ring-2 ring-primary ring-offset-2 shadow-lg -translate-y-0.5",
