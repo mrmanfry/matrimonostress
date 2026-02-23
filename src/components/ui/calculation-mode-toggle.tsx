@@ -108,7 +108,7 @@ export function CalculationModeToggle({
               (expectedDetails.plusOnesConfirmed || 0) + (expectedDetails.plusOnesPotential || 0)
             )}
           </span>
-          {expectedDetails.plusOnesPotential && expectedDetails.plusOnesPotential > 0 && expectedDetails.plusOnesConfirmed && expectedDetails.plusOnesConfirmed > 0 && (
+          {(expectedDetails.plusOnesPotential ?? 0) > 0 && (expectedDetails.plusOnesConfirmed ?? 0) > 0 && (
             <span className="text-muted-foreground/60 ml-1">
               ({expectedDetails.plusOnesConfirmed} confermati)
             </span>
