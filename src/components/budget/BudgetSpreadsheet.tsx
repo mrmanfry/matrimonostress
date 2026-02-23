@@ -1,12 +1,11 @@
 import { useState, useMemo, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Loader2, CheckCircle2, ChevronDown, ChevronRight, AlertCircle } from "lucide-react";
+import { Loader2, CheckCircle2, ChevronDown, ChevronRight, AlertCircle, Trash2 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
 import { calculateExpenseAmount, resolveGuestCounts, ExpenseItem, ExpenseLineItem, GuestCounts } from "@/lib/expenseCalculations";
@@ -14,6 +13,8 @@ import { calculateExpectedCounts, calculateTotalVendorStaff } from "@/lib/expect
 import { Button } from "@/components/ui/button";
 import { AddBudgetItemDialog } from "./AddBudgetItemDialog";
 import { AssignVendorDialog } from "./AssignVendorDialog";
+import { ExpenseItemTabs } from "@/components/vendors/ExpenseItemTabs";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { isConfirmed } from "@/lib/rsvpHelpers";
 
 interface BudgetRowData {
@@ -51,6 +52,10 @@ export function BudgetSpreadsheet({ globalMode }: BudgetSpreadsheetProps) {
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<{ id: string; description: string } | null>(null);
   const [guestBreakdown, setGuestBreakdown] = useState({ confirmed: 0, pending: 0, declined: 0 });
+  const [expenseTabsOpen, setExpenseTabsOpen] = useState(false);
+  const [selectedExpenseItem, setSelectedExpenseItem] = useState<{ id: string; vendorId: string; categoryId: string | null } | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<{ id: string; description: string } | null>(null);
 
   const weddingId = authState.status === "authenticated" ? authState.weddingId : null;
 
@@ -320,6 +325,32 @@ export function BudgetSpreadsheet({ globalMode }: BudgetSpreadsheetProps) {
     }), { actual: 0, paid: 0, remaining: 0 });
   }, [groupedData]);
 
+  const handleDeleteExpenseItem = async (itemId: string) => {
+    try {
+      // Delete payments, line items, then the expense item
+      await supabase.from("payments").delete().eq("expense_item_id", itemId);
+      await supabase.from("expense_line_items").delete().eq("expense_item_id", itemId);
+      const { error } = await supabase.from("expense_items").delete().eq("id", itemId);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ["budget-spreadsheet"] });
+      toast.success("Voce di spesa eliminata");
+    } catch (error) {
+      console.error("Error deleting expense item:", error);
+      toast.error("Errore durante l'eliminazione");
+    }
+    setDeleteDialogOpen(false);
+    setItemToDelete(null);
+  };
+
+  const handleRowClick = (row: BudgetRowData) => {
+    setSelectedExpenseItem({
+      id: row.id,
+      vendorId: row.isPlaceholder ? "" : (budgetData?.expenseItems.find((e: any) => e.id === row.id)?.vendor_id || ""),
+      categoryId: row.categoryId === "uncategorized" ? null : row.categoryId,
+    });
+    setExpenseTabsOpen(true);
+  };
+
   if (isLoading) {
     return (
       <Card className="p-8">
@@ -395,7 +426,11 @@ export function BudgetSpreadsheet({ globalMode }: BudgetSpreadsheetProps) {
           {expandedCategories.has(category.categoryId) && (
             <div className="divide-y">
               {category.rows.map((row) => (
-                <div key={row.id} className="px-3 py-2.5 space-y-1.5">
+                <div
+                  key={row.id}
+                  className="px-3 py-2.5 space-y-1.5 cursor-pointer hover:bg-accent/50 transition-colors"
+                  onClick={() => handleRowClick(row)}
+                >
                   {/* Row 1: Name + Amount */}
                   <div className="flex items-start justify-between gap-2">
                     <p className="font-medium text-sm leading-tight">{row.description}</p>
@@ -407,18 +442,33 @@ export function BudgetSpreadsheet({ globalMode }: BudgetSpreadsheetProps) {
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5">
                       {row.isPlaceholder ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedItem({ id: row.id, description: row.description });
-                            setAssignDialogOpen(true);
-                          }}
-                          className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 h-5 text-xs gap-1 px-1.5"
-                        >
-                          <AlertCircle className="w-3 h-3" />
-                          Da assegnare
-                        </Button>
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedItem({ id: row.id, description: row.description });
+                              setAssignDialogOpen(true);
+                            }}
+                            className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 h-5 text-xs gap-1 px-1.5"
+                          >
+                            <AlertCircle className="w-3 h-3" />
+                            Da assegnare
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setItemToDelete({ id: row.id, description: row.description });
+                              setDeleteDialogOpen(true);
+                            }}
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10 h-5 w-5 p-0"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </>
                       ) : (
                         <p className="text-xs text-muted-foreground">{row.vendorName}</p>
                       )}
@@ -523,27 +573,45 @@ export function BudgetSpreadsheet({ globalMode }: BudgetSpreadsheetProps) {
                 </TableRow>
 
                 {expandedCategories.has(category.categoryId) && category.rows.map((row) => {
-                  const isPaidOff = row.actual > 0 && row.remaining <= 0;
                   return (
-                    <TableRow key={row.id} className="hover:bg-accent/50 transition-colors">
+                    <TableRow
+                      key={row.id}
+                      className="hover:bg-accent/50 transition-colors cursor-pointer"
+                      onClick={() => handleRowClick(row)}
+                    >
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <div>
                             <p className="font-medium text-sm">{row.description}</p>
                             <div className="flex items-center gap-2 mt-1">
                               {row.isPlaceholder ? (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    setSelectedItem({ id: row.id, description: row.description });
-                                    setAssignDialogOpen(true);
-                                  }}
-                                  className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 h-6 text-xs gap-1 px-2"
-                                >
-                                  <AlertCircle className="w-3 h-3" />
-                                  Da assegnare
-                                </Button>
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedItem({ id: row.id, description: row.description });
+                                      setAssignDialogOpen(true);
+                                    }}
+                                    className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 h-6 text-xs gap-1 px-2"
+                                  >
+                                    <AlertCircle className="w-3 h-3" />
+                                    Da assegnare
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setItemToDelete({ id: row.id, description: row.description });
+                                      setDeleteDialogOpen(true);
+                                    }}
+                                    className="text-destructive hover:text-destructive hover:bg-destructive/10 h-6 w-6 p-0"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </Button>
+                                </>
                               ) : (
                                 <p className="text-xs text-muted-foreground">{row.vendorName}</p>
                               )}
@@ -636,6 +704,36 @@ export function BudgetSpreadsheet({ globalMode }: BudgetSpreadsheetProps) {
           itemDescription={selectedItem.description}
         />
       )}
+
+      <ExpenseItemTabs
+        open={expenseTabsOpen}
+        onOpenChange={setExpenseTabsOpen}
+        vendorId={selectedExpenseItem?.vendorId || ""}
+        categoryId={selectedExpenseItem?.categoryId || null}
+        expenseItemId={selectedExpenseItem?.id || null}
+        onSaved={() => queryClient.invalidateQueries({ queryKey: ["budget-spreadsheet"] })}
+        calculationMode={globalMode}
+      />
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminare questa voce?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Stai per eliminare "{itemToDelete?.description}". Verranno rimossi anche tutti i pagamenti e le righe di dettaglio associati. Questa azione non può essere annullata.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => itemToDelete && handleDeleteExpenseItem(itemToDelete.id)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Elimina
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
