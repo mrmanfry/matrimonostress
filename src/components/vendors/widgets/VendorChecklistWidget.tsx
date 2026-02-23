@@ -80,27 +80,29 @@ export function VendorChecklistWidget({ vendorId, onCreateTask }: VendorChecklis
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div className="space-y-1">
-          <CardTitle className="flex items-center gap-2">
-            <ListTodo className="w-5 h-5 text-indigo-600" />
-            Checklist Dedicata
-          </CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Attività specifiche per questo fornitore
-          </p>
+      <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between px-4 md:px-6 pt-4 md:pt-6">
+        <div className="flex items-start gap-3 md:block">
+          <div className="space-y-1">
+            <CardTitle className="hidden md:flex items-center gap-2">
+              <ListTodo className="w-5 h-5 text-indigo-600" />
+              Checklist Dedicata
+            </CardTitle>
+            <p className="text-sm text-muted-foreground hidden md:block">
+              Attività specifiche per questo fornitore
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
-          <Badge variant="secondary" className="bg-indigo-50 text-indigo-700">
+          <Badge variant="secondary" className="bg-indigo-50 text-indigo-700 text-xs">
             {completedCount}/{tasks.length} completate
           </Badge>
           {onCreateTask && (
             <Button 
               size="sm" 
               onClick={onCreateTask}
-              className="gap-2"
+              className="gap-1.5 text-xs md:text-sm"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-3.5 h-3.5 md:w-4 md:h-4" />
               Crea Task
             </Button>
           )}
