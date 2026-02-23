@@ -1,60 +1,101 @@
 
-# Ridisegno Widget Budget Dashboard: Focus su Impegno, Pagato, Da Pagare
+# Semplificazione Pagina Invitati
 
-## Concetto
+## Problema Identificato
 
-L'utente ha ragione: il budget target e' un obiettivo teorico, ma cio' che conta davvero e' il ciclo operativo **Impegno Totale -> Pagato -> Da Pagare**. Il widget va ridisegnato per mettere al centro questi 3 numeri, con il budget target come riferimento secondario.
+La pagina ha **6 livelli di informazioni** prima della lista invitati vera e propria:
 
-## Nuovo Layout del Widget
+1. **5 Funnel KPI Cards** (Da Lavorare / STD Inviato / Invitati / Confermati / Rifiutati) -- scrollabili orizzontalmente
+2. **3 Stats Cards** (Coperti / Nuclei / No Tel.)
+3. **2 Alert Warnings** (senza telefono + non raggruppati)
+4. **Analytics Dashboard completa** (4 tab con grafici, donut chart, KPI)
+5. **Barra di ricerca + filtri configurabili**
+6. Finalmente la **lista invitati**
+
+Su mobile bisogna scrollare parecchio prima di vedere un invitato. Il funnel "Da Lavorare -> STD -> Invitati -> Confermati" usa termini tecnici ("STD", "funnel", "awareness") che non sono intuitivi.
+
+## Soluzione: Approccio "Progressive Disclosure"
+
+### 1. Semplificare il Funnel KPI (FunnelKPICards.tsx)
+
+Rinominare le card con linguaggio naturale e aggiungere un sottotitolo esplicativo:
+
+| Prima | Dopo | Spiegazione |
+|-------|------|-------------|
+| "Da Lavorare" | "Da Contattare" | Chi non ha ancora ricevuto nulla |
+| "STD Inviato" | "Save the Date" | Chi ha ricevuto il pre-invito |
+| "Invitati" | "Invito Inviato" | Chi ha ricevuto l'invito formale |
+| "Confermati" | "Confermati" | (invariato) |
+| "Rifiutati" | "Non Vengono" | Meno "burocratico" |
+
+Aggiungere un mini-header sopra le card: **"Il tuo percorso inviti"** con una freccia visiva che suggerisce la progressione sinistra-destra.
+
+### 2. Eliminare le 3 Stats Cards secondarie (righe 1179-1208)
+
+I dati "Coperti / Nuclei / No Tel." sono ridondanti:
+- **Coperti**: gia presente nella Dashboard
+- **Nuclei**: dato tecnico, poco azionabile
+- **No Tel.**: gia presente nell'alert warning sotto
+
+Rimuoverle completamente. Il conteggio totale invitati va nel header della pagina accanto a "Invitati" (es. "Invitati (188)").
+
+### 3. Nascondere Analytics Dashboard di default su mobile
+
+La dashboard analitica con 4 tab e grafici e potentissima ma su mobile schiaccia tutto. Soluzione:
+- **Mobile**: nascondere completamente la sezione `GuestAnalyticsDashboard`, sostituendola con un piccolo pulsante "Vedi Statistiche" che apre un bottom sheet
+- **Desktop**: mantenerla ma in un `Collapsible` chiuso di default, apribile con "Mostra Analisi Dettagliata"
+
+### 4. Compattare i Warning (righe 1211-1246)
+
+Unire i 2 alert in un'unica riga compatta solo se entrambi presenti:
+- "38 senza telefono -- 12 non raggruppati" con link inline (Sincronizza / AI Grouping)
+- Se solo uno dei due, mostrarlo come riga singola senza il box Alert giallo
+
+### 5. Riordinare il layout
+
+Il nuovo ordine verticale diventa:
 
 ```text
-+------------------------------------------+
-| [Euro] Finanze                           |
-|                                          |
-|        €31.885                           |
-|     Impegno Totale                       |
-|                                          |
-| [====verde====|====arancio====]  barra   |
-|                                          |
-|  Pagato         Da Pagare                |
-|  €12.500        €19.385                  |
-|  (verde)        (arancio)                |
-|                                          |
-|  ---- linea sottile ----                 |
-|  Budget target: €30.000                  |
-|  Liquidita' rimanente: -€1.885           |
-+------------------------------------------+
+[Header: "Invitati (188)"]
+[Funnel KPI: 5 pillole con frecce di progressione]
+[Warning compatto: "38 senza tel. -- Sincronizza"]
+[Ricerca + Filtri]
+[Lista Invitati]
 ```
 
-## Logica Dati (Allineamento con Treasury)
+Rispetto a prima si eliminano 2 sezioni intere (stats cards + analytics dashboard inline) e si compatta 1 (warnings).
 
-Attualmente (riga 134) il calcolo e' una somma grezza di `payments.amount`. Questo e' corretto per "Pagato" e "Da Pagare", ma l'**Impegno Totale** dovrebbe venire dalla somma degli expense items calcolati con la logica centralizzata (`calculateExpenseAmount`), come fa Treasury.
+## Dettaglio Tecnico
 
-### Modifiche al data loading (`loadDashboardData`)
+### File: `src/pages/Guests.tsx`
 
-1. **Nuovi import**: `calculateExpenseAmount`, `resolveGuestCounts`, `inferExpenseType` da `@/lib/expenseCalculations`, piu' `calculateExpectedCounts`, `calculateTotalVendorStaff` da `@/lib/expectedCalculator`
+**Header (righe 1068-1077)**
+- Aggiungere il conteggio totale nel titolo: `Invitati ({allGuests.length})`
 
-2. **Query aggiuntive** nel `Promise.all` esistente:
-   - `expense_items` con tutti i campi (expense_type, fixed_amount, estimated_amount, planned_adults/children/staff, tax_rate, amount_is_tax_inclusive, vendor_id, category_id)
-   - `expense_line_items` (tutti per il wedding, join su expense_item_id)
-   - `vendors` con `staff_meals_count`
-   - `calculation_mode` dal wedding
+**Rimuovere Stats Cards (righe 1179-1208)**
+- Eliminare l'intero blocco `grid grid-cols-3` con Coperti/Nuclei/No Tel.
 
-3. **Calcolo guest counts** (come in Treasury):
-   - Costruire `guestCounts` con planned (da wedding targets), expected (da `calculateExpectedCounts`), confirmed (da RSVP confermati)
-   - Leggere `globalMode` da `weddingData.calculation_mode || 'planned'`
+**Analytics Dashboard (righe 1248-1294)**
+- Mobile: sostituire con un `Button` "Vedi Statistiche" che setta uno state `analyticsSheetOpen`, aprendo un `Sheet` (bottom sheet) con dentro il `GuestAnalyticsDashboard`
+- Desktop: wrappare in un `Collapsible` chiuso di default con trigger "Analisi Dettagliata"
 
-4. **Calcolo Impegno Totale**: somma di `calculateExpenseAmount(item, lineItems, globalMode, guestCounts)` per ogni expense item (identico a Treasury)
+**Warnings (righe 1210-1246)**
+- Unire in una singola riga con `div flex` e separatore `·`, senza il componente `Alert` pesante. Solo testo con link inline.
 
-5. **Pagato** e **Da Pagare**: restano calcolati dai payments (corretto), ma con la logica IVA dei payments (`tax_inclusive`, `tax_rate`)
+### File: `src/components/guests/FunnelKPICards.tsx`
 
-### Modifiche al rendering (righe 368-436)
+**Label rename (righe 83-140)**
+- `Da Lavorare` -> `Da Contattare`
+- `STD Inviato` -> `Save the Date`
+- `Invitati` -> `Invito Inviato`
+- `Rifiutati` -> `Non Vengono`
+- Rimuovere `description` sotto le card su mobile (gia fatto) e anche su desktop: le label rinominate sono auto-esplicative
 
-1. **Hero number**: Impegno Totale grande e centrato (`text-3xl font-bold`)
-2. **Barra di progresso**: segmentata Pagato (verde) + Da Pagare (arancione) su sfondo del totale impegno
-3. **Due KPI sotto la barra**: Pagato (verde, link a Treasury) e Da Pagare (arancione, link a Treasury)
-4. **Riga secondaria**: "Budget target: €X | Rimanente: €Y" in testo piccolo come riferimento
+**Aggiungere frecce di progressione**
+- Tra ogni card, aggiungere un piccolo `ChevronRight` (nascosto su mobile per spazio) per suggerire la direzione del flusso
 
-### File coinvolto
+### File: `src/components/guests/GuestAnalyticsDashboard.tsx`
 
-Solo `src/pages/Dashboard.tsx` - nessuna modifica al DB.
+- Nessuna modifica interna. Solo il modo in cui viene montato cambia (Sheet su mobile, Collapsible su desktop).
+
+### Nessuna modifica al DB. Solo riorganizzazione del rendering.
