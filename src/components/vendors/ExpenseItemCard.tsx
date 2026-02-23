@@ -72,43 +72,35 @@ export function ExpenseItemCard({
 
   return (
     <Collapsible open={isExpanded} onOpenChange={onToggleExpand}>
-      <div className="border rounded-lg p-4 space-y-2">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <h4 className="font-medium">{item.description}</h4>
-              <span className="text-lg font-semibold text-primary">
+      <div className="border rounded-lg p-3 md:p-4 space-y-2 overflow-hidden">
+        <div className="flex items-start justify-between gap-1">
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-2">
+              <h4 className="font-medium text-sm md:text-base truncate">{item.description}</h4>
+              <span className="text-base md:text-lg font-semibold text-primary whitespace-nowrap">
                 {formatCurrency(itemTotal)}
               </span>
             </div>
             {payments.length > 0 && (
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="text-xs md:text-sm text-muted-foreground mt-0.5">
                 {payments.length} {payments.length === 1 ? 'rata' : 'rate'}
               </p>
             )}
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onEdit}
-            >
-              <Edit className="h-4 w-4" />
+          <div className="flex items-center gap-0.5 md:gap-2 shrink-0">
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={onEdit}>
+              <Edit className="h-3.5 w-3.5 md:h-4 md:w-4" />
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onDelete}
-            >
-              <Trash2 className="h-4 w-4" />
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={onDelete}>
+              <Trash2 className="h-3.5 w-3.5 md:h-4 md:w-4" />
             </Button>
             {payments.length > 0 && (
               <CollapsibleTrigger asChild>
-                <Button variant="ghost" size="sm">
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                   {isExpanded ? (
-                    <ChevronUp className="h-4 w-4" />
+                    <ChevronUp className="h-3.5 w-3.5 md:h-4 md:w-4" />
                   ) : (
-                    <ChevronDown className="h-4 w-4" />
+                    <ChevronDown className="h-3.5 w-3.5 md:h-4 md:w-4" />
                   )}
                 </Button>
               </CollapsibleTrigger>
@@ -120,27 +112,27 @@ export function ExpenseItemCard({
           {payments.map((payment) => (
             <div
               key={payment.id}
-              className="ml-4 pl-4 border-l-2 flex items-center justify-between text-sm"
+              className="ml-2 md:ml-4 pl-3 md:pl-4 border-l-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-3 text-xs md:text-sm"
             >
-              <div>
+              <div className="min-w-0">
                 <span className="font-medium">{payment.description}</span>
                 {payment.amount_type === 'percentage' && payment.percentage_value && (
-                  <span className="text-muted-foreground ml-2">
+                  <span className="text-muted-foreground ml-1">
                     ({payment.percentage_value}%)
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 md:gap-3 flex-wrap shrink-0">
                 {payment.amount_type === 'fixed' && (
-                  <span className="font-semibold">
+                  <span className="font-semibold whitespace-nowrap">
                     {formatCurrency(Number(payment.amount))}
                   </span>
                 )}
-                <span className="text-muted-foreground">
+                <span className="text-muted-foreground whitespace-nowrap">
                   📅 {formatDate(payment.due_date)}
                 </span>
                 <span
-                  className={`px-2 py-1 rounded text-xs font-medium ${
+                  className={`px-1.5 md:px-2 py-0.5 md:py-1 rounded text-[10px] md:text-xs font-medium whitespace-nowrap ${
                     payment.status === 'Pagato'
                       ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
                       : 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200'
