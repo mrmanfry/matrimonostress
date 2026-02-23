@@ -24,6 +24,8 @@ interface CalculationModeToggleProps {
     plusOnesPotential?: number;
     totalHeadCount?: number;
   };
+  /** Hide detail text below the toggle on mobile */
+  compact?: boolean;
 }
 
 export function CalculationModeToggle({ 
@@ -31,7 +33,8 @@ export function CalculationModeToggle({
   onValueChange, 
   breakdown, 
   plannedCounts,
-  expectedDetails 
+  expectedDetails,
+  compact 
 }: CalculationModeToggleProps) {
   // Helper per formattare il breakdown con +1
   const formatBreakdown = (
@@ -85,13 +88,13 @@ export function CalculationModeToggle({
         </ToggleGroupItem>
       </ToggleGroup>
       
-      {plannedCounts && value === 'planned' && (
+      {!compact && plannedCounts && value === 'planned' && (
         <p className="text-xs text-muted-foreground">
           {formatBreakdown(plannedCounts.adults, plannedCounts.children, plannedCounts.staff)}
         </p>
       )}
       
-      {value === 'expected' && expectedDetails && (
+      {!compact && value === 'expected' && expectedDetails && (
         <p className="text-xs text-muted-foreground">
           <span className="font-medium">
             {expectedDetails.totalHeadCount ?? (expectedDetails.adults + expectedDetails.children + expectedDetails.staff + (expectedDetails.plusOnesConfirmed || 0) + (expectedDetails.plusOnesPotential || 0))} coperti previsti
@@ -113,14 +116,14 @@ export function CalculationModeToggle({
         </p>
       )}
       
-      {value === 'expected' && !expectedDetails && breakdown && (
+      {!compact && value === 'expected' && !expectedDetails && breakdown && (
         <p className="text-xs text-muted-foreground">
           {breakdown.confirmed} confermati + {breakdown.pending} in attesa
           {breakdown.declined > 0 && ` (${breakdown.declined} rifiutati esclusi)`}
         </p>
       )}
       
-      {breakdown && value === 'confirmed' && (
+      {!compact && breakdown && value === 'confirmed' && (
         <p className="text-xs text-muted-foreground">
           Solo invitati confermati ({breakdown.pending} in attesa esclusi)
         </p>

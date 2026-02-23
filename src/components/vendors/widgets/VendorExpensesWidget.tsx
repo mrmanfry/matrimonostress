@@ -135,8 +135,8 @@ export function VendorExpensesWidget({ vendorId, categoryId }: VendorExpensesWid
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
-        <CardTitle className="flex items-center gap-2">
+      <CardHeader className="flex flex-col md:flex-row md:items-start md:justify-between space-y-2 md:space-y-0 pb-2 px-3 md:px-6 pt-3 md:pt-6">
+        <CardTitle className="hidden md:flex items-center gap-2">
           <DollarSign className="w-5 h-5 text-indigo-600" />
           Gestione Spese e Pagamenti
         </CardTitle>
@@ -146,6 +146,7 @@ export function VendorExpensesWidget({ vendorId, categoryId }: VendorExpensesWid
           breakdown={guestBreakdown}
           plannedCounts={weddingTargets}
           expectedDetails={expectedDetails || undefined}
+          compact
         />
       </CardHeader>
       <CardContent>
