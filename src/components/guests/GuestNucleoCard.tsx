@@ -388,9 +388,9 @@ export const GuestNucleoCard = ({
                 {adults.map(guest => (
                   <div key={guest.id} className="flex items-center justify-between text-sm group gap-1 min-w-0">
                     <div className="flex items-center gap-1 sm:gap-2 min-w-0 flex-1">
-                      <span className="truncate">{guest.first_name} {guest.last_name}</span>
+                      <span className="truncate text-xs sm:text-sm">{guest.first_name} {guest.last_name}</span>
                       {guest.alias && (
-                        <span className="text-xs text-muted-foreground bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded border">
+                        <span className="hidden sm:inline text-xs text-muted-foreground bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded border">
                           aka "{guest.alias}"
                         </span>
                       )}
@@ -400,7 +400,7 @@ export const GuestNucleoCard = ({
                         </Badge>
                       )}
                       {guest.phone && (
-                        <span className="text-muted-foreground text-xs truncate">
+                        <span className="hidden sm:inline text-muted-foreground text-xs truncate">
                           ({guest.phone})
                         </span>
                       )}
