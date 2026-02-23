@@ -408,19 +408,9 @@ export const GuestNucleoCard = ({
                       {getStdResponseIcon(guest)}
                     </div>
                     <div className="flex items-center gap-1 flex-shrink-0">
-                      <div 
-                        className="flex items-center gap-0.5"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <span className="text-xs text-muted-foreground hidden sm:inline">+1</span>
-                        <Switch
-                          checked={guest.allow_plus_one || false}
-                          onCheckedChange={(checked) => handleTogglePlusOne(guest.id, checked)}
-                          disabled={togglingPlusOne === guest.id}
-                          className="scale-[0.55]"
-                          title="Permetti +1"
-                        />
-                      </div>
+                      {guest.allow_plus_one && (
+                        <span className="text-[10px] text-muted-foreground bg-muted px-1 rounded">+1</span>
+                      )}
                       {getSendStatusIcon(guest.rsvp_send_status)}
                       <Button
                         variant="ghost"
