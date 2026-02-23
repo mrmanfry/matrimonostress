@@ -1,58 +1,55 @@
 
 
-# Ottimizzazione Dashboard Mobile
+# Fix Colori Non Leggibili nella Dashboard
 
-## Problemi Rilevati dagli Screenshot (390x844)
+## Problema
+Diversi colori nella dashboard hanno contrasto insufficiente sullo sfondo chiaro, rendendo il testo difficile da leggere:
 
-1. **Header Countdown**: Il numero "152" e troppo grande (text-5xl) e il gradiente risulta sbiadito su mobile
-2. **Widget Invitati**: Occupa troppo spazio verticale - la griglia Adulti/Bambini/Sposi/Staff e 2x2 su mobile invece di 4 colonne, e il grafico a torta e troppo alto (180px)
-3. **Barra Budget**: I testi "€0" e "€31.885.000" si sovrappongono con l'importo nella barra dorata, rendendo illeggibile
-4. **Padding eccessivo**: Le card hanno p-6 ovunque, troppo per mobile
-5. **Titoli sezioni**: "text-xl" troppo grande per mobile
+1. **Countdown "152"** (`text-accent` = viola 66% lightness) su sfondo chiaro gradient-hero -- troppo chiaro
+2. **Icona calendario** (`text-accent` = stesso viola) -- poco visibile
+3. **Icone sezioni** (`text-gold` = giallo/oro 65% lightness) -- scarso contrasto su sfondo bianco delle card
+4. **Testi "Min: €0" e "Target"** (`text-muted-foreground` = grigio 9% con `text-[10px]`) -- troppo piccoli, colore OK ma difficile su mobile
+5. **Label "Ancora da Pagare" e "Liquidita Rimanente"** (`text-muted-foreground`) -- OK come colore ma il contesto e chiaro
+6. **Hover accent** sui link (`group-hover:text-accent`) -- stesso viola poco leggibile
 
 ## Modifiche Pianificate
 
-### File 1: `src/pages/Dashboard.tsx`
+### File: `src/pages/Dashboard.tsx`
 
-**Header Countdown (riga ~331-358)**
-- Ridurre padding card: `p-4 lg:p-8`
-- Ridurre titolo nomi: `text-2xl lg:text-4xl`
-- Ridurre countdown: `text-4xl lg:text-7xl`
-- Ridurre icona calendario: `w-6 h-6 lg:w-8 lg:h-8`
-- Ridurre sottotitolo: `text-base lg:text-xl`
+**Countdown (riga 338)**
+- Cambiare `text-accent` in `text-primary` (blu 243 75% 58%) -- molto piu leggibile e coerente col brand
+- Stessa modifica per l'icona calendario (riga 337): `text-accent` -> `text-primary`
 
-**Widget Budget (riga ~369-434)**
-- Ridurre padding: `p-4 md:p-6`
-- Ridurre titolo: `text-lg md:text-xl`
-- Barra budget: spostare le label "€0" e "€totale" SOTTO la barra invece che sovrapposti, per evitare collisione testi
-- Ridurre altezza barra: `h-10 md:h-12`
+**Icone sezioni**
+- Riga 374: icona Euro `text-gold` -> `text-primary` per coerenza e leggibilita
+- Riga 441: icona AlertCircle `text-red-600` -- OK, resta cosi (buon contrasto)
 
-**Widget Azioni Urgenti (riga ~437-517)**
-- Ridurre padding: `p-4 md:p-6`
-- Ridurre titolo: `text-lg md:text-xl`
+**Hover sui link (righe 465, 504)**
+- `group-hover:text-accent` -> `group-hover:text-primary` per leggibilita al passaggio
 
-**Container principale (riga ~329)**
-- Ridurre gap: `space-y-4 lg:space-y-6`
+**Label Min/Target (righe 393-396)**
+- Aumentare dimensione da `text-[10px]` a `text-xs` per migliorare leggibilita
+- Cambiare colore da `text-muted-foreground` a `text-foreground/60` per piu contrasto
 
-### File 2: `src/components/dashboard/GuestSummaryWidget.tsx`
+**Importi "Ancora da Pagare" e "Liquidita Rimanente" (righe 413, 430)**
+- `text-orange-600` -> `text-orange-700` (piu scuro, piu leggibile)
+- `text-green-600` -> `text-green-700` (piu scuro, piu leggibile)
 
-**Padding e titolo (riga ~31-38)**
-- Ridurre padding card: `p-4 md:p-6`
-- Ridurre titolo: `text-lg md:text-xl`
+### File: `src/components/dashboard/GuestSummaryWidget.tsx`
 
-**Numero Coperti Stimati (riga ~60)**
-- Ridurre dimensione: `text-4xl md:text-5xl`
+- Verificare e allineare eventuali usi di `text-accent` o `text-gold` con `text-primary`
 
-**Griglia KPI (riga ~68)**
-- Forzare 4 colonne su mobile: `grid-cols-4` (sono celle piccole, ci stanno)
-- Ridurre padding celle: `p-1.5 md:p-2`
-- Ridurre font numeri: `text-lg md:text-xl`
+## Riepilogo Colori
 
-**Grafico a torta (riga ~120)**
-- Ridurre altezza container: `h-[150px] md:h-[180px]`
-- Ridurre raggio: `innerRadius={40} outerRadius={58}` su mobile vs `50/70` su desktop (richiede `useIsMobile`)
-- Legenda piu compatta
+| Elemento | Prima | Dopo |
+|----------|-------|------|
+| Countdown 152 | `text-accent` (viola 66%) | `text-primary` (blu 58%) |
+| Icona calendario | `text-accent` | `text-primary` |
+| Icona Euro budget | `text-gold` (oro 65%) | `text-primary` |
+| Hover link | `text-accent` | `text-primary` |
+| Importo da pagare | `text-orange-600` | `text-orange-700` |
+| Importo rimanente | `text-green-600` | `text-green-700` |
+| Label Min/Target | `text-[10px] text-muted-foreground` | `text-xs text-foreground/60` |
 
-## Risultato Atteso
+Nessuna modifica al DB. Solo cambiamenti di classi CSS nel rendering.
 
-Dashboard mobile piu compatta, leggibile, con tutti i dati visibili senza scrolling eccessivo. La barra del budget sara finalmente leggibile senza sovrapposizioni di testo.
