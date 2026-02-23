@@ -1,33 +1,58 @@
 
 
-# Migliorare Layout Card Categorie Budget
+# Ottimizzazione Dashboard Mobile
 
-## Problema
-Attualmente il costo e posizionato sotto il nome della categoria in un testo piccolo grigio. Su mobile e desktop risulta poco leggibile, specialmente per importi grandi.
+## Problemi Rilevati dagli Screenshot (390x844)
 
-## Soluzione
-Spostare l'importo a destra della card, allineato al bordo destro, con il nome della categoria a sinistra. Layout `flex` con `justify-between`.
+1. **Header Countdown**: Il numero "152" e troppo grande (text-5xl) e il gradiente risulta sbiadito su mobile
+2. **Widget Invitati**: Occupa troppo spazio verticale - la griglia Adulti/Bambini/Sposi/Staff e 2x2 su mobile invece di 4 colonne, e il grafico a torta e troppo alto (180px)
+3. **Barra Budget**: I testi "€0" e "€31.885.000" si sovrappongono con l'importo nella barra dorata, rendendo illeggibile
+4. **Padding eccessivo**: Le card hanno p-6 ovunque, troppo per mobile
+5. **Titoli sezioni**: "text-xl" troppo grande per mobile
 
-## Dettaglio Tecnico
+## Modifiche Pianificate
 
-**File: `src/pages/BudgetLegacy.tsx`** - righe 572-581
+### File 1: `src/pages/Dashboard.tsx`
 
-Struttura attuale:
-```
-[pallino] [nome]
-          [importo piccolo grigio]
-```
+**Header Countdown (riga ~331-358)**
+- Ridurre padding card: `p-4 lg:p-8`
+- Ridurre titolo nomi: `text-2xl lg:text-4xl`
+- Ridurre countdown: `text-4xl lg:text-7xl`
+- Ridurre icona calendario: `w-6 h-6 lg:w-8 lg:h-8`
+- Ridurre sottotitolo: `text-base lg:text-xl`
 
-Nuova struttura:
-```
-[pallino] [nome]              [importo bold]
-```
+**Widget Budget (riga ~369-434)**
+- Ridurre padding: `p-4 md:p-6`
+- Ridurre titolo: `text-lg md:text-xl`
+- Barra budget: spostare le label "€0" e "€totale" SOTTO la barra invece che sovrapposti, per evitare collisione testi
+- Ridurre altezza barra: `h-10 md:h-12`
 
-- Rimuovere il `<p>` dell'importo dal div interno (sotto il nome)
-- Aggiungere un nuovo elemento a destra con `text-sm font-semibold` e allineamento destro
-- Il div padre (riga 572) mantiene `flex items-center gap-3` e aggiunge `justify-between` per spingere l'importo a destra
-- Il nome resta troncato con `truncate` per non sovrapporsi all'importo
-- L'importo usa `shrink-0 text-right` per non comprimersi
+**Widget Azioni Urgenti (riga ~437-517)**
+- Ridurre padding: `p-4 md:p-6`
+- Ridurre titolo: `text-lg md:text-xl`
 
-Nessuna modifica al DB o alla logica. Solo riposizionamento CSS.
+**Container principale (riga ~329)**
+- Ridurre gap: `space-y-4 lg:space-y-6`
 
+### File 2: `src/components/dashboard/GuestSummaryWidget.tsx`
+
+**Padding e titolo (riga ~31-38)**
+- Ridurre padding card: `p-4 md:p-6`
+- Ridurre titolo: `text-lg md:text-xl`
+
+**Numero Coperti Stimati (riga ~60)**
+- Ridurre dimensione: `text-4xl md:text-5xl`
+
+**Griglia KPI (riga ~68)**
+- Forzare 4 colonne su mobile: `grid-cols-4` (sono celle piccole, ci stanno)
+- Ridurre padding celle: `p-1.5 md:p-2`
+- Ridurre font numeri: `text-lg md:text-xl`
+
+**Grafico a torta (riga ~120)**
+- Ridurre altezza container: `h-[150px] md:h-[180px]`
+- Ridurre raggio: `innerRadius={40} outerRadius={58}` su mobile vs `50/70` su desktop (richiede `useIsMobile`)
+- Legenda piu compatta
+
+## Risultato Atteso
+
+Dashboard mobile piu compatta, leggibile, con tutti i dati visibili senza scrolling eccessivo. La barra del budget sara finalmente leggibile senza sovrapposizioni di testo.
