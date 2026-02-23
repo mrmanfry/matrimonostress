@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ExpenseSpreadsheetTab } from "./ExpenseSpreadsheetTab";
 import { PaymentPlanTab } from "./PaymentPlanTab";
 import { supabase } from "@/integrations/supabase/client";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { calculateExpenseAmount, resolveGuestCounts, inferExpenseType, type ExpenseItem as CalcExpenseItem, type ExpenseLineItem as CalcLineItem, type GuestCounts } from "@/lib/expenseCalculations";
 
 interface ExpenseItem {
@@ -43,6 +45,7 @@ export function ExpenseItemTabs({
   const [activeTab, setActiveTab] = useState<string>("spreadsheet");
   const [totalPlanned, setTotalPlanned] = useState(0);
   const [totalActual, setTotalActual] = useState(0);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (open && expenseItemId) {
@@ -70,10 +73,8 @@ export function ExpenseItemTabs({
     }
   };
 
-  // Calcola i totali direttamente dal database
   const calculateTotalsFromDB = async (itemId: string) => {
     try {
-      // Carica expense item
       const { data: expenseData, error: expenseError } = await supabase
         .from("expense_items")
         .select("*")
@@ -82,7 +83,6 @@ export function ExpenseItemTabs({
 
       if (expenseError || !expenseData) return;
 
-      // Carica line items
       const { data: lineItemsData, error: lineError } = await supabase
         .from("expense_line_items")
         .select("*")
@@ -91,11 +91,9 @@ export function ExpenseItemTabs({
 
       if (lineError) throw lineError;
 
-      // Carica wedding targets per guest counts
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) return;
 
-      // Get wedding ID
       const { data: roleData } = await supabase
         .from("user_roles")
         .select("wedding_id")
@@ -122,7 +120,6 @@ export function ExpenseItemTabs({
         .eq("id", weddingId)
         .single();
 
-      // Carica conteggi ospiti effettivi (expected e confirmed)
       const { data: guestsData } = await supabase
         .from("guests")
         .select("rsvp_status, is_child, is_staff, adults_count, children_count")
@@ -130,7 +127,6 @@ export function ExpenseItemTabs({
 
       const guests = guestsData || [];
       
-      // Calcola expected (tutti tranne declined)
       const expectedAdults = guests
         .filter(g => !g.is_child && !g.is_staff && g.rsvp_status !== 'Rifiutato')
         .reduce((sum, g) => sum + (g.adults_count || 1), 0);
@@ -141,7 +137,6 @@ export function ExpenseItemTabs({
         .filter(g => g.is_staff && g.rsvp_status !== 'Rifiutato')
         .length;
 
-      // Calcola confirmed (solo Confermato)
       const confirmedAdults = guests
         .filter(g => !g.is_child && !g.is_staff && g.rsvp_status === 'Confermato')
         .reduce((sum, g) => sum + (g.adults_count || 1), 0);
@@ -170,7 +165,6 @@ export function ExpenseItemTabs({
         confirmed: { adults: confirmedAdults, children: confirmedChildren, staff: confirmedStaff }
       };
 
-      // Prepara i dati per il calcolo
       const expenseType = inferExpenseType(
         { 
           expense_type: expenseData.expense_type as 'fixed' | 'variable' | 'mixed' | undefined,
@@ -202,7 +196,6 @@ export function ExpenseItemTabs({
         tax_rate: line.tax_rate || 0,
       }));
 
-      // Calcola i totali per planned e confirmed
       const planned = calculateExpenseAmount(calcExpenseItem, calcLineItems, 'planned', guestCounts);
       const confirmed = calculateExpenseAmount(calcExpenseItem, calcLineItems, 'confirmed', guestCounts);
 
@@ -259,6 +252,55 @@ export function ExpenseItemTabs({
     setTotalActual(actual);
   };
 
+  const tabsContent = (
+    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <TabsList className="grid w-full grid-cols-2">
+        <TabsTrigger value="spreadsheet">📊 Foglio di Calcolo</TabsTrigger>
+        <TabsTrigger value="payments">💳 Piano di Pagamento</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="spreadsheet" className="space-y-4">
+        {expenseItem && (
+          <ExpenseSpreadsheetTab
+            expenseItem={expenseItem}
+            onExpenseItemUpdate={loadExpenseItem}
+            onTotalsUpdate={handleTotalsUpdate}
+          />
+        )}
+      </TabsContent>
+
+      <TabsContent value="payments" className="space-y-4">
+        {expenseItem && (
+          <PaymentPlanTab
+            vendorId={vendorId}
+            expenseItemId={expenseItem.id}
+            categoryId={categoryId}
+            totalPlanned={totalPlanned}
+            totalActual={totalActual}
+            calculationMode={calculationMode}
+          />
+        )}
+      </TabsContent>
+    </Tabs>
+  );
+
+  if (isMobile) {
+    return (
+      <Drawer open={open} onOpenChange={handleClose}>
+        <DrawerContent className="max-h-[95vh]">
+          <DrawerHeader className="pb-2">
+            <DrawerTitle className="text-base">
+              {expenseItem?.description || "Nuova Spesa"}
+            </DrawerTitle>
+          </DrawerHeader>
+          <div className="overflow-y-auto px-4 pb-4 flex-1">
+            {tabsContent}
+          </div>
+        </DrawerContent>
+      </Drawer>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
@@ -267,36 +309,7 @@ export function ExpenseItemTabs({
             {expenseItem?.description || "Nuova Spesa"}
           </DialogTitle>
         </DialogHeader>
-
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="spreadsheet">📊 Foglio di Calcolo</TabsTrigger>
-            <TabsTrigger value="payments">💳 Piano di Pagamento</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="spreadsheet" className="space-y-4">
-            {expenseItem && (
-              <ExpenseSpreadsheetTab
-                expenseItem={expenseItem}
-                onExpenseItemUpdate={loadExpenseItem}
-                onTotalsUpdate={handleTotalsUpdate}
-              />
-            )}
-          </TabsContent>
-
-          <TabsContent value="payments" className="space-y-4">
-            {expenseItem && (
-              <PaymentPlanTab
-                vendorId={vendorId}
-                expenseItemId={expenseItem.id}
-                categoryId={categoryId}
-                totalPlanned={totalPlanned}
-                totalActual={totalActual}
-                calculationMode={calculationMode}
-              />
-            )}
-          </TabsContent>
-        </Tabs>
+        {tabsContent}
       </DialogContent>
     </Dialog>
   );
