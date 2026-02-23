@@ -178,8 +178,8 @@ export function VendorAppointmentsWidget({
   return (
     <>
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div className="space-y-1">
+        <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between px-4 md:px-6 pt-4 md:pt-6">
+          <div className="space-y-1 hidden md:block">
             <CardTitle className="flex items-center gap-2">
               <CalendarCheck className="w-5 h-5 text-emerald-600" />
               Appuntamenti
@@ -188,8 +188,8 @@ export function VendorAppointmentsWidget({
               Incontri e sopralluoghi con questo fornitore
             </p>
           </div>
-          <Button size="sm" onClick={onCreateAppointment} className="gap-2">
-            <Plus className="w-4 h-4" />
+          <Button size="sm" onClick={onCreateAppointment} className="gap-1.5 text-xs md:text-sm self-start">
+            <Plus className="w-3.5 h-3.5 md:w-4 md:h-4" />
             Pianifica
           </Button>
         </CardHeader>

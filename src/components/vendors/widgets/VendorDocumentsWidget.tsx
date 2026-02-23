@@ -181,13 +181,13 @@ export function VendorDocumentsWidget({ vendorId, vendorName }: VendorDocumentsW
   return (
     <>
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
+        <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between px-4 md:px-6 pt-4 md:pt-6">
+          <CardTitle className="hidden md:flex items-center gap-2">
             <FileText className="w-5 h-5 text-indigo-600" />
             Documenti e Contratti
           </CardTitle>
-          <Button onClick={() => setUploadOpen(true)} className="gap-2">
-            <Upload className="w-4 h-4" />
+          <Button onClick={() => setUploadOpen(true)} size="sm" className="gap-1.5 text-xs md:text-sm self-start">
+            <Upload className="w-3.5 h-3.5 md:w-4 md:h-4" />
             Carica Documento
           </Button>
         </CardHeader>
