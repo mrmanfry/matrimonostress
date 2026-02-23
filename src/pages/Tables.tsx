@@ -10,6 +10,7 @@ import { GuestPool } from "@/components/tables/GuestPool";
 import { TableCanvas } from "@/components/tables/TableCanvas";
 import { ConflictManager } from "@/components/tables/ConflictManager";
 import { SmartGrouperWizard } from "@/components/tables/SmartGrouperWizard";
+import { calculateTotalVendorStaff } from "@/lib/expectedCalculator";
 import { generateTableReport } from "@/utils/pdfHelpers";
 
 type Guest = {
@@ -25,6 +26,14 @@ type Guest = {
   party_id?: string | null;
   group_id?: string | null;
   category?: string | null;
+  is_child: boolean;
+  is_staff?: boolean;
+  is_couple_member?: boolean;
+  save_the_date_sent_at: string | null;
+  std_response: string | null;
+  phone?: string | null;
+  allow_plus_one?: boolean;
+  plus_one_name?: string | null;
 };
 
 type Table = {
@@ -69,6 +78,7 @@ const Tables = () => {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [showConfirmedOnly, setShowConfirmedOnly] = useState(true);
   const [weddingTargets, setWeddingTargets] = useState<WeddingTargets | null>(null);
+  const [vendorStaffTotal, setVendorStaffTotal] = useState(0);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -105,6 +115,7 @@ const Tables = () => {
           fetchTables(weddingData.id),
           fetchAssignments(weddingData.id),
           fetchConflicts(weddingData.id),
+          fetchVendorStaff(weddingData.id),
         ]);
       }
     } catch (error) {
@@ -134,6 +145,14 @@ const Tables = () => {
       .select("*")
       .eq("wedding_id", weddingId);
     if (data) setAllGuests(data);
+  };
+
+  const fetchVendorStaff = async (weddingId: string) => {
+    const { data } = await supabase
+      .from("vendors")
+      .select("staff_meals_count")
+      .eq("wedding_id", weddingId);
+    if (data) setVendorStaffTotal(calculateTotalVendorStaff(data));
   };
 
   const fetchTables = async (weddingId: string) => {
@@ -409,6 +428,7 @@ const Tables = () => {
           weddingId={weddingId}
           onComplete={handleWizardComplete}
           weddingTargets={weddingTargets}
+          vendorStaffTotal={vendorStaffTotal}
         />
       </div>
     </div>
