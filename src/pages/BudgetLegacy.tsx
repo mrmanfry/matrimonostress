@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -53,6 +54,7 @@ interface CategoryData {
 export default function BudgetLegacy() {
   const { authState } = useAuth();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [loading, setLoading] = useState(true);
   const [expenseItems, setExpenseItems] = useState<ExpenseItem[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -539,20 +541,19 @@ export default function BudgetLegacy() {
             </Alert>
           ) : (
             <div className="space-y-4">
-              <ResponsiveContainer width="100%" height={300}>
+              <ResponsiveContainer width="100%" height={isMobile ? 250 : 300}>
                 <PieChart>
                   <Pie
                     data={categoryData}
                     cx="50%"
                     cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => {
+                    labelLine={!isMobile}
+                    label={isMobile ? false : ({ name, percent }) => {
                       const percentValue = typeof percent === 'number' ? percent : 0;
-                      // Nascondi label se la percentuale è troppo bassa per evitare sovrapposizioni
                       if (percentValue < 0.05) return null;
                       return `${name}: ${(percentValue * 100).toFixed(0)}%`;
                     }}
-                    outerRadius={80}
+                    outerRadius={isMobile ? 70 : 80}
                     dataKey="value"
                   >
                     {categoryData.map((entry, index) => (
@@ -562,7 +563,7 @@ export default function BudgetLegacy() {
                   <Tooltip 
                     formatter={(value: any, name: any) => [formatCurrency(Number(value)), name]}
                   />
-                  <Legend />
+                  {!isMobile && <Legend />}
                 </PieChart>
               </ResponsiveContainer>
 
