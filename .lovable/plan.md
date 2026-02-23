@@ -1,30 +1,37 @@
 
 
-# Fix: Errore "duplicate key" nel salvataggio allocazioni contributori
+# Ottimizzazione Grafico a Torta Budget per Mobile
 
-## Causa del Bug
+## Problemi Rilevati
 
-Quando aggiungi un contributore cliccando "Aggiungi Contributore", il sistema inserisce sempre il **primo contributore della lista** (`contributors[0].id`) come default. Se aggiungi due contributori senza cambiare il select dropdown del secondo, entrambi hanno lo **stesso `contributor_id`**.
-
-Al salvataggio, il sistema tenta di inserire due righe con la stessa coppia `(payment_id, contributor_id)` nella tabella `payment_allocations`, che ha un vincolo di unicita su questa coppia. Da qui l'errore "duplicate key".
+Dallo screenshot su viewport 390px:
+1. **Le label sul grafico si sovrappongono** tra loro e alla legenda ("Location: 13%", "Fioraio: 6%", "Musica per location" si accavallano)
+2. **La legenda occupa troppo spazio verticale** con 10+ categorie disposte su piu righe
+3. **Il raggio del grafico (outerRadius=80) e troppo grande** per lo spazio disponibile su mobile, lasciando poco margine per le label
 
 ## Soluzione
 
-Due correzioni nel file `src/components/vendors/PaymentPlanTab.tsx`:
+### Approccio: Rimuovere le label dal grafico su mobile, usare solo la legenda + tooltip
 
-1. **Prevenzione**: quando si aggiunge un nuovo contributore, selezionare automaticamente il **primo contributore non ancora presente** nella lista. Se tutti sono gia presenti, non permettere l'aggiunta (disabilitare il pulsante).
+Su mobile le label direttamente sul grafico non funzionano con molte categorie. La soluzione e:
 
-2. **Validazione al salvataggio**: prima di inserire le allocazioni, verificare che non ci siano `contributor_id` duplicati. Se ci sono, mostrare un errore e bloccare il salvataggio.
+1. **Nascondere le label interne al grafico su mobile** - usare `useIsMobile()` per disattivare `label` e `labelLine` su schermi piccoli
+2. **Ridurre il raggio** del grafico su mobile (`outerRadius` da 80 a 70)
+3. **Ridurre l'altezza** del container su mobile (da 300px a 250px)
+4. **Semplificare la legenda** su mobile usando un layout piu compatto
+5. **Mantenere il Tooltip** attivo cosi l'utente puo toccare una fetta per vedere nome e valore
 
-### Modifica 1 - Pulsante "Aggiungi Contributore" (riga ~937)
-- Trovare il primo contributore il cui `id` non e gia in `editingAllocations`
-- Usare quello come default invece di `contributors[0].id`
-- Disabilitare il pulsante se tutti i contributori sono gia presenti
+### Dettaglio Tecnico
 
-### Modifica 2 - Validazione in `handleSavePayment` (riga ~619)
-- Prima dell'insert, controllare che non ci siano `contributor_id` duplicati in `editingAllocations`
-- Se duplicati trovati, mostrare toast di errore e interrompere il salvataggio
+**File: `src/pages/BudgetLegacy.tsx`**
 
-### Modifica 3 - Select contributore (riga ~960)
-- Nel dropdown di selezione contributore, disabilitare i contributori gia selezionati in altre righe per evitare duplicati visivamente
+- Importare `useIsMobile` da `@/hooks/use-mobile`
+- Nel componente `PieChart` (riga ~542-566):
+  - `label`: impostare a `false` su mobile, mantenere la funzione custom su desktop
+  - `labelLine`: impostare a `false` su mobile
+  - `outerRadius`: 70 su mobile, 80 su desktop
+  - `ResponsiveContainer height`: 250 su mobile, 300 su desktop
+- La griglia categorie sotto il grafico (riga ~569) resta invariata: e gia responsive con `md:grid-cols-2 lg:grid-cols-3`
+
+Nessuna modifica al DB. Solo cambiamenti UI nel rendering del grafico.
 
