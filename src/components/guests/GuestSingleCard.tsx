@@ -9,7 +9,6 @@ import { GuestEditDialog } from "./GuestEditDialog";
 import { GuestCampaignBadges } from "./GuestCampaignBadges";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useIsMobile } from "@/hooks/use-mobile";
 
 interface Guest {
   id: string;
@@ -28,6 +27,7 @@ interface Guest {
   unique_rsvp_token?: string;
   group_id?: string | null;
   group_name?: string | null;
+  // Wedding CRM fields
   save_the_date_sent_at?: string | null;
   formal_invite_sent_at?: string | null;
   std_response?: string | null;
@@ -54,7 +54,6 @@ export const GuestSingleCard = ({
 }: GuestSingleCardProps) => {
   const [guestEditDialogOpen, setGuestEditDialogOpen] = useState(false);
   const [togglingPlusOne, setTogglingPlusOne] = useState(false);
-  const isMobile = useIsMobile();
   
   const displayName = `${guest.first_name} ${guest.last_name}`;
 
@@ -85,60 +84,10 @@ export const GuestSingleCard = ({
     }
   };
 
-  // Mobile: ultra-minimal row
-  if (isMobile) {
-    return (
-      <Card className={`p-2.5 transition-all ${selected ? 'ring-2 ring-primary' : ''} ${guest.is_couple_member ? 'border-pink-200 dark:border-pink-900/50 bg-pink-50/30 dark:bg-pink-950/10' : ''}`}>
-        <div className="flex items-center gap-2">
-          {!guest.is_couple_member && (
-            <Checkbox
-              checked={selected}
-              onCheckedChange={() => onToggleSelect(guest.id)}
-              className="flex-shrink-0"
-            />
-          )}
-          {guest.is_couple_member && (
-            <Heart className="w-3.5 h-3.5 text-pink-500 fill-pink-500 flex-shrink-0" />
-          )}
-          <div className="flex-1 min-w-0">
-            <span className="text-sm font-medium truncate block">{displayName}</span>
-          </div>
-          {!guest.is_couple_member && (
-            <GuestCampaignBadges 
-              saveTheDateSentAt={guest.save_the_date_sent_at}
-              formalInviteSentAt={guest.formal_invite_sent_at}
-              stdResponse={guest.std_response as 'likely_yes' | 'likely_no' | 'unsure' | null | undefined}
-              rsvpStatus={guest.rsvp_status}
-              ultraCompact
-            />
-          )}
-          {guest.is_couple_member && (
-            <span className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
-          )}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 flex-shrink-0"
-            onClick={handleEditClick}
-          >
-            <Edit className="w-3.5 h-3.5" />
-          </Button>
-        </div>
-
-        <GuestEditDialog
-          open={guestEditDialogOpen}
-          onOpenChange={setGuestEditDialogOpen}
-          guest={guest}
-          onSuccess={handleGuestUpdateSuccess}
-        />
-      </Card>
-    );
-  }
-
-  // Desktop: full card (unchanged)
   return (
-    <Card className={`p-4 hover:shadow-md transition-all ${selected ? 'ring-2 ring-primary' : ''} ${guest.is_couple_member ? 'border-pink-200 dark:border-pink-900/50 bg-pink-50/30 dark:bg-pink-950/10' : ''}`}>
-      <div className="flex items-start gap-3">
+    <Card className={`p-3 md:p-4 hover:shadow-md transition-all ${selected ? 'ring-2 ring-primary' : ''} ${guest.is_couple_member ? 'border-pink-200 dark:border-pink-900/50 bg-pink-50/30 dark:bg-pink-950/10' : ''}`}>
+      <div className="flex items-start gap-2 md:gap-3">
+        {/* Checkbox - hidden for couple members */}
         {!guest.is_couple_member && (
           <Checkbox
             checked={selected}
@@ -147,14 +96,16 @@ export const GuestSingleCard = ({
           />
         )}
 
+        {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2 mb-2">
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5 md:gap-2 flex-wrap">
                 {guest.is_couple_member && (
                   <Heart className="w-4 h-4 text-pink-500 fill-pink-500 flex-shrink-0" />
                 )}
-                <h3 className="font-semibold truncate text-base">{displayName}</h3>
+                <h3 className="font-semibold truncate text-sm md:text-base">{displayName}</h3>
+                {/* Alias Badge */}
                 {guest.alias && (
                   <span className="text-xs font-normal text-muted-foreground bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full border">
                     aka "{guest.alias}"
@@ -184,6 +135,7 @@ export const GuestSingleCard = ({
                   </Badge>
                 )}
               </div>
+              {/* Campaign Badges - Couple members always show as confirmed */}
               {!guest.is_couple_member && (
                 <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground flex-wrap">
                   <GuestCampaignBadges 
@@ -197,6 +149,7 @@ export const GuestSingleCard = ({
               )}
             </div>
 
+            {/* Actions */}
             <div className="flex gap-1 flex-shrink-0">
               <Button
                 variant="ghost"
@@ -221,6 +174,7 @@ export const GuestSingleCard = ({
             </div>
           </div>
 
+          {/* Contact Info - Hidden for couple members */}
           {!guest.is_couple_member && (
             <div className="flex items-center gap-2 text-sm">
               {guest.phone ? (
@@ -237,6 +191,7 @@ export const GuestSingleCard = ({
             </div>
           )}
 
+          {/* Plus One Toggle & Person count */}
           <div className="flex items-center justify-between mt-3 pt-2 border-t">
             <div className="text-xs text-muted-foreground">
               {guest.is_couple_member ? (
@@ -263,6 +218,7 @@ export const GuestSingleCard = ({
         </div>
       </div>
 
+      {/* Guest Edit Dialog */}
       <GuestEditDialog
         open={guestEditDialogOpen}
         onOpenChange={setGuestEditDialogOpen}

@@ -19,7 +19,6 @@ interface GuestCampaignBadgesProps {
   rsvpStatus?: string | null;
   stdRespondedBy?: string | null;
   compact?: boolean;
-  ultraCompact?: boolean;
 }
 
 export function GuestCampaignBadges({
@@ -29,7 +28,6 @@ export function GuestCampaignBadges({
   rsvpStatus,
   stdRespondedBy,
   compact = false,
-  ultraCompact = false,
 }: GuestCampaignBadgesProps) {
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString("it-IT", {
@@ -38,51 +36,15 @@ export function GuestCampaignBadges({
     });
   };
 
-  // Ultra compact: single colored dot
-  if (ultraCompact) {
-    let dotColor = "bg-slate-300 dark:bg-slate-600"; // draft
-    let label = "Da invitare";
+  // Determine the "winning" badge based on priority matrix
+  // 1. RSVP Confirmed/Declined wins over everything
+  // 2. Formal invite sent
+  // 3. STD sent with response
+  // 4. Draft (nothing sent)
 
-    if (rsvpStatus === 'confirmed') {
-      dotColor = "bg-green-500";
-      label = "Confermato";
-    } else if (rsvpStatus === 'declined') {
-      dotColor = "bg-red-500";
-      label = "Rifiutato";
-    } else if (formalInviteSentAt) {
-      dotColor = "bg-blue-500";
-      label = "Invito inviato";
-    } else if (saveTheDateSentAt || stdResponse) {
-      if (stdResponse === 'likely_yes') {
-        dotColor = "bg-green-400";
-        label = "STD: Interessato";
-      } else if (stdResponse === 'likely_no') {
-        dotColor = "bg-orange-400";
-        label = "STD: Improbabile";
-      } else if (stdResponse === 'unsure') {
-        dotColor = "bg-amber-400";
-        label = "STD: Incerto";
-      } else {
-        dotColor = "bg-violet-400";
-        label = "STD inviato";
-      }
-    }
-
-    return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span className={cn("inline-block w-2 h-2 rounded-full flex-shrink-0", dotColor)} />
-          </TooltipTrigger>
-          <TooltipContent><p className="text-xs">{label}</p></TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    );
-  }
-
-  // Standard and compact modes (unchanged logic)
   const badges: JSX.Element[] = [];
 
+  // RSVP Status (highest priority)
   if (rsvpStatus === 'confirmed') {
     badges.push(
       <TooltipProvider key="confirmed">
@@ -96,7 +58,9 @@ export function GuestCampaignBadges({
               {compact ? "✓" : "Confermato"}
             </Badge>
           </TooltipTrigger>
-          <TooltipContent><p>Presenza confermata</p></TooltipContent>
+          <TooltipContent>
+            <p>Presenza confermata</p>
+          </TooltipContent>
         </Tooltip>
       </TooltipProvider>
     );
@@ -113,13 +77,16 @@ export function GuestCampaignBadges({
               {compact ? "✗" : "Rifiutato"}
             </Badge>
           </TooltipTrigger>
-          <TooltipContent><p>Non partecipa</p></TooltipContent>
+          <TooltipContent>
+            <p>Non partecipa</p>
+          </TooltipContent>
         </Tooltip>
       </TooltipProvider>
     );
     return <div className="flex flex-wrap gap-1">{badges}</div>;
   }
 
+  // Formal Invite Sent
   if (formalInviteSentAt) {
     badges.push(
       <TooltipProvider key="formal">
@@ -142,6 +109,7 @@ export function GuestCampaignBadges({
     );
   }
 
+  // Save The Date Sent (only show if no formal invite yet)
   if (saveTheDateSentAt && !formalInviteSentAt) {
     badges.push(
       <TooltipProvider key="std">
@@ -163,18 +131,25 @@ export function GuestCampaignBadges({
     );
   }
 
+  // STD Response badge - show even if saveTheDateSentAt is null (fix for responses without recorded send)
   if (stdResponse && !formalInviteSentAt) {
     const responseConfig = {
       likely_yes: {
-        icon: ThumbsUp, label: "Interessato", shortLabel: "👍",
+        icon: ThumbsUp,
+        label: "Interessato",
+        shortLabel: "👍",
         color: "border-green-300 bg-green-50 text-green-700 dark:border-green-700 dark:bg-green-950/30 dark:text-green-400",
       },
       unsure: {
-        icon: HelpCircle, label: "Incerto", shortLabel: "🤔",
+        icon: HelpCircle,
+        label: "Incerto",
+        shortLabel: "🤔",
         color: "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-400",
       },
       likely_no: {
-        icon: ThumbsDown, label: "Improbabile", shortLabel: "👎",
+        icon: ThumbsDown,
+        label: "Improbabile",
+        shortLabel: "👎",
         color: "border-red-300 bg-red-50 text-red-700 dark:border-red-700 dark:bg-red-950/30 dark:text-red-400",
       },
     }[stdResponse];
@@ -201,6 +176,7 @@ export function GuestCampaignBadges({
     );
   }
 
+  // If nothing sent, show "Da Invitare" badge
   if (!saveTheDateSentAt && !formalInviteSentAt) {
     badges.push(
       <TooltipProvider key="draft">
@@ -214,7 +190,9 @@ export function GuestCampaignBadges({
               {compact ? "⚪" : "Da Invitare"}
             </Badge>
           </TooltipTrigger>
-          <TooltipContent><p>Nessun messaggio inviato</p></TooltipContent>
+          <TooltipContent>
+            <p>Nessun messaggio inviato</p>
+          </TooltipContent>
         </Tooltip>
       </TooltipProvider>
     );
