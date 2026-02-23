@@ -326,20 +326,20 @@ const Dashboard = () => {
   const budgetPercentage = stats.budgetTotal > 0 ? (stats.budgetSpent / stats.budgetTotal) * 100 : 0;
 
   return (
-    <div className="p-4 lg:p-8 max-w-7xl mx-auto space-y-6">
+    <div className="p-4 lg:p-8 max-w-7xl mx-auto space-y-4 lg:space-y-6">
       {/* Header con Countdown centrale */}
-      <Card className="p-6 lg:p-8 bg-gradient-hero border-2 border-accent/30">
-        <div className="text-center space-y-3">
-          <h1 className="text-3xl lg:text-4xl font-bold">
+      <Card className="p-4 lg:p-8 bg-gradient-hero border-2 border-accent/30">
+        <div className="text-center space-y-2 lg:space-y-3">
+          <h1 className="text-2xl lg:text-4xl font-bold">
             {wedding.partner1_name} & {wedding.partner2_name}
           </h1>
           <div className="flex items-center justify-center gap-2">
-            <Calendar className="w-8 h-8 text-accent" />
-            <div className="text-5xl lg:text-7xl font-bold text-accent">
+            <Calendar className="w-6 h-6 lg:w-8 lg:h-8 text-accent" />
+            <div className="text-4xl lg:text-7xl font-bold text-accent">
               {daysUntilWedding !== null && daysUntilWedding > 0 ? daysUntilWedding : 0}
             </div>
           </div>
-          <p className="text-xl font-semibold">
+          <p className="text-base lg:text-xl font-semibold">
             {daysUntilWedding !== null && daysUntilWedding > 0 
               ? `giorni al vostro matrimonio` 
               : daysUntilWedding === 0
@@ -358,7 +358,7 @@ const Dashboard = () => {
       </Card>
 
       {/* Widget Grid 2x2 */}
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="grid md:grid-cols-2 gap-4 lg:gap-6">
         {/* Widget 1: Riepilogo Invitati con Grafico - usando useGuestMetrics */}
         <GuestSummaryWidget 
           stats={stats} 
@@ -367,30 +367,32 @@ const Dashboard = () => {
 
         {/* Widget 2: Stato Budget con Barra */}
         <Card 
-          className="p-6 hover:shadow-elegant transition-all cursor-pointer"
+          className="p-4 md:p-6 hover:shadow-elegant transition-all cursor-pointer"
           onClick={() => navigate("/app/budget")}
         >
           <div className="flex items-center gap-2 mb-4">
             <Euro className="w-6 h-6 text-gold" />
-            <h3 className="text-xl font-semibold">Stato del Budget</h3>
+            <h3 className="text-lg md:text-xl font-semibold">Stato del Budget</h3>
           </div>
 
           <div className="space-y-4">
-            <div className="relative h-12 bg-muted rounded-full overflow-hidden">
-              <div 
-                className="absolute h-full bg-gradient-to-r from-gold to-gold/80 transition-all duration-500 flex items-center justify-end pr-4"
-                style={{ width: `${Math.min(budgetPercentage, 100)}%` }}
-              >
-                {budgetPercentage > 20 && (
-                  <span className="text-sm font-bold text-white">
-                    €{Math.round(stats.budgetSpent).toLocaleString("it-IT")}
-                  </span>
-                )}
+            <div>
+              <div className="relative h-10 md:h-12 bg-muted rounded-full overflow-hidden">
+                <div 
+                  className="absolute h-full bg-gradient-to-r from-gold to-gold/80 transition-all duration-500 flex items-center justify-center"
+                  style={{ width: `${Math.min(budgetPercentage, 100)}%` }}
+                >
+                  {budgetPercentage > 15 && (
+                    <span className="text-xs md:text-sm font-bold text-white">
+                      €{Math.round(stats.budgetSpent).toLocaleString("it-IT")}
+                    </span>
+                  )}
+                </div>
               </div>
-              <div className="absolute inset-0 flex items-center justify-between px-4">
-                <span className="text-xs font-medium">€0</span>
-                <span className="text-xs font-medium">
-                  €{stats.budgetTotal.toLocaleString("it-IT")}
+              <div className="flex items-center justify-between mt-1.5 px-1">
+                <span className="text-[10px] md:text-xs text-muted-foreground uppercase tracking-wider">Min: €0</span>
+                <span className="text-[10px] md:text-xs text-muted-foreground uppercase tracking-wider">
+                  Target: €{stats.budgetTotal.toLocaleString("it-IT")}
                 </span>
               </div>
             </div>
@@ -434,10 +436,10 @@ const Dashboard = () => {
         </Card>
 
         {/* Widget 3: Azioni Urgenti */}
-        <Card className="p-6">
+        <Card className="p-4 md:p-6">
           <div className="flex items-center gap-2 mb-4">
             <AlertCircle className="w-6 h-6 text-red-600" />
-            <h3 className="text-xl font-semibold">Azioni Urgenti</h3>
+            <h3 className="text-lg md:text-xl font-semibold">Azioni Urgenti</h3>
           </div>
 
           <div className="space-y-4">
