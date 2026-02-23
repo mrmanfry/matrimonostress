@@ -1,115 +1,55 @@
 
 
-## Piano: Ottimizzazione Mobile Pagina Invitati (Apple-Style)
+## Piano: Ottimizzazione Mobile VendorDetails (Apple-Style)
 
-### Problema Attuale
+### Problemi Attuali (visibili dallo screenshot)
 
-La pagina Guests su mobile e' sovraccarica di informazioni:
-- 5 KPI card orizzontali scrollabili (troppi colori, font piccoli)
-- 3 stats card secondarie (ridondanti con le KPI)
-- Analytics Dashboard con grafici a torta e barre (troppe informazioni, troppi colori)
-- 2 alert banner (telefono mancante + invitati non raggruppati)
-- Barra filtri complessa
-- Card invitati dense con molti badge colorati (campaign badges, group tags, +1 badges, status strips)
-
-### Filosofia di Design
-
-Ispirarsi a iOS: **informazione progressiva**, superfici pulite, tipografia come ornamento, colori usati con parsimonia e solo per comunicare stato.
+1. **Hero Card**: L'avatar 96x96px occupa troppo spazio verticale su mobile. Nome, badge, bottone "Modifica Profilo" e contatti sono impilati con troppo padding
+2. **Tabs**: Le 4 tab con testo completo ("Spese & Pagamenti", "Documenti", "Appuntamenti", "Checklist") traboccano orizzontalmente -- si vede "App..." troncato
+3. **VendorExpensesWidget**: Il titolo "Gestione Spese e Pagamenti" con il toggle a 3 modalita' (Plan./Prev./Conf.) + i conteggi coperti occupa troppo spazio
+4. **ExpenseItemsManager**: Le card spesa con i totali pagato/da pagare in grid 2 colonne sono strette
+5. **Dettagli fiscali** (Ragione Sociale, P.IVA, IBAN): Visibili nella hero card, informazione secondaria che occupa spazio
 
 ### Modifiche Proposte
 
-#### 1. Header Compatto + Counter Unico (`Guests.tsx`)
+#### 1. Hero Card Compatta (`VendorDetails.tsx`)
 
-Sostituire le 3 stats card secondarie con un singolo counter inline nell'header:
+- Avatar ridotto a 56x56px su mobile (da 96x96)
+- Layout header in una riga: avatar + nome + status badge affiancati
+- Bottone "Modifica Profilo" diventa un icon-only button (solo icona matita) su mobile
+- Contatti (telefono, email, referente) in riga compatta con solo icone cliccabili su mobile
+- **Nascondere i dettagli fiscali** (Ragione Sociale, P.IVA, IBAN, Intestatario) su mobile -- sono accessibili dal dialog di modifica
+- Nascondere le note su mobile -- accessibili dal dialog di modifica
+- Ridurre padding card da p-6 a p-4 su mobile
 
-```
-Invitati                    [+ FAB]
-142 coperti · 38 nuclei
-```
+#### 2. Tabs Solo Icone su Mobile (`VendorDetails.tsx`)
 
-Eliminare completamente le 3 card "Coperti / Nuclei / No Tel." su mobile. Sono ridondanti con le funnel KPI.
+- Su mobile: mostrare solo le icone (CreditCard, FileText, CalendarCheck, ListTodo) senza testo
+- Rimuovere `space-x-8` su mobile e distribuire equamente con `justify-around`
+- Ridurre lo spazio tra tabs e contenuto
 
-#### 2. Funnel KPI Cards Semplificate (`FunnelKPICards.tsx`)
+#### 3. VendorExpensesWidget Compatta (`VendorExpensesWidget.tsx`)
 
-- Ridurre le card a **una riga compatta** su mobile: solo numero + label, senza icone, senza background colorato
-- Usare un layout a "pill" orizzontale, non card:
+- Su mobile: nascondere il titolo "Gestione Spese e Pagamenti" (ridondante con la tab)
+- Toggle modalita' (Plan/Prev/Conf) piu' compatto: nascondere i conteggi dettagliati su mobile, mostrare solo le pill
 
-```
-Da Lavorare 12  ·  STD 45  ·  Invitati 8  ·  OK 30  ·  No 3
-```
+#### 4. ExpenseItemsManager Compatta (`ExpenseItemsManager.tsx`)
 
-- Sfondo neutro, testo monocromatico, solo il numero attivo evidenziato
-
-#### 3. Nascondere Analytics Dashboard su Mobile (`Guests.tsx`)
-
-La `GuestAnalyticsDashboard` con i suoi grafici a torta e barre va nascosta su mobile. E' troppa informazione. L'utente mobile vuole **agire**, non analizzare. Si puo' rendere accessibile tramite un bottone "Vedi Statistiche" che apre un bottom sheet.
-
-#### 4. Compattare gli Alert (`Guests.tsx`)
-
-Unificare i 2 alert (telefono mancante + non raggruppati) in **un singolo banner** discreto su mobile, con testo piu' corto.
-
-#### 5. Card Invitato Singolo Pulita (`GuestSingleCard.tsx`)
-
-Semplificare drasticamente su mobile:
-- Rimuovere la riga telefono (informazione secondaria, visibile in edit)
-- Nascondere il toggle "+1" (spostarlo nell'edit dialog)
-- Mostrare solo: **Nome**, **1 badge di stato** (il piu' importante tra campaign badges), e il **bottone edit**
-- Rimuovere badge alias, badge bambino, badge gruppo su mobile (sono nel dettaglio)
-- Ridurre padding e spacing
-
-Layout mobile target:
-```
-[x] Mario Rossi          [STD badge]  [pencil]
-```
-
-#### 6. Card Nucleo Pulita (`GuestNucleoCard.tsx`)
-
-Semplificare su mobile:
-- Collassare la lista membri: mostrare solo il **nome nucleo**, **conteggio** (3 adulti, 1 bambino), e **1 badge di stato**
-- Rimuovere la strip colorata laterale (usa spazio e aggiunge colore)
-- Nascondere badge gruppo, badge +1, badge discrepanza STD su mobile
-- Nascondere icone STD/response individuali per ogni membro
-- Nascondere switch +1 per ogni membro
-- Mostrare i membri in modo piu' compatto: solo nome, senza alias/phone/badges
-
-Layout mobile target:
-```
-[x] Fam. Rossi           [STD badge]  [pencil]
-    3 adulti, 1 bambino
-```
-
-#### 7. Barra Ricerca + Filtri (`Guests.tsx`)
-
-- Nascondere il bottone "Campagna RSVP" su mobile (gia' nel FAB dropdown)
-- Solo la barra di ricerca + icona filtro che apre il bottom sheet
+- "TOTALE FORNITORE" con font piu' piccolo su mobile
+- Card Importo Pagato / Da Pagare: passare da grid-cols-2 a stack verticale compatto su mobile, senza bordi colorati -- solo testo con dot colorato
 
 ### File da Modificare
 
 | File | Modifica |
 |------|----------|
-| `src/pages/Guests.tsx` | Nascondere stats card, analytics dashboard, alert compatti su mobile. Semplificare header. Nascondere bottone campagna. |
-| `src/components/guests/FunnelKPICards.tsx` | Layout "pill" compatto su mobile |
-| `src/components/guests/GuestSingleCard.tsx` | Card minimale su mobile: solo nome + 1 badge + edit |
-| `src/components/guests/GuestNucleoCard.tsx` | Card compatta su mobile: nome nucleo + conteggio + 1 badge + edit. Membri collassati. |
-| `src/components/guests/GuestCampaignBadges.tsx` | Modalita' "ultra-compact" per mobile: singolo dot/emoji invece di badge completo |
+| `src/pages/VendorDetails.tsx` | Hero compatta, tabs icon-only, avatar piccolo, dettagli fiscali/note nascosti su mobile |
+| `src/components/vendors/widgets/VendorExpensesWidget.tsx` | Header piu' compatto su mobile, titolo nascosto |
+| `src/components/vendors/ExpenseItemsManager.tsx` | Totali compatti su mobile |
 
 ### Dettagli Tecnici
 
-**Approccio**: usare `useIsMobile()` gia' presente e classi Tailwind responsive (`md:` prefix) per differenziare mobile/desktop. Non si cambiano le viste desktop.
-
-**FunnelKPICards mobile**: Sostituire le `Card` con semplici `button` con stile pill (`rounded-full px-3 py-1 text-xs`), sfondo `bg-muted` e testo `text-muted-foreground`. Solo il filtro attivo avra' `bg-primary text-primary-foreground`.
-
-**GuestSingleCard mobile**: Wrappare i contenuti secondari (phone, +1 toggle, alias badge, child badge, group badge) in `<div className="hidden md:flex">`. Mantenere solo nome + campaign badge (con prop `ultraCompact`) + edit button.
-
-**GuestNucleoCard mobile**: Aggiungere uno state `collapsed` (default `true` su mobile) che nasconde la lista membri. Mostrare solo header con nome, conteggio compatto, e badge campagna. Tap per espandere.
-
-**GuestCampaignBadges**: Aggiungere prop `ultraCompact` che mostra solo un singolo dot colorato (verde = confermato, viola = STD, blu = invitato, grigio = da lavorare) senza testo.
-
-### Risultato Atteso
-
-- La pagina mobile passa da "dashboard analitica" a "lista di contatti pulita"
-- Riduzione del 70% dei colori visibili su mobile
-- Ogni card occupa circa 44-48px di altezza (vs ~120px attuali)
-- L'utente puo' scorrere e agire rapidamente
-- Tutte le informazioni dettagliate restano accessibili tramite tap (edit dialog, espansione nucleo)
+- Usare `useIsMobile()` hook gia' presente nel progetto
+- Classi Tailwind responsive (`md:` prefix) dove possibile
+- Nessuna modifica alla vista desktop
+- Le informazioni nascoste su mobile (dettagli fiscali, note) restano accessibili tramite il dialog "Modifica Profilo"
 
