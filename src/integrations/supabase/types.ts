@@ -266,6 +266,7 @@ export type Database = {
           expense_item_id: string
           id: string
           order_index: number | null
+          price_is_tax_inclusive: boolean
           quantity_fixed: number | null
           quantity_limit: number | null
           quantity_range: string | null
@@ -281,6 +282,7 @@ export type Database = {
           expense_item_id: string
           id?: string
           order_index?: number | null
+          price_is_tax_inclusive?: boolean
           quantity_fixed?: number | null
           quantity_limit?: number | null
           quantity_range?: string | null
@@ -296,6 +298,7 @@ export type Database = {
           expense_item_id?: string
           id?: string
           order_index?: number | null
+          price_is_tax_inclusive?: boolean
           quantity_fixed?: number | null
           quantity_limit?: number | null
           quantity_range?: string | null

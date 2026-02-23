@@ -34,6 +34,7 @@ export interface ExpenseLineItem {
   quantity_range: 'all' | 'up_to' | 'over';
   discount_percentage: number;
   tax_rate: number;
+  price_is_tax_inclusive?: boolean;
 }
 
 export interface GuestCounts {
@@ -141,7 +142,10 @@ function calculateLineTotal(
   // Calcola il totale con sconto e IVA
   const subtotal = lineItem.unit_price * quantity;
   const afterDiscount = subtotal * (1 - lineItem.discount_percentage / 100);
-  const total = afterDiscount * (1 + lineItem.tax_rate / 100);
+  // Se il prezzo è già IVA inclusa, non aggiungere l'IVA sopra
+  const total = lineItem.price_is_tax_inclusive
+    ? afterDiscount
+    : afterDiscount * (1 + lineItem.tax_rate / 100);
   
   return total;
 }

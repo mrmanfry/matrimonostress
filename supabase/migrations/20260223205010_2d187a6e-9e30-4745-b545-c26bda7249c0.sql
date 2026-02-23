@@ -1,0 +1,1 @@
+ALTER TABLE public.expense_line_items ADD COLUMN price_is_tax_inclusive boolean NOT NULL DEFAULT false;
