@@ -9,10 +9,11 @@ import { Card } from "@/components/ui/card";
 import { Loader2, CheckCircle2, ChevronDown, ChevronRight, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { calculateExpenseAmount, resolveGuestCounts, ExpenseItem, ExpenseLineItem, GuestCounts } from "@/lib/expenseCalculations";
+import { calculateExpectedCounts, calculateTotalVendorStaff } from "@/lib/expectedCalculator";
 import { Button } from "@/components/ui/button";
 import { AddBudgetItemDialog } from "./AddBudgetItemDialog";
 import { AssignVendorDialog } from "./AssignVendorDialog";
-import { isDeclined, isConfirmed, isPending } from "@/lib/rsvpHelpers";
+import { isConfirmed } from "@/lib/rsvpHelpers";
 
 interface BudgetRowData {
   id: string;
@@ -116,34 +117,47 @@ export function BudgetSpreadsheet({ globalMode }: BudgetSpreadsheetProps) {
         payments = data || [];
       }
 
-      // 5. Fetch guests per conteggi expected, confirmed
+      // 5. Fetch guests con TUTTI i campi necessari per expectedCalculator
       const { data: guests, error: guestsError } = await supabase
         .from("guests")
-        .select("is_child, is_staff, rsvp_status")
+        .select("id, is_child, is_staff, rsvp_status, is_couple_member, save_the_date_sent_at, std_response, party_id, phone, allow_plus_one, plus_one_name")
         .eq("wedding_id", weddingId);
 
       if (guestsError) throw guestsError;
 
-      // Use consistent RSVP status helpers
-      const confirmedGuests = (guests || []).filter(g => isConfirmed(g.rsvp_status)).length;
-      const declinedGuests = (guests || []).filter(g => isDeclined(g.rsvp_status)).length;
-      const pendingGuests = (guests || []).length - confirmedGuests - declinedGuests;
+      // 6. Fetch vendors per staff_meals_count
+      const { data: vendors, error: vendorsError } = await supabase
+        .from("vendors")
+        .select("staff_meals_count")
+        .eq("wedding_id", weddingId);
 
-      // Calcola conteggi ospiti per tutte e tre le modalità
-      const confirmedAdults = (guests || []).filter(g => !g.is_child && !g.is_staff && isConfirmed(g.rsvp_status)).length;
-      const confirmedChildren = (guests || []).filter(g => g.is_child && isConfirmed(g.rsvp_status)).length;
-      const confirmedStaff = (guests || []).filter(g => g.is_staff && isConfirmed(g.rsvp_status)).length;
+      if (vendorsError) throw vendorsError;
 
-      const expectedAdults = (guests || []).filter(g => !g.is_child && !g.is_staff && !isDeclined(g.rsvp_status)).length;
-      const expectedChildren = (guests || []).filter(g => g.is_child && !isDeclined(g.rsvp_status)).length;
-      const expectedStaff = (guests || []).filter(g => g.is_staff && !isDeclined(g.rsvp_status)).length;
+      const allGuests = guests || [];
+      const vendorStaffTotal = calculateTotalVendorStaff(vendors || []);
+
+      // Filtra non-couple, non-staff per il calcolo expected
+      const invitableGuests = allGuests.filter(g => !g.is_couple_member && !g.is_staff);
+
+      // Calcola conteggi expected usando la formula canonica
+      const expectedResult = calculateExpectedCounts(invitableGuests, allGuests, vendorStaffTotal);
+
+      // Confirmed: RSVP confermato
+      const confirmedAdults = allGuests.filter(g => !g.is_child && !g.is_staff && !g.is_couple_member && isConfirmed(g.rsvp_status)).length;
+      const confirmedChildren = allGuests.filter(g => g.is_child && isConfirmed(g.rsvp_status)).length;
+      const confirmedStaff = allGuests.filter(g => g.is_staff && isConfirmed(g.rsvp_status)).length;
+
+      // Breakdown per UI
+      const confirmedTotal = allGuests.filter(g => isConfirmed(g.rsvp_status)).length;
+      const declinedTotal = allGuests.filter(g => g.rsvp_status === 'declined' || g.rsvp_status === 'Rifiutato').length;
+      const pendingTotal = allGuests.length - confirmedTotal - declinedTotal;
 
       return {
         wedding,
         expenseItems: expenseItems || [],
         lineItems,
         payments: payments || [],
-        guestBreakdown: { confirmed: confirmedGuests, pending: pendingGuests, declined: declinedGuests },
+        guestBreakdown: { confirmed: confirmedTotal, pending: pendingTotal, declined: declinedTotal },
         guestCounts: {
           planned: {
             adults: wedding.target_adults || 100,
@@ -151,9 +165,9 @@ export function BudgetSpreadsheet({ globalMode }: BudgetSpreadsheetProps) {
             staff: wedding.target_staff || 0
           },
           expected: {
-            adults: expectedAdults,
-            children: expectedChildren,
-            staff: expectedStaff
+            adults: expectedResult.adults,
+            children: expectedResult.children,
+            staff: expectedResult.staff
           },
           confirmed: {
             adults: confirmedAdults,

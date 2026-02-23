@@ -17,6 +17,8 @@ import { Loader2, Shield, Scale, Sparkles, ArrowRight, ArrowLeft, Check, Users, 
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { isDeclined, isConfirmed } from "@/lib/rsvpHelpers";
+import { calculateExpectedCounts, calculateTotalVendorStaff } from "@/lib/expectedCalculator";
+import { getEffectiveStatus } from "@/lib/nucleusStatusHelper";
 
 type VibeMode = 'CLAN' | 'BALANCED' | 'MIXER';
 type CalculationMode = 'planned' | 'expected' | 'confirmed';
@@ -29,6 +31,14 @@ interface Guest {
   group_id?: string | null;
   category?: string | null;
   rsvp_status?: string | null;
+  is_child: boolean;
+  is_staff?: boolean;
+  is_couple_member?: boolean;
+  save_the_date_sent_at: string | null;
+  std_response: string | null;
+  phone?: string | null;
+  allow_plus_one?: boolean;
+  plus_one_name?: string | null;
 }
 
 interface Assignment {
@@ -62,6 +72,7 @@ interface SmartGrouperWizardProps {
   weddingId: string | null;
   onComplete: () => void;
   weddingTargets?: WeddingTargets | null;
+  vendorStaffTotal?: number;
 }
 
 const LOADING_MESSAGES = [
@@ -124,6 +135,7 @@ export const SmartGrouperWizard = ({
   weddingId,
   onComplete,
   weddingTargets,
+  vendorStaffTotal = 0,
 }: SmartGrouperWizardProps) => {
   // Step 1: Table Configuration
   const [includeImperial, setIncludeImperial] = useState(true);
@@ -149,30 +161,48 @@ export const SmartGrouperWizard = ({
   } | null>(null);
   const { toast } = useToast();
 
-  // Calculate guest counts for each mode
+  // Calculate guest counts for each mode using canonical expectedCalculator
   const guestCounts = useMemo(() => {
-    const expectedGuests = guests.filter(g => !isDeclined(g.rsvp_status));
+    const invitableGuests = guests.filter(g => !g.is_couple_member && !g.is_staff);
+    const expectedResult = calculateExpectedCounts(invitableGuests, guests, vendorStaffTotal);
     const confirmedGuests = guests.filter(g => isConfirmed(g.rsvp_status));
     const plannedTotal = weddingTargets 
       ? (weddingTargets.target_adults || 0) + (weddingTargets.target_children || 0) + (weddingTargets.target_staff || 0)
-      : expectedGuests.length;
+      : expectedResult.totalHeadCount;
     
     return {
       planned: plannedTotal,
-      expected: expectedGuests.length,
+      expected: expectedResult.totalHeadCount,
       confirmed: confirmedGuests.length,
     };
-  }, [guests, weddingTargets]);
+  }, [guests, weddingTargets, vendorStaffTotal]);
 
-  // Filtered guests for assignment (always use non-declined for actual assignment)
+  // Filtered guests for assignment
   const filteredGuests = useMemo(() => {
     switch (calculationMode) {
       case 'confirmed':
         return guests.filter(g => isConfirmed(g.rsvp_status));
+      case 'expected': {
+        // Use nucleus-aware STD logic: include guests who are likely_yes, unsure, or no response
+        // If no STD sent at all, include all non-declined
+        const invitableGuests = guests.filter(g => !g.is_couple_member && !g.is_staff);
+        const anyStdSent = invitableGuests.some(g => {
+          const status = getEffectiveStatus(g, guests);
+          return status.hasStdSent;
+        });
+        if (!anyStdSent) {
+          return guests.filter(g => !isDeclined(g.rsvp_status));
+        }
+        // With STD sent, exclude those who responded likely_no
+        return guests.filter(g => {
+          if (g.is_couple_member || g.is_staff) return !isDeclined(g.rsvp_status);
+          const status = getEffectiveStatus(g, guests);
+          if (!status.hasStdSent) return true; // not yet reached
+          return g.std_response !== 'likely_no';
+        });
+      }
       case 'planned':
-      case 'expected':
       default:
-        // For planning and expected, use all non-declined guests
         return guests.filter(g => !isDeclined(g.rsvp_status));
     }
   }, [guests, calculationMode]);

@@ -10,11 +10,12 @@ import { Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ExpenseLineRow } from "./ExpenseLineRow";
 import { ExpenseSummaryCard } from "./ExpenseSummaryCard";
+import { calculateExpectedCounts, calculateTotalVendorStaff } from "@/lib/expectedCalculator";
 
 interface ExpenseItem {
   id: string;
   description: string;
-  calculation_mode: 'planned' | 'actual';
+  calculation_mode: 'planned' | 'actual' | 'expected';
   planned_adults: number;
   planned_children: number;
   planned_staff: number;
@@ -47,10 +48,13 @@ export function ExpenseSpreadsheetTab({
 }: ExpenseSpreadsheetTabProps) {
   const [lineItems, setLineItems] = useState<ExpenseLineItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [globalMode, setGlobalMode] = useState<'planned' | 'actual'>('planned');
+  const [globalMode, setGlobalMode] = useState<'planned' | 'actual' | 'expected'>('planned');
   const [actualAdults, setActualAdults] = useState(0);
   const [actualChildren, setActualChildren] = useState(0);
   const [actualStaff, setActualStaff] = useState(0);
+  const [expectedAdults, setExpectedAdults] = useState(0);
+  const [expectedChildren, setExpectedChildren] = useState(0);
+  const [expectedStaff, setExpectedStaff] = useState(0);
   const [itemDescription, setItemDescription] = useState(expenseItem.description);
   const [plannedAdults, setPlannedAdults] = useState<number | null>(expenseItem.planned_adults);
   const [plannedChildren, setPlannedChildren] = useState<number | null>(expenseItem.planned_children);
@@ -85,7 +89,7 @@ export function ExpenseSpreadsheetTab({
 
       if (weddingData) {
         if (weddingData.calculation_mode) {
-          setGlobalMode(weddingData.calculation_mode as 'planned' | 'actual');
+          setGlobalMode(weddingData.calculation_mode as 'planned' | 'actual' | 'expected');
         }
         setWeddingTargets({
           adults: weddingData.target_adults || 100,
@@ -100,12 +104,13 @@ export function ExpenseSpreadsheetTab({
   useEffect(() => {
     loadLineItems();
     loadActualGuestCounts();
+    loadExpectedGuestCounts();
   }, [expenseItem.id]);
 
   useEffect(() => {
     const totals = calculateTotals();
     onTotalsUpdate(totals.planned, totals.actual);
-  }, [lineItems, plannedAdults, plannedChildren, plannedStaff, actualAdults, actualChildren, actualStaff]);
+  }, [lineItems, plannedAdults, plannedChildren, plannedStaff, actualAdults, actualChildren, actualStaff, expectedAdults, expectedChildren, expectedStaff]);
 
   const loadLineItems = async () => {
     setLoading(true);
@@ -135,18 +140,18 @@ export function ExpenseSpreadsheetTab({
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) return;
 
-      const { data: weddingData } = await supabase
-        .from("weddings")
-        .select("id")
-        .eq("created_by", userData.user.id)
-        .maybeSingle();
+      const { data: userRole } = await supabase
+        .from("user_roles")
+        .select("wedding_id")
+        .eq("user_id", userData.user.id)
+        .single();
 
-      if (!weddingData) return;
+      if (!userRole) return;
 
       const { data: parties } = await supabase
         .from("invite_parties")
         .select("id, guests(*)")
-        .eq("wedding_id", weddingData.id)
+        .eq("wedding_id", userRole.wedding_id)
         .eq("rsvp_status", "Confermato");
 
       let adults = 0;
@@ -170,6 +175,43 @@ export function ExpenseSpreadsheetTab({
       setActualStaff(staff);
     } catch (error) {
       console.error("Error loading guest counts:", error);
+    }
+  };
+
+  const loadExpectedGuestCounts = async () => {
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return;
+
+      const { data: userRole } = await supabase
+        .from("user_roles")
+        .select("wedding_id")
+        .eq("user_id", userData.user.id)
+        .single();
+
+      if (!userRole) return;
+
+      const { data: guests } = await supabase
+        .from("guests")
+        .select("id, is_child, is_staff, is_couple_member, save_the_date_sent_at, std_response, party_id, phone, allow_plus_one, plus_one_name, rsvp_status")
+        .eq("wedding_id", userRole.wedding_id);
+
+      const { data: vendors } = await supabase
+        .from("vendors")
+        .select("staff_meals_count")
+        .eq("wedding_id", userRole.wedding_id);
+
+      if (!guests) return;
+
+      const vendorStaffTotal = calculateTotalVendorStaff(vendors || []);
+      const invitableGuests = guests.filter(g => !g.is_couple_member && !g.is_staff);
+      const expectedResult = calculateExpectedCounts(invitableGuests, guests, vendorStaffTotal);
+
+      setExpectedAdults(expectedResult.adults);
+      setExpectedChildren(expectedResult.children);
+      setExpectedStaff(expectedResult.staff);
+    } catch (error) {
+      console.error("Error loading expected guest counts:", error);
     }
   };
 
@@ -324,7 +366,7 @@ export function ExpenseSpreadsheetTab({
     }
   };
 
-  const calculateLineTotal = (line: ExpenseLineItem, mode: 'planned' | 'actual'): number => {
+  const calculateLineTotal = (line: ExpenseLineItem, mode: 'planned' | 'actual' | 'expected'): number => {
     let quantity = 0;
 
     if (line.quantity_type === 'fixed') {
@@ -332,16 +374,25 @@ export function ExpenseSpreadsheetTab({
     } else {
       // Calculate base quantity - use global targets as fallback
       let baseQuantity = 0;
+      const getCount = (type: 'adults' | 'children' | 'staff') => {
+        if (mode === 'planned') {
+          const custom = type === 'adults' ? plannedAdults : type === 'children' ? plannedChildren : plannedStaff;
+          return custom ?? weddingTargets[type];
+        } else if (mode === 'expected') {
+          return type === 'adults' ? expectedAdults : type === 'children' ? expectedChildren : expectedStaff;
+        } else {
+          return type === 'adults' ? actualAdults : type === 'children' ? actualChildren : actualStaff;
+        }
+      };
+
       if (line.quantity_type === 'adults') {
-        baseQuantity = mode === 'planned' ? (plannedAdults ?? weddingTargets.adults) : actualAdults;
+        baseQuantity = getCount('adults');
       } else if (line.quantity_type === 'children') {
-        baseQuantity = mode === 'planned' ? (plannedChildren ?? weddingTargets.children) : actualChildren;
+        baseQuantity = getCount('children');
       } else if (line.quantity_type === 'staff') {
-        baseQuantity = mode === 'planned' ? (plannedStaff ?? weddingTargets.staff) : actualStaff;
+        baseQuantity = getCount('staff');
       } else if (line.quantity_type === 'total_guests') {
-        baseQuantity = mode === 'planned' 
-          ? (plannedAdults ?? weddingTargets.adults) + (plannedChildren ?? weddingTargets.children) + (plannedStaff ?? weddingTargets.staff)
-          : actualAdults + actualChildren + actualStaff;
+        baseQuantity = getCount('adults') + getCount('children') + getCount('staff');
       }
 
       // Apply quantity range logic
