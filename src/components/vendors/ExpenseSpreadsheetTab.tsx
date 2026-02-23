@@ -33,6 +33,7 @@ interface ExpenseLineItem {
   discount_percentage: number;
   tax_rate: number;
   order_index: number;
+  price_is_tax_inclusive: boolean;
 }
 
 interface ExpenseSpreadsheetTabProps {
@@ -227,6 +228,7 @@ export function ExpenseSpreadsheetTab({
       discount_percentage: 0,
       tax_rate: 22,
       order_index: lineItems.length,
+      price_is_tax_inclusive: false,
     };
 
     try {
@@ -407,7 +409,9 @@ export function ExpenseSpreadsheetTab({
 
     const subtotal = line.unit_price * quantity;
     const afterDiscount = subtotal * (1 - line.discount_percentage / 100);
-    const total = afterDiscount * (1 + line.tax_rate / 100);
+    const total = line.price_is_tax_inclusive
+      ? afterDiscount
+      : afterDiscount * (1 + line.tax_rate / 100);
 
     return total;
   };

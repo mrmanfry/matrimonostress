@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 interface ExpenseLineItem {
@@ -19,6 +20,7 @@ interface ExpenseLineItem {
   discount_percentage: number;
   tax_rate: number;
   order_index: number;
+  price_is_tax_inclusive: boolean;
 }
 
 interface ExpenseLineRowProps {
@@ -93,14 +95,20 @@ export function ExpenseLineRow({
     return baseQuantity;
   };
 
-  const isQuantityEditable = localData.quantity_type === 'fixed';
-  const isDynamicQuantity = localData.quantity_type !== 'fixed';
-  const showQuantityLimit = isDynamicQuantity && localData.quantity_range !== 'all';
+  const isFixed = localData.quantity_type === 'fixed';
+  const isVariable = !isFixed;
+  const showQuantityLimit = isVariable && localData.quantity_range !== 'all';
+
+  // Livello 1: Fissa / Variabile
+  const quantityMode = isFixed ? 'fixed' : 'variable';
+
+  // Livello 2: Conteggio (solo se variabile)
+  const countType = isFixed ? 'adults' : localData.quantity_type;
 
   if (isMobile) {
     return (
       <Card className="p-3 space-y-3">
-        {/* Row 1: Description + Delete */}
+        {/* Riga 1: Descrizione + Elimina */}
         <div className="flex gap-2 items-start">
           <div className="flex-1">
             <Label className="text-xs text-muted-foreground mb-1 block">Descrizione</Label>
@@ -121,7 +129,7 @@ export function ExpenseLineRow({
           </Button>
         </div>
 
-        {/* Row 2: Price + Quantity Type + Quantity */}
+        {/* Riga 2: Prezzo + Qtà + Totale */}
         <div className="grid grid-cols-3 gap-2">
           <div>
             <Label className="text-xs text-muted-foreground mb-1 block">Prezzo €</Label>
@@ -136,14 +144,39 @@ export function ExpenseLineRow({
             />
           </div>
           <div>
-            <Label className="text-xs text-muted-foreground mb-1 block">Tipo Qtà</Label>
+            <Label className="text-xs text-muted-foreground mb-1 block">Qtà</Label>
+            <Input
+              type="number"
+              min="0"
+              value={getQuantityDisplay() || ''}
+              onChange={(e) => {
+                if (isFixed) {
+                  handleUpdate('quantity_fixed', parseInt(e.target.value) || 0);
+                }
+              }}
+              disabled={!isFixed}
+              className={`h-9 ${!isFixed ? 'bg-muted cursor-not-allowed' : ''}`}
+            />
+          </div>
+          <div className="text-right">
+            <Label className="text-xs text-muted-foreground mb-1 block">Totale</Label>
+            <div className="h-9 flex items-center justify-end font-semibold text-primary text-sm">
+              € {totalAmount.toFixed(2)}
+            </div>
+          </div>
+        </div>
+
+        {/* Riga 3: Fissa/Variabile + (se variabile) Conteggio */}
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <Label className="text-xs text-muted-foreground mb-1 block">Quantità</Label>
             <Select
-              value={localData.quantity_type}
+              value={quantityMode}
               onValueChange={(val) => {
                 if (val === 'fixed') {
-                  handleBatchUpdate({ quantity_type: val, quantity_range: 'all', quantity_limit: null });
+                  handleBatchUpdate({ quantity_type: 'fixed', quantity_range: 'all', quantity_limit: null, quantity_fixed: 1 });
                 } else {
-                  handleUpdate('quantity_type', val);
+                  handleBatchUpdate({ quantity_type: 'adults', quantity_fixed: null });
                 }
               }}
             >
@@ -152,32 +185,33 @@ export function ExpenseLineRow({
               </SelectTrigger>
               <SelectContent className="bg-background z-50">
                 <SelectItem value="fixed">Fissa</SelectItem>
-                <SelectItem value="adults">Adulti</SelectItem>
-                <SelectItem value="children">Bambini</SelectItem>
-                <SelectItem value="staff">Staff</SelectItem>
-                <SelectItem value="total_guests">Tutti</SelectItem>
+                <SelectItem value="variable">Variabile</SelectItem>
               </SelectContent>
             </Select>
           </div>
-          <div>
-            <Label className="text-xs text-muted-foreground mb-1 block">Qtà</Label>
-            <Input
-              type="number"
-              min="0"
-              value={getQuantityDisplay() || ''}
-              onChange={(e) => {
-                if (isQuantityEditable) {
-                  handleUpdate('quantity_fixed', parseInt(e.target.value) || 0);
-                }
-              }}
-              disabled={!isQuantityEditable}
-              className={`h-9 ${!isQuantityEditable ? 'bg-muted cursor-not-allowed' : ''}`}
-            />
-          </div>
+          {isVariable && (
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1 block">Conteggio</Label>
+              <Select
+                value={countType}
+                onValueChange={(val) => handleUpdate('quantity_type', val)}
+              >
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50">
+                  <SelectItem value="adults">Adulti</SelectItem>
+                  <SelectItem value="children">Bambini</SelectItem>
+                  <SelectItem value="staff">Staff</SelectItem>
+                  <SelectItem value="total_guests">Tutti</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
 
-        {/* Row 2.5: Dynamic quantity range (if applicable) */}
-        {isDynamicQuantity && (
+        {/* Riga 4 (se variabile): Scaglione + Limite */}
+        {isVariable && (
           <div className="grid grid-cols-2 gap-2">
             <div>
               <Label className="text-xs text-muted-foreground mb-1 block">Scaglione</Label>
@@ -211,7 +245,7 @@ export function ExpenseLineRow({
           </div>
         )}
 
-        {/* Row 3: Discount + VAT + Total */}
+        {/* Riga 5: IVA % + toggle IVA incl/escl + Sconto % */}
         <div className="grid grid-cols-3 gap-2 items-end">
           <div>
             <Label className="text-xs text-muted-foreground mb-1 block">Sconto %</Label>
@@ -237,10 +271,17 @@ export function ExpenseLineRow({
               className="h-9"
             />
           </div>
-          <div className="text-right">
-            <Label className="text-xs text-muted-foreground mb-1 block">Totale</Label>
-            <div className="h-9 flex items-center justify-end font-semibold text-primary text-sm">
-              € {totalAmount.toFixed(2)}
+          <div>
+            <Label className="text-xs text-muted-foreground mb-1 block">IVA nel prezzo</Label>
+            <div className="h-9 flex items-center gap-1.5">
+              <Switch
+                checked={localData.price_is_tax_inclusive}
+                onCheckedChange={(checked) => handleUpdate('price_is_tax_inclusive', checked)}
+                className="scale-90"
+              />
+              <span className="text-[10px] text-muted-foreground">
+                {localData.price_is_tax_inclusive ? 'Incl.' : 'Escl.'}
+              </span>
             </div>
           </div>
         </div>
@@ -248,9 +289,10 @@ export function ExpenseLineRow({
     );
   }
 
-  // Desktop layout (unchanged)
+  // ========== DESKTOP ==========
   return (
     <Card className="p-4">
+      {/* Main row */}
       <div className="grid grid-cols-12 gap-3 items-start">
         {/* Descrizione */}
         <div className="col-span-3">
@@ -263,102 +305,55 @@ export function ExpenseLineRow({
         </div>
 
         {/* Prezzo Unitario */}
-        <div className="col-span-2">
+        <div className="col-span-1">
           <Input
             type="number"
             step="0.01"
             min="0"
             value={localData.unit_price || ''}
             onChange={(e) => handleUpdate('unit_price', parseFloat(e.target.value) || 0)}
-            placeholder="Prezzo €"
+            placeholder="€"
             className="h-9"
           />
         </div>
 
-        {/* Tipo Quantità */}
-        <div className="col-span-2">
+        {/* Fissa / Variabile */}
+        <div className="col-span-1">
           <Select
-            value={localData.quantity_type}
+            value={quantityMode}
             onValueChange={(val) => {
               if (val === 'fixed') {
-                handleBatchUpdate({ quantity_type: val, quantity_range: 'all', quantity_limit: null });
+                handleBatchUpdate({ quantity_type: 'fixed', quantity_range: 'all', quantity_limit: null, quantity_fixed: 1 });
               } else {
-                handleUpdate('quantity_type', val);
+                handleBatchUpdate({ quantity_type: 'adults', quantity_fixed: null });
               }
             }}
           >
-            <SelectTrigger className="h-9">
+            <SelectTrigger className="h-9 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="bg-background z-50">
-              <SelectItem value="fixed">Quantità Fissa</SelectItem>
-              <SelectItem value="adults">N° Adulti</SelectItem>
-              <SelectItem value="children">N° Bambini</SelectItem>
-              <SelectItem value="staff">N° Staff</SelectItem>
-              <SelectItem value="total_guests">N° Totale (Tutti)</SelectItem>
+              <SelectItem value="fixed">Fissa</SelectItem>
+              <SelectItem value="variable">Variabile</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
-        {/* Scaglione */}
-        {isDynamicQuantity && (
-          <div className="col-span-1">
-            <Select
-              value={localData.quantity_range}
-              onValueChange={(val) => handleUpdate('quantity_range', val)}
-            >
-              <SelectTrigger className="h-9">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-background z-50">
-                <SelectItem value="all">Tutti</SelectItem>
-                <SelectItem value="up_to">Fino a</SelectItem>
-                <SelectItem value="over">Oltre</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-
-        {/* Limite */}
-        {showQuantityLimit && (
-          <div className="col-span-1">
-            <Input
-              type="number"
-              min="0"
-              value={localData.quantity_limit || ''}
-              onChange={(e) => handleUpdate('quantity_limit', parseInt(e.target.value) || null)}
-              placeholder="Limite"
-              className="h-9"
-            />
-          </div>
-        )}
-
         {/* Quantità */}
-        <div className={isDynamicQuantity && !showQuantityLimit ? "col-span-1" : showQuantityLimit ? "col-span-0" : "col-span-1"}>
-          {(!isDynamicQuantity || !showQuantityLimit) && (
-            <Input
-              type="number"
-              min="0"
-              value={getQuantityDisplay() || ''}
-              onChange={(e) => {
-                if (isQuantityEditable) {
-                  handleUpdate('quantity_fixed', parseInt(e.target.value) || 0);
-                }
-              }}
-              disabled={!isQuantityEditable}
-              className={`h-9 ${!isQuantityEditable ? 'bg-muted cursor-not-allowed' : ''}`}
-            />
-          )}
+        <div className="col-span-1">
+          <Input
+            type="number"
+            min="0"
+            value={getQuantityDisplay() || ''}
+            onChange={(e) => {
+              if (isFixed) {
+                handleUpdate('quantity_fixed', parseInt(e.target.value) || 0);
+              }
+            }}
+            disabled={!isFixed}
+            className={`h-9 ${!isFixed ? 'bg-muted cursor-not-allowed' : ''}`}
+          />
         </div>
-
-        {/* Quantità Calcolata */}
-        {isDynamicQuantity && showQuantityLimit && (
-          <div className="col-span-1">
-            <div className="h-9 flex items-center justify-center font-medium text-muted-foreground">
-              {getQuantityDisplay()}
-            </div>
-          </div>
-        )}
 
         {/* Sconto % */}
         <div className="col-span-1">
@@ -369,7 +364,7 @@ export function ExpenseLineRow({
             max="100"
             value={localData.discount_percentage || ''}
             onChange={(e) => handleUpdate('discount_percentage', parseFloat(e.target.value) || 0)}
-            placeholder="Sconto %"
+            placeholder="%"
             className="h-9"
           />
         </div>
@@ -383,9 +378,23 @@ export function ExpenseLineRow({
             max="100"
             value={localData.tax_rate || ''}
             onChange={(e) => handleUpdate('tax_rate', parseFloat(e.target.value) || 0)}
-            placeholder="IVA %"
+            placeholder="%"
             className="h-9"
           />
+        </div>
+
+        {/* IVA incl/escl toggle */}
+        <div className="col-span-1">
+          <div className="h-9 flex items-center gap-1.5">
+            <Switch
+              checked={localData.price_is_tax_inclusive}
+              onCheckedChange={(checked) => handleUpdate('price_is_tax_inclusive', checked)}
+              className="scale-75"
+            />
+            <span className="text-[10px] text-muted-foreground leading-tight">
+              {localData.price_is_tax_inclusive ? 'IVA incl.' : 'IVA escl.'}
+            </span>
+          </div>
         </div>
 
         {/* Totale Riga */}
@@ -411,17 +420,67 @@ export function ExpenseLineRow({
       {/* Labels Row */}
       <div className="grid grid-cols-12 gap-3 mt-2 text-xs text-muted-foreground">
         <div className="col-span-3">Descrizione</div>
-        <div className="col-span-2">Prezzo Unitario</div>
-        <div className="col-span-2">Tipo Quantità</div>
-        {isDynamicQuantity && <div className="col-span-1">Scaglione</div>}
-        {showQuantityLimit && <div className="col-span-1">Limite</div>}
-        {(!isDynamicQuantity || !showQuantityLimit) && <div className="col-span-1">Qtà</div>}
-        {isDynamicQuantity && showQuantityLimit && <div className="col-span-1">Qtà Calc.</div>}
+        <div className="col-span-1">Prezzo €</div>
+        <div className="col-span-1">Tipo Qtà</div>
+        <div className="col-span-1">Qtà</div>
         <div className="col-span-1">Sconto</div>
-        <div className="col-span-1">IVA</div>
+        <div className="col-span-1">IVA %</div>
+        <div className="col-span-1"></div>
         <div className="col-span-1 text-right">Totale</div>
         <div className="col-span-1"></div>
       </div>
+
+      {/* Sub-row for variable details */}
+      {isVariable && (
+        <div className="mt-3 pt-3 border-t border-dashed flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Label className="text-xs text-muted-foreground whitespace-nowrap">Conteggio:</Label>
+            <Select
+              value={countType}
+              onValueChange={(val) => handleUpdate('quantity_type', val)}
+            >
+              <SelectTrigger className="h-8 w-28 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-background z-50">
+                <SelectItem value="adults">Adulti</SelectItem>
+                <SelectItem value="children">Bambini</SelectItem>
+                <SelectItem value="staff">Staff</SelectItem>
+                <SelectItem value="total_guests">Tutti</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2">
+            <Label className="text-xs text-muted-foreground whitespace-nowrap">Scaglione:</Label>
+            <Select
+              value={localData.quantity_range}
+              onValueChange={(val) => handleUpdate('quantity_range', val)}
+            >
+              <SelectTrigger className="h-8 w-24 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-background z-50">
+                <SelectItem value="all">Tutti</SelectItem>
+                <SelectItem value="up_to">Fino a</SelectItem>
+                <SelectItem value="over">Oltre</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {showQuantityLimit && (
+            <div className="flex items-center gap-2">
+              <Label className="text-xs text-muted-foreground whitespace-nowrap">Limite:</Label>
+              <Input
+                type="number"
+                min="0"
+                value={localData.quantity_limit || ''}
+                onChange={(e) => handleUpdate('quantity_limit', parseInt(e.target.value) || null)}
+                placeholder="N°"
+                className="h-8 w-20 text-xs"
+              />
+            </div>
+          )}
+        </div>
+      )}
     </Card>
   );
 }
