@@ -116,37 +116,66 @@ export function GuestSummaryWidget({ stats, onClick }: GuestSummaryWidgetProps) 
           )}
         </div>
 
-        {/* Stato RSVP - Grafico */}
+        {/* Stato RSVP */}
         <div>
           <h4 className="text-sm font-semibold mb-3 text-center">Stato Conferme</h4>
-          <div className="h-[150px] md:h-[180px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={rsvpChartData}
-                  cx="50%"
-                  cy="45%"
-                  innerRadius={isMobile ? 40 : 50}
-                  outerRadius={isMobile ? 58 : 70}
-                  paddingAngle={3}
-                  dataKey="value"
-                >
-                  {rsvpChartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Legend 
-                  verticalAlign="bottom" 
-                  height={40}
-                  formatter={(value, entry: any) => (
-                    <span className="text-xs">
-                      {value}: <strong>{entry.payload.value}</strong>
-                    </span>
-                  )}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
+          {isMobile ? (
+            <>
+              {/* Barra orizzontale compatta */}
+              <div className="h-3 rounded-full overflow-hidden flex bg-muted">
+                {rsvpChartData.map((entry, index) => {
+                  const total = rsvpChartData.reduce((s, e) => s + e.value, 0);
+                  const pct = total > 0 ? (entry.value / total) * 100 : 0;
+                  return pct > 0 ? (
+                    <div
+                      key={index}
+                      className="h-full transition-all"
+                      style={{ width: `${pct}%`, backgroundColor: entry.color }}
+                    />
+                  ) : null;
+                })}
+              </div>
+              {/* Label compatte */}
+              <div className="grid grid-cols-3 gap-1 mt-2">
+                {rsvpChartData.map((entry, index) => (
+                  <div key={index} className="flex items-center justify-center gap-1">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: entry.color }} />
+                    <span className="text-[11px] text-foreground/70 font-medium">{entry.value}</span>
+                    <span className="text-[11px] text-muted-foreground truncate">{entry.name}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="h-[180px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={rsvpChartData}
+                    cx="50%"
+                    cy="45%"
+                    innerRadius={50}
+                    outerRadius={70}
+                    paddingAngle={3}
+                    dataKey="value"
+                  >
+                    {rsvpChartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Legend 
+                    verticalAlign="bottom" 
+                    height={40}
+                    formatter={(value, entry: any) => (
+                      <span className="text-xs">
+                        {value}: <strong>{entry.payload.value}</strong>
+                      </span>
+                    )}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </div>
       </div>
     </Card>
