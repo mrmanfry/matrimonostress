@@ -1,101 +1,76 @@
 
-# Semplificazione Pagina Invitati
+# Ottimizzazione Calendario per Mobile
 
-## Problema Identificato
+## Problemi Identificati (dallo screenshot)
 
-La pagina ha **6 livelli di informazioni** prima della lista invitati vera e propria:
+1. **Celle griglia troppo alte**: `min-h-[100px]` per ogni giorno crea un calendario enorme su mobile. Con 5-6 righe, sono 500-600px solo per la griglia.
+2. **Stats cards tagliate**: "Pagamen..." troncato, testo non leggibile nelle 3 card statistiche.
+3. **Troppo spazio prima del calendario**: Header + Bottone Nuovo + Tabs + 3 Stats cards + Nav mese = bisogna scrollare molto prima di vedere i giorni.
+4. **Legenda ridondante**: 5 voci di legenda in basso occupano spazio extra.
+5. **Nessun uso di `useIsMobile`**: la pagina non ha rendering condizionale per mobile.
 
-1. **5 Funnel KPI Cards** (Da Lavorare / STD Inviato / Invitati / Confermati / Rifiutati) -- scrollabili orizzontalmente
-2. **3 Stats Cards** (Coperti / Nuclei / No Tel.)
-3. **2 Alert Warnings** (senza telefono + non raggruppati)
-4. **Analytics Dashboard completa** (4 tab con grafici, donut chart, KPI)
-5. **Barra di ricerca + filtri configurabili**
-6. Finalmente la **lista invitati**
+## Soluzione
 
-Su mobile bisogna scrollare parecchio prima di vedere un invitato. Il funnel "Da Lavorare -> STD -> Invitati -> Confermati" usa termini tecnici ("STD", "funnel", "awareness") che non sono intuitivi.
+### 1. Header compatto su mobile
+- Titolo "Calendario" piu piccolo (`text-lg` invece di `text-2xl`)
+- Rimuovere la descrizione sotto il titolo su mobile
+- Mettere il bottone "Nuovo" come icona sola (senza testo) su mobile
 
-## Soluzione: Approccio "Progressive Disclosure"
-
-### 1. Semplificare il Funnel KPI (FunnelKPICards.tsx)
-
-Rinominare le card con linguaggio naturale e aggiungere un sottotitolo esplicativo:
-
-| Prima | Dopo | Spiegazione |
-|-------|------|-------------|
-| "Da Lavorare" | "Da Contattare" | Chi non ha ancora ricevuto nulla |
-| "STD Inviato" | "Save the Date" | Chi ha ricevuto il pre-invito |
-| "Invitati" | "Invito Inviato" | Chi ha ricevuto l'invito formale |
-| "Confermati" | "Confermati" | (invariato) |
-| "Rifiutati" | "Non Vengono" | Meno "burocratico" |
-
-Aggiungere un mini-header sopra le card: **"Il tuo percorso inviti"** con una freccia visiva che suggerisce la progressione sinistra-destra.
-
-### 2. Eliminare le 3 Stats Cards secondarie (righe 1179-1208)
-
-I dati "Coperti / Nuclei / No Tel." sono ridondanti:
-- **Coperti**: gia presente nella Dashboard
-- **Nuclei**: dato tecnico, poco azionabile
-- **No Tel.**: gia presente nell'alert warning sotto
-
-Rimuoverle completamente. Il conteggio totale invitati va nel header della pagina accanto a "Invitati" (es. "Invitati (188)").
-
-### 3. Nascondere Analytics Dashboard di default su mobile
-
-La dashboard analitica con 4 tab e grafici e potentissima ma su mobile schiaccia tutto. Soluzione:
-- **Mobile**: nascondere completamente la sezione `GuestAnalyticsDashboard`, sostituendola con un piccolo pulsante "Vedi Statistiche" che apre un bottom sheet
-- **Desktop**: mantenerla ma in un `Collapsible` chiuso di default, apribile con "Mostra Analisi Dettagliata"
-
-### 4. Compattare i Warning (righe 1211-1246)
-
-Unire i 2 alert in un'unica riga compatta solo se entrambi presenti:
-- "38 senza telefono -- 12 non raggruppati" con link inline (Sincronizza / AI Grouping)
-- Se solo uno dei due, mostrarlo come riga singola senza il box Alert giallo
-
-### 5. Riordinare il layout
-
-Il nuovo ordine verticale diventa:
+### 2. Stats cards: pillole compatte su mobile
+Sostituire le 3 card con una riga di pillole inline:
 
 ```text
-[Header: "Invitati (188)"]
-[Funnel KPI: 5 pillole con frecce di progressione]
-[Warning compatto: "38 senza tel. -- Sincronizza"]
-[Ricerca + Filtri]
-[Lista Invitati]
+[1 prossimi] [0 pag. scaduti] [0 task scaduti]
 ```
 
-Rispetto a prima si eliminano 2 sezioni intere (stats cards + analytics dashboard inline) e si compatta 1 (warnings).
+Pillole piccole con `text-xs`, background colorato, niente icone grandi.
+
+### 3. Griglia calendario compatta
+- `min-h-[100px]` diventa `min-h-[44px]` su mobile (sufficiente per il numero + 1-2 dot)
+- Invece di mostrare il titolo degli eventi nelle celle, mostrare solo **pallini colorati** (dot indicator): max 3 dots sotto il numero del giorno
+- Il tap su un giorno apre il Day Preview dialog (gia implementato) dove si vedono i dettagli
+- Questo riduce l'altezza del calendario da ~600px a ~300px
+
+### 4. Navigazione mese compatta
+- Unire "febbraio 2026" + frecce + "Oggi" in una riga piu stretta
+- Rimuovere il CardHeader padding su mobile
+
+### 5. Legenda nascosta su mobile
+- Sostituire con una riga compatta sotto il calendario: solo i 3 dot colorati con label abbreviate, oppure nasconderla del tutto (i colori si vedono nel Day Preview dialog)
+
+### 6. Tabs Mese/Settimana
+- Mantenere ma con `TabsTrigger` piu piccoli su mobile
 
 ## Dettaglio Tecnico
 
-### File: `src/pages/Guests.tsx`
+### File: `src/pages/Calendar.tsx`
 
-**Header (righe 1068-1077)**
-- Aggiungere il conteggio totale nel titolo: `Invitati ({allGuests.length})`
+**Import `useIsMobile`** (riga 1-2)
+- Aggiungere `import { useIsMobile } from "@/hooks/use-mobile";`
+- Dichiarare `const isMobile = useIsMobile();` nel componente
 
-**Rimuovere Stats Cards (righe 1179-1208)**
-- Eliminare l'intero blocco `grid grid-cols-3` con Coperti/Nuclei/No Tel.
+**Header (righe 321-345)**
+- Mobile: titolo `text-lg`, niente sottotitolo, bottone "Nuovo" solo icona `<Plus />`
+- Desktop: invariato
 
-**Analytics Dashboard (righe 1248-1294)**
-- Mobile: sostituire con un `Button` "Vedi Statistiche" che setta uno state `analyticsSheetOpen`, aprendo un `Sheet` (bottom sheet) con dentro il `GuestAnalyticsDashboard`
-- Desktop: wrappare in un `Collapsible` chiuso di default con trigger "Analisi Dettagliata"
+**Stats cards (righe 348-384)**
+- Mobile: sostituire con `flex gap-2` di pillole `<Badge>` compatte:
+  - `{stats.upcoming} prossimi` (primary)
+  - `{stats.overduePayments} pag. scaduti` (rosso, solo se > 0)
+  - `{stats.overdueTasks} task scaduti` (rosso, solo se > 0)
+- Desktop: invariato (3 card)
 
-**Warnings (righe 1210-1246)**
-- Unire in una singola riga con `div flex` e separatore `·`, senza il componente `Alert` pesante. Solo testo con link inline.
+**Griglia calendario (righe 418-525)**
+- Mobile: `min-h-[44px]` invece di `min-h-[100px]`
+- Mobile: nel rendering degli eventi, mostrare solo dot colorati (`w-1.5 h-1.5 rounded-full`) invece dei bottoni con testo
+- Mobile: max 3 dot per cella, con "+N" se ce ne sono di piu
+- Desktop: invariato (bottoni con testo + HoverCard)
 
-### File: `src/components/guests/FunnelKPICards.tsx`
+**Legenda (righe 530-552)**
+- Mobile: una singola riga `flex gap-3 text-xs` con dot + label corte, oppure nasconderla
+- Desktop: invariata
 
-**Label rename (righe 83-140)**
-- `Da Lavorare` -> `Da Contattare`
-- `STD Inviato` -> `Save the Date`
-- `Invitati` -> `Invito Inviato`
-- `Rifiutati` -> `Non Vengono`
-- Rimuovere `description` sotto le card su mobile (gia fatto) e anche su desktop: le label rinominate sono auto-esplicative
+**Padding generale (riga 319)**
+- Mobile: `p-3` invece di `p-6`
 
-**Aggiungere frecce di progressione**
-- Tra ogni card, aggiungere un piccolo `ChevronRight` (nascosto su mobile per spazio) per suggerire la direzione del flusso
-
-### File: `src/components/guests/GuestAnalyticsDashboard.tsx`
-
-- Nessuna modifica interna. Solo il modo in cui viene montato cambia (Sheet su mobile, Collapsible su desktop).
-
-### Nessuna modifica al DB. Solo riorganizzazione del rendering.
+Nessuna modifica al DB. Solo rendering condizionale con `useIsMobile`.
