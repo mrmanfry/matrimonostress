@@ -47,6 +47,7 @@ import {
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
 import { useNavigate } from "react-router-dom";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 type ViewMode = "month" | "week";
 
@@ -67,6 +68,7 @@ interface CalendarEvent {
 const Calendar = () => {
   const { authState } = useAuth();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>("month");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -141,7 +143,6 @@ const Calendar = () => {
       
       if (error) throw error;
       
-      // Map vendor info to payments
       return (data || []).map(p => {
         const expense = expenseItems.find(e => e.id === p.expense_item_id);
         return {
@@ -158,7 +159,6 @@ const Calendar = () => {
   const events: CalendarEvent[] = useMemo(() => {
     const allEvents: CalendarEvent[] = [];
 
-    // Appointments
     appointments.forEach((apt: any) => {
       allEvents.push({
         id: apt.id,
@@ -173,7 +173,6 @@ const Calendar = () => {
       });
     });
 
-    // Tasks
     tasks.forEach((task: any) => {
       if (task.due_date) {
         allEvents.push({
@@ -189,7 +188,6 @@ const Calendar = () => {
       }
     });
 
-    // Payments
     payments.forEach((payment: any) => {
       allEvents.push({
         id: payment.id,
@@ -316,106 +314,132 @@ const Calendar = () => {
   }, [events]);
 
   return (
-    <div className="p-6 space-y-6">
+    <div className={`${isMobile ? 'p-3 space-y-3' : 'p-6 space-y-6'}`}>
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <CalendarIcon className="w-6 h-6 text-primary" />
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <h1 className={`${isMobile ? 'text-lg' : 'text-2xl'} font-bold flex items-center gap-2`}>
+            <CalendarIcon className={`${isMobile ? 'w-5 h-5' : 'w-6 h-6'} text-primary`} />
             Calendario
           </h1>
-          <p className="text-muted-foreground text-sm">
-            Appuntamenti, scadenze e pagamenti in un'unica vista
-          </p>
+          {!isMobile && (
+            <p className="text-muted-foreground text-sm">
+              Appuntamenti, scadenze e pagamenti in un'unica vista
+            </p>
+          )}
         </div>
 
-        <div className="flex items-center gap-3">
-          <Button onClick={() => { setSelectedDate(new Date()); setCreateDialogOpen(true); }}>
-            <Plus className="w-4 h-4 mr-1" />
-            Nuovo
-          </Button>
+        <div className="flex items-center gap-2">
+          {isMobile ? (
+            <Button size="icon" onClick={() => { setSelectedDate(new Date()); setCreateDialogOpen(true); }}>
+              <Plus className="w-4 h-4" />
+            </Button>
+          ) : (
+            <Button onClick={() => { setSelectedDate(new Date()); setCreateDialogOpen(true); }}>
+              <Plus className="w-4 h-4 mr-1" />
+              Nuovo
+            </Button>
+          )}
           
           <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
-            <TabsList>
-              <TabsTrigger value="month">Mese</TabsTrigger>
-              <TabsTrigger value="week">Settimana</TabsTrigger>
+            <TabsList className={isMobile ? 'h-8' : ''}>
+              <TabsTrigger value="month" className={isMobile ? 'text-xs px-2 py-1' : ''}>Mese</TabsTrigger>
+              <TabsTrigger value="week" className={isMobile ? 'text-xs px-2 py-1' : ''}>Sett.</TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-3 gap-4">
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/10">
-              <CalendarIcon className="w-5 h-5 text-primary" />
+      {isMobile ? (
+        <div className="flex flex-wrap gap-1.5">
+          <Badge variant="secondary" className="text-xs">
+            {stats.upcoming} prossimi
+          </Badge>
+          {stats.overduePayments > 0 && (
+            <Badge variant="destructive" className="text-xs">
+              {stats.overduePayments} pag. scaduti
+            </Badge>
+          )}
+          {stats.overdueTasks > 0 && (
+            <Badge variant="destructive" className="text-xs">
+              {stats.overdueTasks} task scaduti
+            </Badge>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-3 gap-4">
+          <Card className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <CalendarIcon className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{stats.upcoming}</p>
+                <p className="text-xs text-muted-foreground">Prossimi 7 giorni</p>
+              </div>
             </div>
-            <div>
-              <p className="text-2xl font-bold">{stats.upcoming}</p>
-              <p className="text-xs text-muted-foreground">Prossimi 7 giorni</p>
+          </Card>
+          
+          <Card className={`p-4 ${stats.overduePayments > 0 ? "border-red-500/50 bg-red-50 dark:bg-red-950/20" : ""}`}>
+            <div className="flex items-center gap-3">
+              <div className={`p-2 rounded-lg ${stats.overduePayments > 0 ? "bg-red-500/10" : "bg-amber-500/10"}`}>
+                <Euro className={`w-5 h-5 ${stats.overduePayments > 0 ? "text-red-500" : "text-amber-500"}`} />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{stats.overduePayments}</p>
+                <p className="text-xs text-muted-foreground">Pagamenti scaduti</p>
+              </div>
             </div>
-          </div>
-        </Card>
-        
-        <Card className={`p-4 ${stats.overduePayments > 0 ? "border-red-500/50 bg-red-50 dark:bg-red-950/20" : ""}`}>
-          <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-lg ${stats.overduePayments > 0 ? "bg-red-500/10" : "bg-amber-500/10"}`}>
-              <Euro className={`w-5 h-5 ${stats.overduePayments > 0 ? "text-red-500" : "text-amber-500"}`} />
+          </Card>
+          
+          <Card className={`p-4 ${stats.overdueTasks > 0 ? "border-red-500/50 bg-red-50 dark:bg-red-950/20" : ""}`}>
+            <div className="flex items-center gap-3">
+              <div className={`p-2 rounded-lg ${stats.overdueTasks > 0 ? "bg-red-500/10" : "bg-blue-500/10"}`}>
+                <CheckSquare className={`w-5 h-5 ${stats.overdueTasks > 0 ? "text-red-500" : "text-blue-500"}`} />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{stats.overdueTasks}</p>
+                <p className="text-xs text-muted-foreground">Task scaduti</p>
+              </div>
             </div>
-            <div>
-              <p className="text-2xl font-bold">{stats.overduePayments}</p>
-              <p className="text-xs text-muted-foreground">Pagamenti scaduti</p>
-            </div>
-          </div>
-        </Card>
-        
-        <Card className={`p-4 ${stats.overdueTasks > 0 ? "border-red-500/50 bg-red-50 dark:bg-red-950/20" : ""}`}>
-          <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-lg ${stats.overdueTasks > 0 ? "bg-red-500/10" : "bg-blue-500/10"}`}>
-              <CheckSquare className={`w-5 h-5 ${stats.overdueTasks > 0 ? "text-red-500" : "text-blue-500"}`} />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{stats.overdueTasks}</p>
-              <p className="text-xs text-muted-foreground">Task scaduti</p>
-            </div>
-          </div>
-        </Card>
-      </div>
+          </Card>
+        </div>
+      )}
 
       {/* Calendar */}
       <Card>
-        <CardHeader className="pb-4">
+        <CardHeader className={isMobile ? 'px-3 py-2' : 'pb-4'}>
           <div className="flex items-center justify-between">
-            <CardTitle className="text-xl">
+            <CardTitle className={isMobile ? 'text-base capitalize' : 'text-xl'}>
               {format(currentDate, viewMode === "month" ? "MMMM yyyy" : "'Settimana del' d MMMM yyyy", { locale: it })}
             </CardTitle>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={goToToday}>
+            <div className="flex items-center gap-1">
+              <Button variant="outline" size="sm" onClick={goToToday} className={isMobile ? 'h-7 text-xs px-2' : ''}>
                 Oggi
               </Button>
-              <Button variant="outline" size="icon" onClick={goToPrev}>
+              <Button variant="outline" size="icon" onClick={goToPrev} className={isMobile ? 'h-7 w-7' : ''}>
                 <ChevronLeft className="w-4 h-4" />
               </Button>
-              <Button variant="outline" size="icon" onClick={goToNext}>
+              <Button variant="outline" size="icon" onClick={goToNext} className={isMobile ? 'h-7 w-7' : ''}>
                 <ChevronRight className="w-4 h-4" />
               </Button>
             </div>
           </div>
         </CardHeader>
         
-        <CardContent>
+        <CardContent className={isMobile ? 'px-2 pb-3' : ''}>
           {/* Weekday headers */}
-          <div className="grid grid-cols-7 gap-1 mb-2">
-            {["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"].map((day) => (
-              <div key={day} className="text-center text-sm font-medium text-muted-foreground py-2">
+          <div className="grid grid-cols-7 gap-1 mb-1">
+            {(isMobile ? ["L", "M", "M", "G", "V", "S", "D"] : ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"]).map((day, i) => (
+              <div key={`${day}-${i}`} className={`text-center font-medium text-muted-foreground ${isMobile ? 'text-xs py-1' : 'text-sm py-2'}`}>
                 {day}
               </div>
             ))}
           </div>
 
           {/* Calendar grid */}
-          <div className={`grid grid-cols-7 gap-1 ${viewMode === "week" ? "min-h-[300px]" : ""}`}>
+          <div className={`grid grid-cols-7 gap-1 ${viewMode === "week" && !isMobile ? "min-h-[300px]" : ""}`}>
             {calendarDays.map((day, idx) => {
               const dayEvents = getEventsForDay(day);
               const isCurrentMonth = isSameMonth(day, currentDate);
@@ -426,100 +450,117 @@ const Calendar = () => {
                   key={idx}
                   onClick={() => handleDayClick(day)}
                   className={`
-                    min-h-[100px] p-1 border rounded-lg transition-colors cursor-pointer
+                    ${isMobile ? 'min-h-[44px] p-0.5' : 'min-h-[100px] p-1'} border rounded-lg transition-colors cursor-pointer
                     ${isCurrentMonth ? "bg-card hover:bg-muted/50" : "bg-muted/30 hover:bg-muted/50"}
                     ${isCurrentDay ? "ring-2 ring-primary" : "border-border"}
-                    ${viewMode === "week" ? "min-h-[250px]" : ""}
+                    ${viewMode === "week" && !isMobile ? "min-h-[250px]" : ""}
                   `}
                 >
                   <div className={`
-                    text-sm font-medium mb-1 px-1
+                    font-medium px-1
+                    ${isMobile ? 'text-xs' : 'text-sm mb-1'}
                     ${isCurrentDay ? "text-primary" : isCurrentMonth ? "text-foreground" : "text-muted-foreground"}
                   `}>
                     {format(day, "d")}
                   </div>
 
-                  <div className="space-y-1 overflow-y-auto max-h-[80px]">
-                    {dayEvents.slice(0, viewMode === "week" ? 10 : 3).map((event) => (
-                      <HoverCard key={event.id} openDelay={200}>
-                        <HoverCardTrigger asChild>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleEventClick(event); }}
-                            className={`
-                              w-full text-left text-xs px-1.5 py-0.5 rounded truncate
-                              text-white flex items-center gap-1
-                              ${getEventColor(event)}
-                              hover:opacity-80 transition-opacity
-                            `}
-                          >
-                            {getEventIcon(event.type)}
-                            <span className="truncate">{event.title}</span>
-                          </button>
-                        </HoverCardTrigger>
-                        <HoverCardContent className="w-72" side="right">
-                          <div className="space-y-2">
-                            <div className="flex items-start gap-2">
-                              <Badge variant={
-                                event.type === "appointment" ? "default" :
-                                event.type === "payment" ? "secondary" : "outline"
-                              }>
-                                {event.type === "appointment" ? "Appuntamento" :
-                                 event.type === "payment" ? "Pagamento" : "Task"}
-                              </Badge>
-                              {event.status && (
-                                <Badge variant="outline" className="text-xs">
-                                  {event.status}
+                  {isMobile ? (
+                    /* Mobile: colored dots only */
+                    <div className="flex flex-wrap gap-0.5 px-0.5">
+                      {dayEvents.slice(0, 3).map((event) => (
+                        <div
+                          key={event.id}
+                          className={`w-1.5 h-1.5 rounded-full ${getEventColor(event)}`}
+                        />
+                      ))}
+                      {dayEvents.length > 3 && (
+                        <span className="text-[9px] text-muted-foreground leading-none">+{dayEvents.length - 3}</span>
+                      )}
+                    </div>
+                  ) : (
+                    /* Desktop: full event buttons with HoverCard */
+                    <div className="space-y-1 overflow-y-auto max-h-[80px]">
+                      {dayEvents.slice(0, viewMode === "week" ? 10 : 3).map((event) => (
+                        <HoverCard key={event.id} openDelay={200}>
+                          <HoverCardTrigger asChild>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleEventClick(event); }}
+                              className={`
+                                w-full text-left text-xs px-1.5 py-0.5 rounded truncate
+                                text-white flex items-center gap-1
+                                ${getEventColor(event)}
+                                hover:opacity-80 transition-opacity
+                              `}
+                            >
+                              {getEventIcon(event.type)}
+                              <span className="truncate">{event.title}</span>
+                            </button>
+                          </HoverCardTrigger>
+                          <HoverCardContent className="w-72" side="right">
+                            <div className="space-y-2">
+                              <div className="flex items-start gap-2">
+                                <Badge variant={
+                                  event.type === "appointment" ? "default" :
+                                  event.type === "payment" ? "secondary" : "outline"
+                                }>
+                                  {event.type === "appointment" ? "Appuntamento" :
+                                   event.type === "payment" ? "Pagamento" : "Task"}
+                                </Badge>
+                                {event.status && (
+                                  <Badge variant="outline" className="text-xs">
+                                    {event.status}
+                                  </Badge>
+                                )}
+                              </div>
+                              
+                              <h4 className="font-semibold">{event.title}</h4>
+                              
+                              {event.vendorName && (
+                                <p className="text-sm text-muted-foreground">
+                                  🏢 {event.vendorName}
+                                </p>
+                              )}
+                              
+                              {event.time && (
+                                <p className="text-sm flex items-center gap-1">
+                                  <Clock className="w-3 h-3" />
+                                  {event.time}
+                                </p>
+                              )}
+                              
+                              {event.location && (
+                                <p className="text-sm flex items-center gap-1">
+                                  <MapPin className="w-3 h-3" />
+                                  {event.location}
+                                </p>
+                              )}
+                              
+                              {event.amount && (
+                                <p className="text-sm font-semibold">
+                                  {formatCurrency(event.amount)}
+                                </p>
+                              )}
+                              
+                              {event.priority && (
+                                <Badge variant={
+                                  event.priority === "must" ? "destructive" :
+                                  event.priority === "should" ? "default" : "secondary"
+                                }>
+                                  {event.priority.toUpperCase()}
                                 </Badge>
                               )}
                             </div>
-                            
-                            <h4 className="font-semibold">{event.title}</h4>
-                            
-                            {event.vendorName && (
-                              <p className="text-sm text-muted-foreground">
-                                🏢 {event.vendorName}
-                              </p>
-                            )}
-                            
-                            {event.time && (
-                              <p className="text-sm flex items-center gap-1">
-                                <Clock className="w-3 h-3" />
-                                {event.time}
-                              </p>
-                            )}
-                            
-                            {event.location && (
-                              <p className="text-sm flex items-center gap-1">
-                                <MapPin className="w-3 h-3" />
-                                {event.location}
-                              </p>
-                            )}
-                            
-                            {event.amount && (
-                              <p className="text-sm font-semibold">
-                                {formatCurrency(event.amount)}
-                              </p>
-                            )}
-                            
-                            {event.priority && (
-                              <Badge variant={
-                                event.priority === "must" ? "destructive" :
-                                event.priority === "should" ? "default" : "secondary"
-                              }>
-                                {event.priority.toUpperCase()}
-                              </Badge>
-                            )}
-                          </div>
-                        </HoverCardContent>
-                      </HoverCard>
-                    ))}
-                    
-                    {dayEvents.length > (viewMode === "week" ? 10 : 3) && (
-                      <div className="text-xs text-muted-foreground px-1">
-                        +{dayEvents.length - (viewMode === "week" ? 10 : 3)} altri
-                      </div>
-                    )}
-                  </div>
+                          </HoverCardContent>
+                        </HoverCard>
+                      ))}
+                      
+                      {dayEvents.length > (viewMode === "week" ? 10 : 3) && (
+                        <div className="text-xs text-muted-foreground px-1">
+                          +{dayEvents.length - (viewMode === "week" ? 10 : 3)} altri
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -528,28 +569,38 @@ const Calendar = () => {
       </Card>
 
       {/* Legend */}
-      <div className="flex flex-wrap gap-4 text-sm">
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded bg-violet-500" />
-          <span>Appuntamenti</span>
+      {isMobile ? (
+        <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-violet-500" />App.</span>
+          <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-blue-500" />Task</span>
+          <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-amber-500" />Pag.</span>
+          <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-green-500" />OK</span>
+          <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-500" />Scad.</span>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded bg-blue-500" />
-          <span>Task</span>
+      ) : (
+        <div className="flex flex-wrap gap-4 text-sm">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded bg-violet-500" />
+            <span>Appuntamenti</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded bg-blue-500" />
+            <span>Task</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded bg-amber-500" />
+            <span>Pagamenti</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded bg-green-500" />
+            <span>Completati/Pagati</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded bg-red-500" />
+            <span>Scaduti</span>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded bg-amber-500" />
-          <span>Pagamenti</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded bg-green-500" />
-          <span>Completati/Pagati</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded bg-red-500" />
-          <span>Scaduti</span>
-        </div>
-      </div>
+      )}
 
       {/* Day Preview Dialog */}
       <Dialog open={dayPreviewOpen} onOpenChange={setDayPreviewOpen}>
