@@ -1,68 +1,92 @@
 
 
-# Fix Onboarding per Utenti Invitati
+# Enforcement dei Permessi per il Ruolo Manager
 
-## Il Problema
+## Problema
 
-Quando un manager o planner riceve un invito via email con un codice, il link porta a `/app/dashboard?join=CODE`. Ma siccome e un utente nuovo senza matrimoni, il sistema lo rimanda a `/onboarding`, dove deve creare un matrimonio da zero -- cosa assurda perche il matrimonio esiste gia.
+Il flag `isPlanner` nel contesto auth e definito come `activeRole === 'planner'` e **non include il ruolo `manager`**. Di conseguenza, tutti i check di permesso nelle pagine (Dashboard, Fornitori, VendorDetails, Budget, Tesoreria) vengono bypassati per i manager. Inoltre mancano controlli per la visibilita dei nomi invitati e per la sezione "Contributi Finanziari" nelle impostazioni.
 
-## La Soluzione
+## Problemi Specifici da Risolvere
 
-Aggiungere un flusso "Unisciti con codice" direttamente nella pagina di Onboarding, in modo che l'utente invitato possa scegliere tra:
+1. **Dashboard** - Widget finanze visibile al manager anche con `budget_visible: false`
+2. **Fornitori** - Prezzi visibili al manager anche con `vendor_costs_visible: false`
+3. **VendorDetails** - Costi visibili al manager
+4. **Invitati** - Nomi, cognomi e telefoni visibili anche con `guests_names_visible: false`
+5. **Settings > Team > Contributi Finanziari** - Manager puo modificare target e aggiungere contributor
+6. **Budget e Tesoreria** - Gia nascoste dal menu laterale (AppLayout usa `isCollaborator` correttamente), ma le pagine stesse non bloccano l'accesso diretto via URL
 
-1. **Crea un nuovo matrimonio** (flusso attuale con nomi + data)
-2. **Ho un codice di invito** (inserisce il codice e accede direttamente)
+## Soluzione
 
-Inoltre, preservare il parametro `?join=CODE` dalla URL originale cosi che se l'utente arriva da un link email, il codice venga pre-compilato.
+### 1. AuthContext.tsx - Aggiungere `isCollaborator`
 
-## Modifiche
-
-### 1. Onboarding.tsx - Aggiungere "Step 0" con scelta iniziale
-
-Prima dei 2 step attuali, mostrare una schermata iniziale:
-
-```text
-+----------------------------------+
-|          Benvenuto!              |
-|                                  |
-|  [Crea un Nuovo Matrimonio]      |
-|                                  |
-|  -- oppure --                    |
-|                                  |
-|  [Ho un codice di invito]        |
-|  Inserisci il codice ricevuto    |
-|  [________WED-XXXX_________]    |
-|  [Accedi al Matrimonio]          |
-+----------------------------------+
-```
-
-- Se l'utente sceglie "Crea", procede con Step 1 e 2 come oggi
-- Se l'utente inserisce un codice, viene chiamata la stessa RPC `join_wedding_by_code` gia usata da `JoinWeddingDialog`
-- Se la URL contiene `?join=CODE`, il campo codice viene pre-compilato e la sezione codice viene aperta automaticamente
-
-### 2. ProtectedRoute.tsx - Preservare il query param `join`
-
-Quando il `ProtectedRoute` con `requireWedding` rimanda a `/onboarding`, deve portarsi dietro il parametro `?join=CODE` dalla URL originale, cosi:
+Aggiungere un nuovo campo `isCollaborator` che copre sia `planner` che `manager`:
 
 ```text
-/app/dashboard?join=WED12345
-  -> redirect a /onboarding?join=WED12345
+isCollaborator = activeRole === 'planner' || activeRole === 'manager'
 ```
 
-### 3. Nessuna modifica al backend
+Esposto nel contesto accanto a `isPlanner` (che resta per eventuali usi specifici del solo planner).
 
-La RPC `join_wedding_by_code` esiste gia e funziona. Basta riusarla nell'onboarding.
+### 2. Dashboard.tsx - Usare `isCollaborator`
+
+Sostituire il check del widget finanze:
+- Da: `isPlanner && !activePermissions?.budget_visible`
+- A: `isCollaborator && !activePermissions?.budget_visible`
+
+### 3. Vendors.tsx - Usare `isCollaborator`
+
+Sostituire il calcolo di `vendorCostsHidden`:
+- Da: `isPlanner && ...vendor_costs_visible === false`
+- A: `isCollaborator && ...vendor_costs_visible === false`
+
+### 4. VendorDetails.tsx - Usare `isCollaborator`
+
+Stesso cambio di Vendors.tsx per `vendorCostsHidden`.
+
+### 5. BudgetLegacy.tsx e Treasury.tsx - Usare `isCollaborator`
+
+Sostituire `isPlanner` con `isCollaborator` nel check di accesso alla pagina.
+
+### 6. Guests.tsx - Mascheramento dati sensibili
+
+Quando `isCollaborator && guests_names_visible === false`:
+- Nascondere nomi, cognomi e telefoni nelle card degli invitati
+- Mostrare solo conteggi aggregati (adulti, bambini, confermati, ecc.)
+- Passare un flag `maskNames` ai componenti `GuestSingleCard` e `GuestNucleoCard`
+
+Nelle card:
+- Nome/cognome sostituiti con "Invitato #N" o asterischi
+- Telefono nascosto completamente
+- Badge RSVP e conteggi rimangono visibili
+
+### 7. Settings.tsx - Nascondere Contributi Finanziari ai Manager
+
+La sezione "Gestione Contributi Finanziari" deve essere visibile solo ai `co_planner`. Wrappare l'intero blocco con `{isCoPlanner && (...)}`.
 
 ## File da Modificare
 
 | File | Modifica |
 |------|----------|
-| `src/pages/Onboarding.tsx` | Aggiungere schermata iniziale con opzione "join con codice" |
-| `src/guards/ProtectedRoute.tsx` | Preservare `?join=` nel redirect a `/onboarding` |
+| `src/contexts/AuthContext.tsx` | Aggiungere `isCollaborator` al contesto |
+| `src/pages/Dashboard.tsx` | `isCollaborator` nel check budget widget |
+| `src/pages/Vendors.tsx` | `isCollaborator` per `vendorCostsHidden` |
+| `src/pages/VendorDetails.tsx` | `isCollaborator` per `vendorCostsHidden` |
+| `src/pages/BudgetLegacy.tsx` | `isCollaborator` nel check accesso |
+| `src/pages/Treasury.tsx` | `isCollaborator` nel check accesso |
+| `src/pages/Guests.tsx` | Aggiungere logica mascheramento nomi |
+| `src/components/guests/GuestSingleCard.tsx` | Prop `maskSensitiveData` per nascondere nome/telefono |
+| `src/components/guests/GuestNucleoCard.tsx` | Prop `maskSensitiveData` per nascondere nome/telefono |
+| `src/pages/Settings.tsx` | Nascondere sezione Contributi Finanziari ai non-coPlanners |
 
-## UX
+## Nessuna Modifica Backend
 
-- L'utente invitato che arriva dal link email vedra il campo codice gia compilato e dovra solo cliccare "Accedi al Matrimonio"
-- L'utente che arriva senza codice vedra le due opzioni e potra scegliere
-- Dopo il join riuscito, `refreshAuth()` viene chiamato e l'utente viene mandato direttamente alla dashboard
+Tutte le modifiche sono frontend. I permessi sono gia nel database (`permissions_config` su `user_roles`) e la RPC `get_user_context` li restituisce correttamente. Il problema e solo che il codice frontend non li controlla per il ruolo `manager`.
+
+## Dettaglio Tecnico: Mascheramento Invitati
+
+Quando `maskSensitiveData = true`:
+- `GuestSingleCard`: nome visualizzato come "Invitato", cognome come iniziale puntata o nascosto, telefono rimosso
+- `GuestNucleoCard`: nome nucleo visibile (es. "Famiglia Rossi"), ma i singoli membri mascherati
+- Le funzionalita di export CSV e PDF vengono disabilitate o mascherate
+- I filtri per nome vengono disabilitati (la ricerca testuale non avrebbe senso)
 
