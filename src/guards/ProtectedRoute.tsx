@@ -108,8 +108,11 @@ export function ProtectedRoute({
 
   if (authState.status === "no_wedding") {
     if (requireWedding) {
+      // Preserve ?join= param so onboarding can pre-fill join code
+      const joinParam = new URLSearchParams(location.search).get('join');
+      const redirectPath = joinParam ? `/onboarding?join=${encodeURIComponent(joinParam)}` : '/onboarding';
       console.log('[ProtectedRoute] Missing wedding context, redirecting to onboarding');
-      return <Navigate to="/onboarding" replace />;
+      return <Navigate to={redirectPath} replace />;
     }
     return <>{children}</>;
   }
