@@ -1,8 +1,11 @@
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Heart, Check, ArrowLeft, Lock, CreditCard } from "lucide-react";
+import { Heart, Check, ArrowLeft, Lock, CreditCard, Loader2, PartyPopper } from "lucide-react";
 import { useSubscription } from "@/hooks/useSubscription";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
 const benefits = [
@@ -16,24 +19,75 @@ const benefits = [
 
 const Upgrade = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { status, daysLeft } = useSubscription();
+  const { authState } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [justActivated, setJustActivated] = useState(false);
+
+  const isSuccess = searchParams.get("success") === "true";
+  const isCanceled = searchParams.get("canceled") === "true";
+
+  // After successful checkout, poll check-subscription to sync DB
+  useEffect(() => {
+    if (!isSuccess || authState.status !== "authenticated") return;
+
+    let attempts = 0;
+    const poll = async () => {
+      attempts++;
+      try {
+        await supabase.functions.invoke("check-subscription", {
+          body: { weddingId: authState.weddingId },
+        });
+        setJustActivated(true);
+      } catch {
+        if (attempts < 5) setTimeout(poll, 2000);
+      }
+    };
+    poll();
+  }, [isSuccess, authState]);
+
+  useEffect(() => {
+    if (isCanceled) {
+      toast({ title: "Pagamento annullato", description: "Nessun addebito effettuato." });
+    }
+  }, [isCanceled]);
 
   const handleCheckout = async () => {
-    // Stripe integration will be added in Phase 3
-    toast({
-      title: "Funzionalità in arrivo",
-      description: "L'integrazione con il sistema di pagamento sarà disponibile a breve.",
-    });
+    if (authState.status !== "authenticated") return;
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("create-checkout", {
+        body: { weddingId: authState.weddingId },
+      });
+      if (error) throw error;
+      if (data?.url) {
+        window.location.href = data.url;
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Errore durante il checkout";
+      toast({ title: "Errore", description: msg, variant: "destructive" });
+      setLoading(false);
+    }
   };
 
-  if (status === "active") {
+  // Success state
+  if (justActivated || status === "active") {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <Card className="max-w-md w-full p-8 text-center space-y-4">
-          <Heart className="w-12 h-12 text-accent-foreground fill-accent-foreground mx-auto" />
-          <h1 className="text-2xl font-bold font-serif">Sei già Premium!</h1>
+          {justActivated ? (
+            <PartyPopper className="w-12 h-12 text-accent-foreground mx-auto" />
+          ) : (
+            <Heart className="w-12 h-12 text-accent-foreground fill-accent-foreground mx-auto" />
+          )}
+          <h1 className="text-2xl font-bold font-serif">
+            {justActivated ? "Benvenuti nel Premium! 🎉" : "Sei già Premium!"}
+          </h1>
           <p className="text-muted-foreground">
-            Il tuo account è attivo. Goditi l'organizzazione senza stress.
+            {justActivated
+              ? "Il vostro account è stato attivato con successo. Organizzate il vostro giorno perfetto senza limiti."
+              : "Il tuo account è attivo. Goditi l'organizzazione senza stress."}
           </p>
           <Button onClick={() => navigate("/app/dashboard")} className="w-full">
             Torna alla Dashboard
@@ -45,7 +99,6 @@ const Upgrade = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Minimal header */}
       <header className="h-14 border-b border-border flex items-center px-4">
         <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
           <ArrowLeft className="w-4 h-4 mr-2" />
@@ -55,7 +108,6 @@ const Upgrade = () => {
 
       <main className="flex-1 flex items-center justify-center p-4">
         <div className="max-w-lg w-full space-y-8">
-          {/* Header */}
           <div className="text-center space-y-3">
             <div className="flex justify-center">
               <div className="p-4 rounded-full bg-accent">
@@ -70,7 +122,6 @@ const Upgrade = () => {
             </p>
           </div>
 
-          {/* Pricing Card */}
           <Card className="p-8 border-2 border-primary/20 bg-gradient-hero">
             <div className="text-center mb-6">
               <div className="text-5xl font-bold text-primary">49€</div>
@@ -93,9 +144,14 @@ const Upgrade = () => {
               className="w-full h-14 text-base gap-2"
               size="lg"
               onClick={handleCheckout}
+              disabled={loading}
             >
-              <Lock className="w-4 h-4" />
-              Paga in sicurezza con Stripe
+              {loading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Lock className="w-4 h-4" />
+              )}
+              {loading ? "Reindirizzamento..." : "Paga in sicurezza con Stripe"}
             </Button>
 
             <div className="flex items-center justify-center gap-3 mt-3 text-xs text-muted-foreground">
@@ -104,7 +160,6 @@ const Upgrade = () => {
             </div>
           </Card>
 
-          {/* Trial info */}
           {status === "trialing" && daysLeft !== null && daysLeft > 0 && (
             <p className="text-center text-sm text-muted-foreground">
               Ti restano ancora <strong>{daysLeft}</strong> giorni di prova gratuita.

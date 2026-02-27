@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { UserPlus, Trash2, Users, Shield, Plus, Link2, Calendar, DollarSign, Heart, Share2, ExternalLink, Mail, MessageSquare, Settings2, Palette, User } from "lucide-react";
+import { UserPlus, Trash2, Users, Shield, Plus, Link2, Calendar, DollarSign, Heart, Share2, ExternalLink, Mail, MessageSquare, Settings2, Palette, User, CreditCard } from "lucide-react";
 import { AccountSettingsCard } from "@/components/settings/AccountSettingsCard";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -14,6 +14,7 @@ import { ShareProgressDialog } from "@/components/settings/ShareProgressDialog";
 import { RSVPConfigDialog } from "@/components/settings/RSVPConfigDialog";
 import CampaignCard, { CampaignsConfig } from "@/components/settings/CampaignCard";
 import CampaignConfigDialog from "@/components/settings/CampaignConfigDialog";
+import { SubscriptionTab } from "@/components/settings/SubscriptionTab";
 import { z } from "zod";
 
 const emailSchema = z.string().trim().email("Email non valida").max(255);
@@ -666,7 +667,7 @@ const Settings = () => {
       </div>
 
       <Tabs defaultValue="account" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-flex">
+        <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-flex">
           <TabsTrigger value="account" className="gap-2">
             <User className="w-4 h-4" />
             <span className="hidden sm:inline">Account</span>
@@ -674,6 +675,10 @@ const Settings = () => {
           <TabsTrigger value="wedding" className="gap-2">
             <Heart className="w-4 h-4" />
             <span className="hidden sm:inline">Matrimonio</span>
+          </TabsTrigger>
+          <TabsTrigger value="subscription" className="gap-2">
+            <CreditCard className="w-4 h-4" />
+            <span className="hidden sm:inline">Abbonamento</span>
           </TabsTrigger>
           <TabsTrigger value="communications" className="gap-2">
             <MessageSquare className="w-4 h-4" />
@@ -692,6 +697,11 @@ const Settings = () => {
             currentUserId={currentUserId}
             onUpdate={loadData}
           />
+        </TabsContent>
+
+        {/* TAB: Abbonamento */}
+        <TabsContent value="subscription" className="space-y-6 mt-6">
+          <SubscriptionTab />
         </TabsContent>
 
         {/* TAB: Matrimonio */}
