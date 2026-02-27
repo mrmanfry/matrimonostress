@@ -50,3 +50,9 @@ verify_jwt = false
 
 [functions.customer-portal]
 verify_jwt = false
+
+[functions.send-welcome-email]
+verify_jwt = false
+
+[functions.check-trial-reminders]
+verify_jwt = false
