@@ -6,9 +6,15 @@ const Footer = () => {
       <div className="container mx-auto px-4 py-12">
         <div className="flex flex-col items-center gap-6 text-center">
           {/* Logo/Brand */}
-          <div className="flex items-center gap-2">
-            <Heart className="w-6 h-6 text-accent fill-accent" />
-            <span className="text-xl font-bold">WedsApp</span>
+          <div className="flex items-center gap-3">
+            <div className="relative p-3 rounded-2xl bg-accent/10 border border-accent/15">
+              <Heart className="w-6 h-6 text-accent fill-accent/70" />
+              <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-accent/40 blur-[1px]" />
+            </div>
+            <div className="flex flex-col">
+              <span className="font-serif text-xl font-bold tracking-wider leading-none">WedsApp</span>
+              <span className="text-muted-foreground text-[10px] font-medium tracking-[0.25em] uppercase leading-none mt-1">Wedding Planner</span>
+            </div>
           </div>
 
           {/* Tagline */}
