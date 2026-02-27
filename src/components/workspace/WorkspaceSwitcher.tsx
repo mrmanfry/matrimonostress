@@ -27,8 +27,8 @@ export function WorkspaceSwitcher() {
     if (activeMode === 'planner') {
       return w.role === 'planner' || w.role === 'manager';
     }
-    // couple mode: show own weddings (co_planner, or non-planner roles)
-    return w.role !== 'planner';
+    // couple mode: show only own weddings (co_planner = owner/partner)
+    return w.role === 'co_planner';
   });
 
   const active = authState.weddings.find(w => w.weddingId === authState.activeWeddingId);
