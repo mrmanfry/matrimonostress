@@ -151,15 +151,14 @@ const AppLayoutInner = ({
     <div className="min-h-screen flex w-full">
       <Sidebar collapsible="icon">
         <SidebarHeader className="border-b border-border p-4">
-          <div className="flex items-center gap-2">
-            <Heart className="w-6 h-6 text-accent fill-accent shrink-0" />
+          <div className="flex items-center gap-2.5">
+            <div className="relative p-2 rounded-xl bg-accent/10 border border-accent/15 shrink-0">
+              <Heart className="w-5 h-5 text-accent fill-accent/70" />
+              <div className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-accent/40 blur-[1px]" />
+            </div>
             <div className="flex-1 overflow-hidden">
-              <p className="font-bold text-sm truncate">WedsApp</p>
-              {weddingInfo && (
-                <p className="text-xs text-muted-foreground truncate">
-                  {weddingInfo.partner1} & {weddingInfo.partner2}
-                </p>
-              )}
+              <p className="font-serif font-bold text-sm tracking-wider truncate leading-none">WedsApp</p>
+              <p className="text-muted-foreground text-[9px] font-medium tracking-[0.2em] uppercase leading-none mt-0.5">Wedding Planner</p>
             </div>
           </div>
         </SidebarHeader>

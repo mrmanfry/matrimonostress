@@ -179,12 +179,16 @@ const Auth = () => {
   const formContent = (
     <div className="w-full max-w-md mx-auto flex flex-col justify-center min-h-screen lg:min-h-0 px-6 py-8 lg:py-0">
       <div className="text-center space-y-2 mb-8">
-        <div className="flex justify-center mb-4">
-          <div className="p-3 rounded-full bg-accent">
-            <Heart className="w-8 h-8 text-accent-foreground fill-accent-foreground" />
+        <div className="flex justify-center items-center gap-3 mb-2">
+          <div className="relative p-3 rounded-2xl bg-accent/10 backdrop-blur-md border border-accent/15 shadow-lg">
+            <Heart className="w-7 h-7 text-accent fill-accent/70" />
+            <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-accent/40 blur-[1px]" />
+          </div>
+          <div className="flex flex-col">
+            <span className="font-serif text-2xl font-bold tracking-wider leading-none">WedsApp</span>
+            <span className="text-muted-foreground text-[10px] font-medium tracking-[0.25em] uppercase leading-none mt-1">Wedding Planner</span>
           </div>
         </div>
-        <h1 className="text-3xl font-bold font-serif">WedsApp</h1>
         <p className="text-muted-foreground">
           {isLogin ? "Bentornato!" : "Inizia a organizzare il tuo matrimonio"}
         </p>
@@ -367,11 +371,15 @@ const Auth = () => {
 
         <div className="relative z-10 flex flex-col justify-between p-12 w-full">
           {/* Top: Logo area */}
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-white/15 backdrop-blur-sm">
-              <Heart className="w-6 h-6 text-white fill-white/80" />
+        <div className="flex items-center gap-3">
+            <div className="relative p-3 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 shadow-lg">
+              <Heart className="w-6 h-6 text-white fill-white/70" />
+              <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-white/40 blur-[1px]" />
             </div>
-            <span className="text-white/90 font-serif text-lg font-semibold tracking-wide">WedsApp</span>
+            <div className="flex flex-col">
+              <span className="text-white font-serif text-xl font-bold tracking-wider leading-none">WedsApp</span>
+              <span className="text-white/40 text-[10px] font-medium tracking-[0.25em] uppercase leading-none mt-1">Wedding Planner</span>
+            </div>
           </div>
 
           {/* Center: Main message */}
