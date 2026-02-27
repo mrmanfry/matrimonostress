@@ -216,7 +216,7 @@ export const generateCateringReport = (guests: CateringGuest[]): void => {
   // Footer
   doc.setFontSize(8);
   doc.setTextColor(150, 150, 150);
-  doc.text("Nozze Senza Stress - Report Catering", 105, 285, { align: "center" });
+  doc.text("WedsApp - Report Catering", 105, 285, { align: "center" });
   
   doc.save(`report-catering-${new Date().toISOString().split("T")[0]}.pdf`);
 };

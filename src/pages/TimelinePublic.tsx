@@ -179,7 +179,7 @@ const TimelinePublic = () => {
 
         {/* Footer */}
         <p className="text-center text-xs text-muted-foreground">
-          Creato con ❤️ con Nozze Senza Stress
+          Creato con ❤️ con WedsApp
         </p>
       </div>
     </div>

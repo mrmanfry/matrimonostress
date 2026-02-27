@@ -57,7 +57,7 @@ serve(async (req) => {
     
     <!-- Header -->
     <div style="background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:40px 32px;text-align:center;">
-      <h1 style="color:#ffffff;font-size:28px;margin:0 0 8px;">💍 Benvenuti su Nozze Senza Stress!</h1>
+      <h1 style="color:#ffffff;font-size:28px;margin:0 0 8px;">💍 Benvenuti su WedsApp!</h1>
       <p style="color:#e0e7ff;font-size:16px;margin:0;">${wedding.partner1_name} & ${wedding.partner2_name}</p>
     </div>
 
@@ -112,7 +112,7 @@ serve(async (req) => {
     <!-- Footer -->
     <div style="padding:20px 32px;background:#f9fafb;text-align:center;border-top:1px solid #e5e7eb;">
       <p style="font-size:12px;color:#9ca3af;margin:0;">
-        Nozze Senza Stress — Il tuo Project Manager per il matrimonio
+        WedsApp — Il tuo Project Manager per il matrimonio
       </p>
     </div>
   </div>
@@ -120,7 +120,7 @@ serve(async (req) => {
 </html>`;
 
         const { error: sendError } = await resend.emails.send({
-          from: "Nozze Senza Stress <noreply@resend.dev>",
+          from: "WedsApp <noreply@resend.dev>",
           to: [userEmail],
           subject: `💍 Benvenuti ${wedding.partner1_name} & ${wedding.partner2_name}! Il vostro matrimonio vi aspetta`,
           html: emailHtml,

@@ -95,7 +95,7 @@ const TargetAudience = () => {
         <div className="text-center mt-16">
           <p className="text-lg text-muted-foreground">
             Indipendentemente dalla vostra situazione,{" "}
-            <strong className="text-foreground">Nozze Senza Stress</strong> si
+            <strong className="text-foreground">WedsApp</strong> si
             adatta alle vostre esigenze.
           </p>
         </div>
