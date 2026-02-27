@@ -54,6 +54,7 @@ Deno.serve(async (req) => {
       headers: {
         'Content-Type': 'application/json',
         'X-Goog-Api-Key': apiKey,
+        'Referer': 'https://matrimonostress.lovable.app',
       },
       body: JSON.stringify(body),
     });
