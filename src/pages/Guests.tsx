@@ -163,7 +163,7 @@ const Guests = () => {
   }, [wedding]);
 
   const loadData = async () => {
-    if (authState.status !== "authenticated" || !authState.weddingId) {
+    if (authState.status !== "authenticated" || !authState.activeWeddingId) {
       setLoading(false);
       return;
     }
@@ -172,7 +172,7 @@ const Guests = () => {
       const { data: weddingData } = await supabase
         .from("weddings")
         .select("id, partner1_name, partner2_name")
-        .eq("id", authState.weddingId)
+        .eq("id", authState.activeWeddingId)
         .single();
 
       if (!weddingData) return;

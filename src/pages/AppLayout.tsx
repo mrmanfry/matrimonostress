@@ -36,17 +36,21 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { TrialBadge } from "@/components/subscription/TrialBadge";
 import { SoftPaywallDialog } from "@/components/subscription/SoftPaywallDialog";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
+import { WorkspaceSwitcher } from "@/components/workspace/WorkspaceSwitcher";
 const AppLayout = () => {
-  const { authState, signOut } = useAuth();
+  const { authState, signOut, isPlanner } = useAuth();
   const [loadingWedding, setLoadingWedding] = useState(true);
   const [weddingInfo, setWeddingInfo] = useState<{ partner1: string; partner2: string; daysUntil: number } | null>(null);
   const location = useLocation();
 
-  const navigation = [
+  // Filter navigation based on planner permissions
+  const activePermissions = authState.status === 'authenticated' ? authState.activePermissions : null;
+  
+  const allNavigation = [
     { name: "Dashboard", href: "/app/dashboard", icon: LayoutDashboard },
     { name: "Invitati", href: "/app/guests", icon: Users },
-    { name: "Budget", href: "/app/budget", icon: Euro },
-    { name: "Tesoreria", href: "/app/treasury", icon: TrendingUp },
+    { name: "Budget", href: "/app/budget", icon: Euro, hidden: isPlanner && activePermissions?.budget_visible === false },
+    { name: "Tesoreria", href: "/app/treasury", icon: TrendingUp, hidden: isPlanner && activePermissions?.budget_visible === false },
     { name: "Fornitori", href: "/app/vendors", icon: Package },
     { name: "Checklist", href: "/app/checklist", icon: CheckSquare },
     { name: "Calendario", href: "/app/calendar", icon: CalendarDays },
@@ -54,6 +58,8 @@ const AppLayout = () => {
     { name: "Timeline", href: "/app/timeline", icon: Calendar },
     { name: "Impostazioni", href: "/app/settings", icon: Settings },
   ];
+  
+  const navigation = allNavigation.filter(n => !('hidden' in n && n.hidden));
 
   useEffect(() => {
     if (authState.status !== "authenticated") {
@@ -61,7 +67,7 @@ const AppLayout = () => {
       return;
     }
 
-    if (!authState.weddingId) {
+    if (!authState.activeWeddingId) {
       setLoadingWedding(false);
       return;
     }
@@ -73,7 +79,7 @@ const AppLayout = () => {
         const { data: weddingData } = await supabase
           .from("weddings")
           .select("partner1_name, partner2_name, wedding_date")
-          .eq("id", authState.weddingId)
+          .eq("id", authState.activeWeddingId)
           .maybeSingle();
 
         if (weddingData) {
@@ -137,6 +143,7 @@ const AppLayoutInner = ({
   location: ReturnType<typeof useLocation>;
 }) => {
   const { setOpenMobile } = useSidebar();
+  const { authState } = useAuth();
   const isMobile = useIsMobile();
 
   const isActive = (path: string) => location.pathname === path;
@@ -151,16 +158,19 @@ const AppLayoutInner = ({
     <div className="min-h-screen flex w-full">
       <Sidebar collapsible="icon">
         <SidebarHeader className="border-b border-border p-4">
-          <div className="flex items-center gap-2.5">
-            <div className="relative p-2 rounded-xl bg-accent/10 border border-accent/15 shrink-0">
-              <Heart className="w-5 h-5 text-accent fill-accent/70" />
-              <div className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-accent/40 blur-[1px]" />
+          <WorkspaceSwitcher />
+          {(authState.status !== 'authenticated' || authState.weddings.length <= 1) && (
+            <div className="flex items-center gap-2.5">
+              <div className="relative p-2 rounded-xl bg-accent/10 border border-accent/15 shrink-0">
+                <Heart className="w-5 h-5 text-accent fill-accent/70" />
+                <div className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-accent/40 blur-[1px]" />
+              </div>
+              <div className="flex-1 overflow-hidden">
+                <p className="font-serif font-bold text-sm tracking-wider truncate leading-none">WedsApp</p>
+                <p className="text-muted-foreground text-[9px] font-medium tracking-[0.2em] uppercase leading-none mt-0.5">Wedding Planner</p>
+              </div>
             </div>
-            <div className="flex-1 overflow-hidden">
-              <p className="font-serif font-bold text-sm tracking-wider truncate leading-none">WedsApp</p>
-              <p className="text-muted-foreground text-[9px] font-medium tracking-[0.2em] uppercase leading-none mt-0.5">Wedding Planner</p>
-            </div>
-          </div>
+          )}
         </SidebarHeader>
 
         <SidebarContent>

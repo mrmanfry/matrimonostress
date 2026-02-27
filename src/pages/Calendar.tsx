@@ -78,7 +78,7 @@ const Calendar = () => {
   const [eventDetailOpen, setEventDetailOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
 
-  const weddingId = authState.status === "authenticated" ? authState.weddingId : null;
+  const weddingId = authState.status === "authenticated" ? authState.activeWeddingId : null;
 
   // Fetch appointments
   const { data: appointments = [] } = useQuery({

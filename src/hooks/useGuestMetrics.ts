@@ -41,7 +41,7 @@ export interface GuestMetrics {
 
 export function useGuestMetrics(): GuestMetrics {
   const { authState } = useAuth();
-  const weddingId = authState.status === "authenticated" ? authState.weddingId : null;
+  const weddingId = authState.status === "authenticated" ? authState.activeWeddingId : null;
 
   // Query per ospiti
   const { 

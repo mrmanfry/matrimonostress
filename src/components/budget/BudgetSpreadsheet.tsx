@@ -57,7 +57,7 @@ export function BudgetSpreadsheet({ globalMode }: BudgetSpreadsheetProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{ id: string; description: string } | null>(null);
 
-  const weddingId = authState.status === "authenticated" ? authState.weddingId : null;
+  const weddingId = authState.status === "authenticated" ? authState.activeWeddingId : null;
 
   // Fetch tutti i dati necessari
   const { data: budgetData, isLoading } = useQuery({

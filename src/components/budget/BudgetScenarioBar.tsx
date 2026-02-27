@@ -20,7 +20,7 @@ interface BudgetScenarioBarProps {
 export function BudgetScenarioBar({ currentMode, guestCounts }: BudgetScenarioBarProps) {
   const queryClient = useQueryClient();
   const { authState } = useAuth();
-  const weddingId = authState.status === "authenticated" ? authState.weddingId : null;
+  const weddingId = authState.status === "authenticated" ? authState.activeWeddingId : null;
 
   const isReadOnly = currentMode !== 'planned';
   

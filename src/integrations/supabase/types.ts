@@ -1031,6 +1031,7 @@ export type Database = {
           created_at: string
           id: string
           partner_role: string | null
+          permissions_config: Json | null
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
           wedding_id: string
@@ -1039,6 +1040,7 @@ export type Database = {
           created_at?: string
           id?: string
           partner_role?: string | null
+          permissions_config?: Json | null
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
           wedding_id: string
@@ -1047,6 +1049,7 @@ export type Database = {
           created_at?: string
           id?: string
           partner_role?: string | null
+          permissions_config?: Json | null
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
           wedding_id?: string

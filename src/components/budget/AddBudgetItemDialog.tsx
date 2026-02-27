@@ -15,7 +15,7 @@ export function AddBudgetItemDialog() {
   const [isOpen, setIsOpen] = useState(false);
   const queryClient = useQueryClient();
   const { authState } = useAuth();
-  const weddingId = authState.status === "authenticated" ? authState.weddingId : null;
+  const weddingId = authState.status === "authenticated" ? authState.activeWeddingId : null;
 
   // Stato Form
   const [type, setType] = useState<"fixed" | "variable">("fixed");
