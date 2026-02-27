@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { User, Mail, Bell, UserCircle, KeyRound, AlertTriangle, Loader2, Shield } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { User, Mail, Bell, UserCircle, KeyRound, AlertTriangle, Loader2, Shield, LogOut, Trash2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface AccountSettingsCardProps {
@@ -21,6 +22,8 @@ interface AccountSettingsCardProps {
   currentUserRole?: string;
   onUpdate?: () => void;
 }
+
+type DeleteMode = "leave_wedding" | "delete_wedding" | "delete_everything";
 
 export const AccountSettingsCard = ({ wedding, currentUserId, currentUserRole, onUpdate }: AccountSettingsCardProps) => {
   const [userEmail, setUserEmail] = useState<string>("");
@@ -39,8 +42,12 @@ export const AccountSettingsCard = ({ wedding, currentUserId, currentUserRole, o
 
   // Delete account states
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteStep, setDeleteStep] = useState<1 | 2>(1);
+  const [deleteMode, setDeleteMode] = useState<DeleteMode | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const [hasOtherCoPlanner, setHasOtherCoPlanner] = useState(false);
+  const [checkingCoPlanner, setCheckingCoPlanner] = useState(false);
 
   useEffect(() => {
     loadAccountSettings();
@@ -166,16 +173,68 @@ export const AccountSettingsCard = ({ wedding, currentUserId, currentUserRole, o
     }
   };
 
+  const openDeleteDialog = async () => {
+    setDeleteStep(1);
+    setDeleteMode(null);
+    setDeleteConfirmText("");
+    setDeleteDialogOpen(true);
+
+    // Check if there's another co_planner on this wedding
+    if (wedding?.id && currentUserId) {
+      setCheckingCoPlanner(true);
+      try {
+        const { count } = await supabase
+          .from("user_roles")
+          .select("id", { count: "exact", head: true })
+          .eq("wedding_id", wedding.id)
+          .eq("role", "co_planner")
+          .neq("user_id", currentUserId);
+
+        setHasOtherCoPlanner((count ?? 0) > 0);
+      } catch {
+        setHasOtherCoPlanner(false);
+      } finally {
+        setCheckingCoPlanner(false);
+      }
+    }
+  };
+
+  const getDeleteSummary = (): string => {
+    if (deleteMode === "leave_wedding") {
+      return "Verrai rimosso da questo matrimonio. I dati del matrimonio resteranno disponibili per l'altro proprietario.";
+    }
+    if (deleteMode === "delete_wedding") {
+      return "Tutti i dati di questo matrimonio verranno eliminati permanentemente: invitati, fornitori, pagamenti, checklist, timeline. Se hai altri matrimoni (come Planner), quelli resteranno.";
+    }
+    if (deleteMode === "delete_everything") {
+      return "Il tuo account verrà eliminato completamente dalla piattaforma. Tutti i matrimoni dove sei l'unico proprietario verranno eliminati. Dove c'è un altro co-planner, verrai semplicemente rimosso.";
+    }
+    return "";
+  };
+
   const handleDeleteAccount = async () => {
-    if (deleteConfirmText !== "ELIMINA") return;
+    if (deleteConfirmText !== "ELIMINA" || !deleteMode) return;
 
     setDeletingAccount(true);
     try {
-      // Sign out (actual deletion requires admin/service role - we sign out and show info)
-      toast({
-        title: "Account disconnesso",
-        description: "Per completare l'eliminazione definitiva, contatta il supporto. I tuoi dati verranno rimossi entro 30 giorni.",
+      const { data, error } = await supabase.functions.invoke("delete-account", {
+        body: { mode: deleteMode, wedding_id: wedding?.id },
       });
+
+      if (error) throw error;
+
+      if (data?.error) {
+        toast({ title: "Errore", description: data.error, variant: "destructive" });
+        setDeletingAccount(false);
+        return;
+      }
+
+      toast({
+        title: deleteMode === "delete_everything" ? "Account eliminato" : "Operazione completata",
+        description: data?.message || "Operazione completata con successo",
+      });
+
+      setDeleteDialogOpen(false);
       await signOut();
     } catch (error: any) {
       toast({ title: "Errore", description: error.message, variant: "destructive" });
@@ -325,11 +384,11 @@ export const AccountSettingsCard = ({ wedding, currentUserId, currentUserRole, o
               <div className="space-y-1">
                 <p className="font-medium text-sm">Elimina Account</p>
                 <p className="text-xs text-muted-foreground">
-                  Tutti i dati del tuo matrimonio verranno eliminati permanentemente.
+                  Elimina i tuoi dati e/o il matrimonio in base al contesto.
                 </p>
               </div>
-              <Button variant="destructive" size="sm" onClick={() => setDeleteDialogOpen(true)}>
-                Elimina Account
+              <Button variant="destructive" size="sm" onClick={openDeleteDialog}>
+                Elimina
               </Button>
             </div>
           </CardContent>
@@ -384,44 +443,145 @@ export const AccountSettingsCard = ({ wedding, currentUserId, currentUserRole, o
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Delete Account Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={(open) => { setDeleteDialogOpen(open); if (!open) setDeleteConfirmText(""); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
-              <AlertTriangle className="w-5 h-5" />
-              Elimina Account
-            </AlertDialogTitle>
-            <AlertDialogDescription className="space-y-2">
-              <span className="block">
-                Questa azione è <strong>irreversibile</strong>. Tutti i dati del matrimonio, gli invitati, i fornitori e i pagamenti verranno eliminati permanentemente.
-              </span>
-              <span className="block font-medium">
-                Digita <strong>ELIMINA</strong> per confermare.
-              </span>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="py-2">
-            <Input
-              value={deleteConfirmText}
-              onChange={(e) => setDeleteConfirmText(e.target.value.toUpperCase())}
-              placeholder="Digita ELIMINA"
-              className="font-mono tracking-wider"
-            />
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Annulla</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteAccount}
-              disabled={deleteConfirmText !== "ELIMINA" || deletingAccount}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deletingAccount ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-              Elimina Definitivamente
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Delete Account Dialog - Multi-step */}
+      <Dialog open={deleteDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          setDeleteDialogOpen(false);
+          setDeleteStep(1);
+          setDeleteMode(null);
+          setDeleteConfirmText("");
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          {deleteStep === 1 && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-destructive">
+                  <AlertTriangle className="w-5 h-5" />
+                  Cosa vuoi fare?
+                </DialogTitle>
+                <DialogDescription>
+                  Scegli l'azione che vuoi eseguire. Questa operazione è irreversibile.
+                </DialogDescription>
+              </DialogHeader>
+
+              {checkingCoPlanner ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <div className="space-y-3 py-2">
+                  {/* Scenario A: Leave wedding (only if another co_planner exists) */}
+                  {hasOtherCoPlanner && (
+                    <button
+                      onClick={() => { setDeleteMode("leave_wedding"); setDeleteStep(2); }}
+                      className="w-full text-left p-4 rounded-lg border border-border hover:border-orange-300 hover:bg-orange-50 dark:hover:bg-orange-900/10 transition-colors"
+                    >
+                      <div className="flex items-start gap-3">
+                        <LogOut className="w-5 h-5 text-orange-500 mt-0.5 shrink-0" />
+                        <div>
+                          <p className="font-medium text-sm">Lascia questo matrimonio</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Verrai rimosso da questo matrimonio. I dati resteranno per l'altro proprietario.
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  )}
+
+                  {/* Scenario B: Delete wedding (only if sole owner) */}
+                  {!hasOtherCoPlanner && (
+                    <button
+                      onClick={() => { setDeleteMode("delete_wedding"); setDeleteStep(2); }}
+                      className="w-full text-left p-4 rounded-lg border border-border hover:border-destructive/50 hover:bg-destructive/5 transition-colors"
+                    >
+                      <div className="flex items-start gap-3">
+                        <Trash2 className="w-5 h-5 text-destructive mt-0.5 shrink-0" />
+                        <div>
+                          <p className="font-medium text-sm">Elimina questo matrimonio</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Sei l'unico proprietario. Tutti i dati del matrimonio verranno eliminati permanentemente.
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  )}
+
+                  {/* Scenario C: Delete everything */}
+                  <button
+                    onClick={() => { setDeleteMode("delete_everything"); setDeleteStep(2); }}
+                    className="w-full text-left p-4 rounded-lg border border-destructive/30 hover:border-destructive hover:bg-destructive/5 transition-colors"
+                  >
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="w-5 h-5 text-destructive mt-0.5 shrink-0" />
+                      <div>
+                        <p className="font-medium text-sm text-destructive">Elimina tutto il mio account</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Elimina completamente il tuo account dalla piattaforma. Tutti i matrimoni dove sei l'unico proprietario verranno eliminati.
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+
+          {deleteStep === 2 && deleteMode && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-destructive">
+                  <AlertTriangle className="w-5 h-5" />
+                  Conferma eliminazione
+                </DialogTitle>
+                <DialogDescription>
+                  {getDeleteSummary()}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4 py-2">
+                <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+                  <p className="text-sm font-medium text-destructive">
+                    ⚠️ Questa azione è irreversibile
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="delete-confirm" className="text-sm">
+                    Digita <strong>ELIMINA</strong> per confermare
+                  </Label>
+                  <Input
+                    id="delete-confirm"
+                    value={deleteConfirmText}
+                    onChange={(e) => setDeleteConfirmText(e.target.value.toUpperCase())}
+                    placeholder="Digita ELIMINA"
+                    className="font-mono tracking-wider"
+                  />
+                </div>
+              </div>
+
+              <DialogFooter className="flex gap-2 sm:gap-0">
+                <Button
+                  variant="outline"
+                  onClick={() => { setDeleteStep(1); setDeleteMode(null); setDeleteConfirmText(""); }}
+                >
+                  Indietro
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteAccount}
+                  disabled={deleteConfirmText !== "ELIMINA" || deletingAccount}
+                >
+                  {deletingAccount ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                  {deleteMode === "leave_wedding" ? "Lascia Matrimonio" :
+                   deleteMode === "delete_wedding" ? "Elimina Matrimonio" :
+                   "Elimina Account"}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
