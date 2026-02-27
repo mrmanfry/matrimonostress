@@ -292,6 +292,7 @@ const Settings = () => {
       const { error: emailError } = await supabase.functions.invoke('send-wedding-invitation', {
         body: {
           email: inviteEmail,
+          weddingId: wedding.id,
           weddingNames: `${wedding.partner1_name} & ${wedding.partner2_name}`,
           weddingDate: wedding.wedding_date,
           role: inviteRole,
