@@ -998,7 +998,7 @@ export default function Treasury() {
               </AlertDescription>
             </Alert>
           ) : (
-            <ResponsiveContainer width="100%" height={window.innerWidth < 640 ? 250 : 400}>
+            <ResponsiveContainer width="100%" height={window.innerWidth < 640 ? 250 : 400} minWidth={0}>
               <ComposedChart 
                 data={chartData}
               >

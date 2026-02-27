@@ -437,7 +437,7 @@ function OverviewTab({
           </h4>
           {rsvpData.length > 0 ? (
             <div className="h-[200px]">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <PieChart>
                   <Pie
                     data={rsvpData}
@@ -511,7 +511,7 @@ function OverviewTab({
           </h4>
           {groupData.length > 0 ? (
             <div className="h-[280px]">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <BarChart data={groupData} layout="vertical" margin={{ left: 0, right: 20 }}>
                   <XAxis type="number" fontSize={11} />
                   <YAxis
@@ -627,7 +627,7 @@ function CompositionTab({ analytics, onFilterClick, activeFilter }: { analytics:
             Composizione Invitati
           </h4>
           <div className="h-[200px]">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
               <PieChart>
                 <Pie
                   data={compositionData}
@@ -673,7 +673,7 @@ function CompositionTab({ analytics, onFilterClick, activeFilter }: { analytics:
           </div>
           {partySizeData.length > 0 ? (
             <div className="h-[150px]">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <BarChart data={partySizeData}>
                   <XAxis dataKey="size" fontSize={12} />
                   <YAxis fontSize={12} />
@@ -941,7 +941,7 @@ function MenuTab({ analytics, onFilterClick, activeFilter }: { analytics: GuestA
           {menuData.length > 0 ? (
             <>
               <div className="h-[200px]">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                   <PieChart>
                     <Pie
                       data={menuData}
