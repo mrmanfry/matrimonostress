@@ -59,6 +59,7 @@ Deno.serve(async (req) => {
     });
 
     const data = await response.json();
+    console.log('Google Places API response status:', response.status, 'body:', JSON.stringify(data));
 
     const predictions = (data.suggestions || [])
       .filter((s: { placePrediction?: unknown }) => s.placePrediction)
