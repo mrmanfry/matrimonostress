@@ -39,6 +39,8 @@ export interface CampaignConfig {
   whatsapp_message_template?: string | null;
   faqs?: FAQItem[];
   gift_info?: GiftInfo;
+  ceremony_image_url?: string | null;
+  reception_image_url?: string | null;
 }
 
 export interface CampaignsConfig {

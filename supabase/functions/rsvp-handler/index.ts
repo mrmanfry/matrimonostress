@@ -233,6 +233,8 @@ Deno.serve(async (req) => {
             receptionVenueName: wedding?.reception_venue_name || null,
             receptionVenueAddress: wedding?.reception_venue_address || null,
             receptionStartTime: wedding?.reception_start_time || null,
+            ceremonyImageUrl: rsvpCampaign?.ceremony_image_url || null,
+            receptionImageUrl: rsvpCampaign?.reception_image_url || null,
           },
           config: rsvpConfig,
           stdConfig,

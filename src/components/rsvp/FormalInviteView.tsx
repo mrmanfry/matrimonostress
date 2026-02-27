@@ -49,11 +49,13 @@ interface FormalInviteViewProps {
   ceremonyVenueName?: string | null;
   ceremonyVenueAddress?: string | null;
   ceremonyStartTime?: string | null;
+  ceremonyImageUrl?: string | null;
   
   // Reception
   receptionVenueName?: string | null;
   receptionVenueAddress?: string | null;
   receptionStartTime?: string | null;
+  receptionImageUrl?: string | null;
   
   // Guest
   guestFirstName: string;
@@ -104,9 +106,11 @@ export function FormalInviteView({
   ceremonyVenueName,
   ceremonyVenueAddress,
   ceremonyStartTime,
+  ceremonyImageUrl,
   receptionVenueName,
   receptionVenueAddress,
   receptionStartTime,
+  receptionImageUrl,
   guestFirstName,
   guestAlias,
   isSingleGuest,
@@ -336,7 +340,11 @@ export function FormalInviteView({
             </h2>
 
             <div className="flex justify-center">
-              <Church className="w-12 h-12 text-stone-400" />
+              {ceremonyImageUrl ? (
+                <img src={ceremonyImageUrl} alt={ceremonyVenueName || "Cerimonia"} className="w-full max-w-md h-40 object-cover rounded-lg" />
+              ) : (
+                <Church className="w-12 h-12 text-stone-400" />
+              )}
             </div>
 
             {ceremonyVenueName && (
@@ -388,7 +396,11 @@ export function FormalInviteView({
             </h2>
 
             <div className="flex justify-center">
-              <PartyPopper className="w-12 h-12 text-stone-400" />
+              {receptionImageUrl ? (
+                <img src={receptionImageUrl} alt={receptionVenueName || "Ricevimento"} className="w-full max-w-md h-40 object-cover rounded-lg" />
+              ) : (
+                <PartyPopper className="w-12 h-12 text-stone-400" />
+              )}
             </div>
 
             {receptionVenueName && (
