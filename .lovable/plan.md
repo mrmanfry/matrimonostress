@@ -1,71 +1,39 @@
 
+# Fix: Invito collaboratore fallisce (weddingId mancante)
 
-# Fix: Eliminare timeout artificiale e deduplicare eventi auth
+## Problema
 
-## Problema reale
+La edge function `send-wedding-invitation` si aspetta un campo `weddingId` nel body della richiesta per verificare che l'utente abbia il ruolo `co_planner` su quel matrimonio. Ma il codice in `Settings.tsx` (riga 292-301) non lo include nel body inviato alla funzione.
 
-L'RPC `get_user_context` funziona sempre -- ma sul cold start di PostgREST impiega 20-30 secondi. Il timeout artificiale di 15s causa un errore falso, e i 3 retry significano fino a 45 secondi di attesa prima che `INITIAL_SESSION` finalmente riesca.
-
-Flusso attuale (rotto):
-```text
-SIGNED_IN -> handleAuthSession -> RPC timeout 15s -> retry 1 (15s) -> retry 2 (15s) -> ERRORE
-INITIAL_SESSION -> handleAuthSession -> RPC successo immediato (perche PostgREST e ora caldo)
-```
+Il log della edge function conferma: `invalid input syntax for type uuid: "undefined"` -- il `weddingId` arriva come `undefined`, la query SQL fallisce e restituisce 403.
 
 ## Soluzione
 
-### 1. Rimuovere il timeout artificiale
+### File: `src/pages/Settings.tsx`
 
-Il timeout e controproducente: la query funziona sempre, serve solo pazienza sul cold start. Senza timeout, l'utente vedra lo stato "loading" per 20-30s al primo accesso (cold start), ma non vedra MAI un errore falso.
+Aggiungere `weddingId: wedding.id` al body della chiamata `supabase.functions.invoke('send-wedding-invitation')` alla riga 293:
 
-### 2. Rimuovere i retry
-
-Se non c'e timeout, non servono retry. L'RPC o risponde (anche se lentamente) o fallisce per errore reale (network down). In caso di errore reale, mostriamo la UI di errore con "Riprova".
-
-### 3. Gestire solo INITIAL_SESSION (ignorare SIGNED_IN al primo caricamento)
-
-Su page load, Supabase emette sia `SIGNED_IN` che `INITIAL_SESSION`. Basta gestire `INITIAL_SESSION` per il caricamento iniziale. `SIGNED_IN` viene gestito solo se non c'e gia un caricamento in corso (cioe durante un login attivo nella stessa sessione).
-
-## Dettagli tecnici
-
-### File: `src/contexts/AuthContext.tsx`
-
-**loadUserContext** -- semplificato:
-```text
-const loadUserContext = async (): Promise<WeddingContext[]> => {
-  const { data, error } = await supabase.rpc('get_user_context');
-  if (error) throw error;
-  return parseWeddingsFromRpc(data);
-};
+```typescript
+const { error: emailError } = await supabase.functions.invoke('send-wedding-invitation', {
+  body: {
+    email: inviteEmail,
+    weddingId: wedding.id,          // <-- AGGIUNTO
+    weddingNames: `${wedding.partner1_name} & ${wedding.partner2_name}`,
+    weddingDate: wedding.wedding_date,
+    role: inviteRole,
+    accessCode: wedding.access_code,
+    inviterName: inviterName,
+  },
+});
 ```
 
-Niente timeout, niente retry, niente Promise.race. La chiamata Supabase ha il suo timeout interno HTTP (60s default).
+Nessuna modifica necessaria alla edge function -- il campo `weddingId` e gia previsto nell'interfaccia `InvitationEmailRequest`.
 
-**onAuthStateChange** -- deduplicazione migliorata:
-```text
-if (event === 'SIGNED_IN') {
-  // Su SIGNED_IN, avvia SOLO se non c'e gia un caricamento
-  // e l'utente non e gia stato processato
-  if (!isLoadingContext.current && lastProcessedUserId.current !== session.user.id) {
-    await handleAuthSession(session);
-  }
-}
-if (event === 'INITIAL_SESSION') {
-  // INITIAL_SESSION e il segnale definitivo: avvia sempre
-  // (a meno che non sia gia in corso)
-  if (!isLoadingContext.current) {
-    await handleAuthSession(session);
-  }
-}
-```
+## Nota sui Permessi Configurabili
 
-### Risultato atteso
+I permessi per il Planner Professionista si configurano nella sezione **Impostazioni > Team** tramite il componente `PlannerPermissionsCard`, che appare automaticamente quando almeno un utente con ruolo "planner" e presente nel team. I due toggle disponibili sono:
 
-| Scenario | Prima | Dopo |
-|----------|-------|------|
-| Cold start (primo accesso del giorno) | 45s + errore + caricamento | 20-30s loading, poi dashboard |
-| Warm start (accessi successivi) | 15s timeout + retry + caricamento | 1-2s loading, poi dashboard |
-| Navigazione interna | Immediato | Immediato |
+1. **Gestione Budget Globale** -- controlla se il Planner puo vedere Tesoreria e Budget
+2. **Costi e Pagamenti Fornitori** -- controlla se il Planner puo vedere cifre e piani pagamento
 
-L'import di `retryWithBackoff` verra rimosso dato che non serve piu in questo file.
-
+Questi toggle aggiornano il campo `permissions_config` (JSONB) nella tabella `user_roles` per tutti i ruoli planner del matrimonio. Non serve alcuna modifica a questa parte: funziona correttamente, ma diventa visibile solo dopo che un planner accetta l'invito.
