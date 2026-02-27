@@ -28,13 +28,19 @@ const Hero = () => {
       {/* Content */}
       <div className="container relative z-10 px-4 py-20">
         {/* Top logo */}
-        <div className="absolute top-6 left-4 md:left-0 flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-white/15 backdrop-blur-sm">
-            <Heart className="w-6 h-6 text-white fill-white/80" />
+        <div className="absolute top-8 left-4 md:left-8 flex items-center gap-3">
+          <div className="relative p-3 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 shadow-lg">
+            <Heart className="w-6 h-6 text-white fill-white/70" />
+            <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-white/40 blur-[1px]" />
           </div>
-          <span className="text-white/90 font-serif text-lg font-semibold tracking-wide">
-            WedsApp
-          </span>
+          <div className="flex flex-col">
+            <span className="text-white font-serif text-xl font-bold tracking-wider leading-none">
+              WedsApp
+            </span>
+            <span className="text-white/40 text-[10px] font-medium tracking-[0.25em] uppercase leading-none mt-1">
+              Wedding Planner
+            </span>
+          </div>
         </div>
 
         <div className="max-w-4xl mx-auto text-center space-y-8 pt-16">
