@@ -1,130 +1,80 @@
 
 
-# Switch di Ruolo "Sposo / Planner" -- Modello Airbnb
+# Sidebar Contestuale: Menu solo dentro il progetto
 
-## Problema Attuale
+## Problema
 
-Oggi il sistema tratta tutti gli utenti allo stesso modo: chi ha 2+ matrimoni vede il Cockpit nel sidebar, altrimenti no. Ma la realta e diversa:
+Attualmente in modalita Planner il sidebar mostra SEMPRE tutte le voci di navigazione (Dashboard, Invitati, Budget, ecc.) anche quando il planner e nel Cockpit e non ha ancora selezionato un matrimonio specifico. Questo non ha senso: quelle voci sono relative a un singolo progetto.
 
-- **Uno sposo** vuole atterrare direttamente nella Dashboard del suo matrimonio. Il Cockpit non gli serve.
-- **Un wedding planner** vuole atterrare nel Cockpit e navigare tra i matrimoni dei clienti. La Dashboard singola e secondaria.
-- **Un caso ibrido** (es. Filippo, sia sposo che manager) deve poter switchare tra le due "modalita".
+Inoltre il toggle Sposo/Planner appare anche per chi ha un solo profilo (dove non serve).
 
-## Soluzione: Concetto di "Modalita Attiva"
+## Soluzione
 
-Introduciamo una `activeMode: 'couple' | 'planner'` nel contesto Auth, persistita in `localStorage`. Funziona come il toggle Host/Guest di Airbnb.
+### 1. Toggle visibile solo per utenti con doppio profilo
+Gia implementato: `ModeSwitcher` ritorna `null` se `!hasMultiplePersonas`. Nessuna modifica necessaria qui.
 
-### Come si determina la modalita
+### 2. Sidebar condizionale in base alla rotta
 
-```text
-Al login / page load:
-1. Leggi activeMode da localStorage
-2. Se non presente, inferisci:
-   - Se l'utente ha ALMENO un ruolo 'planner' -> activeMode = 'planner'
-   - Altrimenti -> activeMode = 'couple'
-3. L'utente puo switchare in qualsiasi momento
-```
-
-### Cosa cambia per modalita
-
-| Aspetto | Modalita "Sposo" | Modalita "Planner" |
-|---------|-----------------|-------------------|
-| Landing page dopo login | `/app/dashboard` (matrimonio attivo) | `/app/planner` (cockpit) |
-| Sidebar | Dashboard, Invitati, Budget, Tesoreria, Fornitori, Checklist, Calendario, Tavoli, Timeline, Impostazioni | Cockpit (prima voce), poi le stesse voci per il matrimonio selezionato |
-| Header | "Marco & Giulia - 45 giorni" | "Cockpit Planner" o "Marco & Giulia" se dentro un matrimonio |
-| Footer sidebar | Countdown matrimonio | Nascosto o generico |
-| WorkspaceSwitcher | Mostra solo i matrimoni "propri" (co_planner/owner) | Mostra tutti i matrimoni gestiti |
-
-### Switch di Modalita -- UI
-
-Nel **SidebarHeader**, sotto il logo/workspace switcher, appare un toggle discreto simile ad Airbnb:
+La logica e semplice:
 
 ```text
-+----------------------------------+
-|  [Heart] WedsApp                 |
-|  [Toggle: Sposo | Planner]      |  <-- solo se ha entrambi i profili
-+----------------------------------+
+Se activeMode === 'planner' E la rotta e /app/planner (cockpit):
+  -> Sidebar mostra SOLO: Cockpit + Esci
+  -> Nessun menu di navigazione progetto
+  -> Nessun WorkspaceSwitcher (non serve, il cockpit e la panoramica)
+  -> Header mostra "Cockpit Planner"
+
+Se activeMode === 'planner' E la rotta e DENTRO un progetto (/app/dashboard, /app/guests, ecc.):
+  -> Sidebar mostra: Cockpit (per tornare indietro) + tutte le voci progetto
+  -> WorkspaceSwitcher visibile (per switchare tra matrimoni)
+  -> Header mostra "Marco & Giulia"
+
+Se activeMode === 'couple':
+  -> Tutto invariato (sidebar completo, countdown, ecc.)
 ```
 
-Il toggle e visibile SOLO se l'utente ha sia matrimoni "propri" (ruolo co_planner/owner) sia matrimoni come "planner". Se ha solo un tipo, non serve il toggle e la modalita e fissa.
+### 3. File da modificare
 
-## Dettagli Tecnici
+**`src/pages/AppLayout.tsx`** -- Modifiche principali:
 
-### File: `src/contexts/AuthContext.tsx`
+- Introdurre una variabile `isOnCockpitView` (gia presente come `isOnCockpit`)
+- Quando `activeMode === 'planner' && isOnCockpit`:
+  - La navigation contiene solo `[{ name: "Cockpit", href: "/app/planner", icon: LayoutGrid }]`
+  - Il `WorkspaceSwitcher` viene nascosto
+  - Il footer countdown viene nascosto
+  - Il `ModeSwitcher` resta visibile (per chi ha doppio profilo)
+- Quando `activeMode === 'planner' && !isOnCockpit` (dentro un progetto):
+  - La navigation include "Cockpit" come prima voce + tutte le voci progetto standard
+  - Il `WorkspaceSwitcher` torna visibile
+  - Appare un mini-header nel sidebar che mostra il nome del matrimonio attivo
 
-Modifiche:
-- Aggiungere `activeMode: 'couple' | 'planner'` allo stato `AuthState` (solo nel caso `authenticated`)
-- Aggiungere `switchMode(mode: 'couple' | 'planner')` al context
-- Aggiungere `hasMultiplePersonas: boolean` (computed: ha sia matrimoni come owner/co_planner che come planner)
-- Persistere `activeMode` in localStorage (`wedsapp_active_mode`)
-- All'init, inferire la modalita: se l'utente ha almeno un ruolo `planner` e nessun matrimonio proprio, default `planner`; se ha solo matrimoni propri, default `couple`; se ha entrambi, leggi da localStorage o default `couple`
+**`src/components/workspace/ModeSwitcher.tsx`** -- Nessuna modifica (gia gestisce `hasMultiplePersonas`).
 
-### File: `src/pages/AppLayout.tsx`
+### 4. Dettaglio implementativo in AppLayout
 
-Modifiche:
-- Leggere `activeMode` dal context
-- Sidebar navigation condizionale: in modalita `planner`, "Cockpit" e la prima voce
-- In modalita `couple`, il cockpit non appare (a meno che non abbia comunque 2+ matrimoni propri -- ma e raro)
-- Il toggle Sposo/Planner appare nel SidebarHeader solo se `hasMultiplePersonas`
-- Il footer con countdown appare solo in modalita `couple` o quando si e dentro un matrimonio specifico
+La costruzione della `navigation` viene spostata dentro `AppLayoutInner` (che ha accesso a `location`) con questa logica:
 
-### File: `src/pages/AppLayout.tsx` -- Redirect Intelligente
+```text
+const isOnCockpit = location.pathname === '/app/planner';
+const isPlannerMode = activeMode === 'planner';
 
-Al mount di AppLayout, se la rotta e `/app` o `/app/dashboard`:
-- Se `activeMode === 'planner'` e la rotta e `/app/dashboard` e NON si e appena fatto uno switchWedding, redirect a `/app/planner`
-- Se `activeMode === 'couple'`, resta su `/app/dashboard`
+if (isPlannerMode && isOnCockpit) {
+  navigation = [] // nessun menu, solo cockpit page
+} else {
+  navigation = [
+    ...(isPlannerMode ? [{ Cockpit -> /app/planner }] : []),
+    Dashboard, Invitati, Budget, Tesoreria, Fornitori,
+    Checklist, Calendario, Tavoli, Timeline, Impostazioni
+  ]
+}
+```
 
-### File: `src/components/workspace/WorkspaceSwitcher.tsx`
+Nel `SidebarHeader`:
+- `WorkspaceSwitcher` visibile solo se `!(isPlannerMode && isOnCockpit)`
+- `ModeSwitcher` sempre visibile (il componente stesso gestisce la logica `hasMultiplePersonas`)
 
-Modifiche:
-- In modalita `couple`: mostra solo matrimoni con ruolo `co_planner`/`owner`
-- In modalita `planner`: mostra tutti i matrimoni (soprattutto quelli con ruolo `planner`/`manager`)
-- Aggiungere il toggle Sposo/Planner come primo elemento del dropdown (se `hasMultiplePersonas`)
+Nel `SidebarFooter`:
+- Countdown nascosto se `isPlannerMode && isOnCockpit`
+- Il bottone "Esci" resta sempre visibile
 
-### Nuovo file: `src/utils/modeStorage.ts`
-
-Utility semplice per persistere la modalita attiva:
-- `get(): 'couple' | 'planner' | null`
-- `set(mode: 'couple' | 'planner'): void`
-- `clear(): void`
-
-### File: `src/guards/ProtectedRoute.tsx`
-
-Modifiche minime:
-- Quando `requireWedding` e true e `activeMode === 'planner'`, il redirect di default dopo login va a `/app/planner` invece che `/app/dashboard`
-
-## Flusso Utente
-
-### Caso 1: Wedding Planner puro (solo matrimoni come planner)
-1. Login -> activeMode = `planner` (automatico, nessun toggle visibile)
-2. Atterra su `/app/planner` (Cockpit)
-3. Clicca "Apri" su un matrimonio -> switchWedding -> `/app/dashboard`
-4. Nel sidebar vede "Cockpit" come prima voce per tornare indietro
-5. Nessun countdown nel footer (non e il suo matrimonio)
-
-### Caso 2: Sposo puro (solo il suo matrimonio)
-1. Login -> activeMode = `couple` (automatico, nessun toggle visibile)
-2. Atterra su `/app/dashboard`
-3. Sidebar normale, countdown nel footer
-4. Nessun Cockpit visibile
-
-### Caso 3: Filippo (sia sposo che manager)
-1. Login -> legge localStorage, default `couple`
-2. Atterra su `/app/dashboard` del suo matrimonio
-3. Nel sidebar header vede il toggle [Sposo | Planner]
-4. Clicca "Planner" -> activeMode = `planner`, redirect a `/app/planner`
-5. Vede il Cockpit con tutti i matrimoni che gestisce
-6. Clicca "Sposo" -> torna a `/app/dashboard` del suo matrimonio
-
-## File Coinvolti
-
-| File | Tipo | Modifica |
-|------|------|----------|
-| `src/utils/modeStorage.ts` | Nuovo | Utility localStorage per activeMode |
-| `src/contexts/AuthContext.tsx` | Modifica | Aggiungere activeMode, switchMode, hasMultiplePersonas |
-| `src/pages/AppLayout.tsx` | Modifica | Toggle UI, navigation condizionale, redirect intelligente |
-| `src/components/workspace/WorkspaceSwitcher.tsx` | Modifica | Filtrare matrimoni per modalita, toggle nel dropdown |
-| `src/guards/ProtectedRoute.tsx` | Modifica | Redirect post-login basato su activeMode |
-
-Nessuna modifica al database necessaria -- tutto e frontend/context.
-
+Questo crea un'esperienza pulita: il planner atterra nel cockpit con sidebar minimalista, clicca su un matrimonio, e il sidebar si "espande" con tutte le voci di navigazione del progetto selezionato.
