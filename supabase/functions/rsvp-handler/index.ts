@@ -199,7 +199,12 @@ Deno.serve(async (req) => {
           ? new Date(rsvpConfig.deadline_date) < new Date() 
           : false;
 
-        console.log(`RSVP data fetched for guest ${guestData.id}, party: ${party.id}, stdConfig: ${JSON.stringify(stdConfig)}`);
+        // Extract FAQ and gift info from campaigns_config
+        const rsvpCampaign = campaignsConfig?.rsvp as any;
+        const faqsData = rsvpCampaign?.faqs || [];
+        const giftInfoData = rsvpCampaign?.gift_info || null;
+
+        console.log(`RSVP data fetched for guest ${guestData.id}, party: ${party.id}, faqs: ${faqsData.length}, giftEnabled: ${giftInfoData?.enabled}`);
 
         return new Response(JSON.stringify({
           guest: {
@@ -223,16 +228,17 @@ Deno.serve(async (req) => {
             location: wedding?.location || null,
             ceremonyStartTime: wedding?.ceremony_start_time || null,
             timezone: wedding?.timezone || null,
-            // New venue detail fields for formal invite
             ceremonyVenueName: wedding?.ceremony_venue_name || null,
             ceremonyVenueAddress: wedding?.ceremony_venue_address || null,
             receptionVenueName: wedding?.reception_venue_name || null,
             receptionVenueAddress: wedding?.reception_venue_address || null,
             receptionStartTime: wedding?.reception_start_time || null,
           },
-          config: rsvpConfig,   // RSVP-specific config
-          stdConfig,            // STD-specific config (separate!)
+          config: rsvpConfig,
+          stdConfig,
           theme,
+          faqs: faqsData,
+          giftInfo: giftInfoData,
           isReadOnly,
         }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },

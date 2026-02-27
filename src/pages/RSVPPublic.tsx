@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { SaveTheDateView } from "@/components/rsvp/SaveTheDateView";
 import { FormalInviteView } from "@/components/rsvp/FormalInviteView";
+import type { FAQItem, GiftInfo } from "@/components/settings/CampaignCard";
 
 interface RSVPPublicProps {
   forceStdMode?: boolean;
@@ -56,7 +57,6 @@ interface RSVPData {
     location?: string | null;
     ceremonyStartTime?: string | null;
     timezone?: string | null;
-    // Venue details for formal invite
     ceremonyVenueName?: string | null;
     ceremonyVenueAddress?: string | null;
     receptionVenueName?: string | null;
@@ -70,6 +70,8 @@ interface RSVPData {
     welcome_title: string;
     welcome_text: string;
   } | null;
+  faqs?: FAQItem[];
+  giftInfo?: GiftInfo | null;
   isReadOnly: boolean;
 }
 
@@ -431,6 +433,8 @@ export default function RSVPPublic({ forceStdMode }: RSVPPublicProps) {
       welcomeTitle={config.welcome_title}
       welcomeText={config.welcome_text}
       theme={rsvpData.theme}
+      faqs={rsvpData.faqs}
+      giftInfo={rsvpData.giftInfo || undefined}
       isReadOnly={isReadOnly}
       isPreview={isPreview}
       deadlineDate={config.deadline_date}

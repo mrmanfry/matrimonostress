@@ -13,6 +13,22 @@ import {
   Users
 } from "lucide-react";
 
+export interface FAQItem {
+  question: string;
+  answer: string;
+}
+
+export interface GiftInfo {
+  enabled: boolean;
+  message: string;
+  couple_names: string;
+  iban: string;
+  bic_swift: string;
+  bank_name: string;
+  account_holder: string;
+  registry_url: string | null;
+}
+
 export interface CampaignConfig {
   status: "draft" | "active" | "closed";
   enabled: boolean;
@@ -21,6 +37,8 @@ export interface CampaignConfig {
   welcome_text: string;
   deadline_date: string | null;
   whatsapp_message_template?: string | null;
+  faqs?: FAQItem[];
+  gift_info?: GiftInfo;
 }
 
 export interface CampaignsConfig {
