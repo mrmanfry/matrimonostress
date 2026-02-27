@@ -49,6 +49,7 @@ interface GuestNucleoCardProps {
   onToggleSelect: (partyId: string) => void;
   onEdit: (party: InviteParty) => void;
   onGuestUpdate?: () => void;
+  maskSensitiveData?: boolean;
 }
 
 /**
@@ -105,6 +106,7 @@ export const GuestNucleoCard = ({
   onToggleSelect,
   onEdit,
   onGuestUpdate,
+  maskSensitiveData = false,
 }: GuestNucleoCardProps) => {
   const [editingGuest, setEditingGuest] = useState<Guest | null>(null);
   const [guestEditDialogOpen, setGuestEditDialogOpen] = useState(false);
@@ -388,8 +390,10 @@ export const GuestNucleoCard = ({
                 {adults.map(guest => (
                   <div key={guest.id} className="flex items-center justify-between text-sm group gap-1 min-w-0">
                     <div className="flex items-center gap-1 sm:gap-2 min-w-0 flex-1">
-                      <span className="truncate text-xs sm:text-sm">{guest.first_name} {guest.last_name}</span>
-                      {guest.alias && (
+                      <span className="truncate text-xs sm:text-sm">
+                        {maskSensitiveData ? 'Membro' : `${guest.first_name} ${guest.last_name}`}
+                      </span>
+                      {guest.alias && !maskSensitiveData && (
                         <span className="hidden sm:inline text-xs text-muted-foreground bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded border">
                           aka "{guest.alias}"
                         </span>
@@ -399,7 +403,7 @@ export const GuestNucleoCard = ({
                           +1
                         </Badge>
                       )}
-                      {guest.phone && (
+                      {guest.phone && !maskSensitiveData && (
                         <span className="hidden sm:inline text-muted-foreground text-xs truncate">
                           ({guest.phone})
                         </span>
@@ -433,7 +437,7 @@ export const GuestNucleoCard = ({
                     {children.map(guest => (
                       <div key={guest.id} className="flex items-center justify-between text-sm pl-2 group">
                         <span className="text-muted-foreground truncate">
-                          {guest.first_name} {guest.last_name}
+                          {maskSensitiveData ? 'Bambino' : `${guest.first_name} ${guest.last_name}`}
                         </span>
                         <div className="flex items-center gap-1">
                           {getSendStatusIcon(guest.rsvp_send_status)}

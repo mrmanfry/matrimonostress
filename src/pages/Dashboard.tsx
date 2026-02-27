@@ -56,7 +56,7 @@ const Dashboard = () => {
   const [showWelcome, setShowWelcome] = useState(false);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { authState, refreshAuth, isPlanner } = useAuth();
+  const { authState, refreshAuth, isPlanner, isCollaborator } = useAuth();
   const [joinDialogOpen, setJoinDialogOpen] = useState(false);
   const [joinInitialCode, setJoinInitialCode] = useState("");
 
@@ -535,7 +535,7 @@ const Dashboard = () => {
         {/* Widget 2: Finanze - Impegno/Pagato/Da Pagare */}
         {(() => {
           const activePermissions = authState.status === 'authenticated' ? authState.activePermissions : null;
-          const budgetLocked = isPlanner && !activePermissions?.budget_visible;
+          const budgetLocked = isCollaborator && !activePermissions?.budget_visible;
           
           if (budgetLocked) {
             return (

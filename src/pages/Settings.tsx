@@ -1254,8 +1254,8 @@ const Settings = () => {
             </Card>
           )}
 
-          {/* Financial Contributors Section */}
-          <Card className="p-6">
+          {/* Financial Contributors Section - only for co_planners */}
+          {isCoPlanner && (<Card className="p-6">
             <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
               💰 Gestione Contributi Finanziari
             </h2>
@@ -1370,7 +1370,7 @@ const Settings = () => {
                 </Button>
               </div>
             </div>
-          </Card>
+          </Card>)}
 
           <div className="p-4 rounded-lg bg-muted/30">
             <h3 className="font-semibold mb-2 flex items-center gap-2">

@@ -42,6 +42,7 @@ interface GuestSingleCardProps {
   onEdit: (guestId: string) => void;
   onAddToParty: (guestId: string) => void;
   onGuestUpdate?: () => void;
+  maskSensitiveData?: boolean;
 }
 
 export const GuestSingleCard = ({
@@ -51,11 +52,14 @@ export const GuestSingleCard = ({
   onEdit,
   onAddToParty,
   onGuestUpdate,
+  maskSensitiveData = false,
 }: GuestSingleCardProps) => {
   const [guestEditDialogOpen, setGuestEditDialogOpen] = useState(false);
   const [togglingPlusOne, setTogglingPlusOne] = useState(false);
   
-  const displayName = `${guest.first_name} ${guest.last_name}`;
+  const displayName = maskSensitiveData 
+    ? `Invitato ${guest.is_child ? '(bambino)' : ''}` 
+    : `${guest.first_name} ${guest.last_name}`;
 
   const handleEditClick = () => {
     setGuestEditDialogOpen(true);
@@ -106,7 +110,7 @@ export const GuestSingleCard = ({
                 )}
                 <h3 className="font-semibold truncate text-sm md:text-base">{displayName}</h3>
                 {/* Alias Badge */}
-                {guest.alias && (
+                {guest.alias && !maskSensitiveData && (
                   <span className="text-xs font-normal text-muted-foreground bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full border">
                     aka "{guest.alias}"
                   </span>
@@ -174,8 +178,8 @@ export const GuestSingleCard = ({
             </div>
           </div>
 
-          {/* Contact Info - Hidden for couple members */}
-          {!guest.is_couple_member && (
+          {/* Contact Info - Hidden for couple members and when masked */}
+          {!guest.is_couple_member && !maskSensitiveData && (
             <div className="flex items-center gap-2 text-sm">
               {guest.phone ? (
                 <div className="flex items-center gap-1 text-muted-foreground">

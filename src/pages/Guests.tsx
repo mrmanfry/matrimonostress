@@ -92,9 +92,12 @@ interface Wedding {
 }
 
 const Guests = () => {
-  const { authState } = useAuth();
+  const { authState, isCollaborator } = useAuth();
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  
+  // Determine if guest sensitive data should be masked
+  const maskGuestData = isCollaborator && authState.status === 'authenticated' && authState.activePermissions?.guests_names_visible === false;
   
   const [wedding, setWedding] = useState<Wedding | null>(null);
   const [parties, setParties] = useState<InviteParty[]>([]);
@@ -1347,10 +1350,11 @@ const Guests = () => {
               <div className="flex-1 relative min-w-0">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
-                  placeholder="🔍 Cerca invitati o nuclei..."
+                  placeholder={maskGuestData ? "🔍 Ricerca disabilitata" : "🔍 Cerca invitati o nuclei..."}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10 w-full"
+                  disabled={maskGuestData}
                 />
               </div>
 
@@ -1396,6 +1400,7 @@ const Guests = () => {
                       onToggleSelect={togglePartySelection}
                       onEdit={handleEditParty}
                       onGuestUpdate={loadData}
+                      maskSensitiveData={maskGuestData}
                     />
                   );
                 } else {
@@ -1409,6 +1414,7 @@ const Guests = () => {
                       onEdit={handleEditGuest}
                       onAddToParty={handleAddGuestToParty}
                       onGuestUpdate={loadData}
+                      maskSensitiveData={maskGuestData}
                     />
                   );
                 }
