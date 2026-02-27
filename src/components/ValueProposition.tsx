@@ -39,10 +39,10 @@ const ValueProposition = () => {
         {/* Section Header */}
         <div className="text-center mb-16 space-y-4">
           <h2 className="text-4xl md:text-5xl font-bold tracking-tight">
-            I Nostri 4 Obiettivi Strategici
+            Cosa Facciamo per Voi
           </h2>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Quattro pilastri interconnessi che costituiscono la nostra proposta di valore fondamentale
+            Quattro modi concreti in cui vi togliamo il peso dalle spalle
           </p>
         </div>
 

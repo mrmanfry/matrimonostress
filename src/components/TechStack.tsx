@@ -1,26 +1,30 @@
 import { Card } from "@/components/ui/card";
-import { Shield, Zap, Cloud, Lock } from "lucide-react";
+import { Shield, Lock, Cloud, Zap } from "lucide-react";
 
 const features = [
   {
     icon: Shield,
-    title: "Affidabilità Garantita",
-    description: "Infrastruttura enterprise gestita e monitorata 24/7. Backup automatici quotidiani e ridondanza dei dati.",
-  },
-  {
-    icon: Lock,
-    title: "Sicurezza Totale",
-    description: "Crittografia end-to-end, autenticazione robusta e conformità GDPR. I tuoi dati sono protetti come quelli di una banca.",
-  },
-  {
-    icon: Zap,
-    title: "Prestazioni Eccellenti",
-    description: "Architettura moderna e ottimizzata. Caricamenti istantanei, aggiornamenti in tempo reale, zero lag.",
+    title: "Dati Sempre Protetti",
+    description:
+      "Crittografia di livello bancario e conformità GDPR. Le vostre informazioni personali, i contratti e i dati dei vostri invitati sono al sicuro.",
   },
   {
     icon: Cloud,
     title: "Sempre Disponibile",
-    description: "Accesso da qualsiasi dispositivo, ovunque tu sia. I tuoi dati sincronizzati in tempo reale su tutti i device.",
+    description:
+      "Accesso da qualsiasi dispositivo, ovunque voi siate. I vostri dati sono sincronizzati in tempo reale su telefono, tablet e computer.",
+  },
+  {
+    icon: Zap,
+    title: "Veloce e Affidabile",
+    description:
+      "Caricamenti istantanei e aggiornamenti in tempo reale. Nessuna attesa, nessun rallentamento, anche con centinaia di invitati.",
+  },
+  {
+    icon: Lock,
+    title: "Backup Automatici",
+    description:
+      "I vostri dati vengono salvati automaticamente ogni giorno. Non perderete mai una modifica, un contatto o un pagamento registrato.",
   },
 ];
 
@@ -32,15 +36,17 @@ const TechStack = () => {
         <div className="text-center mb-16 space-y-4">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20">
             <Shield className="w-4 h-4 text-primary" />
-            <span className="text-sm font-medium text-primary">Piattaforma Lovable</span>
+            <span className="text-sm font-medium text-primary">
+              Sicurezza e Affidabilità
+            </span>
           </div>
-          
+
           <h2 className="text-4xl md:text-5xl font-bold tracking-tight">
-            Costruita su Fondamenta Solide
+            I Tuoi Dati Sono al Sicuro
           </h2>
-          
+
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            La potenza di una piattaforma enterprise, l'eleganza di un'interfaccia moderna
+            Costruito su fondamenta solide per darti tranquillità totale
           </p>
         </div>
 
@@ -49,7 +55,7 @@ const TechStack = () => {
           {features.map((feature, index) => {
             const Icon = feature.icon;
             return (
-              <Card 
+              <Card
                 key={index}
                 className="p-8 bg-card border-2 hover:border-primary/30 transition-all hover:shadow-elegant group"
               >
@@ -69,36 +75,6 @@ const TechStack = () => {
               </Card>
             );
           })}
-        </div>
-
-        {/* Tech Details */}
-        <div className="mt-16 text-center space-y-6">
-          <div className="p-8 rounded-2xl bg-gradient-card border border-border">
-            <h3 className="text-2xl font-bold mb-4">Tecnologia All'Avanguardia</h3>
-            <div className="grid md:grid-cols-3 gap-8 text-left">
-              <div>
-                <h4 className="font-semibold text-primary mb-2">Front-end Moderno</h4>
-                <p className="text-sm text-muted-foreground">
-                  Single Page Application (SPA) per un'esperienza fluida e reattiva. 
-                  Nessun refresh, feedback immediato.
-                </p>
-              </div>
-              <div>
-                <h4 className="font-semibold text-primary mb-2">API Robuste</h4>
-                <p className="text-sm text-muted-foreground">
-                  Back-end scalabile che gestisce logica di business, automazioni 
-                  e integrazioni in modo sicuro.
-                </p>
-              </div>
-              <div>
-                <h4 className="font-semibold text-primary mb-2">Database Professionale</h4>
-                <p className="text-sm text-muted-foreground">
-                  Struttura dati ottimizzata, backup automatici e protezione 
-                  garantita per ogni informazione.
-                </p>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </section>

@@ -13,14 +13,31 @@ const Footer = () => {
 
           {/* Tagline */}
           <p className="text-muted-foreground max-w-md">
-            Il tuo partner digitale per organizzare il matrimonio perfetto, 
+            Il tuo partner digitale per organizzare il matrimonio perfetto,
             in tutta serenità e controllo.
           </p>
+
+          {/* Links */}
+          <div className="flex flex-wrap justify-center gap-6 text-sm">
+            <a
+              href="/auth"
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Accedi / Registrati
+            </a>
+            <a
+              href="#features"
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Funzionalità
+            </a>
+          </div>
 
           {/* Copyright */}
           <div className="pt-6 border-t border-border w-full">
             <p className="text-sm text-muted-foreground">
-              © {new Date().getFullYear()} Nozze Senza Stress. Fatto con amore in Italia.
+              © {new Date().getFullYear()} Nozze Senza Stress. Fatto con amore
+              in Italia.
             </p>
           </div>
         </div>

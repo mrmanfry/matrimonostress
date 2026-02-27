@@ -1,23 +1,29 @@
 import { Card } from "@/components/ui/card";
-import { Users, Briefcase } from "lucide-react";
+import { Users, Clock } from "lucide-react";
 
 const personas = [
   {
     icon: Users,
-    name: "I Pianificatori Digitali",
-    profiles: "Luca & Sofia, 29-32 anni",
-    who: "Professionisti tech-savvy (Project Manager, Marketing Specialist) abituati a strumenti digitali per ottimizzare lavoro e vita privata.",
-    goals: "Vogliono uno strumento potente, flessibile e integrato per gestire il matrimonio come un vero progetto. Cercano funzionalità avanzate: filtri, esportazioni, automazioni.",
-    frustrations: "Odiano perdita di tempo, dati duplicati e strumenti lenti. La loro paura: un dettaglio che va storto per disattenzione.",
+    name: "Organizzate tutto da soli",
+    description:
+      "Siete una coppia che vuole avere il controllo su ogni dettaglio. Avete 150 invitati, un budget da rispettare e vi ritrovate sommersi da Excel, chat di WhatsApp e preventivi in PDF. Cercate uno strumento potente che vi faccia sentire in controllo, non più in balia degli eventi.",
+    needs: [
+      "Un posto unico per budget, invitati e fornitori",
+      "Visione chiara delle scadenze e dei pagamenti",
+      "Automazioni che vi facciano risparmiare ore",
+    ],
     gradient: "from-accent/20 to-gold/20",
   },
   {
-    icon: Briefcase,
-    name: "La Coppia Sopraffatta",
-    profiles: "Marco & Giulia, 33-36 anni",
-    who: "Professionisti con carriere impegnative (Medico, Avvocato) che hanno poco tempo. Amano l'idea di un matrimonio curato ma si sentono sopraffatti.",
-    goals: "Hanno bisogno di una guida chiara e semplice. Desiderano uno strumento che li prenda per mano, che dica loro cosa fare e quando.",
-    frustrations: "Si sentono persi e non sanno da dove iniziare. La loro paura: l'ignoto e sentirsi costantemente in ritardo.",
+    icon: Clock,
+    name: "Avete poco tempo",
+    description:
+      "Lavorate entrambi e il tempo è la vostra risorsa più scarsa. Amate l'idea di un matrimonio curato ma vi sentite sopraffatti. Avete bisogno di una guida chiara che vi dica cosa fare, quando farlo, e che vi tolga il peso delle cose ripetitive.",
+    needs: [
+      "Checklist intelligente che vi guida passo passo",
+      "Promemoria automatici per non dimenticare nulla",
+      "Interfaccia semplice da usare anche di fretta",
+    ],
     gradient: "from-gold/20 to-accent/20",
   },
 ];
@@ -29,10 +35,11 @@ const TargetAudience = () => {
         {/* Section Header */}
         <div className="text-center mb-16 space-y-4">
           <h2 className="text-4xl md:text-5xl font-bold tracking-tight">
-            Per Chi Abbiamo Creato Questa Soluzione
+            Pensato per Voi
           </h2>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Due personas primarie che guidano lo sviluppo e il design del prodotto
+            Che organizziate tutto da soli o abbiate poco tempo, 
+            siamo qui per rendere tutto più semplice
           </p>
         </div>
 
@@ -41,7 +48,7 @@ const TargetAudience = () => {
           {personas.map((persona, index) => {
             const Icon = persona.icon;
             return (
-              <Card 
+              <Card
                 key={index}
                 className={`p-8 bg-gradient-to-br ${persona.gradient} border-2 hover:border-accent/50 transition-all hover:shadow-elegant`}
               >
@@ -52,27 +59,31 @@ const TargetAudience = () => {
                       <Icon className="w-7 h-7 text-accent" />
                     </div>
                     <div>
-                      <h3 className="text-2xl font-bold mb-1">{persona.name}</h3>
-                      <p className="text-sm font-medium text-muted-foreground">{persona.profiles}</p>
+                      <h3 className="text-2xl font-bold">{persona.name}</h3>
                     </div>
                   </div>
 
-                  {/* Details */}
-                  <div className="space-y-4">
-                    <div>
-                      <h4 className="text-sm font-semibold text-foreground/70 mb-2">Chi sono</h4>
-                      <p className="text-foreground/90 leading-relaxed">{persona.who}</p>
-                    </div>
+                  {/* Description */}
+                  <p className="text-foreground/80 leading-relaxed">
+                    {persona.description}
+                  </p>
 
-                    <div>
-                      <h4 className="text-sm font-semibold text-foreground/70 mb-2">Obiettivi</h4>
-                      <p className="text-foreground/90 leading-relaxed">{persona.goals}</p>
-                    </div>
-
-                    <div>
-                      <h4 className="text-sm font-semibold text-foreground/70 mb-2">Frustrazioni</h4>
-                      <p className="text-foreground/90 leading-relaxed">{persona.frustrations}</p>
-                    </div>
+                  {/* Needs */}
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-semibold text-foreground/70">
+                      Cosa vi serve
+                    </h4>
+                    <ul className="space-y-2">
+                      {persona.needs.map((need, i) => (
+                        <li
+                          key={i}
+                          className="flex items-start gap-2 text-sm text-foreground/90"
+                        >
+                          <span className="text-accent mt-0.5">✓</span>
+                          <span>{need}</span>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 </div>
               </Card>
@@ -83,8 +94,9 @@ const TargetAudience = () => {
         {/* Bottom Message */}
         <div className="text-center mt-16">
           <p className="text-lg text-muted-foreground">
-            Indipendentemente dal tuo profilo, <strong className="text-foreground">Nozze Senza Stress</strong> si 
-            adatta alle tue esigenze, offrendoti il giusto livello di guida e controllo.
+            Indipendentemente dalla vostra situazione,{" "}
+            <strong className="text-foreground">Nozze Senza Stress</strong> si
+            adatta alle vostre esigenze.
           </p>
         </div>
       </div>
