@@ -38,6 +38,7 @@ const CampaignConfigDialog = ({
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [generatingFaqs, setGeneratingFaqs] = useState(false);
+  const [polishingIndex, setPolishingIndex] = useState<number | null>(null);
   
   // Form state
   const [heroImageUrl, setHeroImageUrl] = useState<string | null>(null);
@@ -186,6 +187,31 @@ const CampaignConfigDialog = ({
 
   const handleRemoveFaq = (index: number) => {
     setFaqs(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handlePolishFaq = async (index: number) => {
+    const faq = faqs[index];
+    if (!faq.question.trim() && !faq.answer.trim()) return;
+    setPolishingIndex(index);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-rsvp-faqs", {
+        body: { weddingId, mode: "polish", draft_question: faq.question, draft_answer: faq.answer },
+      });
+      if (error) throw error;
+      if (data?.error) {
+        toast({ title: "Errore AI", description: data.error, variant: "destructive" });
+        return;
+      }
+      if (data?.question || data?.answer) {
+        setFaqs(prev => prev.map((f, i) => i === index ? { question: data.question || f.question, answer: data.answer || f.answer } : f));
+        toast({ title: "FAQ migliorata!", description: "Il testo è stato riscritto in modo professionale" });
+      }
+    } catch (error: any) {
+      console.error("FAQ polish error:", error);
+      toast({ title: "Errore", description: "Impossibile migliorare la FAQ", variant: "destructive" });
+    } finally {
+      setPolishingIndex(null);
+    }
   };
 
   const handleGenerateFaqs = async () => {
@@ -578,23 +604,35 @@ const CampaignConfigDialog = ({
                   <div className="space-y-3">
                     {faqs.map((faq, index) => (
                       <div key={index} className="border rounded-lg p-3 space-y-2">
-                        <div className="flex items-start gap-2">
-                          <div className="flex-1 space-y-2">
-                            <Input
-                              value={faq.question}
-                              onChange={(e) => handleUpdateFaq(index, "question", e.target.value)}
-                              placeholder="Domanda..."
-                              maxLength={300}
-                              className="font-medium"
-                            />
-                            <Textarea
-                              value={faq.answer}
-                              onChange={(e) => handleUpdateFaq(index, "answer", e.target.value)}
-                              placeholder="Risposta..."
-                              rows={2}
-                              maxLength={1000}
-                            />
-                          </div>
+                        <Input
+                          value={faq.question}
+                          onChange={(e) => handleUpdateFaq(index, "question", e.target.value)}
+                          placeholder="Domanda..."
+                          maxLength={300}
+                          className="font-medium"
+                        />
+                        <Textarea
+                          value={faq.answer}
+                          onChange={(e) => handleUpdateFaq(index, "answer", e.target.value)}
+                          placeholder="Risposta..."
+                          rows={2}
+                          maxLength={1000}
+                        />
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handlePolishFaq(index)}
+                            disabled={polishingIndex !== null || (!faq.question.trim() && !faq.answer.trim())}
+                            className="shrink-0 text-muted-foreground hover:text-primary"
+                            title="Migliora con AI"
+                          >
+                            {polishingIndex === index ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Sparkles className="w-4 h-4" />
+                            )}
+                          </Button>
                           <Button
                             variant="ghost"
                             size="icon"
