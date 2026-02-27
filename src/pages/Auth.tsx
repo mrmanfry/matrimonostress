@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Heart, Loader2, Eye, EyeOff } from "lucide-react";
 import { z } from "zod";
 import { sessionGuard } from "@/utils/sessionGuard";
-import heroImage from "@/assets/hero-wedding.jpg";
+import { Sparkles } from "lucide-react";
 
 const emailSchema = z.string().trim().email("Email non valida");
 const passwordSchema = z
@@ -348,21 +348,76 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen flex">
-      {/* Left: Emotional image (desktop only) */}
-      <div className="hidden lg:flex lg:w-1/2 relative">
-        <img
-          src={heroImage}
-          alt="Matrimonio"
-          className="absolute inset-0 w-full h-full object-cover"
+      {/* Left: Elegant branded panel (desktop only) */}
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-gradient-to-br from-accent via-accent/80 to-primary/60">
+        {/* Decorative circles */}
+        <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-white/5" />
+        <div className="absolute top-1/3 -right-20 w-72 h-72 rounded-full bg-white/5" />
+        <div className="absolute -bottom-16 left-1/4 w-64 h-64 rounded-full bg-white/8" />
+        <div className="absolute top-1/4 left-1/3 w-40 h-40 rounded-full border border-white/10" />
+        
+        {/* Subtle dot pattern */}
+        <div 
+          className="absolute inset-0 opacity-[0.03]"
+          style={{
+            backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)',
+            backgroundSize: '24px 24px',
+          }}
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/40 to-black/10" />
-        <div className="relative z-10 flex flex-col justify-end p-12 text-white">
-          <h2 className="text-4xl font-serif font-bold mb-3">
-            Inizia a organizzare il tuo<br />Matrimonio Senza Stress
-          </h2>
-          <p className="text-lg text-white/80 max-w-md">
-            Budget, invitati, fornitori e checklist in un unico posto. Tutto sotto controllo.
-          </p>
+
+        <div className="relative z-10 flex flex-col justify-between p-12 w-full">
+          {/* Top: Logo area */}
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-white/15 backdrop-blur-sm">
+              <Heart className="w-6 h-6 text-white fill-white/80" />
+            </div>
+            <span className="text-white/90 font-serif text-lg font-semibold tracking-wide">Nozze Senza Stress</span>
+          </div>
+
+          {/* Center: Main message */}
+          <div className="space-y-6">
+            <h2 className="text-5xl font-serif font-bold text-white leading-tight">
+              Il tuo matrimonio,<br />
+              <span className="text-white/80">sotto controllo.</span>
+            </h2>
+            <p className="text-lg text-white/70 max-w-sm leading-relaxed">
+              Budget, invitati, fornitori e checklist in un unico posto. 
+              Niente più fogli Excel e chat infinite.
+            </p>
+            
+            {/* Feature pills */}
+            <div className="flex flex-wrap gap-2 pt-2">
+              {["Tesoreria smart", "Lista invitati", "Gestione fornitori", "Checklist"].map((feature) => (
+                <span
+                  key={feature}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-sm text-sm text-white/90 border border-white/10"
+                >
+                  <Sparkles className="w-3 h-3" />
+                  {feature}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Bottom: Social proof */}
+          <div className="space-y-3">
+            <div className="flex -space-x-2">
+              {[...Array(4)].map((_, i) => (
+                <div
+                  key={i}
+                  className="w-9 h-9 rounded-full border-2 border-accent bg-white/20 backdrop-blur-sm flex items-center justify-center text-white text-xs font-semibold"
+                >
+                  {["L", "F", "G", "S"][i]}
+                </div>
+              ))}
+              <div className="w-9 h-9 rounded-full border-2 border-accent bg-white/10 backdrop-blur-sm flex items-center justify-center text-white/70 text-xs">
+                +
+              </div>
+            </div>
+            <p className="text-sm text-white/60">
+              Coppie che hanno già scelto di organizzare senza stress
+            </p>
+          </div>
         </div>
       </div>
 
