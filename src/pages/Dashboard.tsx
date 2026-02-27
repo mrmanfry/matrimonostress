@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +13,7 @@ import { toast } from "@/hooks/use-toast";
 import { useGuestMetrics } from "@/hooks/useGuestMetrics";
 import { GuestSummaryWidget } from "@/components/dashboard/GuestSummaryWidget";
 import { LockedCard } from "@/components/ui/locked-card";
+import { JoinWeddingDialog } from "@/components/workspace/JoinWeddingDialog";
 import { calculateExpenseAmount, resolveGuestCounts, inferExpenseType, formatCurrency } from "@/lib/expenseCalculations";
 import type { ExpenseItem, ExpenseLineItem, GuestCounts } from "@/lib/expenseCalculations";
 import { calculateExpectedCounts, calculateTotalVendorStaff } from "@/lib/expectedCalculator";
@@ -54,11 +55,26 @@ const Dashboard = () => {
   const [joiningWedding, setJoiningWedding] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { authState, refreshAuth, isPlanner } = useAuth();
+  const [joinDialogOpen, setJoinDialogOpen] = useState(false);
+  const [joinInitialCode, setJoinInitialCode] = useState("");
 
   useEffect(() => {
     loadDashboardData();
   }, []);
+
+  // Handle ?join=CODE from invitation email link
+  useEffect(() => {
+    const joinCode = searchParams.get("join");
+    if (joinCode && authState.status === "authenticated") {
+      setJoinInitialCode(joinCode.toUpperCase());
+      setJoinDialogOpen(true);
+      // Clear the param from URL
+      searchParams.delete("join");
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, authState.status]);
 
   const loadDashboardData = async () => {
     try {
@@ -288,25 +304,45 @@ const Dashboard = () => {
         throw new Error("Sei già un collaboratore di questo matrimonio");
       }
 
+      // Look up invitation to get proper role
+      let assignedRole: string = "manager";
+      const userEmail = user.email;
+      
+      if (userEmail) {
+        const { data: invitation } = await supabase
+          .from('wedding_invitations')
+          .select('id, role, status')
+          .eq('wedding_id', weddingData.id)
+          .eq('email', userEmail)
+          .eq('status', 'pending')
+          .maybeSingle();
+
+        if (invitation) {
+          assignedRole = invitation.role;
+          await supabase
+            .from('wedding_invitations')
+            .update({ status: 'accepted' })
+            .eq('id', invitation.id);
+        }
+      }
+
       // Create the role
       const { error: roleError } = await supabase
         .from('user_roles')
         .insert({
           user_id: user.id,
           wedding_id: weddingData.id,
-          role: 'manager'
+          role: assignedRole as any,
         });
 
       if (roleError) throw roleError;
 
       // Reload auth context
       await refreshAuth();
-
-      // Wait for auth state to update before reloading data
       await new Promise(resolve => setTimeout(resolve, 200));
 
       toast({
-        title: "Accesso effettuato!",
+        title: "Accesso effettuato! 🎉",
         description: "Ora puoi collaborare a questo matrimonio",
       });
 
@@ -679,6 +715,12 @@ const Dashboard = () => {
         </Card>
 
       </div>
+
+      <JoinWeddingDialog
+        open={joinDialogOpen}
+        onOpenChange={setJoinDialogOpen}
+        initialCode={joinInitialCode}
+      />
     </div>
   );
 };

@@ -28,7 +28,6 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    // Extract JWT token from Authorization header
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(
@@ -40,7 +39,6 @@ const handler = async (req: Request): Promise<Response> => {
     const token = authHeader.replace("Bearer ", "");
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Verify the user's JWT and get user info
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
       console.error("Auth error:", authError);
@@ -58,7 +56,7 @@ const handler = async (req: Request): Promise<Response> => {
       .select("role")
       .eq("user_id", user.id)
       .eq("wedding_id", weddingId)
-      .eq("role", "co_planner")
+      .in("role", ["co_planner", "planner"])
       .maybeSingle();
 
     if (roleError || !roleData) {
@@ -71,71 +69,131 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Sending wedding invitation to:", email, "by user:", user.id);
     
-    const roleLabel = role === 'co_planner' ? 'Co-Planner' : role === 'manager' ? 'Manager' : 'Guest';
+    const roleLabel = role === 'co_planner' ? 'Co-Planner' : role === 'planner' ? 'Planner Professionista' : role === 'manager' ? 'Manager' : 'Collaboratore';
+
+    const appUrl = "https://matrimonostress.lovable.app";
+    const joinLink = `${appUrl}/app/dashboard?join=${encodeURIComponent(accessCode)}`;
+    const formattedDate = new Date(weddingDate).toLocaleDateString('it-IT', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
     const emailResponse = await resend.emails.send({
-      from: "Matrimonio Senza Stress <info@stenders.cloud>",
+      from: "WedsApp <info@stenders.cloud>",
       to: [email],
-      subject: `${inviterName} ti ha invitato a collaborare al matrimonio!`,
+      subject: `${inviterName} ti ha invitato a collaborare su WedsApp`,
       html: `
         <!DOCTYPE html>
         <html>
           <head>
             <meta charset="utf-8">
-            <style>
-              body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
-              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-              .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px 20px; text-align: center; border-radius: 10px 10px 0 0; }
-              .content { background: #f9fafb; padding: 30px 20px; }
-              .button { display: inline-block; background: #667eea; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; margin: 20px 0; font-weight: 600; }
-              .info-box { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #667eea; }
-              .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 14px; }
-            </style>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
           </head>
-          <body>
-            <div class="container">
-              <div class="header">
-                <h1 style="margin: 0;">💍 Invito a Collaborare</h1>
-              </div>
-              <div class="content">
-                <p style="font-size: 18px;"><strong>${inviterName}</strong> ti ha invitato a collaborare come <strong>${roleLabel}</strong> per il matrimonio di:</p>
-                
-                <div class="info-box">
-                  <h2 style="margin-top: 0; color: #667eea;">👰🤵 ${weddingNames}</h2>
-                  <p style="margin: 0;"><strong>📅 Data:</strong> ${new Date(weddingDate).toLocaleDateString('it-IT', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                </div>
+          <body style="margin: 0; padding: 0; background-color: #f4f4f7; font-family: 'Lato', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #333;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f7;">
+              <tr>
+                <td align="center" style="padding: 40px 20px;">
+                  <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width: 600px; width: 100%;">
 
-                <p><strong>Il tuo ruolo:</strong> Come ${roleLabel}, avrai accesso a tutte le funzionalità dell'app per aiutare a pianificare questo evento speciale!</p>
+                    <!-- Logo -->
+                    <tr>
+                      <td align="center" style="padding-bottom: 24px;">
+                        <span style="font-family: 'Playfair Display', Georgia, serif; font-size: 28px; font-weight: 700; color: hsl(243, 75%, 58%); letter-spacing: 2px;">💍 WedsApp</span>
+                      </td>
+                    </tr>
 
-                <div class="info-box" style="background: #f0f9ff; border-color: #3b82f6;">
-                  <h2 style="margin-top: 0; color: #667eea;">🔐 Codice di Accesso</h2>
-                  <p style="font-size: 28px; font-weight: bold; text-align: center; color: #667eea; letter-spacing: 3px; font-family: 'Courier New', monospace; margin: 20px 0;">
-                    ${accessCode}
-                  </p>
-                </div>
+                    <!-- Main Card -->
+                    <tr>
+                      <td style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08);">
+                        
+                        <!-- Header -->
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                          <tr>
+                            <td style="background: linear-gradient(135deg, hsl(243, 75%, 58%) 0%, hsl(250, 60%, 45%) 100%); padding: 32px 32px 28px; text-align: center;">
+                              <h1 style="margin: 0; font-family: 'Playfair Display', Georgia, serif; font-size: 24px; color: #ffffff; font-weight: 700;">
+                                Invito a Collaborare
+                              </h1>
+                              <p style="margin: 8px 0 0; font-size: 15px; color: rgba(255,255,255,0.85);">
+                                al matrimonio di <strong>${weddingNames}</strong>
+                              </p>
+                            </td>
+                          </tr>
+                        </table>
 
-                <div style="background: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                  <p style="margin: 0 0 10px 0;"><strong>Come accedere:</strong></p>
-                  <ol style="margin: 0; padding-left: 20px;">
-                    <li>Vai su <a href="https://stenders.cloud" style="color: #667eea;">stenders.cloud</a></li>
-                    <li>Fai login o registrati</li>
-                    <li>Inserisci il codice quando richiesto</li>
-                  </ol>
-                </div>
+                        <!-- Body -->
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                          <tr>
+                            <td style="padding: 32px;">
+                              <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.6;">
+                                Ciao! <strong>${inviterName}</strong> ti ha invitato come <strong>${roleLabel}</strong> per collaborare all'organizzazione del matrimonio.
+                              </p>
 
-                <p style="font-size: 14px; color: #6b7280; margin-top: 30px;">
-                  💡 <strong>Suggerimento:</strong> Salva questo codice! Potrai usarlo in qualsiasi momento per accedere.<br>
-                  Il codice non scade mai e può essere condiviso con altri collaboratori.
-                </p>
+                              <!-- Wedding Info Box -->
+                              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin: 0 0 24px;">
+                                <tr>
+                                  <td style="background: #f8f7ff; border-left: 4px solid hsl(243, 75%, 58%); border-radius: 0 12px 12px 0; padding: 20px 24px;">
+                                    <p style="margin: 0 0 4px; font-family: 'Playfair Display', Georgia, serif; font-size: 20px; color: hsl(243, 75%, 58%); font-weight: 700;">
+                                      👰🤵 ${weddingNames}
+                                    </p>
+                                    <p style="margin: 0; font-size: 14px; color: #555;">
+                                      📅 ${formattedDate}
+                                    </p>
+                                  </td>
+                                </tr>
+                              </table>
 
-                <p style="font-size: 14px; color: #6b7280;">
-                  Se non hai richiesto questo invito, puoi ignorare questa email.
-                </p>
-              </div>
-              <div class="footer">
-                Wedding Planner App - Organizza il tuo matrimonio perfetto
-              </div>
-            </div>
+                              <p style="margin: 0 0 24px; font-size: 15px; line-height: 1.6; color: #555;">
+                                Come <strong>${roleLabel}</strong>, potrai accedere all'app e aiutare a pianificare ogni dettaglio di questo evento speciale.
+                              </p>
+
+                              <!-- CTA Button -->
+                              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                                <tr>
+                                  <td align="center" style="padding: 8px 0 28px;">
+                                    <a href="${joinLink}" style="display: inline-block; background: hsl(243, 75%, 58%); color: #ffffff; padding: 14px 36px; text-decoration: none; border-radius: 10px; font-size: 16px; font-weight: 700; letter-spacing: 0.5px;">
+                                      Accedi al Matrimonio →
+                                    </a>
+                                  </td>
+                                </tr>
+                              </table>
+
+                              <!-- Manual Code -->
+                              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin: 0 0 20px;">
+                                <tr>
+                                  <td style="background: #f0f4ff; border-radius: 12px; padding: 20px; text-align: center;">
+                                    <p style="margin: 0 0 8px; font-size: 13px; color: #666; text-transform: uppercase; letter-spacing: 1px; font-weight: 700;">
+                                      Codice di accesso manuale
+                                    </p>
+                                    <p style="margin: 0; font-size: 28px; font-weight: 700; color: hsl(243, 75%, 58%); letter-spacing: 4px; font-family: 'Courier New', monospace;">
+                                      ${accessCode}
+                                    </p>
+                                    <p style="margin: 8px 0 0; font-size: 12px; color: #888;">
+                                      Puoi anche inserirlo manualmente dall'app
+                                    </p>
+                                  </td>
+                                </tr>
+                              </table>
+
+                              <p style="margin: 0; font-size: 13px; color: #999; line-height: 1.5;">
+                                Se non hai richiesto questo invito, puoi semplicemente ignorare questa email.
+                              </p>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                      <td align="center" style="padding: 24px 0 0;">
+                        <p style="margin: 0; font-size: 12px; color: #999;">
+                          WedsApp — Il tuo Wedding Planner digitale
+                        </p>
+                      </td>
+                    </tr>
+
+                  </table>
+                </td>
+              </tr>
+            </table>
           </body>
         </html>
       `,
