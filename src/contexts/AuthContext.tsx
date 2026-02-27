@@ -3,19 +3,26 @@ import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { weddingStorage } from "@/utils/weddingStorage";
 
-/**
- * Stati dell'autenticazione con distinzione esplicita:
- * - loading: inizializzazione in corso
- * - unauthenticated: utente non loggato
- * - authenticated: loggato CON matrimonio (weddingId garantito)
- * - no_wedding: loggato MA senza matrimonio (nuovo utente -> onboarding)
- * - authenticated_wedding_error: loggato ma errore nel recupero wedding (mostra retry)
- * - error: errore critico di autenticazione
- */
+// --- Types ---
+
+export interface PermissionsConfig {
+  budget_visible?: boolean;
+  vendor_costs_visible?: boolean;
+}
+
+export interface WeddingContext {
+  weddingId: string;
+  role: string;
+  permissionsConfig: PermissionsConfig | null;
+  partner1Name: string;
+  partner2Name: string;
+  weddingDate: string;
+}
+
 type AuthState = 
   | { status: "loading" }
   | { status: "unauthenticated" }
-  | { status: "authenticated"; user: User; session: Session; weddingId: string; role: string | null }
+  | { status: "authenticated"; user: User; session: Session; weddings: WeddingContext[]; activeWeddingId: string; activeRole: string; activePermissions: PermissionsConfig | null }
   | { status: "no_wedding"; user: User; session: Session }
   | { status: "authenticated_wedding_error"; user: User; session: Session; error: Error }
   | { status: "error"; error: Error };
@@ -24,65 +31,54 @@ interface AuthContextType {
   authState: AuthState;
   signOut: () => Promise<void>;
   refreshAuth: () => Promise<void>;
+  switchWedding: (weddingId: string) => void;
+  /** Convenience: currently active weddingId (or empty string) */
+  weddingId: string;
+  /** Convenience: true if active role is 'planner' */
+  isPlanner: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// --- Helpers ---
+
+function parseWeddingsFromRpc(data: any): WeddingContext[] {
+  if (!data || !data.weddings || !Array.isArray(data.weddings)) return [];
+  return data.weddings.map((w: any) => ({
+    weddingId: w.wedding_id,
+    role: w.role || 'owner',
+    permissionsConfig: w.permissions_config || null,
+    partner1Name: w.partner1_name || '',
+    partner2Name: w.partner2_name || '',
+    weddingDate: w.wedding_date || '',
+  }));
+}
+
+function resolveActiveWedding(weddings: WeddingContext[], cachedId: string | null): WeddingContext | null {
+  if (weddings.length === 0) return null;
+  if (cachedId) {
+    const found = weddings.find(w => w.weddingId === cachedId);
+    if (found) return found;
+  }
+  return weddings[0];
+}
+
+// --- Provider ---
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [authState, setAuthState] = useState<AuthState>({ status: "loading" });
-  
-  // Ref per prevenire chiamate parallele a handleAuthSession (race condition fix)
   const isLoadingContext = useRef(false);
-  // Ref per tracciare l'ultimo user.id processato
   const lastProcessedUserId = useRef<string | null>(null);
 
-  /**
-   * Verifica in background che il cached ID sia ancora valido (Fire & Forget)
-   */
-  const verifyCacheInBackground = useCallback(async (idToVerify: string) => {
-    try {
-      const { data } = await supabase
-        .from('weddings')
-        .select('id')
-        .eq('id', idToVerify)
-        .maybeSingle();
-
-      if (!data) {
-        console.warn('[AuthContext] ⚠️ Background check: cached ID is invalid/deleted.');
-        weddingStorage.clear();
-      } else {
-        console.log('[AuthContext] ✅ Background check passed.');
-      }
-    } catch (e) {
-      console.warn('[AuthContext] Background check network error (ignored):', e);
-    }
-  }, []);
-
-  /**
-   * Carica il contesto utente usando la RPC ottimizzata (singola chiamata)
-   * Ritorna { weddingId, role } oppure lancia errore
-   */
-  const loadUserContext = useCallback(async (): Promise<{ weddingId: string | null; role: string | null }> => {
-    // 1. Cache Check: Se abbiamo già l'ID in localStorage, usiamolo per istantaneità
-    const cached = weddingStorage.get();
-    if (cached) {
-      console.log('[AuthContext] ⚡ Cache hit! Using:', cached);
-      // Verifica in background senza bloccare
-      verifyCacheInBackground(cached);
-      return { weddingId: cached, role: null };
-    }
-
-    // 2. RPC Call: Singola chiamata al database CON TIMEOUT di sicurezza
+  const loadUserContext = useCallback(async (): Promise<WeddingContext[]> => {
     console.log('[AuthContext] ⚡ Fetching user context via RPC...');
     
-    const timeoutMs = 10000; // 10 secondi
+    const timeoutMs = 10000;
     const timeoutPromise = new Promise<never>((_, reject) => 
       setTimeout(() => reject(new Error('RPC timeout: get_user_context non ha risposto in 10s')), timeoutMs)
     );
     
     const rpcPromise = supabase.rpc('get_user_context');
-    
-    // Race: chi finisce prima vince
     const { data, error } = await Promise.race([rpcPromise, timeoutPromise]);
     
     if (error) {
@@ -90,36 +86,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw error;
     }
 
-    // Parse JSON response from RPC
-    const contextData = data as { wedding_id: string | null; role: string | null } | null;
-    const serverWeddingId = contextData?.wedding_id || null;
-    const serverRole = contextData?.role || null;
+    const weddings = parseWeddingsFromRpc(data);
+    console.log('[AuthContext] ✅ Weddings resolved:', weddings.length);
+    return weddings;
+  }, []);
 
-    if (serverWeddingId) {
-      console.log('[AuthContext] ✅ Context resolved:', serverWeddingId, 'role:', serverRole);
-      weddingStorage.set(serverWeddingId);
-    } else {
-      console.log('[AuthContext] 🤷 No wedding context found (new user)');
-    }
-
-    return { weddingId: serverWeddingId, role: serverRole };
-  }, [verifyCacheInBackground]);
-
-  /**
-   * Gestore centrale della sessione - chiamato per ogni evento auth
-   */
-  /**
-   * Gestore centrale della sessione - chiamato per ogni evento auth
-   * INCLUDE LOCK per evitare race condition tra initSession e onAuthStateChange
-   */
   const handleAuthSession = useCallback(async (session: Session) => {
-    // Lock per evitare chiamate parallele (race condition fix)
     if (isLoadingContext.current) {
       console.log('[AuthContext] handleAuthSession already running, skipping');
       return;
     }
     
-    // Skip se stesso utente già processato E siamo già authenticated
     if (lastProcessedUserId.current === session.user.id) {
       console.log('[AuthContext] Same user already processed, skipping');
       return;
@@ -128,19 +105,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isLoadingContext.current = true;
     
     try {
-      const { weddingId, role } = await loadUserContext();
+      const weddings = await loadUserContext();
       
-      if (weddingId) {
-        // Caso A: Utente ha un matrimonio -> Authenticated
-        setAuthState({
-          status: "authenticated",
-          user: session.user,
-          session,
-          weddingId,
-          role
-        });
+      if (weddings.length > 0) {
+        const cached = weddingStorage.get();
+        const active = resolveActiveWedding(weddings, cached);
+        
+        if (active) {
+          weddingStorage.set(active.weddingId);
+          setAuthState({
+            status: "authenticated",
+            user: session.user,
+            session,
+            weddings,
+            activeWeddingId: active.weddingId,
+            activeRole: active.role,
+            activePermissions: active.permissionsConfig,
+          });
+        }
       } else {
-        // Caso B: Utente loggato ma SENZA matrimonio -> No Wedding (onboarding)
         console.log('[AuthContext] User logged in but needs onboarding');
         setAuthState({
           status: "no_wedding",
@@ -166,13 +149,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    // Check iniziale della sessione
     const initSession = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
-        
         if (error) throw error;
-        
         if (session && mounted) {
           await handleAuthSession(session);
         } else if (!session && mounted) {
@@ -191,30 +171,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     initSession();
 
-    // Listener eventi auth (Event-Driven)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return;
         console.log(`[AuthContext] Auth event: ${event}`);
 
-        // Logout o sessione invalida
         if (event === 'SIGNED_OUT' || !session) {
           weddingStorage.clear();
           setAuthState({ status: "unauthenticated" });
           return;
         }
 
-        // Token refresh: preserva lo stato esistente, aggiorna solo la sessione
         if (event === 'TOKEN_REFRESHED') {
           setAuthState(prev => {
             if (prev.status === 'authenticated') {
-              console.log('[AuthContext] Token refreshed, keeping weddingId:', prev.weddingId);
               return { ...prev, session };
             }
-            if (prev.status === 'authenticated_wedding_error') {
-              return { ...prev, session };
-            }
-            if (prev.status === 'no_wedding') {
+            if (prev.status === 'authenticated_wedding_error' || prev.status === 'no_wedding') {
               return { ...prev, session };
             }
             return prev;
@@ -222,8 +195,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        // SIGNED_IN, INITIAL_SESSION e altri eventi: gestione unificata
-        // Il lock è ora DENTRO handleAuthSession, quindi basta chiamarlo
         if (['SIGNED_IN', 'INITIAL_SESSION'].includes(event)) {
           await handleAuthSession(session);
         }
@@ -236,13 +207,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [handleAuthSession]);
 
+  const switchWedding = useCallback((weddingId: string) => {
+    setAuthState(prev => {
+      if (prev.status !== 'authenticated') return prev;
+      const target = prev.weddings.find(w => w.weddingId === weddingId);
+      if (!target) return prev;
+      weddingStorage.set(weddingId);
+      return {
+        ...prev,
+        activeWeddingId: target.weddingId,
+        activeRole: target.role,
+        activePermissions: target.permissionsConfig,
+      };
+    });
+  }, []);
+
   const signOut = async () => {
     await supabase.auth.signOut();
     weddingStorage.clear();
+    lastProcessedUserId.current = null;
     setAuthState({ status: "unauthenticated" });
   };
 
   const refreshAuth = async () => {
+    lastProcessedUserId.current = null;
     setAuthState({ status: "loading" });
     const { data: { session } } = await supabase.auth.getSession();
     if (session) {
@@ -252,8 +240,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Convenience derived values
+  const weddingId = authState.status === 'authenticated' ? authState.activeWeddingId : '';
+  const isPlanner = authState.status === 'authenticated' && authState.activeRole === 'planner';
+
   return (
-    <AuthContext.Provider value={{ authState, signOut, refreshAuth }}>
+    <AuthContext.Provider value={{ authState, signOut, refreshAuth, switchWedding, weddingId, isPlanner }}>
       {children}
     </AuthContext.Provider>
   );

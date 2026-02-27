@@ -90,7 +90,7 @@ export default function BudgetLegacy() {
   }, [authState]);
 
   const loadData = async () => {
-    if (authState.status !== "authenticated" || !authState.weddingId) return;
+    if (authState.status !== "authenticated" || !authState.activeWeddingId) return;
 
     setLoading(true);
     try {
@@ -98,7 +98,7 @@ export default function BudgetLegacy() {
       const { data: wedding } = await supabase
         .from("weddings")
         .select("total_budget, calculation_mode, target_adults, target_children, target_staff")
-        .eq("id", authState.weddingId)
+        .eq("id", authState.activeWeddingId)
         .single();
 
       setTotalBudget(wedding?.total_budget || 0);
@@ -108,7 +108,7 @@ export default function BudgetLegacy() {
       const { data: items } = await supabase
         .from("expense_items")
         .select("*, vendors(name, expense_categories(name)), expense_categories(name)")
-        .eq("wedding_id", authState.weddingId);
+        .eq("wedding_id", authState.activeWeddingId);
 
       setExpenseItems(items || []);
 
@@ -145,13 +145,13 @@ export default function BudgetLegacy() {
       const { data: guests } = await supabase
         .from("guests")
         .select("id, rsvp_status, is_child, is_staff, is_couple_member, save_the_date_sent_at, std_response, party_id, phone, allow_plus_one, plus_one_name")
-        .eq("wedding_id", authState.weddingId);
+        .eq("wedding_id", authState.activeWeddingId);
 
       // Load vendor staff totals
       const { data: vendors } = await supabase
         .from("vendors")
         .select("staff_meals_count")
-        .eq("wedding_id", authState.weddingId);
+        .eq("wedding_id", authState.activeWeddingId);
 
       const vendorStaffTotal = calculateTotalVendorStaff(vendors || []);
 
@@ -319,13 +319,13 @@ export default function BudgetLegacy() {
   const handleModeChange = async (newMode: 'planned' | 'expected' | 'confirmed') => {
     setGlobalMode(newMode);
     
-    if (authState.status !== "authenticated" || !authState.weddingId) return;
+    if (authState.status !== "authenticated" || !authState.activeWeddingId) return;
     
     // Save to DB for synchronization with other pages
     await supabase
       .from("weddings")
       .update({ calculation_mode: newMode })
-      .eq("id", authState.weddingId);
+      .eq("id", authState.activeWeddingId);
     
     // Regenerate category data with new mode
     if (guestCounts) {

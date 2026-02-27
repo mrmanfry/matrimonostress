@@ -24,7 +24,7 @@ export function AssignVendorDialog({ itemId, itemDescription, isOpen, onClose }:
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { authState } = useAuth();
-  const weddingId = authState.status === "authenticated" ? authState.weddingId : null;
+  const weddingId = authState.status === "authenticated" ? authState.activeWeddingId : null;
   
   // Step management: 1 = vendor selection, 2 = contract confirmation
   const [step, setStep] = useState(1);

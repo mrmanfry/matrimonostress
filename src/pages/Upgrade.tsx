@@ -37,7 +37,7 @@ const Upgrade = () => {
       attempts++;
       try {
         await supabase.functions.invoke("check-subscription", {
-          body: { weddingId: authState.weddingId },
+          body: { weddingId: authState.activeWeddingId },
         });
         setJustActivated(true);
       } catch {
@@ -58,7 +58,7 @@ const Upgrade = () => {
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("create-checkout", {
-        body: { weddingId: authState.weddingId },
+        body: { weddingId: authState.activeWeddingId },
       });
       if (error) throw error;
       if (data?.url) {

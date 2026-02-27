@@ -157,8 +157,8 @@ export default function Treasury() {
   }, [loading, payments]);
 
   const loadData = async () => {
-    if (authState.status !== "authenticated" || !authState.weddingId) return;
-    const weddingId = authState.weddingId;
+    if (authState.status !== "authenticated" || !authState.activeWeddingId) return;
+    const weddingId = authState.activeWeddingId;
 
     setLoading(true);
     try {
@@ -653,13 +653,13 @@ export default function Treasury() {
   }
 
   const handleModeChange = async (newMode: 'planned' | 'expected' | 'confirmed') => {
-    if (authState.status !== 'authenticated' || !authState.weddingId) return;
+    if (authState.status !== 'authenticated' || !authState.activeWeddingId) return;
     
     try {
       const { error } = await supabase
         .from('weddings')
         .update({ calculation_mode: newMode })
-        .eq('id', authState.weddingId);
+        .eq('id', authState.activeWeddingId);
       
       if (error) throw error;
       
@@ -729,8 +729,8 @@ export default function Treasury() {
       </div>
 
       {/* Unallocated Expenses Widget */}
-      {authState.status === "authenticated" && authState.weddingId && (
-        <UnallocatedExpensesWidget weddingId={authState.weddingId} globalMode={globalMode} />
+      {authState.status === "authenticated" && authState.activeWeddingId && (
+        <UnallocatedExpensesWidget weddingId={authState.activeWeddingId} globalMode={globalMode} />
       )}
 
       {/* KPI Cards - INTERACTIVE */}

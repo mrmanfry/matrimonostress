@@ -122,7 +122,7 @@ export function ExpenseItemDialog({
   }, [expenseItem, open, reset]);
 
   const onSubmit = async (data: ExpenseItemFormData) => {
-    if (authState.status !== "authenticated" || !authState.weddingId) return;
+    if (authState.status !== "authenticated" || !authState.activeWeddingId) return;
 
     try {
       const expenseData = {
@@ -151,7 +151,7 @@ export function ExpenseItemDialog({
         const { data: newItem, error } = await supabase
           .from("expense_items")
           .insert({
-            wedding_id: authState.weddingId,
+            wedding_id: authState.activeWeddingId,
             vendor_id: vendorId,
             ...expenseData,
           })

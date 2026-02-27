@@ -376,7 +376,7 @@ export function VendorDialog({
   };
 
   const onSubmit = async (data: VendorFormData) => {
-    if (authState.status !== "authenticated" || !authState.weddingId) return;
+    if (authState.status !== "authenticated" || !authState.activeWeddingId) return;
 
     try {
       const vendorData = {

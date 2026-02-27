@@ -23,12 +23,12 @@ export function useSubscription(): SubscriptionState {
   const [state, setState] = useState<SubscriptionState>(defaultState);
 
   useEffect(() => {
-    if (authState.status !== "authenticated" || !authState.weddingId) {
+    if (authState.status !== "authenticated" || !authState.activeWeddingId) {
       setState({ ...defaultState, status: "loading" });
       return;
     }
 
-    const weddingId = authState.weddingId;
+    const weddingId = authState.activeWeddingId;
 
     const load = async () => {
       const { data } = await supabase
