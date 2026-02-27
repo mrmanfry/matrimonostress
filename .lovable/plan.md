@@ -1,79 +1,106 @@
 
 
-# Fix: Email Invito + Flusso Accesso Collaboratore Multi-Matrimonio
+# Fix: Auth bloccato su "Caricamento..." -- Race Condition + Timeout mancante
 
-## Problemi Identificati
+## Problema
 
-### 1. Branding email errato
-L'email viene inviata come **"Matrimonio Senza Stress &lt;info@stenders.cloud&gt;"** con stile generico (gradient viola, footer "Wedding Planner App"). Deve essere **"WedsApp &lt;info@stenders.cloud&gt;"** con i colori del brand (navy `hsl(243, 75%, 58%)`, font Lato), coerente con i template auth gia configurati per `notify.wedsapp.it`.
+Due bug si sommano causando il blocco infinito:
 
-### 2. Il codice di accesso funziona, ma solo per utenti NUOVI (senza matrimonio)
-Il form "Ho un Codice di Accesso" appare nella Dashboard **solo se l'utente non ha nessun matrimonio** (`!wedding`). Se il collaboratore invitato ha gia un suo matrimonio (come nel tuo caso), non vedra mai quel form -- la dashboard carica direttamente il suo matrimonio esistente.
+1. **Race condition**: React StrictMode monta il componente due volte. Entrambe le sottoscrizioni `onAuthStateChange` ricevono `SIGNED_IN` e entrambe avviano la chiamata RPC prima che il guard (`isLoadingContext.current`) venga attivato dal primo.
 
-**Manca un punto di ingresso per utenti che hanno gia un matrimonio.**
+2. **Nessun timeout**: Dopo la rimozione del timeout nel fix precedente, se PostgREST e in cold start, la chiamata RPC resta appesa per un tempo indefinito senza dare alcun feedback all'utente.
 
-### 3. Il ruolo assegnato e sempre "manager" indipendentemente dall'invito
-Quando un utente inserisce il codice, il `handleJoinWithCode` nella Dashboard assegna sempre il ruolo `manager` (riga 297), ignorando il ruolo specificato nell'invito originale (co_planner, planner, manager). Dovrebbe leggere il ruolo dall'invito salvato nella tabella `wedding_invitations`.
-
----
+```text
+Mount 1: SIGNED_IN -> check guard (false) -> handleAuthSession -> RPC...
+Mount 2: SIGNED_IN -> check guard (false) -> handleAuthSession -> RPC...
+                                                          (entrambi appesi)
+```
 
 ## Soluzione
 
-### A. Rebrand dell'email di invito
-**File: `supabase/functions/send-wedding-invitation/index.ts`**
+### File: `src/contexts/AuthContext.tsx`
 
-- Cambiare il mittente da `"Matrimonio Senza Stress <info@stenders.cloud>"` a `"WedsApp <noreply@wedsapp.it>"` (o il dominio configurato)
-- Riscrivere il template HTML con lo stile del brand: colore navy (`hsl(243, 75%, 58%)`), font Lato, border-radius arrotondati, tono coerente
-- Aggiornare il footer da "Wedding Planner App" a "WedsApp"
-- Aggiornare i link da `stenders.cloud` a `matrimonostress.lovable.app` (URL pubblicato attuale)
-- Rendere il CTA un link diretto: `https://matrimonostress.lovable.app/app/dashboard?join=WED-XXXX` per pre-compilare il codice
+#### 1. Rendere il guard sincrono e atomico
 
-### B. Aggiungere flusso "Unisciti a un matrimonio" per utenti esistenti
-**File: `src/components/workspace/WorkspaceSwitcher.tsx`**
-
-- Aggiungere nel dropdown del WorkspaceSwitcher un'opzione "Unisciti con codice" (icona +)
-- Cliccandola, si apre un dialog con input per il codice di accesso
-- La logica di join e la stessa del Dashboard, ma accessibile anche da utenti che hanno gia un matrimonio
-
-**File: `src/pages/Dashboard.tsx`**
-
-- Leggere il parametro URL `?join=WED-XXXX` al caricamento
-- Se presente e l'utente e autenticato, eseguire automaticamente il join (o mostrare conferma)
-
-### C. Assegnare il ruolo corretto dall'invito
-**File: `src/pages/Dashboard.tsx` (handleJoinWithCode) e nuovo dialog nel WorkspaceSwitcher**
-
-- Dopo aver trovato il matrimonio tramite access_code, cercare nella tabella `wedding_invitations` un invito corrispondente (email utente + wedding_id + status pending)
-- Se trovato, usare il ruolo dall'invito invece di hardcodare `manager`
-- Aggiornare lo status dell'invito a `accepted`
-- Se non trovato (join spontaneo), usare `manager` come fallback
-
----
-
-## Dettagli Tecnici
-
-### Flusso rivisto per il collaboratore invitato
+Spostare il settaggio di `isLoadingContext.current = true` PRIMA dell'await, e usare un pattern "lock" sincrono: chi arriva per primo lo imposta, chi arriva per secondo esce immediatamente.
 
 ```text
-1. Riceve email WedsApp con link diretto
-2. Clicca il link -> arriva su /app/dashboard?join=WED-D858
-3a. Se non ha account -> redirect a /auth, dopo login torna alla dashboard con ?join
-3b. Se ha gia un account con matrimonio -> il parametro ?join avvia il join automatico
-4. Il sistema cerca l'invito in wedding_invitations, assegna il ruolo corretto
-5. refreshAuth() aggiorna il contesto, il nuovo matrimonio appare nel WorkspaceSwitcher
+// Nel callback onAuthStateChange, PRIMA di chiamare handleAuthSession:
+if (isLoadingContext.current) return;  // lock sincrono
+isLoadingContext.current = true;
+try {
+  await handleAuthSession(session);
+} finally {
+  isLoadingContext.current = false;
+}
 ```
 
-### File modificati
+Questo sposta il lock FUORI da handleAuthSession e nel callback stesso, garantendo che solo un evento alla volta possa avviare il processo.
+
+#### 2. Ignorare SIGNED_IN durante il caricamento iniziale
+
+`SIGNED_IN` su page load e ridondante con `INITIAL_SESSION`. Lo gestiamo solo se l'utente ha appena fatto login nella stessa sessione (cioe lo stato corrente NON e "loading"):
+
+```text
+if (event === 'SIGNED_IN') {
+  // Solo se non siamo nel caricamento iniziale
+  if (authState corrente non e "loading") {
+    avvia handleAuthSession
+  }
+}
+if (event === 'INITIAL_SESSION') {
+  // Questo e il segnale definitivo per il primo caricamento
+  avvia handleAuthSession
+}
+```
+
+#### 3. Aggiungere timeout ragionevole (45s) con fallback alla UI di errore
+
+Un timeout di 45 secondi (sufficiente per il cold start piu lento) con fallback alla schermata "authenticated_wedding_error" che ha gia il pulsante "Riprova":
+
+```text
+const loadUserContext = async (): Promise<WeddingContext[]> => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 45000);
+  
+  try {
+    const { data, error } = await supabase.rpc('get_user_context', {}, {
+      signal: controller.signal
+    });
+    // ...
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+```
+
+Se `supabase.rpc` non supporta `signal`, usiamo un `Promise.race` con un reject dopo 45s.
+
+#### 4. Rimuovere il guard duplicato da handleAuthSession
+
+Dato che il lock e ora gestito dal callback, `handleAuthSession` non ha piu bisogno del check `isLoadingContext.current`. Resta solo il check `lastProcessedUserId` come ottimizzazione:
+
+```text
+const handleAuthSession = async (session: Session) => {
+  if (lastProcessedUserId.current === session.user.id) {
+    return; // gia processato
+  }
+  // ... resto della logica
+};
+```
+
+## Risultato atteso
+
+| Scenario | Prima | Dopo |
+|----------|-------|------|
+| Cold start | Appeso infinitamente | Max 45s loading, poi "Riprova" |
+| Warm start | Due RPC parallele, ~2s | Una sola RPC, ~1-2s |
+| StrictMode | Due chiamate concorrenti | Una sola chiamata (lock sincrono) |
+| Login nella sessione | Funziona | Funziona (SIGNED_IN gestito) |
+
+## File modificati
 
 | File | Modifica |
 |------|----------|
-| `supabase/functions/send-wedding-invitation/index.ts` | Rebrand completo: mittente, stile, link diretto con `?join=` |
-| `src/components/workspace/WorkspaceSwitcher.tsx` | Aggiungere opzione "Unisciti con codice" + dialog |
-| `src/pages/Dashboard.tsx` | Leggere `?join=` da URL, correggere ruolo da `wedding_invitations` |
-| Nuovo: `src/components/workspace/JoinWeddingDialog.tsx` | Dialog riutilizzabile per inserire codice accesso |
-
-### Note
-
-- Il dominio email attuale per le email transazionali usa Resend con `info@stenders.cloud`. Se preferisci usare `notify@wedsapp.it` (gia configurato per le auth email), dovra essere verificato anche per Resend. In alternativa si puo mantenere `stenders.cloud` ma cambiare il nome mittente a "WedsApp".
-- Il `WorkspaceSwitcher` e gia funzionante per utenti multi-matrimonio -- basta aggiungere il punto di ingresso "join".
+| `src/contexts/AuthContext.tsx` | Lock sincrono nel callback, timeout 45s, ignora SIGNED_IN durante loading iniziale |
 
