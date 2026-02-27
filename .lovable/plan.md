@@ -1,50 +1,82 @@
 
 
-## Fix: Testo bianco non visibile sul sito pubblicato
+## Redesign Landing Page "/" in stile Auth
 
-### Causa del problema
-Nel file `tailwind.config.ts`, i colori personalizzati sono definiti in `theme.colors` invece che in `theme.extend.colors`. Questo **sovrascrive completamente** la palette di default di Tailwind, eliminando colori fondamentali come `white`, `black`, `transparent`, `inherit`, `current`.
+### Problema attuale
+La landing page usa un'immagine AI (`hero-wedding.jpg`) di bassa qualita e uno stile visivo incoerente con la pagina `/auth`, che invece ha un design elegante con gradiente viola scuro, pattern astratti e tipografia pulita.
 
-In development (preview) funziona grazie al JIT compiler che ha ancora accesso ai colori base, ma nel **build di produzione** le classi come `text-white`, `bg-white/10`, `border-white/10` non vengono generate correttamente.
+### Direzione visiva
+Adottare lo stesso linguaggio della pagina `/auth`: sfondo con gradiente viola scuro (`hsl(250 40% 25%)` -> `hsl(270 35% 35%)`), cerchi decorativi semitrasparenti, dot pattern, testo bianco, e nessuna foto AI. Stile sofisticato, astratto, rassicurante.
 
-### Soluzione
-Spostare tutti i colori personalizzati da `theme.colors` a `theme.extend.colors`, e aggiungere esplicitamente i colori base mancanti.
+### Struttura della nuova pagina
 
-### Modifiche
+La pagina manterra le stesse sezioni ma con un restyling completo:
 
-**`tailwind.config.ts`**
-- Spostare l'intero blocco `colors` da `theme.colors` a `theme.extend.colors`
-- Questo preserva i colori di default di Tailwind (`white`, `black`, `transparent`, `inherit`, `current`, `slate`, ecc.) e aggiunge i nostri colori personalizzati in cima
+**1. Hero (riscrittura completa)**
+- Eliminare `hero-wedding.jpg` completamente
+- Sfondo: gradiente viola scuro full-screen (identico al pannello sinistro di `/auth`)
+- Cerchi decorativi semitrasparenti + dot pattern sottile
+- Logo "Nozze Senza Stress" in alto a sinistra
+- Titolo grande in `font-serif` bianco, sottotitolo in `white/70`
+- Feature pills (come in Auth: "Tesoreria smart", "Lista invitati", etc.)
+- Due CTA: "Inizia Gratis" (bottone luminoso) + "Scopri Come Funziona" (outline bianco)
+- Social proof in basso (avatar circolari + testo)
 
-Stessa operazione per `backgroundImage`, `boxShadow`, `transitionProperty`, `borderRadius`, `keyframes`, `animation` che sono tutti nel livello `theme` invece che `theme.extend`, sovrascrivendo potenzialmente i default.
+**2. ValueProposition - "4 Obiettivi Strategici"**
+- Sfondo alternato: sezione chiara (invariata nella struttura)
+- Aggiungere un accento viola/gradiente sottile alle card icon per coerenza
+- Nessun cambiamento strutturale significativo
 
-### Impatto
-- Corregge `text-white` e tutte le utility con `white/black/transparent` su tutto il sito pubblicato
-- Corregge il pannello sinistro della pagina `/auth` (testo bianco, cerchi decorativi, badge feature)
-- Nessun impatto visivo sugli altri colori personalizzati gia in uso
+**3. ProblemStatement - "Il Problema Reale"**
+- Invariato nella struttura, funziona gia bene
+- Solo piccoli ritocchi cromatici per coerenza
+
+**4. TargetAudience - "Per Chi"**
+- Riscrittura: trasformare da "personas tecniche" a messaggio piu empatico
+- Testo meno tecnico ("Project Manager, Marketing Specialist" non e il linguaggio giusto per coppie reali)
+- Due card: "Organizzate tutto da soli" vs "Avete poco tempo" - piu accessibile
+
+**5. HowItWorks - "Architettura"**
+- Riscrittura: rinominare da "Architettura" a "Come Funziona" in 3 step semplici
+- Eliminare terminologia tecnica (SPA, API, Database) e sostituire con benefici utente
+- Step 1: "Crea il tuo spazio" - Step 2: "Organizza tutto" - Step 3: "Vivi sereno"
+
+**6. TechStack - "Fondamenta Solide"**
+- Semplificare: rimuovere dettagli tecnici (SPA, API, Database Professionale)
+- Trasformare in sezione "Sicurezza e Affidabilita" con focus su benefici (dati protetti, sempre disponibile, backup automatici)
+- Rimuovere il box "Tecnologia All'Avanguardia" troppo tecnico
+
+**7. DeviceSupport**
+- Semplificare: unire con la sezione precedente o ridurre a un banner compatto
+- Rimuovere lista browser supportati (nessun utente finale la cerca)
+
+**8. Footer**
+- Aggiungere link utili (Privacy, Contatti, link a /auth)
+- Piccolo ritocco stilistico
+
+### File coinvolti
+
+| File | Azione |
+|------|--------|
+| `src/components/Hero.tsx` | Riscrittura completa: rimuovere immagine, adottare stile Auth |
+| `src/components/TargetAudience.tsx` | Riscrittura testi: linguaggio empatico, non tecnico |
+| `src/components/HowItWorks.tsx` | Riscrittura: "Come Funziona" in 3 step utente |
+| `src/components/TechStack.tsx` | Semplificare: focus sicurezza/affidabilita |
+| `src/components/DeviceSupport.tsx` | Ridurre a banner compatto |
+| `src/components/Footer.tsx` | Aggiungere link e piccoli ritocchi |
+| `src/components/ValueProposition.tsx` | Ritocchi cromatici minori |
+| `src/components/ProblemStatement.tsx` | Ritocchi cromatici minori |
+| `src/pages/Index.tsx` | Possibile riordino sezioni |
+| `src/assets/hero-wedding.jpg` | Da rimuovere (non piu referenziato) |
 
 ### Dettagli tecnici
 
+L'Hero usera inline styles per il gradiente identici a quelli di Auth:
 ```text
-PRIMA (tailwind.config.ts):
-theme: {
-  colors: { ... custom ... }    <-- sovrascrive TUTTI i default
-  extend: {
-    fontFamily: { ... }
-  }
-}
-
-DOPO:
-theme: {
-  extend: {
-    colors: { ... custom ... }  <-- aggiunge ai default
-    fontFamily: { ... }
-    backgroundImage: { ... }
-    boxShadow: { ... }
-    borderRadius: { ... }
-    keyframes: { ... }
-    animation: { ... }
-  }
-}
+background: linear-gradient(135deg, hsl(250 40% 25%), hsl(270 35% 35%), hsl(260 30% 20%))
 ```
+
+Pattern decorativi identici: cerchi con `bg-white/5`, `bg-white/8`, `border-white/10`, dot pattern con `opacity-[0.03]`.
+
+Nessuna nuova dipendenza richiesta. Nessuna modifica al database o backend.
 
