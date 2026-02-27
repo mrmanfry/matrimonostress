@@ -32,9 +32,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   refreshAuth: () => Promise<void>;
   switchWedding: (weddingId: string) => void;
-  /** Convenience: currently active weddingId (or empty string) */
   weddingId: string;
-  /** Convenience: true if active role is 'planner' */
   isPlanner: boolean;
 }
 
@@ -63,40 +61,52 @@ function resolveActiveWedding(weddings: WeddingContext[], cachedId: string | nul
   return weddings[0];
 }
 
+const RPC_TIMEOUT_MS = 45000;
+
+async function loadUserContextWithTimeout(): Promise<WeddingContext[]> {
+  console.log('[AuthContext] ⚡ Fetching user context via RPC...');
+  
+  const rpcPromise = supabase.rpc('get_user_context').then(({ data, error }) => {
+    if (error) throw error;
+    return parseWeddingsFromRpc(data);
+  });
+
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error('RPC timeout: get_user_context exceeded 45s')), RPC_TIMEOUT_MS)
+  );
+
+  const weddings = await Promise.race([rpcPromise, timeoutPromise]);
+  console.log('[AuthContext] ✅ Weddings resolved:', weddings.length);
+  return weddings;
+}
+
 // --- Provider ---
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [authState, setAuthState] = useState<AuthState>({ status: "loading" });
   const isLoadingContext = useRef(false);
   const lastProcessedUserId = useRef<string | null>(null);
+  // Track whether we're in the initial page load phase
+  const authStateRef = useRef<AuthState>({ status: "loading" });
 
-  const loadUserContext = useCallback(async (): Promise<WeddingContext[]> => {
-    console.log('[AuthContext] ⚡ Fetching user context via RPC...');
-    const { data, error } = await supabase.rpc('get_user_context');
-    if (error) {
-      console.error('[AuthContext] RPC Error:', error);
-      throw error;
-    }
-    const weddings = parseWeddingsFromRpc(data);
-    console.log('[AuthContext] ✅ Weddings resolved:', weddings.length);
-    return weddings;
+  // Keep ref in sync with state for synchronous reads inside callbacks
+  const updateAuthState = useCallback((newState: AuthState | ((prev: AuthState) => AuthState)) => {
+    setAuthState(prev => {
+      const resolved = typeof newState === 'function' ? newState(prev) : newState;
+      authStateRef.current = resolved;
+      return resolved;
+    });
   }, []);
 
   const handleAuthSession = useCallback(async (session: Session) => {
-    if (isLoadingContext.current) {
-      console.log('[AuthContext] handleAuthSession already running, skipping');
-      return;
-    }
-    
+    // Only guard: skip if same user already fully processed
     if (lastProcessedUserId.current === session.user.id) {
       console.log('[AuthContext] Same user already processed, skipping');
       return;
     }
     
-    isLoadingContext.current = true;
-    
     try {
-      const weddings = await loadUserContext();
+      const weddings = await loadUserContextWithTimeout();
       
       if (weddings.length > 0) {
         const cached = weddingStorage.get();
@@ -104,7 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         if (active) {
           weddingStorage.set(active.weddingId);
-          setAuthState({
+          updateAuthState({
             status: "authenticated",
             user: session.user,
             session,
@@ -116,7 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } else {
         console.log('[AuthContext] User logged in but needs onboarding');
-        setAuthState({
+        updateAuthState({
           status: "no_wedding",
           user: session.user,
           session
@@ -126,37 +136,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       lastProcessedUserId.current = session.user.id;
     } catch (error) {
       console.error('[AuthContext] Error finalizing auth session:', error);
-      setAuthState({
+      updateAuthState({
         status: "authenticated_wedding_error",
         user: session.user,
         session,
         error: error instanceof Error ? error : new Error(String(error))
       });
-    } finally {
-      isLoadingContext.current = false;
     }
-  }, [loadUserContext]);
+  }, [updateAuthState]);
 
   useEffect(() => {
     let mounted = true;
 
-    // We rely SOLELY on onAuthStateChange to trigger handleAuthSession.
-    // initSession only sets unauthenticated if there's no session at all,
-    // avoiding the race condition where both initSession and onAuthStateChange
-    // would call handleAuthSession simultaneously.
     const initSession = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
         if (error) throw error;
         if (!session && mounted) {
-          setAuthState({ status: "unauthenticated" });
+          updateAuthState({ status: "unauthenticated" });
         }
-        // If session exists, do NOT call handleAuthSession here.
-        // onAuthStateChange(INITIAL_SESSION) will handle it.
+        // If session exists, INITIAL_SESSION from onAuthStateChange will handle it
       } catch (error) {
         console.error('[AuthContext] Init session error:', error);
         if (mounted) {
-          setAuthState({
+          updateAuthState({
             status: "error",
             error: error instanceof Error ? error : new Error(String(error))
           });
@@ -174,33 +177,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (event === 'SIGNED_OUT' || !session) {
           weddingStorage.clear();
           lastProcessedUserId.current = null;
-          setAuthState({ status: "unauthenticated" });
+          isLoadingContext.current = false;
+          updateAuthState({ status: "unauthenticated" });
           return;
         }
 
         if (event === 'TOKEN_REFRESHED') {
-          setAuthState(prev => {
-            if (prev.status === 'authenticated') {
-              return { ...prev, session };
-            }
-            if (prev.status === 'authenticated_wedding_error' || prev.status === 'no_wedding') {
-              return { ...prev, session };
-            }
+          updateAuthState(prev => {
+            if (prev.status === 'authenticated') return { ...prev, session };
+            if (prev.status === 'authenticated_wedding_error' || prev.status === 'no_wedding') return { ...prev, session };
             return prev;
           });
           return;
         }
 
+        // Determine if we should process this event
+        let shouldProcess = false;
+
+        if (event === 'INITIAL_SESSION') {
+          // Always process INITIAL_SESSION — it's the definitive first-load signal
+          shouldProcess = true;
+        }
+
         if (event === 'SIGNED_IN') {
-          if (!isLoadingContext.current && lastProcessedUserId.current !== session.user.id) {
-            await handleAuthSession(session);
+          // Only process SIGNED_IN if we're NOT in the initial loading phase
+          // (i.e., user just logged in during this session, not a page reload)
+          if (authStateRef.current.status !== 'loading') {
+            shouldProcess = true;
+          } else {
+            console.log('[AuthContext] Ignoring SIGNED_IN during initial load (INITIAL_SESSION will handle it)');
           }
         }
 
-        if (event === 'INITIAL_SESSION') {
-          if (!isLoadingContext.current) {
-            await handleAuthSession(session);
-          }
+        if (!shouldProcess) return;
+
+        // Synchronous lock: only one caller can enter at a time
+        if (isLoadingContext.current) {
+          console.log('[AuthContext] Lock active, skipping duplicate event');
+          return;
+        }
+        if (lastProcessedUserId.current === session.user.id) {
+          console.log('[AuthContext] User already processed, skipping');
+          return;
+        }
+
+        isLoadingContext.current = true;
+        try {
+          await handleAuthSession(session);
+        } finally {
+          isLoadingContext.current = false;
         }
       }
     );
@@ -209,10 +234,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [handleAuthSession]);
+  }, [handleAuthSession, updateAuthState]);
 
   const switchWedding = useCallback((weddingId: string) => {
-    setAuthState(prev => {
+    updateAuthState(prev => {
       if (prev.status !== 'authenticated') return prev;
       const target = prev.weddings.find(w => w.weddingId === weddingId);
       if (!target) return prev;
@@ -224,27 +249,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         activePermissions: target.permissionsConfig,
       };
     });
-  }, []);
+  }, [updateAuthState]);
 
   const signOut = async () => {
     await supabase.auth.signOut();
     weddingStorage.clear();
     lastProcessedUserId.current = null;
-    setAuthState({ status: "unauthenticated" });
+    isLoadingContext.current = false;
+    updateAuthState({ status: "unauthenticated" });
   };
 
   const refreshAuth = async () => {
     lastProcessedUserId.current = null;
-    setAuthState({ status: "loading" });
+    isLoadingContext.current = false;
+    updateAuthState({ status: "loading" });
     const { data: { session } } = await supabase.auth.getSession();
     if (session) {
-      await handleAuthSession(session);
+      isLoadingContext.current = true;
+      try {
+        await handleAuthSession(session);
+      } finally {
+        isLoadingContext.current = false;
+      }
     } else {
-      setAuthState({ status: "unauthenticated" });
+      updateAuthState({ status: "unauthenticated" });
     }
   };
 
-  // Convenience derived values
   const weddingId = authState.status === 'authenticated' ? authState.activeWeddingId : '';
   const isPlanner = authState.status === 'authenticated' && authState.activeRole === 'planner';
 
