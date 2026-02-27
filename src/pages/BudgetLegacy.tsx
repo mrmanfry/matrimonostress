@@ -541,7 +541,7 @@ export default function BudgetLegacy() {
             </Alert>
           ) : (
             <div className="space-y-4">
-              <ResponsiveContainer width="100%" height={isMobile ? 250 : 300}>
+              <ResponsiveContainer width="100%" height={isMobile ? 250 : 300} minWidth={0}>
                 <PieChart>
                   <Pie
                     data={categoryData}

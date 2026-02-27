@@ -82,7 +82,7 @@ export const GuestStatsChart = ({ stats, stdStats }: GuestStatsChartProps) => {
         {/* Chart */}
         <div className="h-[280px] md:h-[300px]">
           {hasData ? (
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
               <PieChart>
                 <Pie
                   data={chartData}
