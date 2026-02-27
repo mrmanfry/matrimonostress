@@ -2,7 +2,6 @@ import { createContext, useContext, useEffect, useState, useRef, ReactNode, useC
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { weddingStorage } from "@/utils/weddingStorage";
-import { retryWithBackoff } from "@/utils/retryWithBackoff";
 
 // --- Types ---
 
@@ -73,34 +72,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loadUserContext = useCallback(async (): Promise<WeddingContext[]> => {
     console.log('[AuthContext] ⚡ Fetching user context via RPC...');
-    
-    return retryWithBackoff(async () => {
-      const timeoutMs = 15000;
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('RPC timeout: get_user_context non ha risposto in 15s')), timeoutMs)
-      );
-
-      const rpcPromise = (async () => {
-        const { data, error } = await supabase.rpc('get_user_context');
-        if (error) {
-          console.error('[AuthContext] RPC Error:', error);
-          throw error;
-        }
-        const weddings = parseWeddingsFromRpc(data);
-        console.log('[AuthContext] ✅ Weddings resolved:', weddings.length);
-        return weddings;
-      })();
-
-      return Promise.race([rpcPromise, timeoutPromise]);
-    }, {
-      maxAttempts: 3,
-      initialDelay: 2000,
-      maxDelay: 8000,
-      backoffMultiplier: 2,
-      onRetry: (attempt, error) => {
-        console.warn(`[AuthContext] ⏳ Retry tentativo ${attempt}...`, error.message);
-      },
-    });
+    const { data, error } = await supabase.rpc('get_user_context');
+    if (error) {
+      console.error('[AuthContext] RPC Error:', error);
+      throw error;
+    }
+    const weddings = parseWeddingsFromRpc(data);
+    console.log('[AuthContext] ✅ Weddings resolved:', weddings.length);
+    return weddings;
   }, []);
 
   const handleAuthSession = useCallback(async (session: Session) => {
@@ -212,8 +191,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        if (['SIGNED_IN', 'INITIAL_SESSION'].includes(event)) {
-          await handleAuthSession(session);
+        if (event === 'SIGNED_IN') {
+          if (!isLoadingContext.current && lastProcessedUserId.current !== session.user.id) {
+            await handleAuthSession(session);
+          }
+        }
+
+        if (event === 'INITIAL_SESSION') {
+          if (!isLoadingContext.current) {
+            await handleAuthSession(session);
+          }
         }
       }
     );
