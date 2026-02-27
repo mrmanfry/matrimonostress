@@ -1,53 +1,50 @@
 
 
-## Anteprima Campagna dalle Impostazioni
+## Fix: Testo bianco non visibile sul sito pubblicato
 
-### Problema attuale
-Il pulsante "Anteprima" nelle card delle campagne (Save The Date e RSVP) mostra solo un toast che dice "invia un invito di test a te stesso", ma gli sposi non possono inviarsi la campagna dalla sezione Invitati. Serve un'anteprima diretta.
+### Causa del problema
+Nel file `tailwind.config.ts`, i colori personalizzati sono definiti in `theme.colors` invece che in `theme.extend.colors`. Questo **sovrascrive completamente** la palette di default di Tailwind, eliminando colori fondamentali come `white`, `black`, `transparent`, `inherit`, `current`.
+
+In development (preview) funziona grazie al JIT compiler che ha ancora accesso ai colori base, ma nel **build di produzione** le classi come `text-white`, `bg-white/10`, `border-white/10` non vengono generate correttamente.
 
 ### Soluzione
-Esiste gia una modalita "preview" nella pagina pubblica RSVP (token = "preview"), ma:
-1. Non viene usata dal pulsante Anteprima in Settings
-2. La `fetchPreviewData` usa il vecchio `rsvp_config` invece di `campaigns_config`
-3. Non passa dati completi (venue, tema, FAQ, lista nozze, immagini)
-4. Non supporta la modalita STD
+Spostare tutti i colori personalizzati da `theme.colors` a `theme.extend.colors`, e aggiungere esplicitamente i colori base mancanti.
 
 ### Modifiche
 
-**1. Settings.tsx - `handlePreviewCampaign`**
-Sostituire il toast con l'apertura in una nuova tab:
-- Save The Date: apre `/save-the-date/preview`
-- RSVP: apre `/rsvp/preview`
+**`tailwind.config.ts`**
+- Spostare l'intero blocco `colors` da `theme.colors` a `theme.extend.colors`
+- Questo preserva i colori di default di Tailwind (`white`, `black`, `transparent`, `inherit`, `current`, `slate`, ecc.) e aggiunge i nostri colori personalizzati in cima
 
-**2. RSVPPublic.tsx - `fetchPreviewData`**
-Aggiornare per leggere da `campaigns_config` e passare tutti i dati:
-- Usare `campaigns_config.rsvp` o `campaigns_config.save_the_date` in base alla modalita (`isStdMode`)
-- Passare le info venue (ceremony/reception name, address, images)
-- Passare il tema (`campaigns_config.theme`)
-- Passare FAQ e gift info dalla config RSVP
-- Supportare la modalita STD con `stdConfig` popolato
+Stessa operazione per `backgroundImage`, `boxShadow`, `transitionProperty`, `borderRadius`, `keyframes`, `animation` che sono tutti nel livello `theme` invece che `theme.extend`, sovrascrivendo potenzialmente i default.
+
+### Impatto
+- Corregge `text-white` e tutte le utility con `white/black/transparent` su tutto il sito pubblicato
+- Corregge il pannello sinistro della pagina `/auth` (testo bianco, cerchi decorativi, badge feature)
+- Nessun impatto visivo sugli altri colori personalizzati gia in uso
 
 ### Dettagli tecnici
 
 ```text
-Settings.tsx
-+----------------------------------+
-| handlePreviewCampaign()          |
-| STD  -> window.open(            |
-|   "/save-the-date/preview")     |
-| RSVP -> window.open(            |
-|   "/rsvp/preview")              |
-+----------------------------------+
+PRIMA (tailwind.config.ts):
+theme: {
+  colors: { ... custom ... }    <-- sovrascrive TUTTI i default
+  extend: {
+    fontFamily: { ... }
+  }
+}
 
-RSVPPublic.tsx - fetchPreviewData()
-+----------------------------------+
-| Legge campaigns_config JSONB     |
-| Popola config da rsvp/std        |
-| Aggiunge wedding venue info      |
-| Aggiunge theme, FAQs, gift_info |
-| Demo data: Famiglia Rossi       |
-+----------------------------------+
+DOPO:
+theme: {
+  extend: {
+    colors: { ... custom ... }  <-- aggiunge ai default
+    fontFamily: { ... }
+    backgroundImage: { ... }
+    boxShadow: { ... }
+    borderRadius: { ... }
+    keyframes: { ... }
+    animation: { ... }
+  }
+}
 ```
-
-In questo modo il pulsante "Anteprima" apre direttamente la pagina pubblica con dati demo e la configurazione reale del matrimonio, senza bisogno di inviare inviti.
 
