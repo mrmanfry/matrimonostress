@@ -67,9 +67,10 @@ function resolveActiveWedding(weddings: WeddingContext[], cachedId: string | nul
 
 /** Determine if user has both couple and planner personas */
 function computePersonas(weddings: WeddingContext[]) {
-  const hasPlannerRole = weddings.some(w => w.role === 'planner');
-  const hasCoupleRole = weddings.some(w => w.role === 'co_planner' || w.role === 'manager' || w.role === 'guest');
-  // If user created weddings (co_planner) AND manages others as planner
+  // "Planner persona" = has any role that manages someone else's wedding (planner or manager)
+  const hasPlannerRole = weddings.some(w => w.role === 'planner' || w.role === 'manager');
+  // "Couple persona" = has own wedding (co_planner role = owner/partner)
+  const hasCoupleRole = weddings.some(w => w.role === 'co_planner');
   return { hasPlannerRole, hasCoupleRole, hasMultiplePersonas: hasPlannerRole && hasCoupleRole };
 }
 
