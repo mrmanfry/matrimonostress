@@ -349,7 +349,7 @@ const Auth = () => {
   return (
     <div className="min-h-screen flex">
       {/* Left: Elegant branded panel (desktop only) */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-gradient-to-br from-accent via-accent/80 to-primary/60">
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, hsl(250 40% 25%), hsl(270 35% 35%), hsl(260 30% 20%))' }}>
         {/* Decorative circles */}
         <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-white/5" />
         <div className="absolute top-1/3 -right-20 w-72 h-72 rounded-full bg-white/5" />
