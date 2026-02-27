@@ -5,10 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Upload, Loader2, Smartphone, Type, Palette, MapPin } from "lucide-react";
-import { CampaignConfig, CampaignsConfig } from "./CampaignCard";
+import { Upload, Loader2, Smartphone, Type, Palette, MapPin, HelpCircle, Plus, Trash2, Sparkles, Gift, Copy, ExternalLink } from "lucide-react";
+import { CampaignConfig, CampaignsConfig, FAQItem, GiftInfo } from "./CampaignCard";
 import { SaveTheDateView } from "@/components/rsvp/SaveTheDateView";
 import { FormalInviteView } from "@/components/rsvp/FormalInviteView";
 
@@ -36,6 +37,7 @@ const CampaignConfigDialog = ({
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [generatingFaqs, setGeneratingFaqs] = useState(false);
   
   // Form state
   const [heroImageUrl, setHeroImageUrl] = useState<string | null>(null);
@@ -55,6 +57,19 @@ const CampaignConfigDialog = ({
   const [receptionVenueAddress, setReceptionVenueAddress] = useState("");
   const [receptionStartTime, setReceptionStartTime] = useState("");
   const [ceremonyStartTimeState, setCeremonyStartTimeState] = useState("");
+
+  // FAQ state
+  const [faqs, setFaqs] = useState<FAQItem[]>([]);
+
+  // Gift Info state
+  const [giftEnabled, setGiftEnabled] = useState(false);
+  const [giftMessage, setGiftMessage] = useState("");
+  const [giftCoupleNames, setGiftCoupleNames] = useState("");
+  const [giftIban, setGiftIban] = useState("");
+  const [giftBicSwift, setGiftBicSwift] = useState("");
+  const [giftBankName, setGiftBankName] = useState("");
+  const [giftAccountHolder, setGiftAccountHolder] = useState("");
+  const [giftRegistryUrl, setGiftRegistryUrl] = useState("");
 
   const isSTD = campaignType === "save_the_date";
   const title = isSTD ? "Configura Save The Date" : "Configura Invito RSVP";
@@ -93,30 +108,45 @@ const CampaignConfigDialog = ({
       // Theme
       setFontFamily(currentConfig.theme.font_family);
       setPrimaryColor(currentConfig.theme.primary_color);
+
+      // FAQ
+      setFaqs(campaign.faqs || []);
+
+      // Gift Info
+      const gi = campaign.gift_info;
+      if (gi) {
+        setGiftEnabled(gi.enabled);
+        setGiftMessage(gi.message || "");
+        setGiftCoupleNames(gi.couple_names || "");
+        setGiftIban(gi.iban || "");
+        setGiftBicSwift(gi.bic_swift || "");
+        setGiftBankName(gi.bank_name || "");
+        setGiftAccountHolder(gi.account_holder || "");
+        setGiftRegistryUrl(gi.registry_url || "");
+      } else {
+        setGiftEnabled(false);
+        setGiftMessage("Il regalo più grande sarà avervi con noi per condividere questo giorno speciale.");
+        setGiftCoupleNames(partnerNames);
+        setGiftIban("");
+        setGiftBicSwift("");
+        setGiftBankName("");
+        setGiftAccountHolder("");
+        setGiftRegistryUrl("");
+      }
     }
-  }, [currentConfig, open, campaignType]);
+  }, [currentConfig, open, campaignType, partnerNames]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
     if (!file.type.startsWith("image/")) {
-      toast({
-        title: "Tipo file non valido",
-        description: "Carica solo immagini (JPG, PNG, WebP)",
-        variant: "destructive",
-      });
+      toast({ title: "Tipo file non valido", description: "Carica solo immagini (JPG, PNG, WebP)", variant: "destructive" });
       return;
     }
 
-    // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      toast({
-        title: "File troppo grande",
-        description: "L'immagine deve essere massimo 5MB",
-        variant: "destructive",
-      });
+      toast({ title: "File troppo grande", description: "L'immagine deve essere massimo 5MB", variant: "destructive" });
       return;
     }
 
@@ -136,59 +166,76 @@ const CampaignConfigDialog = ({
         .getPublicUrl(fileName);
 
       setHeroImageUrl(publicUrl);
-      toast({
-        title: "Immagine caricata",
-        description: "L'immagine hero è stata caricata con successo",
-      });
+      toast({ title: "Immagine caricata", description: "L'immagine hero è stata caricata con successo" });
     } catch (error: any) {
       console.error("Upload error:", error);
-      toast({
-        title: "Errore caricamento",
-        description: error.message || "Impossibile caricare l'immagine",
-        variant: "destructive",
-      });
+      toast({ title: "Errore caricamento", description: error.message || "Impossibile caricare l'immagine", variant: "destructive" });
     } finally {
       setUploading(false);
+    }
+  };
+
+  // FAQ handlers
+  const handleAddFaq = () => {
+    setFaqs(prev => [...prev, { question: "", answer: "" }]);
+  };
+
+  const handleUpdateFaq = (index: number, field: "question" | "answer", value: string) => {
+    setFaqs(prev => prev.map((faq, i) => i === index ? { ...faq, [field]: value } : faq));
+  };
+
+  const handleRemoveFaq = (index: number) => {
+    setFaqs(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleGenerateFaqs = async () => {
+    setGeneratingFaqs(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-rsvp-faqs", {
+        body: { weddingId },
+      });
+
+      if (error) throw error;
+      if (data?.error) {
+        toast({ title: "Errore AI", description: data.error, variant: "destructive" });
+        return;
+      }
+
+      if (data?.faqs?.length) {
+        setFaqs(prev => [...prev, ...data.faqs]);
+        toast({ title: "FAQ generate!", description: `${data.faqs.length} FAQ aggiunte con successo` });
+      }
+    } catch (error: any) {
+      console.error("FAQ generation error:", error);
+      toast({ title: "Errore", description: "Impossibile generare le FAQ", variant: "destructive" });
+    } finally {
+      setGeneratingFaqs(false);
     }
   };
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Trim values to avoid saving empty/whitespace-only strings
       const trimmedTitle = welcomeTitle.trim();
       const trimmedText = welcomeText.trim();
 
-      // Build updated config
       const updatedConfig: CampaignsConfig = currentConfig 
         ? { ...currentConfig }
         : {
             save_the_date: {
-              status: "draft",
-              enabled: true,
-              hero_image_url: null,
-              welcome_title: "Save The Date!",
-              welcome_text: "Segnati questa data!",
-              deadline_date: null,
+              status: "draft", enabled: true, hero_image_url: null,
+              welcome_title: "Save The Date!", welcome_text: "Segnati questa data!", deadline_date: null,
             },
             rsvp: {
-              status: "draft",
-              enabled: true,
-              hero_image_url: null,
-              welcome_title: "Conferma la tua Presenza",
-              welcome_text: "Non vediamo l'ora di festeggiare con voi!",
-              deadline_date: null,
+              status: "draft", enabled: true, hero_image_url: null,
+              welcome_title: "Conferma la tua Presenza", welcome_text: "Non vediamo l'ora di festeggiare con voi!", deadline_date: null,
             },
             theme: {
-              layout_mode: "immersive_scroll",
-              font_family: "serif",
-              primary_color: "#D4AF37",
-              show_countdown: true,
-              show_powered_by: true,
+              layout_mode: "immersive_scroll", font_family: "serif",
+              primary_color: "#D4AF37", show_countdown: true, show_powered_by: true,
             },
           };
 
-      // Update the specific campaign with trimmed values (fallback to defaults if empty)
       const isSTDCampaign = campaignType === "save_the_date";
       updatedConfig[campaignType] = {
         ...updatedConfig[campaignType],
@@ -196,22 +243,30 @@ const CampaignConfigDialog = ({
         welcome_title: trimmedTitle || (isSTDCampaign ? "Save The Date!" : "Conferma la tua Presenza"),
         welcome_text: trimmedText || (isSTDCampaign ? "Segnati questa data!" : "Non vediamo l'ora di festeggiare con voi!"),
         deadline_date: deadlineDate || null,
+        faqs: faqs.filter(f => f.question.trim() && f.answer.trim()),
+        gift_info: {
+          enabled: giftEnabled,
+          message: giftMessage,
+          couple_names: giftCoupleNames || partnerNames,
+          iban: giftIban,
+          bic_swift: giftBicSwift,
+          bank_name: giftBankName,
+          account_holder: giftAccountHolder,
+          registry_url: giftRegistryUrl || null,
+        },
       };
 
-      // Update theme (remove countdown)
       updatedConfig.theme = {
         ...updatedConfig.theme,
         font_family: fontFamily,
         primary_color: primaryColor,
-        show_countdown: false, // Always false now
+        show_countdown: false,
       };
 
-      // Also update wedding location and venue details
       const venueUpdate: Record<string, any> = {
         location: weddingLocationState || null,
       };
 
-      // For RSVP campaign, also save venue details
       if (!isSTDCampaign) {
         venueUpdate.ceremony_venue_name = ceremonyVenueName || null;
         venueUpdate.ceremony_venue_address = ceremonyVenueAddress || null;
@@ -235,20 +290,12 @@ const CampaignConfigDialog = ({
 
       if (error) throw error;
 
-      toast({
-        title: "Configurazione salvata",
-        description: "Le modifiche sono state salvate con successo",
-      });
-
+      toast({ title: "Configurazione salvata", description: "Le modifiche sono state salvate con successo" });
       onSave();
       onOpenChange(false);
     } catch (error: any) {
       console.error("Save error:", error);
-      toast({
-        title: "Errore",
-        description: error.message || "Impossibile salvare la configurazione",
-        variant: "destructive",
-      });
+      toast({ title: "Errore", description: error.message || "Impossibile salvare la configurazione", variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -268,20 +315,30 @@ const CampaignConfigDialog = ({
           {/* Configuration Panel */}
           <div className="space-y-6">
             <Tabs defaultValue="content" className="w-full">
-              <TabsList className={`grid w-full ${isSTD ? 'grid-cols-2' : 'grid-cols-3'}`}>
+              <TabsList className={`grid w-full ${isSTD ? 'grid-cols-2' : 'grid-cols-4'}`}>
                 <TabsTrigger value="content" className="flex items-center gap-1">
-                  <Type className="w-4 h-4" />
-                  Contenuti
+                  <Type className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Contenuti</span>
+                  <span className="sm:hidden">📝</span>
                 </TabsTrigger>
                 {!isSTD && (
                   <TabsTrigger value="location" className="flex items-center gap-1">
-                    <MapPin className="w-4 h-4" />
-                    Location
+                    <MapPin className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Location</span>
+                    <span className="sm:hidden">📍</span>
+                  </TabsTrigger>
+                )}
+                {!isSTD && (
+                  <TabsTrigger value="faq" className="flex items-center gap-1">
+                    <HelpCircle className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">FAQ</span>
+                    <span className="sm:hidden">❓</span>
                   </TabsTrigger>
                 )}
                 <TabsTrigger value="design" className="flex items-center gap-1">
-                  <Palette className="w-4 h-4" />
-                  Design
+                  <Palette className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Design</span>
+                  <span className="sm:hidden">🎨</span>
                 </TabsTrigger>
               </TabsList>
 
@@ -292,37 +349,19 @@ const CampaignConfigDialog = ({
                   <div className="border-2 border-dashed rounded-lg p-4 text-center">
                     {heroImageUrl ? (
                       <div className="space-y-2">
-                        <img 
-                          src={heroImageUrl} 
-                          alt="Hero preview" 
-                          className="w-full h-32 object-cover rounded-md"
-                        />
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => setHeroImageUrl(null)}
-                        >
-                          Rimuovi
-                        </Button>
+                        <img src={heroImageUrl} alt="Hero preview" className="w-full h-32 object-cover rounded-md" />
+                        <Button variant="outline" size="sm" onClick={() => setHeroImageUrl(null)}>Rimuovi</Button>
                       </div>
                     ) : (
                       <label className="cursor-pointer block">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleImageUpload}
-                          className="hidden"
-                          disabled={uploading}
-                        />
+                        <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" disabled={uploading} />
                         <div className="flex flex-col items-center gap-2 py-4">
                           {uploading ? (
                             <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
                           ) : (
                             <>
                               <Upload className="w-8 h-8 text-muted-foreground" />
-                              <span className="text-sm text-muted-foreground">
-                                Clicca per caricare (max 5MB)
-                              </span>
+                              <span className="text-sm text-muted-foreground">Clicca per caricare (max 5MB)</span>
                             </>
                           )}
                         </div>
@@ -388,6 +427,85 @@ const CampaignConfigDialog = ({
                     </p>
                   </div>
                 )}
+
+                {/* Lista Nozze Section (RSVP only) */}
+                {!isSTD && (
+                  <div className="space-y-3 pt-4 border-t">
+                    <div className="flex items-center justify-between">
+                      <Label className="flex items-center gap-2 text-base font-medium">
+                        <Gift className="w-4 h-4" />
+                        Lista Nozze
+                      </Label>
+                      <Switch checked={giftEnabled} onCheckedChange={setGiftEnabled} />
+                    </div>
+
+                    {giftEnabled && (
+                      <div className="space-y-3 pl-1">
+                        <div className="space-y-2">
+                          <Label htmlFor="giftMessage">Messaggio</Label>
+                          <Textarea
+                            id="giftMessage"
+                            value={giftMessage}
+                            onChange={(e) => setGiftMessage(e.target.value)}
+                            placeholder="Il regalo più grande sarà avervi con noi..."
+                            rows={2}
+                            maxLength={500}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="giftCoupleNames">Intestatario / Nomi Coppia</Label>
+                          <Input
+                            id="giftCoupleNames"
+                            value={giftCoupleNames}
+                            onChange={(e) => setGiftCoupleNames(e.target.value)}
+                            placeholder="Mario Rossi & Giulia Bianchi"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="giftIban">IBAN</Label>
+                          <Input
+                            id="giftIban"
+                            value={giftIban}
+                            onChange={(e) => setGiftIban(e.target.value)}
+                            placeholder="IT60X0542811101000000123456"
+                            maxLength={34}
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-2">
+                            <Label htmlFor="giftBicSwift">BIC/SWIFT</Label>
+                            <Input
+                              id="giftBicSwift"
+                              value={giftBicSwift}
+                              onChange={(e) => setGiftBicSwift(e.target.value)}
+                              placeholder="BPPIITRRXXX"
+                              maxLength={11}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="giftBankName">Banca</Label>
+                            <Input
+                              id="giftBankName"
+                              value={giftBankName}
+                              onChange={(e) => setGiftBankName(e.target.value)}
+                              placeholder="Intesa Sanpaolo"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="giftRegistryUrl">Link Lista Nozze (opzionale)</Label>
+                          <Input
+                            id="giftRegistryUrl"
+                            type="url"
+                            value={giftRegistryUrl}
+                            onChange={(e) => setGiftRegistryUrl(e.target.value)}
+                            placeholder="https://..."
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </TabsContent>
 
               {/* Location Tab (RSVP only) */}
@@ -400,32 +518,15 @@ const CampaignConfigDialog = ({
                     </h4>
                     <div className="space-y-2">
                       <Label htmlFor="ceremonyVenueName">Nome Location</Label>
-                      <Input
-                        id="ceremonyVenueName"
-                        value={ceremonyVenueName}
-                        onChange={(e) => setCeremonyVenueName(e.target.value)}
-                        placeholder="Es: Cattedrale di Trani"
-                        maxLength={100}
-                      />
+                      <Input id="ceremonyVenueName" value={ceremonyVenueName} onChange={(e) => setCeremonyVenueName(e.target.value)} placeholder="Es: Cattedrale di Trani" maxLength={100} />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="ceremonyVenueAddress">Indirizzo</Label>
-                      <Input
-                        id="ceremonyVenueAddress"
-                        value={ceremonyVenueAddress}
-                        onChange={(e) => setCeremonyVenueAddress(e.target.value)}
-                        placeholder="Es: Piazza Duomo 1, Trani"
-                        maxLength={200}
-                      />
+                      <Input id="ceremonyVenueAddress" value={ceremonyVenueAddress} onChange={(e) => setCeremonyVenueAddress(e.target.value)} placeholder="Es: Piazza Duomo 1, Trani" maxLength={200} />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="ceremonyStartTime">Orario Cerimonia</Label>
-                      <Input
-                        id="ceremonyStartTime"
-                        type="time"
-                        value={ceremonyStartTimeState}
-                        onChange={(e) => setCeremonyStartTimeState(e.target.value)}
-                      />
+                      <Input id="ceremonyStartTime" type="time" value={ceremonyStartTimeState} onChange={(e) => setCeremonyStartTimeState(e.target.value)} />
                     </div>
                   </div>
 
@@ -436,34 +537,81 @@ const CampaignConfigDialog = ({
                     </h4>
                     <div className="space-y-2">
                       <Label htmlFor="receptionVenueName">Nome Location</Label>
-                      <Input
-                        id="receptionVenueName"
-                        value={receptionVenueName}
-                        onChange={(e) => setReceptionVenueName(e.target.value)}
-                        placeholder="Es: Tenuta Montevitolo"
-                        maxLength={100}
-                      />
+                      <Input id="receptionVenueName" value={receptionVenueName} onChange={(e) => setReceptionVenueName(e.target.value)} placeholder="Es: Tenuta Montevitolo" maxLength={100} />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="receptionVenueAddress">Indirizzo</Label>
-                      <Input
-                        id="receptionVenueAddress"
-                        value={receptionVenueAddress}
-                        onChange={(e) => setReceptionVenueAddress(e.target.value)}
-                        placeholder="Es: Via Vecchia Spinazzola Km 9,200, Andria"
-                        maxLength={200}
-                      />
+                      <Input id="receptionVenueAddress" value={receptionVenueAddress} onChange={(e) => setReceptionVenueAddress(e.target.value)} placeholder="Es: Via Vecchia Spinazzola Km 9,200, Andria" maxLength={200} />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="receptionStartTime">Orario Ricevimento</Label>
-                      <Input
-                        id="receptionStartTime"
-                        type="time"
-                        value={receptionStartTime}
-                        onChange={(e) => setReceptionStartTime(e.target.value)}
-                      />
+                      <Input id="receptionStartTime" type="time" value={receptionStartTime} onChange={(e) => setReceptionStartTime(e.target.value)} />
                     </div>
                   </div>
+                </TabsContent>
+              )}
+
+              {/* FAQ Tab (RSVP only) */}
+              {!isSTD && (
+                <TabsContent value="faq" className="space-y-4 mt-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-medium text-sm">Info Utili / FAQ</h4>
+                      <p className="text-xs text-muted-foreground">Domande frequenti per i tuoi invitati</p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleGenerateFaqs}
+                      disabled={generatingFaqs}
+                    >
+                      {generatingFaqs ? (
+                        <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                      ) : (
+                        <Sparkles className="w-4 h-4 mr-1" />
+                      )}
+                      Genera con AI
+                    </Button>
+                  </div>
+
+                  {/* FAQ List */}
+                  <div className="space-y-3">
+                    {faqs.map((faq, index) => (
+                      <div key={index} className="border rounded-lg p-3 space-y-2">
+                        <div className="flex items-start gap-2">
+                          <div className="flex-1 space-y-2">
+                            <Input
+                              value={faq.question}
+                              onChange={(e) => handleUpdateFaq(index, "question", e.target.value)}
+                              placeholder="Domanda..."
+                              maxLength={300}
+                              className="font-medium"
+                            />
+                            <Textarea
+                              value={faq.answer}
+                              onChange={(e) => handleUpdateFaq(index, "answer", e.target.value)}
+                              placeholder="Risposta..."
+                              rows={2}
+                              maxLength={1000}
+                            />
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRemoveFaq(index)}
+                            className="shrink-0 text-muted-foreground hover:text-destructive"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <Button variant="outline" onClick={handleAddFaq} className="w-full">
+                    <Plus className="w-4 h-4 mr-1" />
+                    Aggiungi FAQ
+                  </Button>
                 </TabsContent>
               )}
 
@@ -523,7 +671,6 @@ const CampaignConfigDialog = ({
                     />
                   </div>
                 </div>
-
               </TabsContent>
             </Tabs>
 
@@ -545,7 +692,7 @@ const CampaignConfigDialog = ({
             </div>
           </div>
 
-          {/* Live Preview Panel - Real SaveTheDateView Component */}
+          {/* Live Preview Panel */}
           <div className="hidden md:block">
             <div className="sticky top-0">
               <div className="flex items-center gap-2 mb-3">
@@ -553,7 +700,6 @@ const CampaignConfigDialog = ({
                 <span className="text-sm text-muted-foreground">Anteprima Mobile (Interattiva)</span>
               </div>
               
-              {/* Phone Frame with Real Component */}
               <div className="mx-auto w-[300px] h-[550px] bg-black border-4 border-foreground/20 rounded-[2rem] overflow-hidden shadow-xl">
                 <div className="w-full h-full overflow-y-auto transform scale-[0.55] origin-top-left" style={{ width: "182%", height: "182%" }}>
                   {isSTD ? (
@@ -578,7 +724,6 @@ const CampaignConfigDialog = ({
                       }}
                     />
                   ) : (
-                    // RSVP Preview - Real FormalInviteView Component
                     <FormalInviteView
                       coupleName={partnerNames || "Marco & Giulia"}
                       weddingDate={weddingDate || new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
@@ -604,6 +749,17 @@ const CampaignConfigDialog = ({
                         show_countdown: false,
                       }}
                       isPreview={true}
+                      faqs={faqs.filter(f => f.question.trim() && f.answer.trim())}
+                      giftInfo={giftEnabled ? {
+                        enabled: true,
+                        message: giftMessage,
+                        couple_names: giftCoupleNames || partnerNames,
+                        iban: giftIban || "IT60X0542811101000000123456",
+                        bic_swift: giftBicSwift,
+                        bank_name: giftBankName,
+                        account_holder: giftAccountHolder,
+                        registry_url: giftRegistryUrl || null,
+                      } : undefined}
                       memberData={{}}
                       onMemberDataChange={() => {}}
                       onSubmit={async () => {

@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { Loader2, MapPin, Church, PartyPopper, ChevronDown, Check, X, UserPlus, Utensils, Leaf } from "lucide-react";
+import { Loader2, MapPin, Church, PartyPopper, ChevronDown, Check, X, UserPlus, Utensils, Leaf, Copy, Gift, ExternalLink, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { isConfirmed, isDeclined, isPending } from "@/lib/rsvpHelpers";
+import type { FAQItem, GiftInfo } from "@/components/settings/CampaignCard";
 
 interface Theme {
   font_family: "serif" | "sans" | "elegant";
@@ -66,6 +68,10 @@ interface FormalInviteViewProps {
   welcomeText?: string;
   theme?: Theme | null;
   
+  // New sections
+  faqs?: FAQItem[];
+  giftInfo?: GiftInfo;
+  
   // State
   isReadOnly?: boolean;
   isPreview?: boolean;
@@ -110,6 +116,8 @@ export function FormalInviteView({
   welcomeTitle,
   welcomeText,
   theme,
+  faqs,
+  giftInfo,
   isReadOnly,
   isPreview,
   deadlineDate,
@@ -659,6 +667,111 @@ export function FormalInviteView({
           )}
         </div>
       </section>
+
+      {/* GIFT INFO / LISTA NOZZE SECTION */}
+      {giftInfo?.enabled && (
+        <section className="py-16 px-6 bg-white text-center">
+          <div className="max-w-lg mx-auto space-y-6">
+            <h2 
+              className="font-cormorant text-3xl sm:text-4xl font-light"
+              style={{ color: primaryColor }}
+            >
+              La Lista Nozze
+            </h2>
+
+            <div className="flex justify-center">
+              <Gift className="w-12 h-12 text-stone-400" />
+            </div>
+
+            {giftInfo.message && (
+              <p className="text-stone-600 leading-relaxed whitespace-pre-line">
+                {giftInfo.message}
+              </p>
+            )}
+
+            {giftInfo.couple_names && (
+              <p className="font-cormorant text-xl font-semibold text-stone-800">
+                {giftInfo.couple_names}
+              </p>
+            )}
+
+            {giftInfo.iban && (
+              <div className="bg-stone-50 rounded-xl p-4 space-y-2">
+                <div className="flex items-center justify-center gap-2">
+                  <code className="text-sm font-mono text-stone-700 tracking-wide">
+                    {giftInfo.iban}
+                  </code>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(giftInfo.iban);
+                      toast.success("IBAN copiato!");
+                    }}
+                    className="p-1.5 rounded-md hover:bg-stone-200 transition-colors"
+                    title="Copia IBAN"
+                  >
+                    <Copy className="w-4 h-4 text-stone-500" />
+                  </button>
+                </div>
+                {giftInfo.bic_swift && (
+                  <p className="text-xs text-stone-500">
+                    Codice BIC/SWIFT: {giftInfo.bic_swift}
+                  </p>
+                )}
+                {giftInfo.bank_name && (
+                  <p className="text-xs text-stone-500">
+                    {giftInfo.bank_name}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {giftInfo.registry_url && (
+              <a
+                href={giftInfo.registry_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-6 py-2 border rounded-full text-sm transition-colors hover:bg-stone-100"
+                style={{ borderColor: primaryColor, color: primaryColor }}
+              >
+                <ExternalLink className="w-4 h-4" />
+                Vedi Lista Nozze
+              </a>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* FAQ / INFO UTILI SECTION */}
+      {faqs && faqs.length > 0 && (
+        <section className="py-16 px-6 bg-stone-50">
+          <div className="max-w-lg mx-auto space-y-6">
+            <div className="text-center space-y-2">
+              <h2 
+                className="font-cormorant text-3xl sm:text-4xl font-light"
+                style={{ color: primaryColor }}
+              >
+                Info Utili
+              </h2>
+              <div className="flex justify-center">
+                <HelpCircle className="w-8 h-8 text-stone-400" />
+              </div>
+            </div>
+
+            <Accordion type="single" collapsible className="w-full">
+              {faqs.map((faq, index) => (
+                <AccordionItem key={index} value={`faq-${index}`} className="border-stone-200">
+                  <AccordionTrigger className="text-left text-stone-800 font-medium hover:no-underline">
+                    {faq.question}
+                  </AccordionTrigger>
+                  <AccordionContent className="text-stone-600 leading-relaxed whitespace-pre-line">
+                    {faq.answer}
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          </div>
+        </section>
+      )}
 
       {/* FOOTER */}
       <footer className="py-12 px-6 bg-stone-900 text-center">
