@@ -56,3 +56,6 @@ verify_jwt = false
 
 [functions.check-trial-reminders]
 verify_jwt = false
+
+[functions.auth-email-hook]
+verify_jwt = false
