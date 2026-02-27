@@ -47,25 +47,7 @@ const AppLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Filter navigation based on planner permissions
-  const activePermissions = authState.status === 'authenticated' ? authState.activePermissions : null;
-  const isPlanner = authState.status === 'authenticated' && authState.activeRole === 'planner';
-  
-  const allNavigation = [
-    ...(activeMode === 'planner' ? [{ name: "Cockpit", href: "/app/planner", icon: LayoutGrid }] : []),
-    { name: "Dashboard", href: "/app/dashboard", icon: LayoutDashboard },
-    { name: "Invitati", href: "/app/guests", icon: Users },
-    { name: "Budget", href: "/app/budget", icon: Euro, hidden: isPlanner && activePermissions?.budget_visible === false },
-    { name: "Tesoreria", href: "/app/treasury", icon: TrendingUp, hidden: isPlanner && activePermissions?.budget_visible === false },
-    { name: "Fornitori", href: "/app/vendors", icon: Package },
-    { name: "Checklist", href: "/app/checklist", icon: CheckSquare },
-    { name: "Calendario", href: "/app/calendar", icon: CalendarDays },
-    { name: "Tavoli", href: "/app/tables", icon: UtensilsCrossed },
-    { name: "Timeline", href: "/app/timeline", icon: Calendar },
-    { name: "Impostazioni", href: "/app/settings", icon: Settings },
-  ];
-  
-  const navigation = allNavigation.filter(n => !('hidden' in n && n.hidden));
+  // Navigation is now built inside AppLayoutInner (needs location)
 
   useEffect(() => {
     if (authState.status !== "authenticated") {
@@ -136,7 +118,6 @@ const AppLayout = () => {
       <SidebarProvider>
         <AppLayoutInner
           weddingInfo={weddingInfo}
-          navigation={navigation}
           signOut={signOut}
           location={location}
         />
@@ -147,12 +128,10 @@ const AppLayout = () => {
 
 const AppLayoutInner = ({
   weddingInfo,
-  navigation,
   signOut,
   location,
 }: {
   weddingInfo: { partner1: string; partner2: string; daysUntil: number } | null;
-  navigation: { name: string; href: string; icon: any }[];
   signOut: () => void;
   location: ReturnType<typeof useLocation>;
 }) => {
@@ -160,8 +139,33 @@ const AppLayoutInner = ({
   const { authState, activeMode } = useAuth();
   const isMobile = useIsMobile();
 
-  const isActive = (path: string) => location.pathname === path;
   const isOnCockpit = location.pathname === '/app/planner';
+  const isPlannerMode = activeMode === 'planner';
+
+  const activePermissions = authState.status === 'authenticated' ? authState.activePermissions : null;
+  const isPlanner = authState.status === 'authenticated' && authState.activeRole === 'planner';
+
+  // Build navigation conditionally
+  let navigation: { name: string; href: string; icon: any }[] = [];
+  if (isPlannerMode && isOnCockpit) {
+    // Cockpit view: no project navigation
+    navigation = [];
+  } else {
+    const allNav = [
+      ...(isPlannerMode ? [{ name: "Cockpit", href: "/app/planner", icon: LayoutGrid }] : []),
+      { name: "Dashboard", href: "/app/dashboard", icon: LayoutDashboard },
+      { name: "Invitati", href: "/app/guests", icon: Users },
+      { name: "Budget", href: "/app/budget", icon: Euro, hidden: isPlanner && activePermissions?.budget_visible === false },
+      { name: "Tesoreria", href: "/app/treasury", icon: TrendingUp, hidden: isPlanner && activePermissions?.budget_visible === false },
+      { name: "Fornitori", href: "/app/vendors", icon: Package },
+      { name: "Checklist", href: "/app/checklist", icon: CheckSquare },
+      { name: "Calendario", href: "/app/calendar", icon: CalendarDays },
+      { name: "Tavoli", href: "/app/tables", icon: UtensilsCrossed },
+      { name: "Timeline", href: "/app/timeline", icon: Calendar },
+      { name: "Impostazioni", href: "/app/settings", icon: Settings },
+    ];
+    navigation = allNav.filter(n => !('hidden' in n && n.hidden));
+  }
 
   const handleNavClick = () => {
     if (isMobile) {
@@ -169,11 +173,14 @@ const AppLayoutInner = ({
     }
   };
 
+  const isActive = (path: string) => location.pathname === path;
+  const showWorkspaceSwitcher = !(isPlannerMode && isOnCockpit);
+
   return (
     <div className="min-h-screen flex w-full">
       <Sidebar collapsible="icon">
         <SidebarHeader className="border-b border-border p-4 space-y-2">
-          <WorkspaceSwitcher />
+          {showWorkspaceSwitcher && <WorkspaceSwitcher />}
           <ModeSwitcher />
         </SidebarHeader>
 
@@ -206,7 +213,7 @@ const AppLayoutInner = ({
         </SidebarContent>
 
         <SidebarFooter className="border-t border-border p-4">
-          {weddingInfo && (activeMode === 'couple' || !isOnCockpit) && (
+          {weddingInfo && !(isPlannerMode && isOnCockpit) && (
             <div className="mb-3 p-3 bg-gradient-hero rounded-lg text-center">
               <div className="text-3xl font-bold text-accent">{weddingInfo.daysUntil}</div>
               <div className="text-xs text-muted-foreground">giorni al matrimonio</div>
