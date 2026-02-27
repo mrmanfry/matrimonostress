@@ -93,13 +93,6 @@ const AppLayout = () => {
     loadWeddingInfo();
   }, [authState]);
 
-  // Intelligent redirect: planner mode landing on /app/dashboard -> redirect to cockpit
-  useEffect(() => {
-    if (authState.status !== 'authenticated') return;
-    if (activeMode === 'planner' && location.pathname === '/app/dashboard') {
-      navigate('/app/planner', { replace: true });
-    }
-  }, [activeMode, location.pathname, authState.status, navigate]);
 
   if (loadingWedding) {
     return (
