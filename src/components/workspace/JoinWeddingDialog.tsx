@@ -34,65 +34,17 @@ export function JoinWeddingDialog({ open, onOpenChange, initialCode = "" }: Join
     setJoining(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Non autenticato");
+      // Use SECURITY DEFINER RPC to bypass RLS on weddings table
+      const { data, error } = await supabase.rpc('join_wedding_by_code', {
+        p_access_code: code.trim(),
+      });
 
-      // Find wedding by access code
-      const { data: weddingData, error: weddingError } = await supabase
-        .from("weddings")
-        .select("id")
-        .eq("access_code", code.toUpperCase().trim())
-        .single();
+      if (error) throw error;
 
-      if (weddingError || !weddingData) {
-        throw new Error("Codice non valido");
+      const result = data as any;
+      if (result?.error) {
+        throw new Error(result.error);
       }
-
-      // Check if already a member
-      const { data: existingRole } = await supabase
-        .from("user_roles")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("wedding_id", weddingData.id)
-        .maybeSingle();
-
-      if (existingRole) {
-        throw new Error("Sei già un collaboratore di questo matrimonio");
-      }
-
-      // Look up invitation to get proper role
-      const userEmail = user.email;
-      let assignedRole: string = "manager"; // fallback
-
-      if (userEmail) {
-        const { data: invitation } = await supabase
-          .from("wedding_invitations")
-          .select("id, role, status")
-          .eq("wedding_id", weddingData.id)
-          .eq("email", userEmail)
-          .eq("status", "pending")
-          .maybeSingle();
-
-        if (invitation) {
-          assignedRole = invitation.role;
-          // Mark invitation as accepted
-          await supabase
-            .from("wedding_invitations")
-            .update({ status: "accepted" })
-            .eq("id", invitation.id);
-        }
-      }
-
-      // Create the role
-      const { error: roleError } = await supabase
-        .from("user_roles")
-        .insert({
-          user_id: user.id,
-          wedding_id: weddingData.id,
-          role: assignedRole as any,
-        });
-
-      if (roleError) throw roleError;
 
       await refreshAuth();
       queryClient.invalidateQueries();
