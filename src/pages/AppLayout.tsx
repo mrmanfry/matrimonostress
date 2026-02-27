@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Outlet, useLocation } from "react-router-dom";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { 
@@ -38,19 +38,21 @@ import { TrialBadge } from "@/components/subscription/TrialBadge";
 import { SoftPaywallDialog } from "@/components/subscription/SoftPaywallDialog";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import { WorkspaceSwitcher } from "@/components/workspace/WorkspaceSwitcher";
+import { ModeSwitcher } from "@/components/workspace/ModeSwitcher";
+
 const AppLayout = () => {
-  const { authState, signOut, isPlanner } = useAuth();
+  const { authState, signOut, activeMode } = useAuth();
   const [loadingWedding, setLoadingWedding] = useState(true);
   const [weddingInfo, setWeddingInfo] = useState<{ partner1: string; partner2: string; daysUntil: number } | null>(null);
   const location = useLocation();
+  const navigate = useNavigate();
 
   // Filter navigation based on planner permissions
   const activePermissions = authState.status === 'authenticated' ? authState.activePermissions : null;
-  const hasMultipleWeddings = authState.status === 'authenticated' && authState.weddings.length > 1;
-  const showCockpit = isPlanner || hasMultipleWeddings;
+  const isPlanner = authState.status === 'authenticated' && authState.activeRole === 'planner';
   
   const allNavigation = [
-    ...(showCockpit ? [{ name: "Cockpit", href: "/app/planner", icon: LayoutGrid }] : []),
+    ...(activeMode === 'planner' ? [{ name: "Cockpit", href: "/app/planner", icon: LayoutGrid }] : []),
     { name: "Dashboard", href: "/app/dashboard", icon: LayoutDashboard },
     { name: "Invitati", href: "/app/guests", icon: Users },
     { name: "Budget", href: "/app/budget", icon: Euro, hidden: isPlanner && activePermissions?.budget_visible === false },
@@ -109,6 +111,14 @@ const AppLayout = () => {
     loadWeddingInfo();
   }, [authState]);
 
+  // Intelligent redirect: planner mode landing on /app/dashboard -> redirect to cockpit
+  useEffect(() => {
+    if (authState.status !== 'authenticated') return;
+    if (activeMode === 'planner' && location.pathname === '/app/dashboard') {
+      navigate('/app/planner', { replace: true });
+    }
+  }, [activeMode, location.pathname, authState.status, navigate]);
+
   if (loadingWedding) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -147,10 +157,11 @@ const AppLayoutInner = ({
   location: ReturnType<typeof useLocation>;
 }) => {
   const { setOpenMobile } = useSidebar();
-  const { authState } = useAuth();
+  const { authState, activeMode } = useAuth();
   const isMobile = useIsMobile();
 
   const isActive = (path: string) => location.pathname === path;
+  const isOnCockpit = location.pathname === '/app/planner';
 
   const handleNavClick = () => {
     if (isMobile) {
@@ -161,20 +172,9 @@ const AppLayoutInner = ({
   return (
     <div className="min-h-screen flex w-full">
       <Sidebar collapsible="icon">
-        <SidebarHeader className="border-b border-border p-4">
+        <SidebarHeader className="border-b border-border p-4 space-y-2">
           <WorkspaceSwitcher />
-          {(authState.status !== 'authenticated' || authState.weddings.length <= 1) && (
-            <div className="flex items-center gap-2.5">
-              <div className="relative p-2 rounded-xl bg-accent/10 border border-accent/15 shrink-0">
-                <Heart className="w-5 h-5 text-accent fill-accent/70" />
-                <div className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-accent/40 blur-[1px]" />
-              </div>
-              <div className="flex-1 overflow-hidden">
-                <p className="font-serif font-bold text-sm tracking-wider truncate leading-none">WedsApp</p>
-                <p className="text-muted-foreground text-[9px] font-medium tracking-[0.2em] uppercase leading-none mt-0.5">Wedding Planner</p>
-              </div>
-            </div>
-          )}
+          <ModeSwitcher />
         </SidebarHeader>
 
         <SidebarContent>
@@ -206,7 +206,7 @@ const AppLayoutInner = ({
         </SidebarContent>
 
         <SidebarFooter className="border-t border-border p-4">
-          {weddingInfo && (
+          {weddingInfo && (activeMode === 'couple' || !isOnCockpit) && (
             <div className="mb-3 p-3 bg-gradient-hero rounded-lg text-center">
               <div className="text-3xl font-bold text-accent">{weddingInfo.daysUntil}</div>
               <div className="text-xs text-muted-foreground">giorni al matrimonio</div>
@@ -226,7 +226,12 @@ const AppLayoutInner = ({
       <div className="flex-1 flex flex-col min-w-0">
         <header className="h-14 border-b border-border bg-card flex items-center px-4 gap-4">
           <SidebarTrigger />
-          {weddingInfo && (
+          {isOnCockpit ? (
+            <div className="flex-1 text-center">
+              <h2 className="text-sm font-semibold">Cockpit Planner</h2>
+              <p className="text-xs text-muted-foreground">Panoramica matrimoni</p>
+            </div>
+          ) : weddingInfo ? (
             <div className="flex-1 text-center">
               <h2 className="text-sm font-semibold">
                 {weddingInfo.partner1} & {weddingInfo.partner2}
@@ -235,7 +240,7 @@ const AppLayoutInner = ({
                 {weddingInfo.daysUntil} giorni al matrimonio
               </p>
             </div>
-          )}
+          ) : null}
           <TrialBadge />
         </header>
         <SoftPaywallDialog />

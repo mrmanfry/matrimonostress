@@ -13,7 +13,7 @@ import {
 import { JoinWeddingDialog } from "./JoinWeddingDialog";
 
 export function WorkspaceSwitcher() {
-  const { authState, switchWedding } = useAuth();
+  const { authState, switchWedding, activeMode } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [joinOpen, setJoinOpen] = useState(false);
@@ -22,8 +22,17 @@ export function WorkspaceSwitcher() {
     return null;
   }
 
+  // Filter weddings based on active mode
+  const filteredWeddings = authState.weddings.filter(w => {
+    if (activeMode === 'planner') {
+      return w.role === 'planner' || w.role === 'manager';
+    }
+    // couple mode: show own weddings (co_planner, or non-planner roles)
+    return w.role !== 'planner';
+  });
+
   const active = authState.weddings.find(w => w.weddingId === authState.activeWeddingId);
-  const showSwitcher = authState.weddings.length > 1;
+  const showSwitcher = filteredWeddings.length > 1 || activeMode === 'planner';
 
   const handleSwitch = (wedding: WeddingContext) => {
     if (wedding.weddingId === authState.activeWeddingId) return;
@@ -32,7 +41,6 @@ export function WorkspaceSwitcher() {
     navigate("/app/dashboard");
   };
 
-  // Always show the brand header; dropdown only if multiple weddings or join option
   return (
     <>
       <DropdownMenu>
@@ -46,14 +54,16 @@ export function WorkspaceSwitcher() {
                 {active ? `${active.partner1Name} & ${active.partner2Name}` : 'WedsApp'}
               </p>
               <p className="text-muted-foreground text-[9px] font-medium tracking-[0.15em] uppercase leading-none mt-0.5 truncate">
-                {active?.role === 'planner' ? 'Planner' : 'Wedding Planner'}
+                {activeMode === 'planner' ? 'Planner Mode' : 'Wedding Planner'}
               </p>
             </div>
-            <ChevronsUpDown className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+            {showSwitcher && (
+              <ChevronsUpDown className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+            )}
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-64">
-          {showSwitcher && authState.weddings.map((wedding) => (
+          {filteredWeddings.map((wedding) => (
             <DropdownMenuItem
               key={wedding.weddingId}
               onClick={() => handleSwitch(wedding)}
@@ -74,7 +84,7 @@ export function WorkspaceSwitcher() {
               )}
             </DropdownMenuItem>
           ))}
-          {showSwitcher && <DropdownMenuSeparator />}
+          <DropdownMenuSeparator />
           <DropdownMenuItem
             onClick={() => setJoinOpen(true)}
             className="flex items-center gap-2 cursor-pointer text-muted-foreground"
