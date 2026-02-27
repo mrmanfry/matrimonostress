@@ -1390,7 +1390,9 @@ export type Database = {
           ceremony_venue_name: string | null
           created_at: string
           created_by: string
+          current_period_end: string | null
           id: string
+          is_date_tentative: boolean
           location: string | null
           partner1_name: string
           partner2_name: string
@@ -1399,13 +1401,21 @@ export type Database = {
           reception_venue_name: string | null
           rsvp_config: Json | null
           slug: string | null
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          subscription_status: string
           target_adults: number | null
           target_children: number | null
           target_staff: number | null
           timezone: string | null
           total_budget: number | null
+          trial_ends_at: string | null
+          trial_reminder_2d_sent: boolean
+          trial_reminder_5d_sent: boolean
           updated_at: string
+          user_role_type: string | null
           wedding_date: string
+          welcome_email_sent: boolean
         }
         Insert: {
           access_code?: string | null
@@ -1416,7 +1426,9 @@ export type Database = {
           ceremony_venue_name?: string | null
           created_at?: string
           created_by: string
+          current_period_end?: string | null
           id?: string
+          is_date_tentative?: boolean
           location?: string | null
           partner1_name: string
           partner2_name: string
@@ -1425,13 +1437,21 @@ export type Database = {
           reception_venue_name?: string | null
           rsvp_config?: Json | null
           slug?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_status?: string
           target_adults?: number | null
           target_children?: number | null
           target_staff?: number | null
           timezone?: string | null
           total_budget?: number | null
+          trial_ends_at?: string | null
+          trial_reminder_2d_sent?: boolean
+          trial_reminder_5d_sent?: boolean
           updated_at?: string
+          user_role_type?: string | null
           wedding_date: string
+          welcome_email_sent?: boolean
         }
         Update: {
           access_code?: string | null
@@ -1442,7 +1462,9 @@ export type Database = {
           ceremony_venue_name?: string | null
           created_at?: string
           created_by?: string
+          current_period_end?: string | null
           id?: string
+          is_date_tentative?: boolean
           location?: string | null
           partner1_name?: string
           partner2_name?: string
@@ -1451,13 +1473,21 @@ export type Database = {
           reception_venue_name?: string | null
           rsvp_config?: Json | null
           slug?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_status?: string
           target_adults?: number | null
           target_children?: number | null
           target_staff?: number | null
           timezone?: string | null
           total_budget?: number | null
+          trial_ends_at?: string | null
+          trial_reminder_2d_sent?: boolean
+          trial_reminder_5d_sent?: boolean
           updated_at?: string
+          user_role_type?: string | null
           wedding_date?: string
+          welcome_email_sent?: boolean
         }
         Relationships: []
       }
