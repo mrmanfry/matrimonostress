@@ -147,8 +147,8 @@ export function GuestSummaryWidget({ stats, onClick }: GuestSummaryWidgetProps) 
               </div>
             </>
           ) : (
-            <div className="h-[180px]">
-              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+            <div className="h-[180px]" style={{ minHeight: 180 }}>
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={100}>
                 <PieChart>
                   <Pie
                     data={rsvpChartData}

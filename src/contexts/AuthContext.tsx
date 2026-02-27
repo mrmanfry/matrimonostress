@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, useRef, ReactNode, useC
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { weddingStorage } from "@/utils/weddingStorage";
+import { retryWithBackoff } from "@/utils/retryWithBackoff";
 
 // --- Types ---
 
@@ -73,22 +74,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loadUserContext = useCallback(async (): Promise<WeddingContext[]> => {
     console.log('[AuthContext] ⚡ Fetching user context via RPC...');
     
-    const timeoutMs = 10000;
-    const timeoutPromise = new Promise<never>((_, reject) => 
-      setTimeout(() => reject(new Error('RPC timeout: get_user_context non ha risposto in 10s')), timeoutMs)
-    );
-    
-    const rpcPromise = supabase.rpc('get_user_context');
-    const { data, error } = await Promise.race([rpcPromise, timeoutPromise]);
-    
-    if (error) {
-      console.error('[AuthContext] RPC Error:', error);
-      throw error;
-    }
+    return retryWithBackoff(async () => {
+      const timeoutMs = 15000;
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('RPC timeout: get_user_context non ha risposto in 15s')), timeoutMs)
+      );
 
-    const weddings = parseWeddingsFromRpc(data);
-    console.log('[AuthContext] ✅ Weddings resolved:', weddings.length);
-    return weddings;
+      const rpcPromise = (async () => {
+        const { data, error } = await supabase.rpc('get_user_context');
+        if (error) {
+          console.error('[AuthContext] RPC Error:', error);
+          throw error;
+        }
+        const weddings = parseWeddingsFromRpc(data);
+        console.log('[AuthContext] ✅ Weddings resolved:', weddings.length);
+        return weddings;
+      })();
+
+      return Promise.race([rpcPromise, timeoutPromise]);
+    }, {
+      maxAttempts: 3,
+      initialDelay: 2000,
+      maxDelay: 8000,
+      backoffMultiplier: 2,
+      onRetry: (attempt, error) => {
+        console.warn(`[AuthContext] ⏳ Retry tentativo ${attempt}...`, error.message);
+      },
+    });
   }, []);
 
   const handleAuthSession = useCallback(async (session: Session) => {
@@ -149,15 +161,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
+    // We rely SOLELY on onAuthStateChange to trigger handleAuthSession.
+    // initSession only sets unauthenticated if there's no session at all,
+    // avoiding the race condition where both initSession and onAuthStateChange
+    // would call handleAuthSession simultaneously.
     const initSession = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
         if (error) throw error;
-        if (session && mounted) {
-          await handleAuthSession(session);
-        } else if (!session && mounted) {
+        if (!session && mounted) {
           setAuthState({ status: "unauthenticated" });
         }
+        // If session exists, do NOT call handleAuthSession here.
+        // onAuthStateChange(INITIAL_SESSION) will handle it.
       } catch (error) {
         console.error('[AuthContext] Init session error:', error);
         if (mounted) {
@@ -178,6 +194,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (event === 'SIGNED_OUT' || !session) {
           weddingStorage.clear();
+          lastProcessedUserId.current = null;
           setAuthState({ status: "unauthenticated" });
           return;
         }
