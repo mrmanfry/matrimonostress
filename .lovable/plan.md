@@ -1,43 +1,38 @@
 
 
-## Rebranding: "Nozze Senza Stress" -> "WedsApp"
+## Uniformare il Logo "WedsApp" in tutta l'app
 
-Sostituzione di tutti i riferimenti al vecchio nome in 14 file, sia frontend che backend (edge functions) e metadati HTML.
+Il nuovo logo dell'Hero (icona cuore con effetto glass + "WedsApp" + sottotitolo "Wedding Planner") va replicato in tutti i punti dove appare il vecchio logo semplificato.
 
-### File da modificare
+### Punti da aggiornare
 
-**Frontend (src/)**
+**1. `src/pages/Auth.tsx` - Pannello sinistro (linee 370-375)**
+- Vecchio: semplice icona + testo inline
+- Nuovo: stile glassmorphism con sottotitolo "Wedding Planner", identico all'Hero
 
-| File | Occorrenze | Note |
-|------|-----------|------|
-| `src/components/Hero.tsx` | 1 | Logo in alto a sinistra |
-| `src/components/Footer.tsx` | 2 | Logo + copyright |
-| `src/components/ProblemStatement.tsx` | 1 | Testo corpo |
-| `src/components/TargetAudience.tsx` | 1 | Testo corpo |
-| `src/pages/Auth.tsx` | 2 | Pannello sinistro (logo) + form (titolo) |
-| `src/pages/AppLayout.tsx` | 1 | Sidebar logo |
-| `src/pages/TimelinePublic.tsx` | 1 | Footer pagina pubblica |
-| `src/pages/ProgressPublic.tsx` | 1 | Footer pagina pubblica |
-| `src/utils/pdfHelpers.ts` | 1 | Footer PDF catering |
-| `src/utils/checklistPdfExport.ts` | 1 | Footer PDF checklist |
+**2. `src/pages/Auth.tsx` - Form destro (linee 182-187)**
+- Vecchio: cerchio accent con cuore + "WedsApp" in h1
+- Nuovo: stessa struttura glassmorphism ma adattata allo sfondo chiaro (sfondo accent invece di white/10, testo scuro)
 
-**Backend (supabase/functions/)**
+**3. `src/pages/AppLayout.tsx` - Sidebar (linee 153-160)**
+- Vecchio: icona Heart + "WedsApp" in testo semplice
+- Nuovo: icona con contenitore arrotondato + "WedsApp" con sottotitolo "Wedding Planner" sotto, compatto per la sidebar
 
-| File | Occorrenze | Note |
-|------|-----------|------|
-| `supabase/functions/send-welcome-email/index.ts` | ~4 | Titolo, footer, mittente email |
-| `supabase/functions/check-payment-reminders/index.ts` | ~3 | Titolo, footer, mittente email |
-| `supabase/functions/check-trial-reminders/index.ts` | ~2 | Footer, mittente email |
+**4. `src/components/Footer.tsx` (linee 9-11)**
+- Vecchio: icona Heart + "WedsApp" inline
+- Nuovo: stessa struttura con contenitore arrotondato e sottotitolo
 
-**Metadati**
+### Adattamenti per contesto
 
-| File | Occorrenze | Note |
-|------|-----------|------|
-| `index.html` | 1 | meta author |
+- **Sfondo scuro** (Hero, Auth pannello sinistro): `bg-white/10`, `border-white/15`, testo bianco
+- **Sfondo chiaro** (Auth form, Sidebar, Footer): `bg-accent/10`, `border-accent/15`, testo foreground, cuore color accent
 
-### Tipo di modifica
+### Dettagli tecnici
 
-Semplice find-and-replace testuale: ogni occorrenza di "Nozze Senza Stress" diventa "WedsApp". Nessuna modifica strutturale, nessuna nuova dipendenza, nessuna modifica al database.
+Ogni istanza del logo avra:
+1. Contenitore icona con `rounded-2xl`, backdrop-blur, bordo sottile, e puntino luminoso decorativo
+2. Testo "WedsApp" in `font-serif font-bold tracking-wider`
+3. Sottotitolo "Wedding Planner" in `text-[10px] uppercase tracking-[0.25em]`
+4. Dimensioni adattate al contesto (sidebar piu compatto, hero/auth piu grande)
 
-Totale: ~21 sostituzioni in 14 file.
-
+Nessuna nuova dipendenza. Solo modifiche CSS/markup.
