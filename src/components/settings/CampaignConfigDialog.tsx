@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -590,7 +591,7 @@ const CampaignConfigDialog = ({
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="ceremonyVenueAddress">Indirizzo</Label>
-                      <Input id="ceremonyVenueAddress" value={ceremonyVenueAddress} onChange={(e) => setCeremonyVenueAddress(e.target.value)} placeholder="Es: Piazza Duomo 1, Trani" maxLength={200} />
+                      <AddressAutocomplete id="ceremonyVenueAddress" value={ceremonyVenueAddress} onChange={setCeremonyVenueAddress} placeholder="Es: Piazza Duomo 1, Trani" />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="ceremonyStartTime">Orario Cerimonia</Label>
@@ -627,7 +628,7 @@ const CampaignConfigDialog = ({
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="receptionVenueAddress">Indirizzo</Label>
-                      <Input id="receptionVenueAddress" value={receptionVenueAddress} onChange={(e) => setReceptionVenueAddress(e.target.value)} placeholder="Es: Via Vecchia Spinazzola Km 9,200, Andria" maxLength={200} />
+                      <AddressAutocomplete id="receptionVenueAddress" value={receptionVenueAddress} onChange={setReceptionVenueAddress} placeholder="Es: Via Vecchia Spinazzola Km 9,200, Andria" />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="receptionStartTime">Orario Ricevimento</Label>
