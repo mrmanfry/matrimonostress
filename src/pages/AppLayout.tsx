@@ -154,7 +154,7 @@ const AppLayoutInner = ({
           <div className="flex items-center gap-2">
             <Heart className="w-6 h-6 text-accent fill-accent shrink-0" />
             <div className="flex-1 overflow-hidden">
-              <p className="font-bold text-sm truncate">Nozze Senza Stress</p>
+              <p className="font-bold text-sm truncate">WedsApp</p>
               {weddingInfo && (
                 <p className="text-xs text-muted-foreground truncate">
                   {weddingInfo.partner1} & {weddingInfo.partner2}

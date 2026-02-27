@@ -8,7 +8,7 @@ const Footer = () => {
           {/* Logo/Brand */}
           <div className="flex items-center gap-2">
             <Heart className="w-6 h-6 text-accent fill-accent" />
-            <span className="text-xl font-bold">Nozze Senza Stress</span>
+            <span className="text-xl font-bold">WedsApp</span>
           </div>
 
           {/* Tagline */}
@@ -36,7 +36,7 @@ const Footer = () => {
           {/* Copyright */}
           <div className="pt-6 border-t border-border w-full">
             <p className="text-sm text-muted-foreground">
-              © {new Date().getFullYear()} Nozze Senza Stress. Fatto con amore
+              © {new Date().getFullYear()} WedsApp. Fatto con amore
               in Italia.
             </p>
           </div>

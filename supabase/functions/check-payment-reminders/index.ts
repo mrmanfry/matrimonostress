@@ -120,7 +120,7 @@ serve(async (req: Request): Promise<Response> => {
 
         const emailHtml = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #4F46E5;">💍 Promemoria Pagamento - Nozze Senza Stress</h2>
+            <h2 style="color: #4F46E5;">💍 Promemoria Pagamento - WedsApp</h2>
             <p>Ciao <strong>${coPlanner.first_name}</strong>,</p>
             <p>Ti ricordiamo che tra <strong>7 giorni</strong> scadrà il seguente pagamento:</p>
             
@@ -140,13 +140,13 @@ serve(async (req: Request): Promise<Response> => {
             <hr style="border: none; border-top: 1px solid #E5E7EB; margin: 30px 0;">
             <p style="color: #6B7280; font-size: 14px;">
               Matrimonio: <strong>${wedding.partner1_name} & ${wedding.partner2_name}</strong><br>
-              Questo è un messaggio automatico da Nozze Senza Stress
+              Questo è un messaggio automatico da WedsApp
             </p>
           </div>
         `;
 
         const { error: emailError } = await resend.emails.send({
-          from: "Nozze Senza Stress <onboarding@resend.dev>",
+          from: "WedsApp <onboarding@resend.dev>",
           to: [recipientEmail],
           subject: `💰 Promemoria: Pagamento in scadenza tra 7 giorni`,
           html: emailHtml,

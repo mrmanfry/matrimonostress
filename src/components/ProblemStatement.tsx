@@ -101,7 +101,7 @@ const ProblemStatement = () => {
             La Soluzione? Un Partner Digitale Completo.
           </p>
           <p className="text-muted-foreground">
-            Nozze Senza Stress elimina questi problemi alla radice, restituendoti serenità e controllo.
+            WedsApp elimina questi problemi alla radice, restituendoti serenità e controllo.
           </p>
         </div>
       </div>

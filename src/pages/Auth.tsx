@@ -184,7 +184,7 @@ const Auth = () => {
             <Heart className="w-8 h-8 text-accent-foreground fill-accent-foreground" />
           </div>
         </div>
-        <h1 className="text-3xl font-bold font-serif">Nozze Senza Stress</h1>
+        <h1 className="text-3xl font-bold font-serif">WedsApp</h1>
         <p className="text-muted-foreground">
           {isLogin ? "Bentornato!" : "Inizia a organizzare il tuo matrimonio"}
         </p>
@@ -371,7 +371,7 @@ const Auth = () => {
             <div className="p-2.5 rounded-xl bg-white/15 backdrop-blur-sm">
               <Heart className="w-6 h-6 text-white fill-white/80" />
             </div>
-            <span className="text-white/90 font-serif text-lg font-semibold tracking-wide">Nozze Senza Stress</span>
+            <span className="text-white/90 font-serif text-lg font-semibold tracking-wide">WedsApp</span>
           </div>
 
           {/* Center: Main message */}

@@ -118,7 +118,7 @@ serve(async (req) => {
 
     <div style="padding:20px 32px;background:#f9fafb;text-align:center;border-top:1px solid #e5e7eb;">
       <p style="font-size:12px;color:#9ca3af;margin:0;">
-        Nozze Senza Stress — Il tuo Project Manager per il matrimonio
+        WedsApp — Il tuo Project Manager per il matrimonio
       </p>
     </div>
   </div>
@@ -126,7 +126,7 @@ serve(async (req) => {
 </html>`;
 
         const { error: sendError } = await resend.emails.send({
-          from: "Nozze Senza Stress <noreply@resend.dev>",
+          from: "WedsApp <noreply@resend.dev>",
           to: [userEmail],
           subject,
           html: emailHtml,

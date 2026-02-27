@@ -256,7 +256,7 @@ export const generateChecklistPdf = ({
     doc.setFontSize(8);
     doc.setTextColor(150, 150, 150);
     doc.text(`Pagina ${i} di ${pageCount}`, 105, 290, { align: "center" });
-    doc.text("Generato con Nozze Senza Stress", 105, 295, { align: "center" });
+    doc.text("Generato con WedsApp", 105, 295, { align: "center" });
   }
 
   doc.save(`checklist-matrimonio-${format(new Date(), "yyyy-MM-dd")}.pdf`);

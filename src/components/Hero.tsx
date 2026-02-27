@@ -33,7 +33,7 @@ const Hero = () => {
             <Heart className="w-6 h-6 text-white fill-white/80" />
           </div>
           <span className="text-white/90 font-serif text-lg font-semibold tracking-wide">
-            Nozze Senza Stress
+            WedsApp
           </span>
         </div>
 

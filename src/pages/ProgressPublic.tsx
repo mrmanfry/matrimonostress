@@ -391,7 +391,7 @@ const ProgressPublic = () => {
 
         {/* Footer */}
         <p className="text-center text-sm text-gray-400 pt-8">
-          Creato con ❤️ usando <span className="font-medium">Nozze Senza Stress</span>
+          Creato con ❤️ usando <span className="font-medium">WedsApp</span>
         </p>
       </div>
     </div>
