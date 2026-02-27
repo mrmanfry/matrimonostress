@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, ComposedChart } from "recharts";
 import { TrendingUp, AlertCircle, Calendar, Euro, ExternalLink, Check, ChevronDown } from "lucide-react";
+import { LockedCard } from "@/components/ui/locked-card";
 import { format, parseISO, addDays, isBefore, isAfter } from "date-fns";
 import { it } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
@@ -83,7 +84,7 @@ interface ChartDataPoint {
 }
 
 export default function Treasury() {
-  const { authState } = useAuth();
+  const { authState, isPlanner } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -636,6 +637,19 @@ export default function Treasury() {
       return true;
     })
     .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
+
+  // Locked state for planners without budget access
+  const activePermissions = authState.status === 'authenticated' ? authState.activePermissions : null;
+  if (isPlanner && !activePermissions?.budget_visible) {
+    return (
+      <LockedCard
+        variant="full-page"
+        title="Sezione riservata agli sposi"
+        subtitle="Non hai accesso alla Tesoreria"
+        message="Questa sezione è gestita direttamente dagli sposi. Per visualizzarla, chiedi agli sposi di abilitare l'accesso."
+      />
+    );
+  }
 
   if (loading) {
     return (

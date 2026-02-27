@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TrendingUp, ArrowRight, Search, X, AlertCircle } from "lucide-react";
+import { LockedCard } from "@/components/ui/locked-card";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 import { CalculationModeToggle } from "@/components/ui/calculation-mode-toggle";
 import { calculateExpenseAmount, ExpenseItem as ExpenseItemCalc, ExpenseLineItem, GuestCounts } from "@/lib/expenseCalculations";
@@ -52,7 +53,7 @@ interface CategoryData {
 }
 
 export default function BudgetLegacy() {
-  const { authState } = useAuth();
+  const { authState, isPlanner } = useAuth();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [loading, setLoading] = useState(true);
@@ -390,6 +391,19 @@ export default function BudgetLegacy() {
     return Array.from(categories).sort();
   };
 
+
+  // Locked state for planners without budget access
+  const activePermissions = authState.status === 'authenticated' ? authState.activePermissions : null;
+  if (isPlanner && !activePermissions?.budget_visible) {
+    return (
+      <LockedCard
+        variant="full-page"
+        title="Sezione riservata agli sposi"
+        subtitle="Non hai accesso al Budget"
+        message="Questa sezione è gestita direttamente dagli sposi. Per visualizzarla, chiedi agli sposi di abilitare l'accesso."
+      />
+    );
+  }
 
   if (loading) {
     return (

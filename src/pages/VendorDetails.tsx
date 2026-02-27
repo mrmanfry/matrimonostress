@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Phone, Mail, Building2, CreditCard, FileText, Pencil, CalendarCheck, ListTodo } from "lucide-react";
@@ -16,6 +17,7 @@ import { VendorDialog } from "@/components/vendors/VendorDialog";
 import { VendorTaskDialog } from "@/components/vendors/VendorTaskDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { LockedCard } from "@/components/ui/locked-card";
 
 const statusConfig = {
   evaluating: { label: "In Valutazione", bg: "bg-yellow-100 text-yellow-800 border-yellow-200" },
@@ -36,6 +38,8 @@ export default function VendorDetails() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  const { isPlanner, authState } = useAuth();
+  const vendorCostsHidden = isPlanner && authState.status === 'authenticated' && authState.activePermissions?.vendor_costs_visible === false;
 
   // Fetch vendor details
   const { data: vendor, isLoading } = useQuery({
@@ -275,15 +279,17 @@ export default function VendorDetails() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue={initialTab} className="w-full">
+      <Tabs defaultValue={vendorCostsHidden ? 'documents' : initialTab} className="w-full">
         <TabsList className={`w-full border-b rounded-none bg-transparent h-auto p-0 ${isMobile ? 'justify-around' : 'justify-start space-x-8'}`}>
-          <TabsTrigger
-            value="expenses"
-            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary py-3 px-0"
-          >
-            <CreditCard className="w-4 h-4 md:mr-2" />
-            <span className="hidden md:inline">Spese & Pagamenti</span>
-          </TabsTrigger>
+          {!vendorCostsHidden && (
+            <TabsTrigger
+              value="expenses"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary py-3 px-0"
+            >
+              <CreditCard className="w-4 h-4 md:mr-2" />
+              <span className="hidden md:inline">Spese & Pagamenti</span>
+            </TabsTrigger>
+          )}
           <TabsTrigger
             value="documents"
             className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary py-3 px-0"
@@ -308,9 +314,11 @@ export default function VendorDetails() {
         </TabsList>
 
         <div className="mt-6 space-y-6">
-          <TabsContent value="expenses" className="mt-0 focus-visible:ring-0">
-            <VendorExpensesWidget vendorId={vendor.id} categoryId={vendor.category_id} />
-          </TabsContent>
+          {!vendorCostsHidden && (
+            <TabsContent value="expenses" className="mt-0 focus-visible:ring-0">
+              <VendorExpensesWidget vendorId={vendor.id} categoryId={vendor.category_id} />
+            </TabsContent>
+          )}
 
           <TabsContent value="documents" className="mt-0 focus-visible:ring-0">
             <VendorDocumentsWidget vendorId={vendor.id} vendorName={vendor.name} />
