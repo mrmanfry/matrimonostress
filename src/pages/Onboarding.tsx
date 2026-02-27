@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Heart, Loader2, ArrowRight, ArrowLeft, CalendarDays } from "lucide-react";
+import { Heart, Loader2, ArrowRight, ArrowLeft, CalendarDays, UserPlus, Plus } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 
 const MONTHS = [
   "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
@@ -28,6 +29,14 @@ const YEARS = Array.from({ length: 5 }, (_, i) => currentYear + i);
 
 const Onboarding = () => {
   const { authState, refreshAuth } = useAuth();
+  const [searchParams] = useSearchParams();
+  const joinCodeFromUrl = searchParams.get("join") || "";
+
+  // "choice" = step 0, "create" = original flow, "join" = join flow
+  const [flow, setFlow] = useState<"choice" | "create" | "join">(
+    joinCodeFromUrl ? "join" : "choice"
+  );
+
   const [step, setStep] = useState(1);
   const [partner1Name, setPartner1Name] = useState("");
   const [partner2Name, setPartner2Name] = useState("");
@@ -37,8 +46,14 @@ const Onboarding = () => {
   const [tentativeMonth, setTentativeMonth] = useState("");
   const [tentativeYear, setTentativeYear] = useState(String(currentYear + 1));
   const [loading, setLoading] = useState(false);
+
+  // Join flow state
+  const [joinCode, setJoinCode] = useState(joinCodeFromUrl);
+  const [joining, setJoining] = useState(false);
+
   const navigate = useNavigate();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const canProceedStep1 = partner1Name.trim().length >= 2 && partner2Name.trim().length >= 2 && userRole;
 
@@ -51,6 +66,37 @@ const Onboarding = () => {
     const monthIdx = MONTHS.indexOf(tentativeMonth);
     const m = String(monthIdx + 1).padStart(2, "0");
     return `${tentativeYear}-${m}-15`;
+  };
+
+  const handleJoin = async () => {
+    if (!joinCode.trim()) return;
+    setJoining(true);
+    try {
+      const { data, error } = await supabase.rpc('join_wedding_by_code', {
+        p_access_code: joinCode.trim(),
+      });
+      if (error) throw error;
+      const result = data as any;
+      if (result?.error) throw new Error(result.error);
+
+      await refreshAuth();
+      queryClient.invalidateQueries();
+
+      toast({
+        title: "Accesso effettuato! 🎉",
+        description: "Ora puoi collaborare a questo matrimonio",
+      });
+      navigate("/app/dashboard");
+    } catch (error: any) {
+      console.error("Error joining wedding:", error);
+      toast({
+        title: "Errore",
+        description: error.message || "Codice non valido o scaduto",
+        variant: "destructive",
+      });
+    } finally {
+      setJoining(false);
+    }
   };
 
   const handleSubmit = async () => {
@@ -123,6 +169,120 @@ const Onboarding = () => {
     }
   };
 
+  // ── Step 0: Choice screen ──
+  if (flow === "choice") {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-background">
+        <Card className="w-full max-w-lg p-8 space-y-6">
+          <div className="text-center space-y-2">
+            <div className="flex justify-center mb-3">
+              <div className="p-3 rounded-full bg-accent">
+                <Heart className="w-7 h-7 text-accent-foreground fill-accent-foreground" />
+              </div>
+            </div>
+            <h1 className="text-2xl font-bold font-serif">Benvenuto su WedsApp!</h1>
+            <p className="text-sm text-muted-foreground">
+              Come vuoi iniziare?
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <Button
+              className="w-full h-14 text-base justify-start gap-3"
+              onClick={() => setFlow("create")}
+            >
+              <Plus className="w-5 h-5" />
+              Crea un Nuovo Matrimonio
+            </Button>
+
+            <div className="flex items-center gap-3 py-1">
+              <div className="flex-1 h-px bg-border" />
+              <span className="text-xs text-muted-foreground">oppure</span>
+              <div className="flex-1 h-px bg-border" />
+            </div>
+
+            <Button
+              variant="outline"
+              className="w-full h-14 text-base justify-start gap-3"
+              onClick={() => setFlow("join")}
+            >
+              <UserPlus className="w-5 h-5" />
+              Ho un codice di invito
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  // ── Join flow ──
+  if (flow === "join") {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-background">
+        <Card className="w-full max-w-lg p-8 space-y-6">
+          <div className="text-center space-y-2">
+            <div className="flex justify-center mb-3">
+              <div className="p-3 rounded-full bg-accent">
+                <UserPlus className="w-7 h-7 text-accent-foreground" />
+              </div>
+            </div>
+            <h1 className="text-2xl font-bold font-serif">Unisciti a un Matrimonio</h1>
+            <p className="text-sm text-muted-foreground">
+              Inserisci il codice di accesso che hai ricevuto via email
+            </p>
+          </div>
+
+          <form
+            onSubmit={(e) => { e.preventDefault(); handleJoin(); }}
+            className="space-y-4"
+          >
+            <div className="space-y-2">
+              <Label htmlFor="joinCode">Codice di Accesso</Label>
+              <Input
+                id="joinCode"
+                value={joinCode}
+                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                placeholder="WED-XXXX"
+                className="font-mono uppercase text-center text-lg"
+                maxLength={8}
+                required
+                disabled={joining}
+                autoFocus
+              />
+            </div>
+
+            <Button
+              type="submit"
+              className="w-full h-12 text-base"
+              disabled={joining || joinCode.trim().length < 8}
+            >
+              {joining ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  Accesso in corso...
+                </>
+              ) : (
+                "Accedi al Matrimonio"
+              )}
+            </Button>
+
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full"
+              onClick={() => setFlow("choice")}
+              disabled={joining}
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Indietro
+            </Button>
+          </form>
+        </Card>
+      </div>
+    );
+  }
+
+  // ── Create flow (original 2-step) ──
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-background">
       <Card className="w-full max-w-lg p-8 space-y-6">
@@ -193,14 +353,23 @@ const Onboarding = () => {
               </Select>
             </div>
 
-            <Button
-              className="w-full h-12 text-base"
-              disabled={!canProceedStep1}
-              onClick={() => setStep(2)}
-            >
-              Avanti
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="h-12"
+                onClick={() => setFlow("choice")}
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </Button>
+              <Button
+                className="flex-1 h-12 text-base"
+                disabled={!canProceedStep1}
+                onClick={() => setStep(2)}
+              >
+                Avanti
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
           </div>
         )}
 
