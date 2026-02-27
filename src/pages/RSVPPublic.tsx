@@ -118,7 +118,6 @@ export default function RSVPPublic({ forceStdMode }: RSVPPublicProps) {
 
   const fetchPreviewData = async () => {
     try {
-      // Get current user's wedding for preview
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         toast.error("Devi essere loggato per vedere l'anteprima");
@@ -126,7 +125,6 @@ export default function RSVPPublic({ forceStdMode }: RSVPPublicProps) {
         return;
       }
 
-      // Get wedding data
       const { data: wedding, error } = await supabase
         .from("weddings")
         .select("*")
@@ -140,15 +138,32 @@ export default function RSVPPublic({ forceStdMode }: RSVPPublicProps) {
       }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const rawConfig = wedding.rsvp_config as any;
+      const campaignsRaw = wedding.campaigns_config as any;
+      const campaignSource = isStdMode ? campaignsRaw?.save_the_date : campaignsRaw?.rsvp;
+      const themeRaw = campaignsRaw?.theme;
+
       const config: RSVPConfig = {
-        hero_image_url: rawConfig?.hero_image_url || null,
-        welcome_title: rawConfig?.welcome_title || "Benvenuti al nostro Matrimonio",
-        welcome_text: rawConfig?.welcome_text || "Non vediamo l'ora di festeggiare con voi!",
-        deadline_date: rawConfig?.deadline_date || null,
+        hero_image_url: campaignSource?.hero_image_url || null,
+        welcome_title: campaignSource?.welcome_title || (isStdMode ? "Save The Date!" : "Benvenuti al nostro Matrimonio"),
+        welcome_text: campaignSource?.welcome_text || (isStdMode ? "Segnati questa data!" : "Non vediamo l'ora di festeggiare con voi!"),
+        deadline_date: campaignSource?.deadline_date || null,
       };
 
-      // Create demo data
+      const theme: Theme | null = themeRaw ? {
+        font_family: themeRaw.font_family || "elegant",
+        primary_color: themeRaw.primary_color || "#8B5E3C",
+        show_countdown: themeRaw.show_countdown ?? true,
+      } : null;
+
+      const stdConfig = isStdMode ? {
+        hero_image_url: campaignsRaw?.save_the_date?.hero_image_url || null,
+        welcome_title: campaignsRaw?.save_the_date?.welcome_title || "Save The Date!",
+        welcome_text: campaignsRaw?.save_the_date?.welcome_text || "Segnati questa data!",
+      } : null;
+
+      const faqs: FAQItem[] = campaignsRaw?.rsvp?.faqs || [];
+      const giftInfo: GiftInfo | null = campaignsRaw?.rsvp?.gift_info || null;
+
       const demoData: RSVPData = {
         guest: {
           id: "demo-guest",
@@ -203,8 +218,22 @@ export default function RSVPPublic({ forceStdMode }: RSVPPublicProps) {
         wedding: {
           couple: `${wedding.partner1_name} & ${wedding.partner2_name}`,
           date: wedding.wedding_date,
+          location: wedding.location,
+          ceremonyStartTime: wedding.ceremony_start_time,
+          timezone: wedding.timezone,
+          ceremonyVenueName: wedding.ceremony_venue_name,
+          ceremonyVenueAddress: wedding.ceremony_venue_address,
+          receptionVenueName: wedding.reception_venue_name,
+          receptionVenueAddress: wedding.reception_venue_address,
+          receptionStartTime: wedding.reception_start_time,
+          ceremonyImageUrl: campaignsRaw?.rsvp?.ceremony_image_url || null,
+          receptionImageUrl: campaignsRaw?.rsvp?.reception_image_url || null,
         },
         config,
+        theme,
+        stdConfig,
+        faqs,
+        giftInfo,
         isReadOnly: false,
       };
 
@@ -375,7 +404,7 @@ export default function RSVPPublic({ forceStdMode }: RSVPPublicProps) {
   if (!rsvpData) return null;
 
   // Render Save The Date view if mode=std
-  if (isStdMode && !isPreview) {
+  if (isStdMode) {
     // Use STD-specific config directly - edge function now properly separates configs
     // stdConfig already has correct defaults from the edge function
     const stdHeroImage = rsvpData.stdConfig?.hero_image_url || null;

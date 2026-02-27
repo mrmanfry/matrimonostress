@@ -650,13 +650,10 @@ const Settings = () => {
   };
 
   const handlePreviewCampaign = (campaignType: "save_the_date" | "rsvp") => {
-    // Open RSVP public page in new tab
-    const mode = campaignType === "save_the_date" ? "std" : "rsvp";
-    // We need a guest token for preview - for now just show a toast
-    toast({
-      title: "Anteprima",
-      description: "Per vedere l'anteprima, invia un invito di test a te stesso dalla sezione Invitati",
-    });
+    const path = campaignType === "save_the_date" 
+      ? "/save-the-date/preview" 
+      : "/rsvp/preview";
+    window.open(path, "_blank");
   };
 
   if (!wedding) {
