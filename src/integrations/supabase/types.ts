@@ -1523,6 +1523,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      join_wedding_by_code: { Args: { p_access_code: string }; Returns: Json }
       unaccent: { Args: { "": string }; Returns: string }
     }
     Enums: {
