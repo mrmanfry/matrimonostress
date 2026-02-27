@@ -104,6 +104,7 @@ const Settings = () => {
   
   // Wedding data edit states
   const [editMode, setEditMode] = useState(false);
+  const [dateChangeDialogOpen, setDateChangeDialogOpen] = useState(false);
   const [editedPartner1, setEditedPartner1] = useState("");
   const [editedPartner2, setEditedPartner2] = useState("");
   const [editedDate, setEditedDate] = useState("");
@@ -535,8 +536,14 @@ const Settings = () => {
     }
   };
 
-  const handleSaveWeddingData = async () => {
+  const handleSaveWeddingData = async (skipDateCheck = false) => {
     if (!wedding) return;
+
+    // Check if date changed and prompt confirmation
+    if (!skipDateCheck && editedDate !== wedding.wedding_date) {
+      setDateChangeDialogOpen(true);
+      return;
+    }
     
     setSavingWeddingData(true);
     try {
@@ -573,7 +580,9 @@ const Settings = () => {
 
       toast({
         title: "Dati aggiornati",
-        description: "I dati del matrimonio sono stati aggiornati con successo",
+        description: editedDate !== wedding.wedding_date 
+          ? "I dati sono stati aggiornati. Le scadenze della checklist verranno ricalcolate automaticamente."
+          : "I dati del matrimonio sono stati aggiornati con successo",
       });
 
       setEditMode(false);
@@ -868,7 +877,7 @@ const Settings = () => {
                   </div>
                   <div className="flex gap-2 flex-wrap">
                     <Button 
-                      onClick={handleSaveWeddingData} 
+                      onClick={() => handleSaveWeddingData()} 
                       disabled={savingWeddingData}
                       className="flex-1 md:flex-initial"
                     >
@@ -1384,6 +1393,27 @@ const Settings = () => {
             <AlertDialogCancel>Annulla</AlertDialogCancel>
             <AlertDialogAction onClick={handleRemoveCollaborator}>
               Rimuovi
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Date Change Confirmation Dialog */}
+      <AlertDialog open={dateChangeDialogOpen} onOpenChange={setDateChangeDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Calendar className="w-5 h-5" />
+              Conferma Cambio Data
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Stai cambiando la data del matrimonio. Le scadenze della checklist e i piani di pagamento con date relative verranno ricalcolati automaticamente in base alla nuova data. Vuoi procedere?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDateChangeDialogOpen(false)}>Annulla</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setDateChangeDialogOpen(false); handleSaveWeddingData(true); }}>
+              Conferma e Salva
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
