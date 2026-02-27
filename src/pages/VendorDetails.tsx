@@ -38,8 +38,8 @@ export default function VendorDetails() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const isMobile = useIsMobile();
-  const { isPlanner, authState } = useAuth();
-  const vendorCostsHidden = isPlanner && authState.status === 'authenticated' && authState.activePermissions?.vendor_costs_visible === false;
+  const { isPlanner, isCollaborator, authState } = useAuth();
+  const vendorCostsHidden = isCollaborator && authState.status === 'authenticated' && authState.activePermissions?.vendor_costs_visible === false;
 
   // Fetch vendor details
   const { data: vendor, isLoading } = useQuery({

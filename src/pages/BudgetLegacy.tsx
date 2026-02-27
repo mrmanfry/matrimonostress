@@ -53,7 +53,7 @@ interface CategoryData {
 }
 
 export default function BudgetLegacy() {
-  const { authState, isPlanner } = useAuth();
+  const { authState, isPlanner, isCollaborator } = useAuth();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [loading, setLoading] = useState(true);
@@ -394,7 +394,7 @@ export default function BudgetLegacy() {
 
   // Locked state for planners without budget access
   const activePermissions = authState.status === 'authenticated' ? authState.activePermissions : null;
-  if (isPlanner && !activePermissions?.budget_visible) {
+  if (isCollaborator && !activePermissions?.budget_visible) {
     return (
       <LockedCard
         variant="full-page"

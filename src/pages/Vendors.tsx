@@ -71,8 +71,8 @@ const statusConfig = {
 };
 const Vendors = () => {
   const navigate = useNavigate();
-  const { isPlanner, authState } = useAuth();
-  const vendorCostsHidden = isPlanner && authState.status === 'authenticated' && authState.activePermissions?.vendor_costs_visible === false;
+  const { isPlanner, isCollaborator, authState } = useAuth();
+  const vendorCostsHidden = isCollaborator && authState.status === 'authenticated' && authState.activePermissions?.vendor_costs_visible === false;
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);

@@ -84,7 +84,7 @@ interface ChartDataPoint {
 }
 
 export default function Treasury() {
-  const { authState, isPlanner } = useAuth();
+  const { authState, isPlanner, isCollaborator } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -640,7 +640,7 @@ export default function Treasury() {
 
   // Locked state for planners without budget access
   const activePermissions = authState.status === 'authenticated' ? authState.activePermissions : null;
-  if (isPlanner && !activePermissions?.budget_visible) {
+  if (isCollaborator && !activePermissions?.budget_visible) {
     return (
       <LockedCard
         variant="full-page"

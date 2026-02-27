@@ -38,6 +38,7 @@ interface AuthContextType {
   switchMode: (mode: ActiveMode) => void;
   weddingId: string;
   isPlanner: boolean;
+  isCollaborator: boolean;
   hasMultiplePersonas: boolean;
   activeMode: ActiveMode;
 }
@@ -313,6 +314,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const weddingId = authState.status === 'authenticated' ? authState.activeWeddingId : '';
   const isPlanner = authState.status === 'authenticated' && authState.activeRole === 'planner';
+  const isCollaborator = authState.status === 'authenticated' && (authState.activeRole === 'planner' || authState.activeRole === 'manager');
   const activeMode: ActiveMode = authState.status === 'authenticated' ? authState.activeMode : 'couple';
   
   const hasMultiplePersonas = useMemo(() => {
@@ -321,7 +323,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [authState]);
 
   return (
-    <AuthContext.Provider value={{ authState, signOut, refreshAuth, switchWedding, switchMode, weddingId, isPlanner, hasMultiplePersonas, activeMode }}>
+    <AuthContext.Provider value={{ authState, signOut, refreshAuth, switchWedding, switchMode, weddingId, isPlanner, isCollaborator, hasMultiplePersonas, activeMode }}>
       {children}
     </AuthContext.Provider>
   );
