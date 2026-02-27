@@ -136,7 +136,7 @@ const AppLayoutInner = ({
   const isPlannerMode = activeMode === 'planner';
 
   const activePermissions = authState.status === 'authenticated' ? authState.activePermissions : null;
-  const isPlanner = authState.status === 'authenticated' && authState.activeRole === 'planner';
+  const isCollaborator = authState.status === 'authenticated' && (authState.activeRole === 'planner' || authState.activeRole === 'manager');
 
   // Build navigation conditionally
   let navigation: { name: string; href: string; icon: any }[] = [];
@@ -148,8 +148,8 @@ const AppLayoutInner = ({
       ...(isPlannerMode ? [{ name: "Cockpit", href: "/app/planner", icon: LayoutGrid }] : []),
       { name: "Dashboard", href: "/app/dashboard", icon: LayoutDashboard },
       { name: "Invitati", href: "/app/guests", icon: Users },
-      { name: "Budget", href: "/app/budget", icon: Euro, hidden: isPlanner && activePermissions?.budget_visible === false },
-      { name: "Tesoreria", href: "/app/treasury", icon: TrendingUp, hidden: isPlanner && activePermissions?.budget_visible === false },
+      { name: "Budget", href: "/app/budget", icon: Euro, hidden: isCollaborator && activePermissions?.budget_visible === false },
+      { name: "Tesoreria", href: "/app/treasury", icon: TrendingUp, hidden: isCollaborator && activePermissions?.budget_visible === false },
       { name: "Fornitori", href: "/app/vendors", icon: Package },
       { name: "Checklist", href: "/app/checklist", icon: CheckSquare },
       { name: "Calendario", href: "/app/calendar", icon: CalendarDays },

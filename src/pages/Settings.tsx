@@ -16,7 +16,8 @@ import { RSVPConfigDialog } from "@/components/settings/RSVPConfigDialog";
 import CampaignCard, { CampaignsConfig } from "@/components/settings/CampaignCard";
 import CampaignConfigDialog from "@/components/settings/CampaignConfigDialog";
 import { SubscriptionTab } from "@/components/settings/SubscriptionTab";
-import { PlannerPermissionsCard } from "@/components/settings/PlannerPermissionsCard";
+import { CollaboratorPermissionsCard } from "@/components/settings/CollaboratorPermissionsCard";
+import { useAuth } from "@/contexts/AuthContext";
 import { z } from "zod";
 
 const emailSchema = z.string().trim().email("Email non valida").max(255);
@@ -85,6 +86,11 @@ const getDefaultCampaignsConfig = (): CampaignsConfig => ({
 });
 
 const Settings = () => {
+  const { authState } = useAuth();
+  const currentUserRole = authState.status === 'authenticated' ? authState.activeRole : '';
+  const isCoPlanner = currentUserRole === 'co_planner' || currentUserRole === 'owner';
+  const isManagerOrPlanner = currentUserRole === 'manager' || currentUserRole === 'planner';
+  const activePermissions = authState.status === 'authenticated' ? authState.activePermissions : null;
   const [wedding, setWedding] = useState<any>(null);
   const [roles, setRoles] = useState<UserRole[]>([]);
   const [invites, setInvites] = useState<PendingInvite[]>([]);
@@ -680,23 +686,29 @@ const Settings = () => {
       </div>
 
       <Tabs defaultValue="account" className="w-full">
-        <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-flex">
+        <TabsList className={`grid w-full lg:w-auto lg:inline-flex ${isManagerOrPlanner ? 'grid-cols-3' : 'grid-cols-5'}`}>
           <TabsTrigger value="account" className="gap-2">
             <User className="w-4 h-4" />
             <span className="hidden sm:inline">Account</span>
           </TabsTrigger>
-          <TabsTrigger value="wedding" className="gap-2">
-            <Heart className="w-4 h-4" />
-            <span className="hidden sm:inline">Matrimonio</span>
-          </TabsTrigger>
-          <TabsTrigger value="subscription" className="gap-2">
-            <CreditCard className="w-4 h-4" />
-            <span className="hidden sm:inline">Abbonamento</span>
-          </TabsTrigger>
-          <TabsTrigger value="communications" className="gap-2">
-            <MessageSquare className="w-4 h-4" />
-            <span className="hidden sm:inline">Comunicazioni</span>
-          </TabsTrigger>
+          {isCoPlanner && (
+            <TabsTrigger value="wedding" className="gap-2">
+              <Heart className="w-4 h-4" />
+              <span className="hidden sm:inline">Matrimonio</span>
+            </TabsTrigger>
+          )}
+          {isCoPlanner && (
+            <TabsTrigger value="subscription" className="gap-2">
+              <CreditCard className="w-4 h-4" />
+              <span className="hidden sm:inline">Abbonamento</span>
+            </TabsTrigger>
+          )}
+          {(isCoPlanner || activePermissions?.communications_editable !== false) && (
+            <TabsTrigger value="communications" className="gap-2">
+              <MessageSquare className="w-4 h-4" />
+              <span className="hidden sm:inline">Comunicazioni</span>
+            </TabsTrigger>
+          )}
           <TabsTrigger value="team" className="gap-2">
             <Users className="w-4 h-4" />
             <span className="hidden sm:inline">Team</span>
@@ -708,6 +720,7 @@ const Settings = () => {
           <AccountSettingsCard 
             wedding={wedding}
             currentUserId={currentUserId}
+            currentUserRole={currentUserRole}
             onUpdate={loadData}
           />
         </TabsContent>
@@ -1114,7 +1127,7 @@ const Settings = () => {
                         </p>
                       </div>
                     </div>
-                    {!isCurrentUser && (
+                    {!isCurrentUser && isCoPlanner && (
                       <Button
                         variant="ghost"
                         size="icon"
@@ -1129,24 +1142,35 @@ const Settings = () => {
             </div>
           </Card>
 
-          {/* Planner Permissions Card */}
-          {(() => {
-            const plannerRoles = roles.filter(r => r.role === 'planner');
-            if (plannerRoles.length === 0) return null;
-            const currentUserRole = roles.find(r => r.user_id === currentUserId);
-            if (!currentUserRole || (currentUserRole.role !== 'co_planner')) return null;
-            const firstPlannerConfig = (plannerRoles[0] as any).permissions_config || {};
-            return (
-              <PlannerPermissionsCard
-                weddingId={wedding.id}
-                plannerRoleIds={plannerRoles.map(r => r.id)}
-                initialConfig={{
-                  budget_visible: firstPlannerConfig.budget_visible ?? false,
-                  vendor_costs_visible: firstPlannerConfig.vendor_costs_visible ?? true,
-                }}
-                onUpdated={loadData}
-              />
-            );
+          {/* Collaborator Permissions Cards */}
+          {isCoPlanner && (() => {
+            const collaboratorGroups = [
+              { role: 'planner' as const, roles: roles.filter(r => r.role === 'planner') },
+              { role: 'manager' as const, roles: roles.filter(r => r.role === 'manager') },
+            ].filter(g => g.roles.length > 0);
+
+            return collaboratorGroups.map(group => {
+              const firstConfig = (group.roles[0] as any).permissions_config || {};
+              const firstName = group.roles[0].profiles?.first_name;
+              const lastName = group.roles[0].profiles?.last_name;
+              const name = firstName || lastName ? `${firstName || ''} ${lastName || ''}`.trim() : undefined;
+              return (
+                <CollaboratorPermissionsCard
+                  key={group.role}
+                  weddingId={wedding.id}
+                  collaboratorRoleIds={group.roles.map(r => r.id)}
+                  collaboratorRole={group.role}
+                  collaboratorName={name}
+                  initialConfig={{
+                    budget_visible: firstConfig.budget_visible ?? (group.role === 'planner' ? false : true),
+                    vendor_costs_visible: firstConfig.vendor_costs_visible ?? true,
+                    guests_names_visible: firstConfig.guests_names_visible ?? true,
+                    communications_editable: firstConfig.communications_editable ?? (group.role === 'manager' ? false : true),
+                  }}
+                  onUpdated={loadData}
+                />
+              );
+            });
           })()}
 
           {/* Pending Invites */}
@@ -1179,54 +1203,56 @@ const Settings = () => {
             </Card>
           )}
 
-          {/* Invite New Collaborator */}
-          <Card className="p-6">
-            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-              <UserPlus className="w-5 h-5" />
-              Invita Collaboratore
-            </h2>
-            <form onSubmit={handleInvite} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  placeholder="collaboratore@email.com"
-                  required
-                  disabled={loading}
-                  maxLength={255}
-                />
-              </div>
+          {/* Invite New Collaborator - only co_planner */}
+          {isCoPlanner && (
+            <Card className="p-6">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <UserPlus className="w-5 h-5" />
+                Invita Collaboratore
+              </h2>
+              <form onSubmit={handleInvite} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    placeholder="collaboratore@email.com"
+                    required
+                    disabled={loading}
+                    maxLength={255}
+                  />
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="role">Ruolo</Label>
-                <select
-                  id="role"
-                  value={inviteRole}
-                  onChange={(e) => setInviteRole(e.target.value as any)}
-                  className="w-full p-2 rounded-md border border-input bg-background"
-                  disabled={loading}
-                >
-                  <option value="co_planner">Co-Planner (Controllo Totale)</option>
-                  <option value="planner">Planner Professionista (Permessi Configurabili)</option>
-                  <option value="manager">Manager (Gestione Operativa)</option>
-                </select>
-                <p className="text-sm text-muted-foreground">
-                  {inviteRole === "co_planner" 
-                    ? "Il Co-Planner ha controllo totale sul matrimonio."
-                    : inviteRole === "planner"
-                    ? "Il Planner può gestire tutto, con accesso ai dati finanziari configurabile."
-                    : "Il Manager può gestire invitati, budget e fornitori."}
-                </p>
-              </div>
+                <div className="space-y-2">
+                  <Label htmlFor="role">Ruolo</Label>
+                  <select
+                    id="role"
+                    value={inviteRole}
+                    onChange={(e) => setInviteRole(e.target.value as any)}
+                    className="w-full p-2 rounded-md border border-input bg-background"
+                    disabled={loading}
+                  >
+                    <option value="co_planner">Co-Planner (Controllo Totale)</option>
+                    <option value="planner">Planner Professionista (Permessi Configurabili)</option>
+                    <option value="manager">Manager (Gestione Operativa)</option>
+                  </select>
+                  <p className="text-sm text-muted-foreground">
+                    {inviteRole === "co_planner" 
+                      ? "Il Co-Planner ha controllo totale sul matrimonio."
+                      : inviteRole === "planner"
+                      ? "Il Planner può gestire tutto, con accesso ai dati finanziari configurabile."
+                      : "Il Manager può gestire invitati, budget e fornitori."}
+                  </p>
+                </div>
 
-              <Button type="submit" disabled={loading}>
-                {loading ? "Invio..." : "Crea Invito"}
-              </Button>
-            </form>
-          </Card>
+                <Button type="submit" disabled={loading}>
+                  {loading ? "Invio..." : "Crea Invito"}
+                </Button>
+              </form>
+            </Card>
+          )}
 
           {/* Financial Contributors Section */}
           <Card className="p-6">
