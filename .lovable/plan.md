@@ -1,141 +1,130 @@
 
 
-# Cockpit del Wedding Planner -- Dashboard Multi-Matrimonio
+# Switch di Ruolo "Sposo / Planner" -- Modello Airbnb
 
-## Visione
+## Problema Attuale
 
-Oggi il planner che gestisce 10 matrimoni vede la stessa Dashboard di una coppia: un singolo matrimonio alla volta, con il WorkspaceSwitcher nel menu laterale come unico modo per passare da uno all'altro. Questo e inefficiente.
+Oggi il sistema tratta tutti gli utenti allo stesso modo: chi ha 2+ matrimoni vede il Cockpit nel sidebar, altrimenti no. Ma la realta e diversa:
 
-L'idea e creare una **rotta dedicata `/app/planner`** che funzioni come un vero "centro di comando": una vista panoramica su TUTTI i matrimoni del planner, con calendario aggregato, scadenze cross-wedding, e accesso rapido a ciascun progetto.
+- **Uno sposo** vuole atterrare direttamente nella Dashboard del suo matrimonio. Il Cockpit non gli serve.
+- **Un wedding planner** vuole atterrare nel Cockpit e navigare tra i matrimoni dei clienti. La Dashboard singola e secondaria.
+- **Un caso ibrido** (es. Filippo, sia sposo che manager) deve poter switchare tra le due "modalita".
 
----
+## Soluzione: Concetto di "Modalita Attiva"
 
-## Architettura della Soluzione
+Introduciamo una `activeMode: 'couple' | 'planner'` nel contesto Auth, persistita in `localStorage`. Funziona come il toggle Host/Guest di Airbnb.
 
-### Routing e Navigazione
-
-- Nuova rotta: `/app/planner` (visibile solo se `isPlanner` o se l'utente ha 2+ matrimoni)
-- Nel sidebar, per i planner la voce "Dashboard" punta a `/app/planner` invece che a `/app/dashboard`
-- Cliccando su un matrimonio specifico nel cockpit, si esegue `switchWedding()` e si naviga a `/app/dashboard` (la dashboard del singolo matrimonio)
-
-### Componenti della Pagina Cockpit
+### Come si determina la modalita
 
 ```text
-+-------------------------------------------------------+
-|  COCKPIT WEDDING PLANNER                               |
-+-------------------------------------------------------+
-|                                                        |
-|  [KPI Globali]                                         |
-|  Matrimoni attivi: 5  |  Prossimo: 12 giorni           |
-|  Pagamenti in scadenza: 3  |  Task urgenti: 7          |
-|                                                        |
-+-------------------------------------------------------+
-|                                                        |
-|  [Calendario Matrimoni]                                |
-|  Vista mensile con pallini colorati per ogni matrimonio |
-|  Hover/click mostra i dettagli del matrimonio          |
-|                                                        |
-+-------------------------------------------------------+
-|                                                        |
-|  [Lista Matrimoni - Cards]                             |
-|  +------------------+  +------------------+            |
-|  | Marco & Giulia   |  | Luca & Sara      |           |
-|  | 15 Giu 2026      |  | 20 Set 2026      |           |
-|  | 45 giorni        |  | 142 giorni       |           |
-|  | 3 task urgenti   |  | 1 pagamento      |           |
-|  | [Apri] [Dettagli]|  | [Apri] [Dettagli]|           |
-|  +------------------+  +------------------+            |
-|                                                        |
-+-------------------------------------------------------+
-|                                                        |
-|  [Scadenze Cross-Wedding]                              |
-|  Lista unificata delle prossime scadenze               |
-|  (pagamenti + task) da tutti i matrimoni               |
-|                                                        |
-+-------------------------------------------------------+
+Al login / page load:
+1. Leggi activeMode da localStorage
+2. Se non presente, inferisci:
+   - Se l'utente ha ALMENO un ruolo 'planner' -> activeMode = 'planner'
+   - Altrimenti -> activeMode = 'couple'
+3. L'utente puo switchare in qualsiasi momento
 ```
 
-### Funzionalita del Cockpit
+### Cosa cambia per modalita
 
-1. **KPI Globali Aggregati**
-   - Numero matrimoni attivi (con data futura)
-   - Prossimo matrimonio (nome + countdown)
-   - Totale pagamenti in scadenza nei prossimi 30 giorni (cross-wedding)
-   - Totale task urgenti/scaduti (cross-wedding)
+| Aspetto | Modalita "Sposo" | Modalita "Planner" |
+|---------|-----------------|-------------------|
+| Landing page dopo login | `/app/dashboard` (matrimonio attivo) | `/app/planner` (cockpit) |
+| Sidebar | Dashboard, Invitati, Budget, Tesoreria, Fornitori, Checklist, Calendario, Tavoli, Timeline, Impostazioni | Cockpit (prima voce), poi le stesse voci per il matrimonio selezionato |
+| Header | "Marco & Giulia - 45 giorni" | "Cockpit Planner" o "Marco & Giulia" se dentro un matrimonio |
+| Footer sidebar | Countdown matrimonio | Nascosto o generico |
+| WorkspaceSwitcher | Mostra solo i matrimoni "propri" (co_planner/owner) | Mostra tutti i matrimoni gestiti |
 
-2. **Calendario Matrimoni**
-   - Vista mensile che mostra le date dei matrimoni come eventi colorati
-   - Ogni matrimonio ha un colore assegnato automaticamente
-   - Click su una data di matrimonio apre i dettagli rapidi
-   - Mostra anche le scadenze pagamenti/task come punti secondari
+### Switch di Modalita -- UI
 
-3. **Cards Matrimoni**
-   - Griglia di card, una per matrimonio
-   - Ogni card mostra: nomi coppia, data, countdown, ruolo del planner
-   - Mini-KPI: invitati confermati/totali, task completati/totali, prossimo pagamento
-   - Badge con stato (es. "In corso", "Completato", "Urgente")
-   - CTA "Apri" che fa switchWedding + naviga a Dashboard
+Nel **SidebarHeader**, sotto il logo/workspace switcher, appare un toggle discreto simile ad Airbnb:
 
-4. **Feed Scadenze Unificato**
-   - Lista cronologica delle prossime 10-15 scadenze da tutti i matrimoni
-   - Ogni riga mostra: nome matrimonio (badge colorato), tipo (task/pagamento), titolo, data
-   - Click naviga direttamente al matrimonio e alla sezione giusta
+```text
++----------------------------------+
+|  [Heart] WedsApp                 |
+|  [Toggle: Sposo | Planner]      |  <-- solo se ha entrambi i profili
++----------------------------------+
+```
 
-5. **Azioni Rapide**
-   - "Crea nuovo matrimonio" (link a onboarding)
-   - "Unisciti con codice" (riusa JoinWeddingDialog)
-
----
+Il toggle e visibile SOLO se l'utente ha sia matrimoni "propri" (ruolo co_planner/owner) sia matrimoni come "planner". Se ha solo un tipo, non serve il toggle e la modalita e fissa.
 
 ## Dettagli Tecnici
 
-### Nuovi File
+### File: `src/contexts/AuthContext.tsx`
 
-| File | Descrizione |
-|------|-------------|
-| `src/pages/PlannerCockpit.tsx` | Pagina principale del cockpit |
-| `src/components/planner/WeddingCard.tsx` | Card singolo matrimonio con mini-KPI |
-| `src/components/planner/PlannerCalendar.tsx` | Calendario con date matrimoni |
-| `src/components/planner/CrossWeddingFeed.tsx` | Feed scadenze aggregate |
-| `src/components/planner/PlannerKPIs.tsx` | Barra KPI globali |
+Modifiche:
+- Aggiungere `activeMode: 'couple' | 'planner'` allo stato `AuthState` (solo nel caso `authenticated`)
+- Aggiungere `switchMode(mode: 'couple' | 'planner')` al context
+- Aggiungere `hasMultiplePersonas: boolean` (computed: ha sia matrimoni come owner/co_planner che come planner)
+- Persistere `activeMode` in localStorage (`wedsapp_active_mode`)
+- All'init, inferire la modalita: se l'utente ha almeno un ruolo `planner` e nessun matrimonio proprio, default `planner`; se ha solo matrimoni propri, default `couple`; se ha entrambi, leggi da localStorage o default `couple`
 
-### File Modificati
+### File: `src/pages/AppLayout.tsx`
 
-| File | Modifica |
-|------|----------|
-| `src/App.tsx` | Aggiungere rotta `/app/planner` |
-| `src/pages/AppLayout.tsx` | Sidebar: se planner, mostra "Cockpit" come prima voce |
-| `src/guards/ProtectedRoute.tsx` | Nessuna modifica necessaria (usa la stessa logica `requireWedding`) |
+Modifiche:
+- Leggere `activeMode` dal context
+- Sidebar navigation condizionale: in modalita `planner`, "Cockpit" e la prima voce
+- In modalita `couple`, il cockpit non appare (a meno che non abbia comunque 2+ matrimoni propri -- ma e raro)
+- Il toggle Sposo/Planner appare nel SidebarHeader solo se `hasMultiplePersonas`
+- Il footer con countdown appare solo in modalita `couple` o quando si e dentro un matrimonio specifico
 
-### Fetch dei Dati Cross-Wedding
+### File: `src/pages/AppLayout.tsx` -- Redirect Intelligente
 
-Il cockpit deve leggere dati da TUTTI i matrimoni del planner. L'approccio:
+Al mount di AppLayout, se la rotta e `/app` o `/app/dashboard`:
+- Se `activeMode === 'planner'` e la rotta e `/app/dashboard` e NON si e appena fatto uno switchWedding, redirect a `/app/planner`
+- Se `activeMode === 'couple'`, resta su `/app/dashboard`
 
-1. Iterare su `authState.weddings` per ottenere la lista di `weddingId`
-2. Per ogni wedding, fare query parallele (con `Promise.all`) per:
-   - `checklist_tasks` con status pending e due_date prossima
-   - `payments` con status "Da Pagare" e due_date prossima
-   - `guests` count per RSVP summary
-3. Le RLS policies esistenti gia permettono la lettura a chi ha `has_wedding_access` -- il planner con ruolo assegnato puo gia leggere questi dati
+### File: `src/components/workspace/WorkspaceSwitcher.tsx`
 
-### Sidebar Condizionale
+Modifiche:
+- In modalita `couple`: mostra solo matrimoni con ruolo `co_planner`/`owner`
+- In modalita `planner`: mostra tutti i matrimoni (soprattutto quelli con ruolo `planner`/`manager`)
+- Aggiungere il toggle Sposo/Planner come primo elemento del dropdown (se `hasMultiplePersonas`)
 
-```text
-Se isPlanner o weddings.length > 1:
-  - Cockpit (icona LayoutGrid) -> /app/planner
-  - [separatore]
-  - Dashboard -> /app/dashboard (matrimonio corrente)
-  - ... resto menu
+### Nuovo file: `src/utils/modeStorage.ts`
 
-Se coppia (singolo matrimonio):
-  - Dashboard -> /app/dashboard
-  - ... resto menu (invariato)
-```
+Utility semplice per persistere la modalita attiva:
+- `get(): 'couple' | 'planner' | null`
+- `set(mode: 'couple' | 'planner'): void`
+- `clear(): void`
 
-### Considerazioni
+### File: `src/guards/ProtectedRoute.tsx`
 
-- Il cockpit NON richiede nuove tabelle DB -- usa i dati esistenti con le RLS gia in piedi
-- Le query cross-wedding sono parallelizzate per performance
-- Il calendario riusa il componente Calendar di react-day-picker gia nel progetto
-- I colori per distinguere i matrimoni sono generati da una palette predefinita (es. 6 colori che ciclano)
+Modifiche minime:
+- Quando `requireWedding` e true e `activeMode === 'planner'`, il redirect di default dopo login va a `/app/planner` invece che `/app/dashboard`
+
+## Flusso Utente
+
+### Caso 1: Wedding Planner puro (solo matrimoni come planner)
+1. Login -> activeMode = `planner` (automatico, nessun toggle visibile)
+2. Atterra su `/app/planner` (Cockpit)
+3. Clicca "Apri" su un matrimonio -> switchWedding -> `/app/dashboard`
+4. Nel sidebar vede "Cockpit" come prima voce per tornare indietro
+5. Nessun countdown nel footer (non e il suo matrimonio)
+
+### Caso 2: Sposo puro (solo il suo matrimonio)
+1. Login -> activeMode = `couple` (automatico, nessun toggle visibile)
+2. Atterra su `/app/dashboard`
+3. Sidebar normale, countdown nel footer
+4. Nessun Cockpit visibile
+
+### Caso 3: Filippo (sia sposo che manager)
+1. Login -> legge localStorage, default `couple`
+2. Atterra su `/app/dashboard` del suo matrimonio
+3. Nel sidebar header vede il toggle [Sposo | Planner]
+4. Clicca "Planner" -> activeMode = `planner`, redirect a `/app/planner`
+5. Vede il Cockpit con tutti i matrimoni che gestisce
+6. Clicca "Sposo" -> torna a `/app/dashboard` del suo matrimonio
+
+## File Coinvolti
+
+| File | Tipo | Modifica |
+|------|------|----------|
+| `src/utils/modeStorage.ts` | Nuovo | Utility localStorage per activeMode |
+| `src/contexts/AuthContext.tsx` | Modifica | Aggiungere activeMode, switchMode, hasMultiplePersonas |
+| `src/pages/AppLayout.tsx` | Modifica | Toggle UI, navigation condizionale, redirect intelligente |
+| `src/components/workspace/WorkspaceSwitcher.tsx` | Modifica | Filtrare matrimoni per modalita, toggle nel dropdown |
+| `src/guards/ProtectedRoute.tsx` | Modifica | Redirect post-login basato su activeMode |
+
+Nessuna modifica al database necessaria -- tutto e frontend/context.
 
