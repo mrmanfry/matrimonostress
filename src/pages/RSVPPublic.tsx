@@ -62,6 +62,8 @@ interface RSVPData {
     receptionVenueName?: string | null;
     receptionVenueAddress?: string | null;
     receptionStartTime?: string | null;
+    ceremonyImageUrl?: string | null;
+    receptionImageUrl?: string | null;
   };
   config: RSVPConfig;
   theme?: Theme | null;
@@ -421,9 +423,11 @@ export default function RSVPPublic({ forceStdMode }: RSVPPublicProps) {
       ceremonyVenueName={rsvpData.wedding.ceremonyVenueName}
       ceremonyVenueAddress={rsvpData.wedding.ceremonyVenueAddress}
       ceremonyStartTime={rsvpData.wedding.ceremonyStartTime}
+      ceremonyImageUrl={rsvpData.wedding.ceremonyImageUrl}
       receptionVenueName={rsvpData.wedding.receptionVenueName}
       receptionVenueAddress={rsvpData.wedding.receptionVenueAddress}
       receptionStartTime={rsvpData.wedding.receptionStartTime}
+      receptionImageUrl={rsvpData.wedding.receptionImageUrl}
       guestFirstName={rsvpData.guest.firstName}
       guestAlias={rsvpData.guest.alias}
       isSingleGuest={isSingleGuest}

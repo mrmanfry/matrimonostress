@@ -72,6 +72,11 @@ const CampaignConfigDialog = ({
   const [giftAccountHolder, setGiftAccountHolder] = useState("");
   const [giftRegistryUrl, setGiftRegistryUrl] = useState("");
 
+  // Venue image state
+  const [ceremonyImageUrl, setCeremonyImageUrl] = useState<string | null>(null);
+  const [receptionImageUrl, setReceptionImageUrl] = useState<string | null>(null);
+  const [uploadingCeremonyImage, setUploadingCeremonyImage] = useState(false);
+  const [uploadingReceptionImage, setUploadingReceptionImage] = useState(false);
   const isSTD = campaignType === "save_the_date";
   const title = isSTD ? "Configura Save The Date" : "Configura Invito RSVP";
 
@@ -112,6 +117,10 @@ const CampaignConfigDialog = ({
 
       // FAQ
       setFaqs(campaign.faqs || []);
+
+      // Venue images
+      setCeremonyImageUrl(campaign.ceremony_image_url || null);
+      setReceptionImageUrl(campaign.reception_image_url || null);
 
       // Gift Info
       const gi = campaign.gift_info;
@@ -173,6 +182,37 @@ const CampaignConfigDialog = ({
       toast({ title: "Errore caricamento", description: error.message || "Impossibile caricare l'immagine", variant: "destructive" });
     } finally {
       setUploading(false);
+    }
+  };
+
+  // Venue image upload handler
+  const handleVenueImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: "ceremony" | "reception") => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Tipo file non valido", description: "Carica solo immagini (JPG, PNG, WebP)", variant: "destructive" });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "File troppo grande", description: "L'immagine deve essere massimo 5MB", variant: "destructive" });
+      return;
+    }
+    const setUpl = type === "ceremony" ? setUploadingCeremonyImage : setUploadingReceptionImage;
+    const setUrl = type === "ceremony" ? setCeremonyImageUrl : setReceptionImageUrl;
+    setUpl(true);
+    try {
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${weddingId}/${type}_venue_${Date.now()}.${fileExt}`;
+      const { error: uploadError } = await supabase.storage.from("rsvp-images").upload(fileName, file, { upsert: true });
+      if (uploadError) throw uploadError;
+      const { data: { publicUrl } } = supabase.storage.from("rsvp-images").getPublicUrl(fileName);
+      setUrl(publicUrl);
+      toast({ title: "Immagine caricata", description: `Foto ${type === "ceremony" ? "cerimonia" : "ricevimento"} aggiornata` });
+    } catch (error: any) {
+      console.error("Venue image upload error:", error);
+      toast({ title: "Errore caricamento", description: error.message || "Impossibile caricare l'immagine", variant: "destructive" });
+    } finally {
+      setUpl(false);
     }
   };
 
@@ -280,6 +320,8 @@ const CampaignConfigDialog = ({
           account_holder: giftAccountHolder,
           registry_url: giftRegistryUrl || null,
         },
+        ceremony_image_url: ceremonyImageUrl || null,
+        reception_image_url: receptionImageUrl || null,
       };
 
       updatedConfig.theme = {
@@ -554,6 +596,24 @@ const CampaignConfigDialog = ({
                       <Label htmlFor="ceremonyStartTime">Orario Cerimonia</Label>
                       <Input id="ceremonyStartTime" type="time" value={ceremonyStartTimeState} onChange={(e) => setCeremonyStartTimeState(e.target.value)} />
                     </div>
+                    <div className="space-y-2">
+                      <Label>Foto della Location</Label>
+                      {ceremonyImageUrl ? (
+                        <div className="space-y-2">
+                          <img src={ceremonyImageUrl} alt="Cerimonia" className="w-full h-24 object-cover rounded-md" />
+                          <Button variant="outline" size="sm" onClick={() => setCeremonyImageUrl(null)}>Rimuovi</Button>
+                        </div>
+                      ) : (
+                        <label className="cursor-pointer block border-2 border-dashed rounded-lg p-3 text-center">
+                          <input type="file" accept="image/*" onChange={(e) => handleVenueImageUpload(e, "ceremony")} className="hidden" disabled={uploadingCeremonyImage} />
+                          {uploadingCeremonyImage ? (
+                            <Loader2 className="w-5 h-5 animate-spin mx-auto text-muted-foreground" />
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Carica foto orizzontale (max 5MB)</span>
+                          )}
+                        </label>
+                      )}
+                    </div>
                   </div>
 
                   {/* Reception Section */}
@@ -572,6 +632,24 @@ const CampaignConfigDialog = ({
                     <div className="space-y-2">
                       <Label htmlFor="receptionStartTime">Orario Ricevimento</Label>
                       <Input id="receptionStartTime" type="time" value={receptionStartTime} onChange={(e) => setReceptionStartTime(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Foto della Location</Label>
+                      {receptionImageUrl ? (
+                        <div className="space-y-2">
+                          <img src={receptionImageUrl} alt="Ricevimento" className="w-full h-24 object-cover rounded-md" />
+                          <Button variant="outline" size="sm" onClick={() => setReceptionImageUrl(null)}>Rimuovi</Button>
+                        </div>
+                      ) : (
+                        <label className="cursor-pointer block border-2 border-dashed rounded-lg p-3 text-center">
+                          <input type="file" accept="image/*" onChange={(e) => handleVenueImageUpload(e, "reception")} className="hidden" disabled={uploadingReceptionImage} />
+                          {uploadingReceptionImage ? (
+                            <Loader2 className="w-5 h-5 animate-spin mx-auto text-muted-foreground" />
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Carica foto orizzontale (max 5MB)</span>
+                          )}
+                        </label>
+                      )}
                     </div>
                   </div>
                 </TabsContent>
@@ -768,9 +846,11 @@ const CampaignConfigDialog = ({
                       ceremonyVenueName={ceremonyVenueName || "Cattedrale di Trani"}
                       ceremonyVenueAddress={ceremonyVenueAddress || "Piazza Duomo 1, Trani"}
                       ceremonyStartTime={ceremonyStartTimeState || "16:00"}
+                      ceremonyImageUrl={ceremonyImageUrl}
                       receptionVenueName={receptionVenueName || "Tenuta Montevitolo"}
                       receptionVenueAddress={receptionVenueAddress || "Via Vecchia Spinazzola Km 9,200, Andria"}
                       receptionStartTime={receptionStartTime || "19:00"}
+                      receptionImageUrl={receptionImageUrl}
                       guestFirstName="Mario"
                       isSingleGuest={false}
                       partyName="Famiglia Rossi"
