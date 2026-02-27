@@ -1,102 +1,90 @@
 
-
-# Sistema di Permessi Granulare per Manager (SoD)
+# Elimina Account: Logica Contestuale e Sicura
 
 ## Problema Attuale
 
-1. **Permessi troppo grossolani**: Il `permissions_config` nel DB ha solo 2 campi (`budget_visible`, `vendor_costs_visible`) e la card `PlannerPermissionsCard` filtra solo per ruolo `planner`, ignorando completamente il ruolo `manager`.
+Il bottone "Elimina Account" attualmente fa solo sign-out e mostra un messaggio "contatta il supporto". Non elimina nulla. L'utente vuole una logica reale e contestuale.
 
-2. **Account Settings inadeguato per manager**: La sezione Account mostra "Ruolo nel Matrimonio" con opzioni "Sono Marco (Partner 1)" / "Sono Laura (Partner 2)" -- non ha senso per un manager che non e ne lo sposo ne la sposa. Inoltre il manager puo cambiare password dell'account, ma non dovrebbe vedere sezioni come "Zona Pericolosa" per eliminare l'account del matrimonio.
+## Scenari di Eliminazione
 
-3. **Tab Comunicazioni visibile**: Il manager puo vedere e potenzialmente modificare le campagne RSVP/Save the Date, cosa che dovrebbe essere riservata agli sposi.
+L'utente ha descritto 3 scenari distinti che il dialog deve gestire:
 
-4. **Tab non filtrate per ruolo**: Il manager vede tutte le 5 tab (Account, Matrimonio, Abbonamento, Comunicazioni, Team) senza restrizioni.
+```text
+Scenario A: "Lascia questo matrimonio"
+  Condizione: Sono co_planner MA c'e un altro co_planner sullo stesso matrimonio
+  Azione: Elimino solo il mio user_role + dati personali legati a quel matrimonio
+  Risultato: Il matrimonio resta per l'altro co_planner. Se ho altri matrimoni (planner/sposo), restano.
+
+Scenario B: "Elimina matrimonio"
+  Condizione: Sono l'UNICO co_planner su questo matrimonio (nessun altro co_planner)
+  Azione: Elimino TUTTO il matrimonio (invitati, fornitori, pagamenti, ecc.) + il mio user_role
+  Risultato: Matrimonio sparisce. Se ho altri matrimoni (come planner), restano.
+
+Scenario C: "Elimina tutto il mio account"
+  Condizione: L'utente sceglie esplicitamente di eliminare TUTTO
+  Azione: Elimino TUTTI i matrimoni dove sono l'unico co_planner, lascio quelli dove c'e un altro co_planner, elimino il profilo
+  Risultato: Account completamente rimosso dalla piattaforma.
+```
 
 ## Soluzione
 
-### 1. Espandere `permissions_config` (JSONB) con nuovi campi
+### 1. Edge Function `delete-account` (nuovo)
 
-Aggiungere al JSONB `permissions_config` nella tabella `user_roles` i seguenti campi:
+Creare una edge function che gestisce la logica server-side (serve il service_role per eliminare dati cross-tabella e, opzionalmente, l'utente auth).
+
+La funzione riceve un parametro `mode`:
+- `leave_wedding`: rimuove solo il `user_role` dell'utente per il wedding corrente
+- `delete_wedding`: elimina tutti i dati del matrimonio (cascade) + il user_role
+- `delete_everything`: per ogni matrimonio dell'utente, applica la logica A o B, poi elimina il profilo e l'utente auth
+
+Logica interna:
+1. Verifica JWT e identifica l'utente
+2. Per `leave_wedding`: verifica che esista un altro co_planner, poi DELETE da user_roles
+3. Per `delete_wedding`: verifica che sia l'unico co_planner, poi DELETE da weddings (le FK con CASCADE puliscono il resto)
+4. Per `delete_everything`: loop su tutti i matrimoni dell'utente, applica la logica corretta, poi elimina profilo e utente auth
+
+### 2. UI Dialog migliorato (`AccountSettingsCard.tsx`)
+
+Sostituire il dialog attuale con un dialog a step che:
+1. Mostra lo scenario rilevato automaticamente
+2. Chiede conferma con contesto chiaro
+
+**Step 1 - Scelta azione:**
+- Se c'e un altro co_planner: mostra opzione "Lascia questo matrimonio" (i dati restano per il partner)
+- Se sono l'unico co_planner: mostra avviso "Sei l'unico proprietario, eliminando il tuo account verranno eliminati TUTTI i dati del matrimonio"
+- Sempre visibile: opzione "Elimina completamente il mio account da tutta la piattaforma"
+
+**Step 2 - Conferma:**
+- Riepilogo di cosa verra eliminato
+- Campo "Digita ELIMINA" per confermare
+- Bottone rosso finale
+
+### 3. Verifica co_planner nel componente
+
+Prima di mostrare il dialog, fare una query per contare quanti `co_planner` ci sono su questo matrimonio:
 
 ```text
-permissions_config = {
-  budget_visible: boolean,         -- (esistente) Tesoreria e Budget
-  vendor_costs_visible: boolean,   -- (esistente) Cifre fornitori
-  guests_names_visible: boolean,   -- Nomi e dettagli invitati
-  communications_editable: boolean -- Modificare campagne RSVP/STD
-}
+SELECT COUNT(*) FROM user_roles 
+WHERE wedding_id = X AND role = 'co_planner' AND user_id != current_user
 ```
 
-Nessuna migrazione SQL necessaria: il campo e gia JSONB, basta aggiungere le chiavi nel codice. I valori di default saranno `true` (tutto visibile) per non rompere gli utenti esistenti.
+Questo determina quale scenario mostrare di default.
 
-### 2. Aggiornare `PermissionsConfig` nel codice
+### 4. Cascata dati nel DB
 
-**File: `src/contexts/AuthContext.tsx`**
-- Aggiungere a `PermissionsConfig`: `guests_names_visible?: boolean` e `communications_editable?: boolean`
+La tabella `weddings` ha gia le FK con `ON DELETE CASCADE` per la maggior parte delle tabelle figlie (guests, vendors, checklist_tasks, ecc.). Verificare che tutte le tabelle con `wedding_id` abbiano il CASCADE corretto. Se mancano, aggiungere una migrazione.
 
-### 3. Espandere `PlannerPermissionsCard` per includere il Manager
-
-**File: `src/components/settings/PlannerPermissionsCard.tsx`**
-- Rinominare il componente in `CollaboratorPermissionsCard`
-- Filtrare per ruoli `planner` O `manager` (non solo `planner`)
-- Aggiungere i nuovi switch:
-  - **Nomi e Dettagli Invitati**: se disattivo, il manager non vede nomi/telefoni degli invitati (vedra solo conteggi aggregati)
-  - **Comunicazioni**: se disattivo, il manager non puo modificare campagne RSVP/STD
-
-**File: `src/pages/Settings.tsx`**
-- Nella sezione Team, mostrare `CollaboratorPermissionsCard` per tutti i ruoli `planner` e `manager`, non solo `planner`
-
-### 4. Adattare Account Settings per il Manager
-
-**File: `src/components/settings/AccountSettingsCard.tsx`**
-- Ricevere il ruolo dell'utente corrente come prop
-- Se il ruolo e `manager`:
-  - Nascondere il selettore "Ruolo nel Matrimonio" (Partner 1/Partner 2) -- non ha senso
-  - Mostrare invece un testo informativo: "Sei un Manager per questo matrimonio"
-  - Nascondere la "Zona Pericolosa" (elimina account) -- non deve eliminare l'account degli sposi
-  - Mantenere: email (read-only), cambio password, digest settimanale
-
-### 5. Filtrare le Tab di Settings per ruolo
-
-**File: `src/pages/Settings.tsx`**
-- Recuperare il ruolo dell'utente corrente
-- Se `manager`:
-  - Nascondere tab "Abbonamento" (non e affar suo)
-  - Tab "Comunicazioni": visibile solo se `communications_editable !== false`, altrimenti nascosta
-  - Tab "Matrimonio": sola lettura (nascondere bottone "Modifica Dati") oppure nascosta interamente
-  - Tab "Team": visibile ma senza poter invitare/rimuovere collaboratori (solo visualizzazione)
-
-### 6. Enforcement nei componenti UI
-
-**Invitati (`src/pages/Guests.tsx`):**
-- Se `guests_names_visible === false`: mostrare solo conteggi aggregati, mascherare nomi e numeri di telefono
-
-**Budget/Tesoreria (`src/pages/Treasury.tsx`, Budget):**
-- Gia gestito con `budget_visible` -- estendere al manager
-
-**Fornitori (`src/pages/VendorDetails.tsx`):**
-- Gia gestito con `vendor_costs_visible` -- estendere al manager
-
-## Riepilogo Modifiche File
+## File da modificare/creare
 
 | File | Modifica |
 |------|----------|
-| `src/contexts/AuthContext.tsx` | Estendere `PermissionsConfig` con nuovi campi |
-| `src/components/settings/PlannerPermissionsCard.tsx` | Rinominare, supportare manager, aggiungere switch |
-| `src/components/settings/AccountSettingsCard.tsx` | Prop ruolo, nascondere sezioni non pertinenti per manager |
-| `src/pages/Settings.tsx` | Filtrare tab per ruolo, passare ruolo a AccountSettingsCard |
-| `src/pages/Guests.tsx` | Mascherare nomi se `guests_names_visible === false` |
-| `src/pages/AppLayout.tsx` | Estendere filtro sidebar per usare permissions anche per manager |
+| `supabase/functions/delete-account/index.ts` | Nuova edge function con logica di eliminazione |
+| `src/components/settings/AccountSettingsCard.tsx` | Nuovo dialog multi-step con scelta contestuale |
 
-## Matrice Permessi Default
+## Sicurezza
 
-| Permesso | Co-Planner | Planner | Manager (default) |
-|----------|-----------|---------|-------------------|
-| Budget/Tesoreria | Sempre | Configurabile | Configurabile |
-| Costi Fornitori | Sempre | Configurabile | Configurabile |
-| Nomi Invitati | Sempre | Sempre | Configurabile |
-| Comunicazioni | Sempre | Configurabile | Off di default |
-| Modifica Dati Matrimonio | Si | No | No |
-| Gestione Team | Si | No | No |
-| Abbonamento | Si | No | No |
-
+- La edge function valida il JWT server-side
+- L'utente puo eliminare solo i propri dati (verifica `auth.uid()`)
+- L'eliminazione del matrimonio e permessa solo se l'utente e l'unico co_planner
+- L'eliminazione dell'utente auth usa `supabase.auth.admin.deleteUser()` con service_role
+- Conferma "Digita ELIMINA" lato UI come ulteriore protezione
