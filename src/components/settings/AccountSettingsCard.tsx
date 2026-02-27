@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { User, Mail, Bell, UserCircle, KeyRound, AlertTriangle, Loader2 } from "lucide-react";
+import { User, Mail, Bell, UserCircle, KeyRound, AlertTriangle, Loader2, Shield } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface AccountSettingsCardProps {
@@ -18,10 +18,11 @@ interface AccountSettingsCardProps {
     partner2_name: string;
   } | null;
   currentUserId: string | null;
+  currentUserRole?: string;
   onUpdate?: () => void;
 }
 
-export const AccountSettingsCard = ({ wedding, currentUserId, onUpdate }: AccountSettingsCardProps) => {
+export const AccountSettingsCard = ({ wedding, currentUserId, currentUserRole, onUpdate }: AccountSettingsCardProps) => {
   const [userEmail, setUserEmail] = useState<string>("");
   const [digestEnabled, setDigestEnabled] = useState(true);
   const [partnerRole, setPartnerRole] = useState<string | null>(null);
@@ -227,8 +228,8 @@ export const AccountSettingsCard = ({ wedding, currentUserId, onUpdate }: Accoun
             </p>
           </div>
 
-          {/* Partner Role Mapping */}
-          {wedding && (
+          {/* Partner Role Mapping - only for co_planner */}
+          {wedding && currentUserRole !== 'manager' && currentUserRole !== 'planner' && (
             <div className="space-y-2">
               <Label className="flex items-center gap-2 text-sm">
                 <UserCircle className="w-4 h-4" />
@@ -253,6 +254,19 @@ export const AccountSettingsCard = ({ wedding, currentUserId, onUpdate }: Accoun
               </Select>
               <p className="text-xs text-muted-foreground">
                 Questo determina quali task ti vengono assegnati nel digest settimanale
+              </p>
+            </div>
+          )}
+
+          {/* Role info for non-couple users */}
+          {(currentUserRole === 'manager' || currentUserRole === 'planner') && (
+            <div className="p-3 rounded-lg bg-muted/30 border border-border">
+              <p className="text-sm font-medium flex items-center gap-2">
+                <Shield className="w-4 h-4" />
+                {currentUserRole === 'manager' ? 'Sei un Manager per questo matrimonio' : 'Sei un Planner Professionista per questo matrimonio'}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                I tuoi permessi sono configurati dal proprietario del matrimonio
               </p>
             </div>
           )}
@@ -294,31 +308,33 @@ export const AccountSettingsCard = ({ wedding, currentUserId, onUpdate }: Accoun
         </CardContent>
       </Card>
 
-      {/* Danger Zone */}
-      <Card className="border-destructive/30">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-destructive">
-            <AlertTriangle className="w-5 h-5" />
-            Zona Pericolosa
-          </CardTitle>
-          <CardDescription>
-            Azioni irreversibili sul tuo account
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between p-4 rounded-lg bg-destructive/5 border border-destructive/20">
-            <div className="space-y-1">
-              <p className="font-medium text-sm">Elimina Account</p>
-              <p className="text-xs text-muted-foreground">
-                Tutti i dati del tuo matrimonio verranno eliminati permanentemente.
-              </p>
+      {/* Danger Zone - only for co_planner */}
+      {currentUserRole !== 'manager' && currentUserRole !== 'planner' && (
+        <Card className="border-destructive/30">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="w-5 h-5" />
+              Zona Pericolosa
+            </CardTitle>
+            <CardDescription>
+              Azioni irreversibili sul tuo account
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between p-4 rounded-lg bg-destructive/5 border border-destructive/20">
+              <div className="space-y-1">
+                <p className="font-medium text-sm">Elimina Account</p>
+                <p className="text-xs text-muted-foreground">
+                  Tutti i dati del tuo matrimonio verranno eliminati permanentemente.
+                </p>
+              </div>
+              <Button variant="destructive" size="sm" onClick={() => setDeleteDialogOpen(true)}>
+                Elimina Account
+              </Button>
             </div>
-            <Button variant="destructive" size="sm" onClick={() => setDeleteDialogOpen(true)}>
-              Elimina Account
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Change Password Dialog */}
       <AlertDialog open={changePasswordOpen} onOpenChange={setChangePasswordOpen}>

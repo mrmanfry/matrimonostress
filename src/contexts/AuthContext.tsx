@@ -9,6 +9,8 @@ import { modeStorage, ActiveMode } from "@/utils/modeStorage";
 export interface PermissionsConfig {
   budget_visible?: boolean;
   vendor_costs_visible?: boolean;
+  guests_names_visible?: boolean;
+  communications_editable?: boolean;
 }
 
 export interface WeddingContext {
