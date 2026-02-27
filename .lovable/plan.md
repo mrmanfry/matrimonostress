@@ -1,80 +1,35 @@
 
 
-# Sidebar Contestuale: Menu solo dentro il progetto
+# Fix: "Apri progetto" non funziona in modalita Planner
 
 ## Problema
 
-Attualmente in modalita Planner il sidebar mostra SEMPRE tutte le voci di navigazione (Dashboard, Invitati, Budget, ecc.) anche quando il planner e nel Cockpit e non ha ancora selezionato un matrimonio specifico. Questo non ha senso: quelle voci sono relative a un singolo progetto.
+In `AppLayout.tsx` c'e un `useEffect` che fa redirect automatico:
 
-Inoltre il toggle Sposo/Planner appare anche per chi ha un solo profilo (dove non serve).
-
-## Soluzione
-
-### 1. Toggle visibile solo per utenti con doppio profilo
-Gia implementato: `ModeSwitcher` ritorna `null` se `!hasMultiplePersonas`. Nessuna modifica necessaria qui.
-
-### 2. Sidebar condizionale in base alla rotta
-
-La logica e semplice:
-
-```text
-Se activeMode === 'planner' E la rotta e /app/planner (cockpit):
-  -> Sidebar mostra SOLO: Cockpit + Esci
-  -> Nessun menu di navigazione progetto
-  -> Nessun WorkspaceSwitcher (non serve, il cockpit e la panoramica)
-  -> Header mostra "Cockpit Planner"
-
-Se activeMode === 'planner' E la rotta e DENTRO un progetto (/app/dashboard, /app/guests, ecc.):
-  -> Sidebar mostra: Cockpit (per tornare indietro) + tutte le voci progetto
-  -> WorkspaceSwitcher visibile (per switchare tra matrimoni)
-  -> Header mostra "Marco & Giulia"
-
-Se activeMode === 'couple':
-  -> Tutto invariato (sidebar completo, countdown, ecc.)
 ```
-
-### 3. File da modificare
-
-**`src/pages/AppLayout.tsx`** -- Modifiche principali:
-
-- Introdurre una variabile `isOnCockpitView` (gia presente come `isOnCockpit`)
-- Quando `activeMode === 'planner' && isOnCockpit`:
-  - La navigation contiene solo `[{ name: "Cockpit", href: "/app/planner", icon: LayoutGrid }]`
-  - Il `WorkspaceSwitcher` viene nascosto
-  - Il footer countdown viene nascosto
-  - Il `ModeSwitcher` resta visibile (per chi ha doppio profilo)
-- Quando `activeMode === 'planner' && !isOnCockpit` (dentro un progetto):
-  - La navigation include "Cockpit" come prima voce + tutte le voci progetto standard
-  - Il `WorkspaceSwitcher` torna visibile
-  - Appare un mini-header nel sidebar che mostra il nome del matrimonio attivo
-
-**`src/components/workspace/ModeSwitcher.tsx`** -- Nessuna modifica (gia gestisce `hasMultiplePersonas`).
-
-### 4. Dettaglio implementativo in AppLayout
-
-La costruzione della `navigation` viene spostata dentro `AppLayoutInner` (che ha accesso a `location`) con questa logica:
-
-```text
-const isOnCockpit = location.pathname === '/app/planner';
-const isPlannerMode = activeMode === 'planner';
-
-if (isPlannerMode && isOnCockpit) {
-  navigation = [] // nessun menu, solo cockpit page
-} else {
-  navigation = [
-    ...(isPlannerMode ? [{ Cockpit -> /app/planner }] : []),
-    Dashboard, Invitati, Budget, Tesoreria, Fornitori,
-    Checklist, Calendario, Tavoli, Timeline, Impostazioni
-  ]
+if (activeMode === 'planner' && location.pathname === '/app/dashboard') {
+  navigate('/app/planner', { replace: true });
 }
 ```
 
-Nel `SidebarHeader`:
-- `WorkspaceSwitcher` visibile solo se `!(isPlannerMode && isOnCockpit)`
-- `ModeSwitcher` sempre visibile (il componente stesso gestisce la logica `hasMultiplePersonas`)
+Quando il planner clicca "Apri progetto":
+1. `switchWedding(weddingId)` aggiorna lo state
+2. `navigate("/app/dashboard")` porta alla dashboard
+3. Il `useEffect` vede `activeMode === 'planner'` + rotta `/app/dashboard` e fa redirect a `/app/planner`
 
-Nel `SidebarFooter`:
-- Countdown nascosto se `isPlannerMode && isOnCockpit`
-- Il bottone "Esci" resta sempre visibile
+Risultato: il planner torna al cockpit, sembra che non succeda nulla.
 
-Questo crea un'esperienza pulita: il planner atterra nel cockpit con sidebar minimalista, clicca su un matrimonio, e il sidebar si "espande" con tutte le voci di navigazione del progetto selezionato.
+## Soluzione
+
+Rimuovere il redirect automatico da `AppLayout`. Il redirect era pensato per il caso "planner atterra su /app/dashboard al primo login", ma quel caso e gia gestito da `ProtectedRoute` che fa il redirect iniziale basato su `activeMode`.
+
+Il `useEffect` in `AppLayout.tsx` (righe ~100-104) va eliminato completamente. Il routing intelligente post-login e gia coperto da `ProtectedRoute.tsx`.
+
+## File da modificare
+
+| File | Modifica |
+|------|----------|
+| `src/pages/AppLayout.tsx` | Rimuovere il `useEffect` che fa redirect `/app/dashboard` -> `/app/planner` |
+
+Nessun altro file coinvolto. Fix singolo e chirurgico.
+
