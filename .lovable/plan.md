@@ -1,90 +1,68 @@
 
-# Elimina Account: Logica Contestuale e Sicura
 
-## Problema Attuale
+# Fix Onboarding per Utenti Invitati
 
-Il bottone "Elimina Account" attualmente fa solo sign-out e mostra un messaggio "contatta il supporto". Non elimina nulla. L'utente vuole una logica reale e contestuale.
+## Il Problema
 
-## Scenari di Eliminazione
+Quando un manager o planner riceve un invito via email con un codice, il link porta a `/app/dashboard?join=CODE`. Ma siccome e un utente nuovo senza matrimoni, il sistema lo rimanda a `/onboarding`, dove deve creare un matrimonio da zero -- cosa assurda perche il matrimonio esiste gia.
 
-L'utente ha descritto 3 scenari distinti che il dialog deve gestire:
+## La Soluzione
 
-```text
-Scenario A: "Lascia questo matrimonio"
-  Condizione: Sono co_planner MA c'e un altro co_planner sullo stesso matrimonio
-  Azione: Elimino solo il mio user_role + dati personali legati a quel matrimonio
-  Risultato: Il matrimonio resta per l'altro co_planner. Se ho altri matrimoni (planner/sposo), restano.
+Aggiungere un flusso "Unisciti con codice" direttamente nella pagina di Onboarding, in modo che l'utente invitato possa scegliere tra:
 
-Scenario B: "Elimina matrimonio"
-  Condizione: Sono l'UNICO co_planner su questo matrimonio (nessun altro co_planner)
-  Azione: Elimino TUTTO il matrimonio (invitati, fornitori, pagamenti, ecc.) + il mio user_role
-  Risultato: Matrimonio sparisce. Se ho altri matrimoni (come planner), restano.
+1. **Crea un nuovo matrimonio** (flusso attuale con nomi + data)
+2. **Ho un codice di invito** (inserisce il codice e accede direttamente)
 
-Scenario C: "Elimina tutto il mio account"
-  Condizione: L'utente sceglie esplicitamente di eliminare TUTTO
-  Azione: Elimino TUTTI i matrimoni dove sono l'unico co_planner, lascio quelli dove c'e un altro co_planner, elimino il profilo
-  Risultato: Account completamente rimosso dalla piattaforma.
-```
+Inoltre, preservare il parametro `?join=CODE` dalla URL originale cosi che se l'utente arriva da un link email, il codice venga pre-compilato.
 
-## Soluzione
+## Modifiche
 
-### 1. Edge Function `delete-account` (nuovo)
+### 1. Onboarding.tsx - Aggiungere "Step 0" con scelta iniziale
 
-Creare una edge function che gestisce la logica server-side (serve il service_role per eliminare dati cross-tabella e, opzionalmente, l'utente auth).
-
-La funzione riceve un parametro `mode`:
-- `leave_wedding`: rimuove solo il `user_role` dell'utente per il wedding corrente
-- `delete_wedding`: elimina tutti i dati del matrimonio (cascade) + il user_role
-- `delete_everything`: per ogni matrimonio dell'utente, applica la logica A o B, poi elimina il profilo e l'utente auth
-
-Logica interna:
-1. Verifica JWT e identifica l'utente
-2. Per `leave_wedding`: verifica che esista un altro co_planner, poi DELETE da user_roles
-3. Per `delete_wedding`: verifica che sia l'unico co_planner, poi DELETE da weddings (le FK con CASCADE puliscono il resto)
-4. Per `delete_everything`: loop su tutti i matrimoni dell'utente, applica la logica corretta, poi elimina profilo e utente auth
-
-### 2. UI Dialog migliorato (`AccountSettingsCard.tsx`)
-
-Sostituire il dialog attuale con un dialog a step che:
-1. Mostra lo scenario rilevato automaticamente
-2. Chiede conferma con contesto chiaro
-
-**Step 1 - Scelta azione:**
-- Se c'e un altro co_planner: mostra opzione "Lascia questo matrimonio" (i dati restano per il partner)
-- Se sono l'unico co_planner: mostra avviso "Sei l'unico proprietario, eliminando il tuo account verranno eliminati TUTTI i dati del matrimonio"
-- Sempre visibile: opzione "Elimina completamente il mio account da tutta la piattaforma"
-
-**Step 2 - Conferma:**
-- Riepilogo di cosa verra eliminato
-- Campo "Digita ELIMINA" per confermare
-- Bottone rosso finale
-
-### 3. Verifica co_planner nel componente
-
-Prima di mostrare il dialog, fare una query per contare quanti `co_planner` ci sono su questo matrimonio:
+Prima dei 2 step attuali, mostrare una schermata iniziale:
 
 ```text
-SELECT COUNT(*) FROM user_roles 
-WHERE wedding_id = X AND role = 'co_planner' AND user_id != current_user
++----------------------------------+
+|          Benvenuto!              |
+|                                  |
+|  [Crea un Nuovo Matrimonio]      |
+|                                  |
+|  -- oppure --                    |
+|                                  |
+|  [Ho un codice di invito]        |
+|  Inserisci il codice ricevuto    |
+|  [________WED-XXXX_________]    |
+|  [Accedi al Matrimonio]          |
++----------------------------------+
 ```
 
-Questo determina quale scenario mostrare di default.
+- Se l'utente sceglie "Crea", procede con Step 1 e 2 come oggi
+- Se l'utente inserisce un codice, viene chiamata la stessa RPC `join_wedding_by_code` gia usata da `JoinWeddingDialog`
+- Se la URL contiene `?join=CODE`, il campo codice viene pre-compilato e la sezione codice viene aperta automaticamente
 
-### 4. Cascata dati nel DB
+### 2. ProtectedRoute.tsx - Preservare il query param `join`
 
-La tabella `weddings` ha gia le FK con `ON DELETE CASCADE` per la maggior parte delle tabelle figlie (guests, vendors, checklist_tasks, ecc.). Verificare che tutte le tabelle con `wedding_id` abbiano il CASCADE corretto. Se mancano, aggiungere una migrazione.
+Quando il `ProtectedRoute` con `requireWedding` rimanda a `/onboarding`, deve portarsi dietro il parametro `?join=CODE` dalla URL originale, cosi:
 
-## File da modificare/creare
+```text
+/app/dashboard?join=WED12345
+  -> redirect a /onboarding?join=WED12345
+```
+
+### 3. Nessuna modifica al backend
+
+La RPC `join_wedding_by_code` esiste gia e funziona. Basta riusarla nell'onboarding.
+
+## File da Modificare
 
 | File | Modifica |
 |------|----------|
-| `supabase/functions/delete-account/index.ts` | Nuova edge function con logica di eliminazione |
-| `src/components/settings/AccountSettingsCard.tsx` | Nuovo dialog multi-step con scelta contestuale |
+| `src/pages/Onboarding.tsx` | Aggiungere schermata iniziale con opzione "join con codice" |
+| `src/guards/ProtectedRoute.tsx` | Preservare `?join=` nel redirect a `/onboarding` |
 
-## Sicurezza
+## UX
 
-- La edge function valida il JWT server-side
-- L'utente puo eliminare solo i propri dati (verifica `auth.uid()`)
-- L'eliminazione del matrimonio e permessa solo se l'utente e l'unico co_planner
-- L'eliminazione dell'utente auth usa `supabase.auth.admin.deleteUser()` con service_role
-- Conferma "Digita ELIMINA" lato UI come ulteriore protezione
+- L'utente invitato che arriva dal link email vedra il campo codice gia compilato e dovra solo cliccare "Accedi al Matrimonio"
+- L'utente che arriva senza codice vedra le due opzioni e potra scegliere
+- Dopo il join riuscito, `refreshAuth()` viene chiamato e l'utente viene mandato direttamente alla dashboard
+
