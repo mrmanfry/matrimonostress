@@ -26,6 +26,7 @@ import ProgressPublic from "./pages/ProgressPublic";
 import ContactSync from "./pages/ContactSync";
 import RSVPPublic from "./pages/RSVPPublic";
 import Calendar from "./pages/Calendar";
+import Upgrade from "./pages/Upgrade";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -78,6 +79,7 @@ const App = () => (
               <Route path="tables" element={<Tables />} />
               <Route path="timeline" element={<Timeline />} />
               <Route path="settings" element={<Settings />} />
+              <Route path="upgrade" element={<Upgrade />} />
             </Route>
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

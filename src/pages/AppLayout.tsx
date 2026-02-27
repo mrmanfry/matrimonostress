@@ -33,7 +33,9 @@ import {
 } from "@/components/ui/sidebar";
 import { NavLink } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
-
+import { TrialBadge } from "@/components/subscription/TrialBadge";
+import { SoftPaywallDialog } from "@/components/subscription/SoftPaywallDialog";
+import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 const AppLayout = () => {
   const { authState, signOut } = useAuth();
   const [loadingWedding, setLoadingWedding] = useState(true);
@@ -110,14 +112,16 @@ const AppLayout = () => {
 
 
   return (
-    <SidebarProvider>
-      <AppLayoutInner
-        weddingInfo={weddingInfo}
-        navigation={navigation}
-        signOut={signOut}
-        location={location}
-      />
-    </SidebarProvider>
+    <SubscriptionProvider>
+      <SidebarProvider>
+        <AppLayoutInner
+          weddingInfo={weddingInfo}
+          navigation={navigation}
+          signOut={signOut}
+          location={location}
+        />
+      </SidebarProvider>
+    </SubscriptionProvider>
   );
 };
 
@@ -219,7 +223,9 @@ const AppLayoutInner = ({
               </p>
             </div>
           )}
+          <TrialBadge />
         </header>
+        <SoftPaywallDialog />
 
         <main className="flex-1 overflow-auto">
           <Outlet />
