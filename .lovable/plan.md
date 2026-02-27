@@ -1,118 +1,52 @@
 
+# FAQ: Migliora con AI per singola domanda
 
-# RSVP: FAQ, Lista Nozze e Info Utili
+## Problema
+Il bottone "Genera con AI" genera tutte le FAQ da zero. L'utente vuole anche poter scrivere una bozza di domanda/risposta e farsi riscrivere il testo in modo professionale dall'AI.
 
-## Confronto con il sito di riferimento
+## Soluzione
 
-Il sito di esempio (Gennaro & Ilaria) ha queste sezioni in ordine:
+Aggiungere un piccolo bottone "Migliora con AI" (icona Sparkles) su ogni singola FAQ card, accanto al bottone elimina. Quando cliccato:
+- Prende la domanda e risposta abbozzate dall'utente
+- Le invia a un endpoint AI che le riscrive in modo professionale, mantenendo il significato
+- Sostituisce il testo con la versione migliorata
 
-| Sezione | Presente nel nostro RSVP? | Note |
-|---|---|---|
-| Hero con nomi coppia + data | SI | Gia implementato |
-| Cerimonia (nome venue, indirizzo, orario, Maps) | SI | Gia implementato |
-| Ricevimento (nome venue, indirizzo, orario, Maps) | SI | Gia implementato |
-| Form RSVP (nome, email, ci saro/non ci saro) | SI | Gia implementato (+ granulare per membro) |
-| Lista Nozze (messaggio, IBAN, BIC/SWIFT, banca) | NO | Da aggiungere |
-| Info Utili / FAQ (accordion con domande) | NO | Da aggiungere |
-| Footer con nomi e data | SI | Gia implementato |
+Il bottone "Genera con AI" in alto resta per generare FAQ da zero.
 
-Mancano quindi **2 blocchi**: Lista Nozze e FAQ/Info Utili.
+## Dettaglio Tecnico
 
-## Piano di Implementazione
+### 1. Edge Function: estendere `generate-rsvp-faqs`
 
-### 1. Nuovo Edge Function: `generate-rsvp-faqs`
+Aggiungere una modalita `mode: "polish"` all'edge function esistente:
 
-Crea una funzione backend che usa AI per generare FAQ contestuali basate sui dati del matrimonio. Input: nomi coppia, data, venue cerimonia, venue ricevimento, orari. Output: 5-6 FAQ in italiano (es. "Dove possiamo parcheggiare?", "Il ricevimento sara all'aperto?", "Possiamo portare i bambini?").
+- Se il body contiene `{ weddingId, mode: "polish", draft_question, draft_answer }`:
+  - Usa un prompt diverso: "Riscrivi questa FAQ in modo professionale ed elegante per un sito di matrimonio. Mantieni il significato ma migliora tono, grammatica e completezza."
+  - Ritorna una singola FAQ riscritta `{ question, answer }`
+- Se il body contiene solo `{ weddingId }` (senza mode): comportamento attuale invariato (genera 5-6 FAQ)
 
-L'utente puo poi modificare/eliminare/aggiungere le FAQ prima di salvare.
+### 2. Frontend: `CampaignConfigDialog.tsx`
 
-### 2. Estendere `CampaignConfigDialog` (Configura Invito)
+- Aggiungere state `polishingIndex: number | null` per tracciare quale FAQ sta venendo migliorata
+- Nuova funzione `handlePolishFaq(index)`:
+  - Chiama l'edge function con `mode: "polish"` + domanda/risposta correnti
+  - Aggiorna la FAQ all'indice specificato con il risultato
+- Aggiungere un bottone icona `Sparkles` (piccolo, `size="icon"`) accanto al bottone Trash2 su ogni FAQ card
+  - Disabilitato se domanda o risposta sono vuote
+  - Mostra spinner durante il polish
 
-Aggiungere un **4 tab** alla configurazione RSVP (Contenuti / Location / FAQ / Design):
-
-**Tab "FAQ":**
-- Lista di FAQ editabili (domanda + risposta per ciascuna)
-- Bottone "Genera con AI" che chiama l'edge function e popola la lista
-- Possibilita di aggiungere, modificare, eliminare singole FAQ
-- Ordinamento drag-and-drop (opzionale, prima versione con semplice lista)
-
-**Tab "Contenuti" - nuovi blocchi:**
-- **Lista Nozze** (con toggle on/off):
-  - Messaggio personalizzato (textarea)
-  - IBAN (campo testo)
-  - Intestatario conto (campo testo)
-  - Codice BIC/SWIFT (campo testo)
-  - Nome banca (campo testo)
-  - Link lista nozze esterna (URL, opzionale)
-
-### 3. Estendere `FormalInviteView` (Pagina Pubblica)
-
-Aggiungere le nuove sezioni tra il form RSVP e il Footer, nell'ordine del sito di riferimento:
-
-1. **Sezione Lista Nozze** (dopo il form RSVP):
-   - Titolo "La Lista Nozze"
-   - Messaggio personalizzato
-   - Nomi coppia
-   - IBAN con bottone "Copia" (copy-to-clipboard)
-   - BIC/SWIFT
-   - Nome banca
-   - Link esterno se presente
-
-2. **Sezione Info Utili / FAQ** (dopo Lista Nozze):
-   - Titolo "Info Utili"
-   - Accordion con le FAQ configurate
-
-### 4. Estendere `rsvp-handler` (Edge Function)
-
-Passare i nuovi campi (`faqs`, `gift_info`) dal `campaigns_config` JSONB al frontend nel response del fetch.
-
-### 5. Collegare in `RSVPPublic.tsx`
-
-Passare i nuovi dati come props a `FormalInviteView`.
-
-## Struttura Dati (JSONB, nessuna migrazione DB)
-
-Tutto viene salvato nel campo `campaigns_config` gia esistente:
+### Layout aggiornato per ogni FAQ card:
 
 ```text
-campaigns_config.rsvp = {
-  ...campi esistenti (hero_image_url, welcome_title, etc.)...,
-  faqs: [
-    { question: "Possiamo portare i bambini?", answer: "Certamente, vi chiediamo..." },
-    { question: "Dove possiamo parcheggiare?", answer: "In prossimita del..." }
-  ],
-  gift_info: {
-    enabled: true,
-    message: "Il regalo piu grande sara avervi con noi...",
-    couple_names: "Gennaro Chiappinelli & Ilaria Picalarga",
-    iban: "IT91O0366901600584297876633",
-    bic_swift: "REVOITM2",
-    bank_name: "Revolut Bank UAB",
-    account_holder: null,
-    registry_url: null
-  }
-}
+[Input: Domanda                              ]
+[Textarea: Risposta                          ]
+                                [Sparkles] [Trash]
 ```
 
-## File Coinvolti
+### File coinvolti
 
-| File | Azione |
+| File | Modifica |
 |---|---|
-| `supabase/functions/generate-rsvp-faqs/index.ts` | NUOVO - Edge function AI per FAQ |
-| `src/components/settings/CampaignConfigDialog.tsx` | MODIFICA - Aggiunta tab FAQ + blocco Lista Nozze in Contenuti |
-| `src/components/settings/CampaignCard.tsx` | MODIFICA - Estendere interfaccia `CampaignConfig` con i nuovi campi |
-| `src/components/rsvp/FormalInviteView.tsx` | MODIFICA - Nuove sezioni Lista Nozze e FAQ |
-| `supabase/functions/rsvp-handler/index.ts` | MODIFICA - Passare `faqs` e `gift_info` nel response |
-| `src/pages/RSVPPublic.tsx` | MODIFICA - Passare nuovi dati come props |
+| `supabase/functions/generate-rsvp-faqs/index.ts` | Aggiungere modalita `polish` con prompt dedicato |
+| `src/components/settings/CampaignConfigDialog.tsx` | Bottone "Migliora" per singola FAQ + handler |
 
-## Ordine di Implementazione
-
-1. Edge function `generate-rsvp-faqs` (backend AI)
-2. Estendere `CampaignCard` interface con nuovi campi
-3. Estendere `CampaignConfigDialog` con tab FAQ + blocco Lista Nozze
-4. Estendere `rsvp-handler` per passare i nuovi dati
-5. Estendere `FormalInviteView` con sezioni Lista Nozze e FAQ
-6. Collegare tutto in `RSVPPublic.tsx`
-
-Nessuna migrazione DB necessaria. Tutto resta nel JSONB `campaigns_config`.
-
+Nessuna modifica al DB.
