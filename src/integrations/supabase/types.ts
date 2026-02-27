@@ -348,7 +348,15 @@ export type Database = {
           user_id?: string | null
           wedding_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "financial_contributors_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       guest_conflicts: {
         Row: {
@@ -883,7 +891,15 @@ export type Database = {
           user_id?: string
           wedding_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "sync_tokens_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       table_assignments: {
         Row: {
@@ -964,7 +980,15 @@ export type Database = {
           updated_at?: string
           wedding_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "tables_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       timeline_events: {
         Row: {
@@ -1000,7 +1024,15 @@ export type Database = {
           updated_at?: string
           wedding_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "timeline_events_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       timeline_tokens: {
         Row: {
@@ -1024,7 +1056,15 @@ export type Database = {
           token?: string
           wedding_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "timeline_tokens_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
