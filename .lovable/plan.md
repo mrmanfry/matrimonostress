@@ -1,77 +1,71 @@
 
 
-# Fix: Caricamento lento dopo login (RPC timeout race condition)
+# Fix: Eliminare timeout artificiale e deduplicare eventi auth
 
-## Problema identificato
+## Problema reale
 
-L'RPC `get_user_context` viene eseguita in **0.3ms** sul database -- il problema NON e la query. Il problema e una **race condition** nel flusso di autenticazione:
+L'RPC `get_user_context` funziona sempre -- ma sul cold start di PostgREST impiega 20-30 secondi. Il timeout artificiale di 15s causa un errore falso, e i 3 retry significano fino a 45 secondi di attesa prima che `INITIAL_SESSION` finalmente riesca.
 
-1. `initSession()` e `onAuthStateChange(SIGNED_IN)` scattano quasi simultaneamente
-2. La prima chiamata RPC puo incontrare un "cold start" della connessione PostgREST e superare il timeout di 10 secondi
-3. Il timeout genera un errore, l'utente vede una schermata di errore per qualche secondo
-4. Solo dopo, una seconda chiamata riesce e il dashboard si carica
-
-In piu, l'errore del grafico Recharts ("width(-1) and height(-1)") e causato dal rendering del chart prima che il container abbia dimensioni valide.
+Flusso attuale (rotto):
+```text
+SIGNED_IN -> handleAuthSession -> RPC timeout 15s -> retry 1 (15s) -> retry 2 (15s) -> ERRORE
+INITIAL_SESSION -> handleAuthSession -> RPC successo immediato (perche PostgREST e ora caldo)
+```
 
 ## Soluzione
 
-### 1. Rimuovere la race condition nel flusso auth
+### 1. Rimuovere il timeout artificiale
 
-Cambiare la strategia in `AuthContext.tsx`:
-- `initSession()` chiama `getSession()` e salva la sessione, ma **non** chiama `handleAuthSession`
-- Lasciare che sia `onAuthStateChange(INITIAL_SESSION)` l'unico entry point per caricare il contesto
-- Questo elimina la doppia chiamata RPC
+Il timeout e controproducente: la query funziona sempre, serve solo pazienza sul cold start. Senza timeout, l'utente vedra lo stato "loading" per 20-30s al primo accesso (cold start), ma non vedra MAI un errore falso.
 
-### 2. Aggiungere retry automatico con backoff
+### 2. Rimuovere i retry
 
-Se la prima chiamata RPC fallisce (timeout o errore di rete):
-- Ritentare automaticamente fino a 2 volte con delay crescente (2s, 4s)
-- Aumentare il timeout iniziale a 15 secondi
-- Mostrare lo stato "loading" durante i retry, non l'errore
+Se non c'e timeout, non servono retry. L'RPC o risponde (anche se lentamente) o fallisce per errore reale (network down). In caso di errore reale, mostriamo la UI di errore con "Riprova".
 
-### 3. Fix grafico Recharts
+### 3. Gestire solo INITIAL_SESSION (ignorare SIGNED_IN al primo caricamento)
 
-Aggiungere `minWidth` e `minHeight` ai `ResponsiveContainer` nel `GuestSummaryWidget` e `Dashboard` per evitare il warning di dimensioni negative.
+Su page load, Supabase emette sia `SIGNED_IN` che `INITIAL_SESSION`. Basta gestire `INITIAL_SESSION` per il caricamento iniziale. `SIGNED_IN` viene gestito solo se non c'e gia un caricamento in corso (cioe durante un login attivo nella stessa sessione).
 
 ## Dettagli tecnici
 
-### File modificati
+### File: `src/contexts/AuthContext.tsx`
 
-| File | Modifica |
-|------|----------|
-| `src/contexts/AuthContext.tsx` | Rimuovere race condition, aggiungere retry con backoff, aumentare timeout |
-| `src/components/dashboard/GuestSummaryWidget.tsx` | Aggiungere `minWidth`/`minHeight` a ResponsiveContainer |
-
-### Logica AuthContext rivista
-
+**loadUserContext** -- semplificato:
 ```text
-initSession():
-  getSession() -> se c'e sessione, NON chiamare handleAuthSession
-  (onAuthStateChange gestira INITIAL_SESSION)
-
-onAuthStateChange:
-  SIGNED_IN / INITIAL_SESSION -> handleAuthSession(session)
-  SIGNED_OUT -> reset
-  TOKEN_REFRESHED -> aggiorna solo session
-
-handleAuthSession(session):
-  se stesso user gia processato -> skip
-  loadUserContext() con retry (max 2 tentativi, backoff 2s/4s)
-  timeout: 15 secondi
+const loadUserContext = async (): Promise<WeddingContext[]> => {
+  const { data, error } = await supabase.rpc('get_user_context');
+  if (error) throw error;
+  return parseWeddingsFromRpc(data);
+};
 ```
 
-### Retry logic
+Niente timeout, niente retry, niente Promise.race. La chiamata Supabase ha il suo timeout interno HTTP (60s default).
 
+**onAuthStateChange** -- deduplicazione migliorata:
 ```text
-loadUserContext():
-  per tentativo in [1, 2, 3]:
-    prova RPC con timeout 15s
-    se successo -> return weddings
-    se fallisce e tentativo < 3:
-      attendi 2^tentativo secondi
-      log warning "Retry tentativo N..."
-  se tutti falliti -> throw errore
+if (event === 'SIGNED_IN') {
+  // Su SIGNED_IN, avvia SOLO se non c'e gia un caricamento
+  // e l'utente non e gia stato processato
+  if (!isLoadingContext.current && lastProcessedUserId.current !== session.user.id) {
+    await handleAuthSession(session);
+  }
+}
+if (event === 'INITIAL_SESSION') {
+  // INITIAL_SESSION e il segnale definitivo: avvia sempre
+  // (a meno che non sia gia in corso)
+  if (!isLoadingContext.current) {
+    await handleAuthSession(session);
+  }
+}
 ```
 
-Risultato atteso: il caricamento post-login passera da ~10-12 secondi a circa 1-2 secondi nella maggior parte dei casi.
+### Risultato atteso
+
+| Scenario | Prima | Dopo |
+|----------|-------|------|
+| Cold start (primo accesso del giorno) | 45s + errore + caricamento | 20-30s loading, poi dashboard |
+| Warm start (accessi successivi) | 15s timeout + retry + caricamento | 1-2s loading, poi dashboard |
+| Navigazione interna | Immediato | Immediato |
+
+L'import di `retryWithBackoff` verra rimosso dato che non serve piu in questo file.
 
