@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { LockedCard } from "@/components/ui/locked-card";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -69,6 +71,8 @@ const statusConfig = {
 };
 const Vendors = () => {
   const navigate = useNavigate();
+  const { isPlanner, authState } = useAuth();
+  const vendorCostsHidden = isPlanner && authState.status === 'authenticated' && authState.activePermissions?.vendor_costs_visible === false;
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -675,9 +679,13 @@ const Vendors = () => {
                   {vendor.expenses_total !== undefined && <div className="border-t pt-3">
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-muted-foreground">Totale Spese</span>
-                        <span className={`text-lg font-semibold ${vendor.expenses_total === 0 ? 'text-muted-foreground' : ''}`}>
-                          €{vendor.expenses_total.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
-                        </span>
+                        {vendorCostsHidden ? (
+                          <LockedCard variant="inline" />
+                        ) : (
+                          <span className={`text-lg font-semibold ${vendor.expenses_total === 0 ? 'text-muted-foreground' : ''}`}>
+                            €{vendor.expenses_total.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                          </span>
+                        )}
                       </div>
                     </div>}
                   

@@ -16,6 +16,7 @@ import { RSVPConfigDialog } from "@/components/settings/RSVPConfigDialog";
 import CampaignCard, { CampaignsConfig } from "@/components/settings/CampaignCard";
 import CampaignConfigDialog from "@/components/settings/CampaignConfigDialog";
 import { SubscriptionTab } from "@/components/settings/SubscriptionTab";
+import { PlannerPermissionsCard } from "@/components/settings/PlannerPermissionsCard";
 import { z } from "zod";
 
 const emailSchema = z.string().trim().email("Email non valida").max(255);
@@ -88,7 +89,7 @@ const Settings = () => {
   const [roles, setRoles] = useState<UserRole[]>([]);
   const [invites, setInvites] = useState<PendingInvite[]>([]);
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState<"co_planner" | "manager" | "guest">("manager");
+  const [inviteRole, setInviteRole] = useState<"co_planner" | "manager" | "guest" | "planner">("manager");
   const [loading, setLoading] = useState(false);
   const [contributors, setContributors] = useState<any[]>([]);
   const [newContributorName, setNewContributorName] = useState("");
@@ -353,6 +354,8 @@ const Settings = () => {
     switch (role) {
       case "co_planner":
         return "Co-Planner";
+      case "planner":
+        return "Planner Professionista";
       case "manager":
         return "Manager";
       case "guest":
@@ -366,6 +369,8 @@ const Settings = () => {
     switch (role) {
       case "co_planner":
         return <Shield className="w-4 h-4 text-accent" />;
+      case "planner":
+        return <Settings2 className="w-4 h-4 text-primary" />;
       case "manager":
         return <Users className="w-4 h-4 text-gold" />;
       default:
@@ -1123,6 +1128,26 @@ const Settings = () => {
             </div>
           </Card>
 
+          {/* Planner Permissions Card */}
+          {(() => {
+            const plannerRoles = roles.filter(r => r.role === 'planner');
+            if (plannerRoles.length === 0) return null;
+            const currentUserRole = roles.find(r => r.user_id === currentUserId);
+            if (!currentUserRole || (currentUserRole.role !== 'co_planner')) return null;
+            const firstPlannerConfig = (plannerRoles[0] as any).permissions_config || {};
+            return (
+              <PlannerPermissionsCard
+                weddingId={wedding.id}
+                plannerRoleIds={plannerRoles.map(r => r.id)}
+                initialConfig={{
+                  budget_visible: firstPlannerConfig.budget_visible ?? false,
+                  vendor_costs_visible: firstPlannerConfig.vendor_costs_visible ?? true,
+                }}
+                onUpdated={loadData}
+              />
+            );
+          })()}
+
           {/* Pending Invites */}
           {invites.length > 0 && (
             <Card className="p-6">
@@ -1184,11 +1209,14 @@ const Settings = () => {
                   disabled={loading}
                 >
                   <option value="co_planner">Co-Planner (Controllo Totale)</option>
+                  <option value="planner">Planner Professionista (Permessi Configurabili)</option>
                   <option value="manager">Manager (Gestione Operativa)</option>
                 </select>
                 <p className="text-sm text-muted-foreground">
                   {inviteRole === "co_planner" 
                     ? "Il Co-Planner ha controllo totale sul matrimonio."
+                    : inviteRole === "planner"
+                    ? "Il Planner può gestire tutto, con accesso ai dati finanziari configurabile."
                     : "Il Manager può gestire invitati, budget e fornitori."}
                 </p>
               </div>

@@ -81,6 +81,19 @@ const Onboarding = () => {
 
       if (weddingError) throw weddingError;
 
+      // If user is a wedding planner, update the auto-assigned co_planner role to planner
+      if (userRole === 'wedding_planner' && weddingData) {
+        try {
+          await supabase
+            .from("user_roles")
+            .update({ role: 'planner' as any, permissions_config: { budget_visible: false, vendor_costs_visible: true } })
+            .eq("user_id", user.id)
+            .eq("wedding_id", weddingData.id);
+        } catch (err) {
+          console.error("Error updating planner role:", err);
+        }
+      }
+
       // Generate pre-populated checklist tasks
       if (weddingData) {
         try {

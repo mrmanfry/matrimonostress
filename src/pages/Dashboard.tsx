@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { useGuestMetrics } from "@/hooks/useGuestMetrics";
 import { GuestSummaryWidget } from "@/components/dashboard/GuestSummaryWidget";
+import { LockedCard } from "@/components/ui/locked-card";
 import { calculateExpenseAmount, resolveGuestCounts, inferExpenseType, formatCurrency } from "@/lib/expenseCalculations";
 import type { ExpenseItem, ExpenseLineItem, GuestCounts } from "@/lib/expenseCalculations";
 import { calculateExpectedCounts, calculateTotalVendorStaff } from "@/lib/expectedCalculator";
@@ -53,7 +54,7 @@ const Dashboard = () => {
   const [joiningWedding, setJoiningWedding] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
   const navigate = useNavigate();
-  const { authState, refreshAuth } = useAuth();
+  const { authState, refreshAuth, isPlanner } = useAuth();
 
   useEffect(() => {
     loadDashboardData();
@@ -496,87 +497,103 @@ const Dashboard = () => {
         />
 
         {/* Widget 2: Finanze - Impegno/Pagato/Da Pagare */}
-        <Card 
-          className="p-4 md:p-6 hover:shadow-elegant transition-all cursor-pointer"
-          onClick={() => navigate("/app/treasury")}
-        >
-          <div className="flex items-center gap-2 mb-3">
-            <Euro className="w-6 h-6 text-primary" />
-            <h3 className="text-lg md:text-xl font-semibold">Finanze</h3>
-          </div>
+        {(() => {
+          const activePermissions = authState.status === 'authenticated' ? authState.activePermissions : null;
+          const budgetLocked = isPlanner && !activePermissions?.budget_visible;
+          
+          if (budgetLocked) {
+            return (
+              <Card className="p-4 md:p-6 flex flex-col items-center justify-center min-h-[200px]">
+                <LockedCard variant="inline" label="Budget riservato" />
+                <p className="text-sm text-muted-foreground mt-2">Sezione gestita dagli sposi</p>
+              </Card>
+            );
+          }
 
-          <div className="space-y-4">
-            {/* Hero: Impegno Totale */}
-            <div className="text-center py-1">
-              <div className="text-3xl font-bold">
-                {formatCurrency(stats.budgetSpent)}
+          return (
+            <Card 
+              className="p-4 md:p-6 hover:shadow-elegant transition-all cursor-pointer"
+              onClick={() => navigate("/app/treasury")}
+            >
+              <div className="flex items-center gap-2 mb-3">
+                <Euro className="w-6 h-6 text-primary" />
+                <h3 className="text-lg md:text-xl font-semibold">Finanze</h3>
               </div>
-              <div className="text-sm text-muted-foreground">Impegno Totale</div>
-            </div>
 
-            {/* Barra segmentata Pagato + Da Pagare */}
-            <div className="h-3 rounded-full overflow-hidden flex bg-muted">
-              {stats.budgetSpent > 0 ? (
-                <>
-                  <div
-                    className="h-full bg-emerald-500 transition-all duration-500"
-                    style={{ width: `${paidPercentage}%` }}
-                  />
-                  <div
-                    className="h-full bg-amber-500 transition-all duration-500"
-                    style={{ width: `${toBePaidPercentage}%` }}
-                  />
-                </>
-              ) : (
-                <div className="h-full w-full bg-muted" />
-              )}
-            </div>
+              <div className="space-y-4">
+                {/* Hero: Impegno Totale */}
+                <div className="text-center py-1">
+                  <div className="text-3xl font-bold">
+                    {formatCurrency(stats.budgetSpent)}
+                  </div>
+                  <div className="text-sm text-muted-foreground">Impegno Totale</div>
+                </div>
 
-            {/* KPI: Pagato e Da Pagare */}
-            <div className="grid grid-cols-2 gap-4">
-              <div 
-                className="space-y-1 cursor-pointer hover:bg-muted/50 p-2 rounded transition-colors group"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  navigate("/app/treasury");
-                }}
-              >
-                <div className="text-sm text-muted-foreground flex items-center gap-1.5">
-                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                  Pagato
+                {/* Barra segmentata Pagato + Da Pagare */}
+                <div className="h-3 rounded-full overflow-hidden flex bg-muted">
+                  {stats.budgetSpent > 0 ? (
+                    <>
+                      <div
+                        className="h-full bg-emerald-500 transition-all duration-500"
+                        style={{ width: `${paidPercentage}%` }}
+                      />
+                      <div
+                        className="h-full bg-amber-500 transition-all duration-500"
+                        style={{ width: `${toBePaidPercentage}%` }}
+                      />
+                    </>
+                  ) : (
+                    <div className="h-full w-full bg-muted" />
+                  )}
                 </div>
-                <div className="text-xl font-bold text-emerald-700 dark:text-emerald-400">
-                  {formatCurrency(stats.budgetPaid)}
-                </div>
-              </div>
-              <div 
-                className="space-y-1 cursor-pointer hover:bg-muted/50 p-2 rounded transition-colors group"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  navigate("/app/treasury");
-                }}
-              >
-                <div className="text-sm text-muted-foreground flex items-center gap-1.5">
-                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-500" />
-                  Da Pagare
-                </div>
-                <div className="text-xl font-bold text-amber-700 dark:text-amber-400">
-                  {formatCurrency(stats.budgetToBePaid)}
-                </div>
-              </div>
-            </div>
 
-            {/* Riga secondaria: Budget target e Liquidità */}
-            {stats.budgetTotal > 0 && (
-              <div className="border-t pt-2 flex items-center justify-between text-xs text-muted-foreground">
-                <span>Budget target: {formatCurrency(stats.budgetTotal)}</span>
-                <span className={stats.budgetRemaining < 0 ? 'text-destructive font-medium' : ''}>
-                  Liquidità: {formatCurrency(stats.budgetRemaining)}
-                </span>
+                {/* KPI: Pagato e Da Pagare */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div 
+                    className="space-y-1 cursor-pointer hover:bg-muted/50 p-2 rounded transition-colors group"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate("/app/treasury");
+                    }}
+                  >
+                    <div className="text-sm text-muted-foreground flex items-center gap-1.5">
+                      <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                      Pagato
+                    </div>
+                    <div className="text-xl font-bold text-emerald-700 dark:text-emerald-400">
+                      {formatCurrency(stats.budgetPaid)}
+                    </div>
+                  </div>
+                  <div 
+                    className="space-y-1 cursor-pointer hover:bg-muted/50 p-2 rounded transition-colors group"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate("/app/treasury");
+                    }}
+                  >
+                    <div className="text-sm text-muted-foreground flex items-center gap-1.5">
+                      <span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-500" />
+                      Da Pagare
+                    </div>
+                    <div className="text-xl font-bold text-amber-700 dark:text-amber-400">
+                      {formatCurrency(stats.budgetToBePaid)}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Riga secondaria: Budget target e Liquidità */}
+                {stats.budgetTotal > 0 && (
+                  <div className="border-t pt-2 flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Budget target: {formatCurrency(stats.budgetTotal)}</span>
+                    <span className={stats.budgetRemaining < 0 ? 'text-destructive font-medium' : ''}>
+                      Liquidità: {formatCurrency(stats.budgetRemaining)}
+                    </span>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        </Card>
+            </Card>
+          );
+        })()}
 
         {/* Widget 3: Azioni Urgenti */}
         <Card className="p-4 md:p-6">
