@@ -7,6 +7,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { UserPlus, Trash2, Users, Shield, Plus, Link2, Calendar, DollarSign, Heart, Share2, ExternalLink, Mail, MessageSquare, Settings2, Palette, User, CreditCard } from "lucide-react";
+import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 import { AccountSettingsCard } from "@/components/settings/AccountSettingsCard";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -831,12 +832,11 @@ const Settings = () => {
                       <Label htmlFor="location" className="flex items-center gap-2">
                         Località
                       </Label>
-                      <Input
+                      <AddressAutocomplete
                         id="location"
                         value={editedLocation}
-                        onChange={(e) => setEditedLocation(e.target.value)}
+                        onChange={setEditedLocation}
                         placeholder="Es: Villa Rossi, Roma"
-                        maxLength={200}
                       />
                       <p className="text-xs text-muted-foreground">
                         Verrà usata come indirizzo nell'evento calendario
