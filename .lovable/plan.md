@@ -1,39 +1,79 @@
 
-# Fix: Invito collaboratore fallisce (weddingId mancante)
 
-## Problema
+# Fix: Email Invito + Flusso Accesso Collaboratore Multi-Matrimonio
 
-La edge function `send-wedding-invitation` si aspetta un campo `weddingId` nel body della richiesta per verificare che l'utente abbia il ruolo `co_planner` su quel matrimonio. Ma il codice in `Settings.tsx` (riga 292-301) non lo include nel body inviato alla funzione.
+## Problemi Identificati
 
-Il log della edge function conferma: `invalid input syntax for type uuid: "undefined"` -- il `weddingId` arriva come `undefined`, la query SQL fallisce e restituisce 403.
+### 1. Branding email errato
+L'email viene inviata come **"Matrimonio Senza Stress &lt;info@stenders.cloud&gt;"** con stile generico (gradient viola, footer "Wedding Planner App"). Deve essere **"WedsApp &lt;info@stenders.cloud&gt;"** con i colori del brand (navy `hsl(243, 75%, 58%)`, font Lato), coerente con i template auth gia configurati per `notify.wedsapp.it`.
+
+### 2. Il codice di accesso funziona, ma solo per utenti NUOVI (senza matrimonio)
+Il form "Ho un Codice di Accesso" appare nella Dashboard **solo se l'utente non ha nessun matrimonio** (`!wedding`). Se il collaboratore invitato ha gia un suo matrimonio (come nel tuo caso), non vedra mai quel form -- la dashboard carica direttamente il suo matrimonio esistente.
+
+**Manca un punto di ingresso per utenti che hanno gia un matrimonio.**
+
+### 3. Il ruolo assegnato e sempre "manager" indipendentemente dall'invito
+Quando un utente inserisce il codice, il `handleJoinWithCode` nella Dashboard assegna sempre il ruolo `manager` (riga 297), ignorando il ruolo specificato nell'invito originale (co_planner, planner, manager). Dovrebbe leggere il ruolo dall'invito salvato nella tabella `wedding_invitations`.
+
+---
 
 ## Soluzione
 
-### File: `src/pages/Settings.tsx`
+### A. Rebrand dell'email di invito
+**File: `supabase/functions/send-wedding-invitation/index.ts`**
 
-Aggiungere `weddingId: wedding.id` al body della chiamata `supabase.functions.invoke('send-wedding-invitation')` alla riga 293:
+- Cambiare il mittente da `"Matrimonio Senza Stress <info@stenders.cloud>"` a `"WedsApp <noreply@wedsapp.it>"` (o il dominio configurato)
+- Riscrivere il template HTML con lo stile del brand: colore navy (`hsl(243, 75%, 58%)`), font Lato, border-radius arrotondati, tono coerente
+- Aggiornare il footer da "Wedding Planner App" a "WedsApp"
+- Aggiornare i link da `stenders.cloud` a `matrimonostress.lovable.app` (URL pubblicato attuale)
+- Rendere il CTA un link diretto: `https://matrimonostress.lovable.app/app/dashboard?join=WED-XXXX` per pre-compilare il codice
 
-```typescript
-const { error: emailError } = await supabase.functions.invoke('send-wedding-invitation', {
-  body: {
-    email: inviteEmail,
-    weddingId: wedding.id,          // <-- AGGIUNTO
-    weddingNames: `${wedding.partner1_name} & ${wedding.partner2_name}`,
-    weddingDate: wedding.wedding_date,
-    role: inviteRole,
-    accessCode: wedding.access_code,
-    inviterName: inviterName,
-  },
-});
+### B. Aggiungere flusso "Unisciti a un matrimonio" per utenti esistenti
+**File: `src/components/workspace/WorkspaceSwitcher.tsx`**
+
+- Aggiungere nel dropdown del WorkspaceSwitcher un'opzione "Unisciti con codice" (icona +)
+- Cliccandola, si apre un dialog con input per il codice di accesso
+- La logica di join e la stessa del Dashboard, ma accessibile anche da utenti che hanno gia un matrimonio
+
+**File: `src/pages/Dashboard.tsx`**
+
+- Leggere il parametro URL `?join=WED-XXXX` al caricamento
+- Se presente e l'utente e autenticato, eseguire automaticamente il join (o mostrare conferma)
+
+### C. Assegnare il ruolo corretto dall'invito
+**File: `src/pages/Dashboard.tsx` (handleJoinWithCode) e nuovo dialog nel WorkspaceSwitcher**
+
+- Dopo aver trovato il matrimonio tramite access_code, cercare nella tabella `wedding_invitations` un invito corrispondente (email utente + wedding_id + status pending)
+- Se trovato, usare il ruolo dall'invito invece di hardcodare `manager`
+- Aggiornare lo status dell'invito a `accepted`
+- Se non trovato (join spontaneo), usare `manager` come fallback
+
+---
+
+## Dettagli Tecnici
+
+### Flusso rivisto per il collaboratore invitato
+
+```text
+1. Riceve email WedsApp con link diretto
+2. Clicca il link -> arriva su /app/dashboard?join=WED-D858
+3a. Se non ha account -> redirect a /auth, dopo login torna alla dashboard con ?join
+3b. Se ha gia un account con matrimonio -> il parametro ?join avvia il join automatico
+4. Il sistema cerca l'invito in wedding_invitations, assegna il ruolo corretto
+5. refreshAuth() aggiorna il contesto, il nuovo matrimonio appare nel WorkspaceSwitcher
 ```
 
-Nessuna modifica necessaria alla edge function -- il campo `weddingId` e gia previsto nell'interfaccia `InvitationEmailRequest`.
+### File modificati
 
-## Nota sui Permessi Configurabili
+| File | Modifica |
+|------|----------|
+| `supabase/functions/send-wedding-invitation/index.ts` | Rebrand completo: mittente, stile, link diretto con `?join=` |
+| `src/components/workspace/WorkspaceSwitcher.tsx` | Aggiungere opzione "Unisciti con codice" + dialog |
+| `src/pages/Dashboard.tsx` | Leggere `?join=` da URL, correggere ruolo da `wedding_invitations` |
+| Nuovo: `src/components/workspace/JoinWeddingDialog.tsx` | Dialog riutilizzabile per inserire codice accesso |
 
-I permessi per il Planner Professionista si configurano nella sezione **Impostazioni > Team** tramite il componente `PlannerPermissionsCard`, che appare automaticamente quando almeno un utente con ruolo "planner" e presente nel team. I due toggle disponibili sono:
+### Note
 
-1. **Gestione Budget Globale** -- controlla se il Planner puo vedere Tesoreria e Budget
-2. **Costi e Pagamenti Fornitori** -- controlla se il Planner puo vedere cifre e piani pagamento
+- Il dominio email attuale per le email transazionali usa Resend con `info@stenders.cloud`. Se preferisci usare `notify@wedsapp.it` (gia configurato per le auth email), dovra essere verificato anche per Resend. In alternativa si puo mantenere `stenders.cloud` ma cambiare il nome mittente a "WedsApp".
+- Il `WorkspaceSwitcher` e gia funzionante per utenti multi-matrimonio -- basta aggiungere il punto di ingresso "join".
 
-Questi toggle aggiornano il campo `permissions_config` (JSONB) nella tabella `user_roles` per tutti i ruoli planner del matrimonio. Non serve alcuna modifica a questa parte: funziona correttamente, ma diventa visibile solo dopo che un planner accetta l'invito.
