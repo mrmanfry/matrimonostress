@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { 
   Heart, 
   LayoutDashboard, 
+  LayoutGrid,
   Users, 
   Euro, 
   CheckSquare, 
@@ -45,8 +46,11 @@ const AppLayout = () => {
 
   // Filter navigation based on planner permissions
   const activePermissions = authState.status === 'authenticated' ? authState.activePermissions : null;
+  const hasMultipleWeddings = authState.status === 'authenticated' && authState.weddings.length > 1;
+  const showCockpit = isPlanner || hasMultipleWeddings;
   
   const allNavigation = [
+    ...(showCockpit ? [{ name: "Cockpit", href: "/app/planner", icon: LayoutGrid }] : []),
     { name: "Dashboard", href: "/app/dashboard", icon: LayoutDashboard },
     { name: "Invitati", href: "/app/guests", icon: Users },
     { name: "Budget", href: "/app/budget", icon: Euro, hidden: isPlanner && activePermissions?.budget_visible === false },

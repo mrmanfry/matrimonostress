@@ -27,6 +27,7 @@ import ContactSync from "./pages/ContactSync";
 import RSVPPublic from "./pages/RSVPPublic";
 import Calendar from "./pages/Calendar";
 import Upgrade from "./pages/Upgrade";
+import PlannerCockpit from "./pages/PlannerCockpit";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -69,6 +70,7 @@ const App = () => (
             >
               <Route index element={<Navigate to="/app/dashboard" replace />} />
               <Route path="dashboard" element={<Dashboard />} />
+              <Route path="planner" element={<PlannerCockpit />} />
               <Route path="guests" element={<Guests />} />
               <Route path="budget" element={<BudgetLegacy />} />
               <Route path="treasury" element={<Treasury />} />
