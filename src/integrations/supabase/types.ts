@@ -1523,7 +1523,7 @@ export type Database = {
       unaccent: { Args: { "": string }; Returns: string }
     }
     Enums: {
-      app_role: "co_planner" | "manager" | "guest"
+      app_role: "co_planner" | "manager" | "guest" | "planner"
       rsvp_status_enum: "In attesa" | "Confermato" | "Rifiutato"
       send_status_enum: "Non Inviato" | "Inviato" | "Fallito"
     }
@@ -1653,7 +1653,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["co_planner", "manager", "guest"],
+      app_role: ["co_planner", "manager", "guest", "planner"],
       rsvp_status_enum: ["In attesa", "Confermato", "Rifiutato"],
       send_status_enum: ["Non Inviato", "Inviato", "Fallito"],
     },
