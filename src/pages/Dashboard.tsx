@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Heart, Users, Euro, Calendar, CheckSquare, AlertCircle, TrendingUp, ExternalLink, Utensils } from "lucide-react";
+import { Heart, Users, Euro, Calendar, CheckSquare, AlertCircle, TrendingUp, ExternalLink, Utensils, Sparkles, ArrowRight } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from "recharts";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
@@ -51,6 +51,7 @@ const Dashboard = () => {
   const [daysUntilWedding, setDaysUntilWedding] = useState<number | null>(null);
   const [accessCode, setAccessCode] = useState("");
   const [joiningWedding, setJoiningWedding] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
   const navigate = useNavigate();
   const { authState, refreshAuth } = useAuth();
 
@@ -108,6 +109,17 @@ const Dashboard = () => {
 
       setWedding(weddingData);
 
+      // Check if this is the first access (welcome state)
+      const welcomeShown = sessionStorage.getItem(`welcome_shown_${weddingData.id}`);
+      if (!welcomeShown) {
+        setShowWelcome(true);
+        sessionStorage.setItem(`welcome_shown_${weddingData.id}`, "true");
+        toast({
+          title: "Benvenuti! 🎉",
+          description: "Il vostro account Premium è attivo gratis per i prossimi 30 giorni. Godetevi l'organizzazione!",
+          duration: 8000,
+        });
+      }
       // Calculate days until wedding
       const weddingDate = new Date(weddingData.wedding_date);
       const today = new Date();
@@ -428,7 +440,54 @@ const Dashboard = () => {
         </div>
       </Card>
 
-      {/* Widget Grid 2x2 */}
+      {/* Welcome Card - First Access */}
+      {showWelcome && (
+        <Card className="p-5 border-2 border-primary/20 bg-gradient-hero">
+          <div className="flex items-start gap-3 mb-4">
+            <Sparkles className="w-6 h-6 text-primary shrink-0 mt-0.5" />
+            <div>
+              <h3 className="text-lg font-semibold">I tuoi prossimi passi</h3>
+              <p className="text-sm text-muted-foreground">Inizia da qui per organizzare al meglio</p>
+            </div>
+          </div>
+          <div className="grid sm:grid-cols-3 gap-3">
+            <Button
+              variant="outline"
+              className="justify-start h-auto py-3 px-4"
+              onClick={() => { setShowWelcome(false); navigate("/app/guests"); }}
+            >
+              <Users className="w-5 h-5 mr-2 text-primary shrink-0" />
+              <span className="text-left">
+                <span className="block font-medium text-sm">Aggiungi invitati</span>
+                <span className="block text-xs text-muted-foreground">Inizia la tua lista</span>
+              </span>
+            </Button>
+            <Button
+              variant="outline"
+              className="justify-start h-auto py-3 px-4"
+              onClick={() => { setShowWelcome(false); navigate("/app/vendors"); }}
+            >
+              <Euro className="w-5 h-5 mr-2 text-primary shrink-0" />
+              <span className="text-left">
+                <span className="block font-medium text-sm">Aggiungi fornitori</span>
+                <span className="block text-xs text-muted-foreground">E imposta il budget</span>
+              </span>
+            </Button>
+            <Button
+              variant="outline"
+              className="justify-start h-auto py-3 px-4"
+              onClick={() => { setShowWelcome(false); navigate("/app/settings"); }}
+            >
+              <Heart className="w-5 h-5 mr-2 text-primary shrink-0" />
+              <span className="text-left">
+                <span className="block font-medium text-sm">Invita il partner</span>
+                <span className="block text-xs text-muted-foreground">Collaborate insieme</span>
+              </span>
+            </Button>
+          </div>
+        </Card>
+      )}
+
       <div className="grid md:grid-cols-2 gap-4 lg:gap-6">
         {/* Widget 1: Riepilogo Invitati */}
         <GuestSummaryWidget 

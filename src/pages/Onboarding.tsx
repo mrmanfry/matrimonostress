@@ -1,331 +1,108 @@
-import { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Progress } from "@/components/ui/progress";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Heart, Loader2, LogIn } from "lucide-react";
-import { z } from "zod";
+import { Heart, Loader2, ArrowRight, ArrowLeft, CalendarDays } from "lucide-react";
 
-const weddingSchema = z.object({
-  partner1_name: z.string().trim().min(2, "Il nome deve avere almeno 2 caratteri").max(100),
-  partner2_name: z.string().trim().min(2, "Il nome deve avere almeno 2 caratteri").max(100),
-  partner2_email: z.string().trim().email("Email non valida").max(255).optional().or(z.literal("")),
-  wedding_date: z.string().min(1, "La data è obbligatoria"),
-  total_budget: z.number().min(0).optional(),
-});
+const MONTHS = [
+  "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
+  "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre",
+];
+
+const currentYear = new Date().getFullYear();
+const YEARS = Array.from({ length: 5 }, (_, i) => currentYear + i);
 
 const Onboarding = () => {
   const { authState, refreshAuth } = useAuth();
-  const [mode, setMode] = useState<"create" | "join">("create");
+  const [step, setStep] = useState(1);
   const [partner1Name, setPartner1Name] = useState("");
   const [partner2Name, setPartner2Name] = useState("");
-  const [partner2Email, setPartner2Email] = useState("");
+  const [userRole, setUserRole] = useState("");
   const [weddingDate, setWeddingDate] = useState("");
-  const [totalBudget, setTotalBudget] = useState("");
-  const [accessCode, setAccessCode] = useState("");
+  const [isTentativeDate, setIsTentativeDate] = useState(false);
+  const [tentativeMonth, setTentativeMonth] = useState("");
+  const [tentativeYear, setTentativeYear] = useState(String(currentYear + 1));
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const location = useLocation();
   const { toast } = useToast();
 
-  // Detect query parameter or pending invitation
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const codeParam = params.get('code');
-    
-    if (codeParam) {
-      setMode('join');
-      setAccessCode(codeParam.toUpperCase());
-      return;
-    }
+  const canProceedStep1 = partner1Name.trim().length >= 2 && partner2Name.trim().length >= 2 && userRole;
 
-    // Check for pending invitation - accept both "authenticated" and "no_wedding" states
-    const user = (authState.status === "authenticated" || authState.status === "no_wedding") 
-      ? authState.user 
-      : null;
-    
-    if (user?.email) {
-      supabase
-        .from('wedding_invitations')
-        .select('wedding_id, role, weddings(partner1_name, partner2_name, access_code)')
-        .eq('email', user.email)
-        .eq('status', 'pending')
-        .maybeSingle()
-        .then(({ data }) => {
-          if (data && data.weddings) {
-            setMode('join');
-            setAccessCode(data.weddings.access_code || '');
-            toast({
-              title: "Invito trovato!",
-              description: `Hai un invito per il matrimonio di ${data.weddings.partner1_name} & ${data.weddings.partner2_name}`,
-            });
-          }
-        });
-    }
-  }, [location, authState]);
+  const canProceedStep2 = isTentativeDate
+    ? (tentativeMonth && tentativeYear)
+    : weddingDate.length > 0;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const resolveDate = (): string => {
+    if (!isTentativeDate) return weddingDate;
+    const monthIdx = MONTHS.indexOf(tentativeMonth);
+    const m = String(monthIdx + 1).padStart(2, "0");
+    return `${tentativeYear}-${m}-15`;
+  };
+
+  const handleSubmit = async () => {
     setLoading(true);
 
     try {
-      const budgetValue = totalBudget ? parseFloat(totalBudget) : null;
-
-      // Validate
-      weddingSchema.parse({
-        partner1_name: partner1Name,
-        partner2_name: partner2Name,
-        partner2_email: partner2Email || "",
-        wedding_date: weddingDate,
-        total_budget: budgetValue || undefined,
-      });
-
-      // Accept both "authenticated" (has wedding) and "no_wedding" (new user without wedding)
       if (authState.status !== "authenticated" && authState.status !== "no_wedding") {
-        toast({
-          title: "Sessione scaduta",
-          description: "Effettua nuovamente l'accesso",
-          variant: "destructive",
-        });
+        toast({ title: "Sessione scaduta", description: "Effettua nuovamente l'accesso", variant: "destructive" });
         navigate("/auth");
         return;
       }
 
       const user = authState.user;
-      
-      console.log("=== WEDDING CREATION DEBUG ===");
-      console.log("User exists:", !!user);
-      console.log("User ID:", user.id);
-
-      // Verifica che l'utente sia veramente autenticato facendo una query di test
-      const { data: testData, error: testError } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("id", user.id)
-        .maybeSingle();
-      
-      console.log("Profile check - Data:", testData, "Error:", testError);
-
-      const weddingPayload = {
-        partner1_name: partner1Name,
-        partner2_name: partner2Name,
-        wedding_date: weddingDate,
-        total_budget: budgetValue,
-        created_by: user.id,
-      };
-      
-      console.log("Wedding payload:", weddingPayload);
+      const finalDate = resolveDate();
 
       const { data: weddingData, error: weddingError } = await supabase
         .from("weddings")
-        .insert(weddingPayload)
+        .insert({
+          partner1_name: partner1Name.trim(),
+          partner2_name: partner2Name.trim(),
+          wedding_date: finalDate,
+          created_by: user.id,
+          is_date_tentative: isTentativeDate,
+          user_role_type: userRole,
+        })
         .select()
         .single();
 
-      console.log("Wedding creation result - Data:", weddingData, "Error:", weddingError);
-
-      if (weddingError) {
-        console.error("Wedding creation failed:", weddingError);
-        throw weddingError;
-      }
+      if (weddingError) throw weddingError;
 
       // Generate pre-populated checklist tasks
       if (weddingData) {
-        const { generateTasksForWedding } = await import("@/utils/checklistTemplates");
-        const tasks = generateTasksForWedding(weddingDate, weddingData.id);
-        
-        const { error: tasksError } = await supabase
-          .from("checklist_tasks")
-          .insert(tasks);
-        
-        if (tasksError) {
-          console.error("Error creating checklist tasks:", tasksError);
-          // Non blocchiamo l'onboarding se i task falliscono
-        }
-      }
-
-      // Create invitation if partner2Email is provided
-      if (partner2Email) {
-        const { error: inviteError } = await supabase
-          .from('wedding_invitations')
-          .insert({
-            wedding_id: weddingData.id,
-            email: partner2Email,
-            role: 'co_planner',
-            invited_by: user.id,
-          });
-
-        if (inviteError) {
-          console.error('Error creating invitation:', inviteError);
-          toast({
-            title: "Errore",
-            description: "Impossibile creare l'invito per il partner 2",
-            variant: "destructive",
-          });
-        } else {
-          // Send invitation email via edge function
-          try {
-            const { error: emailError } = await supabase.functions.invoke('send-wedding-invitation', {
-              body: {
-                email: partner2Email,
-                weddingNames: `${partner1Name} & ${partner2Name}`,
-                weddingDate: weddingDate,
-                role: 'co_planner',
-                accessCode: weddingData.access_code,
-                inviterName: partner1Name,
-              },
-            });
-
-            if (emailError) {
-              console.error('Error sending invitation email:', emailError);
-              toast({
-                title: "Invito creato",
-                description: "L'invito è stato creato ma l'email non è stata inviata. Condividi il codice manualmente.",
-                variant: "default",
-              });
-            } else {
-              toast({
-                title: "Invito inviato",
-                description: `Un'email con il codice è stata inviata a ${partner2Email}`,
-              });
-            }
-          } catch (emailErr) {
-            console.error('Error calling email function:', emailErr);
-            toast({
-              title: "Invito creato",
-              description: "L'invito è stato creato ma l'email non è stata inviata.",
-              variant: "default",
-            });
-          }
+        try {
+          const { generateTasksForWedding } = await import("@/utils/checklistTemplates");
+          const tasks = generateTasksForWedding(finalDate, weddingData.id);
+          await supabase.from("checklist_tasks").insert(tasks);
+        } catch (err) {
+          console.error("Error creating checklist tasks:", err);
         }
       }
 
       toast({
-        title: "Perfetto!",
+        title: "Perfetto! 🎉",
         description: "Il tuo matrimonio è stato creato. Iniziamo!",
       });
 
-      // Refresh auth to load the new wedding_id
       await refreshAuth();
-      
-      navigate("/app/dashboard");
-    } catch (error: any) {
-      let errorMessage = "Si è verificato un errore";
-      
-      if (error instanceof z.ZodError) {
-        errorMessage = error.errors[0].message;
-      } else {
-        errorMessage = error.message;
-      }
-
-      toast({
-        title: "Errore",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleJoinWithCode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-
-    try {
-      // Accept both "authenticated" (has wedding) and "no_wedding" (new user without wedding)
-      if (authState.status !== "authenticated" && authState.status !== "no_wedding") {
-        toast({
-          title: "Sessione scaduta",
-          description: "Effettua nuovamente l'accesso",
-          variant: "destructive",
-        });
-        navigate("/auth");
-        return;
-      }
-
-      const user = authState.user;
-      const code = accessCode.trim().toUpperCase();
-
-      if (!code) {
-        throw new Error("Inserisci un codice valido");
-      }
-
-      // Find wedding with this code
-      const { data: wedding, error: weddingError } = await supabase
-        .from('weddings')
-        .select('id, partner1_name, partner2_name')
-        .eq('access_code', code)
-        .maybeSingle();
-
-      if (weddingError || !wedding) {
-        throw new Error("Codice non valido o matrimonio non trovato");
-      }
-
-      // Check if user already has a role for this wedding
-      const { data: existingRole } = await supabase
-        .from('user_roles')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('wedding_id', wedding.id)
-        .maybeSingle();
-
-      if (existingRole) {
-        throw new Error("Sei già un collaboratore di questo matrimonio");
-      }
-
-      // Check for pending invitation for this email
-      const { data: invitation } = await supabase
-        .from('wedding_invitations')
-        .select('role')
-        .eq('email', user.email)
-        .eq('wedding_id', wedding.id)
-        .eq('status', 'pending')
-        .maybeSingle();
-
-      const role = invitation?.role || 'manager';
-
-      // Create user role
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .insert({
-          user_id: user.id,
-          wedding_id: wedding.id,
-          role: role
-        });
-
-      if (roleError) throw roleError;
-
-      // Update invitation status if exists
-      if (invitation) {
-        await supabase
-          .from('wedding_invitations')
-          .update({ status: 'accepted' })
-          .eq('email', user.email)
-          .eq('wedding_id', wedding.id);
-      }
-
-      // Refresh auth context
-      await refreshAuth();
-
-      // Wait for auth state to update before navigating
-      await new Promise(resolve => setTimeout(resolve, 200));
-
-      toast({
-        title: "Accesso effettuato!",
-        description: `Ora puoi collaborare al matrimonio di ${wedding.partner1_name} & ${wedding.partner2_name}`,
-      });
-
       navigate("/app/dashboard");
     } catch (error: any) {
       toast({
         title: "Errore",
-        description: error.message,
+        description: error.message || "Si è verificato un errore",
         variant: "destructive",
       });
     } finally {
@@ -334,80 +111,90 @@ const Onboarding = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-hero">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-background">
       <Card className="w-full max-w-lg p-8 space-y-6">
+        {/* Header */}
         <div className="text-center space-y-2">
-          <div className="flex justify-center mb-4">
-            <div className="p-3 rounded-full bg-accent/20">
-              <Heart className="w-8 h-8 text-accent fill-accent" />
+          <div className="flex justify-center mb-3">
+            <div className="p-3 rounded-full bg-accent">
+              <Heart className="w-7 h-7 text-accent-foreground fill-accent-foreground" />
             </div>
           </div>
-          <h1 className="text-3xl font-bold">Benvenuto!</h1>
-          <p className="text-muted-foreground">
-            Cosa vuoi fare?
+          <h1 className="text-2xl font-bold font-serif">
+            {step === 1 ? "Chi si sposa?" : "Quando è il grande giorno?"}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {step === 1
+              ? "Dicci i nomi dei protagonisti e il tuo ruolo"
+              : "Ci serve per creare la tua timeline personalizzata"}
           </p>
         </div>
 
-        <Tabs value={mode} onValueChange={(v) => setMode(v as "create" | "join")} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="create">
-              <Heart className="w-4 h-4 mr-2" />
-              Crea Matrimonio
-            </TabsTrigger>
-            <TabsTrigger value="join">
-              <LogIn className="w-4 h-4 mr-2" />
-              Ho un Codice
-            </TabsTrigger>
-          </TabsList>
+        {/* Progress */}
+        <div className="space-y-1">
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>Step {step} di 2</span>
+            <span>{step === 1 ? "I Protagonisti" : "La Data"}</span>
+          </div>
+          <Progress value={step * 50} className="h-2" />
+        </div>
 
-          <TabsContent value="create" className="space-y-4 mt-6">
-            <p className="text-sm text-muted-foreground text-center">
-              Iniziamo con le informazioni essenziali per il tuo matrimonio
-            </p>
-            
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="partner1">Nome Partner 1</Label>
-                <Input
-                  id="partner1"
-                  value={partner1Name}
-                  onChange={(e) => setPartner1Name(e.target.value)}
-                  placeholder="Es. Mario"
-                  required
-                  disabled={loading}
-                  maxLength={100}
-                />
-              </div>
+        {/* Step 1: Names + Role */}
+        {step === 1 && (
+          <div className="space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="partner1">Nome Partner 1</Label>
+              <Input
+                id="partner1"
+                value={partner1Name}
+                onChange={(e) => setPartner1Name(e.target.value)}
+                placeholder="Es. Marco"
+                maxLength={100}
+                autoFocus
+              />
+            </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="partner2">Nome Partner 2</Label>
-                <Input
-                  id="partner2"
-                  value={partner2Name}
-                  onChange={(e) => setPartner2Name(e.target.value)}
-                  placeholder="Es. Laura"
-                  required
-                  disabled={loading}
-                  maxLength={100}
-                />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="partner2">Nome Partner 2</Label>
+              <Input
+                id="partner2"
+                value={partner2Name}
+                onChange={(e) => setPartner2Name(e.target.value)}
+                placeholder="Es. Giulia"
+                maxLength={100}
+              />
+            </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="partner2Email">Email Partner 2 (opzionale)</Label>
-                <Input
-                  id="partner2Email"
-                  type="email"
-                  value={partner2Email}
-                  onChange={(e) => setPartner2Email(e.target.value)}
-                  placeholder="partner2@email.com"
-                  disabled={loading}
-                  maxLength={255}
-                />
-                <p className="text-sm text-muted-foreground">
-                  Se fornita, il tuo partner riceverà un invito con il codice di accesso
-                </p>
-              </div>
+            <div className="space-y-2">
+              <Label>Qual è il tuo ruolo?</Label>
+              <Select value={userRole} onValueChange={setUserRole}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleziona il tuo ruolo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sposa">Sposa</SelectItem>
+                  <SelectItem value="sposo">Sposo</SelectItem>
+                  <SelectItem value="wedding_planner">Wedding Planner</SelectItem>
+                  <SelectItem value="altro">Altro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
+            <Button
+              className="w-full h-12 text-base"
+              disabled={!canProceedStep1}
+              onClick={() => setStep(2)}
+            >
+              Avanti
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+          </div>
+        )}
+
+        {/* Step 2: Date */}
+        {step === 2 && (
+          <div className="space-y-5">
+            {!isTentativeDate && (
               <div className="space-y-2">
                 <Label htmlFor="date">Data del Matrimonio</Label>
                 <Input
@@ -415,81 +202,89 @@ const Onboarding = () => {
                   type="date"
                   value={weddingDate}
                   onChange={(e) => setWeddingDate(e.target.value)}
-                  required
-                  disabled={loading}
                   min={new Date().toISOString().split("T")[0]}
+                  autoFocus
                 />
               </div>
+            )}
 
-              <div className="space-y-2">
-                <Label htmlFor="budget">Budget Totale (opzionale)</Label>
-                <Input
-                  id="budget"
-                  type="number"
-                  value={totalBudget}
-                  onChange={(e) => setTotalBudget(e.target.value)}
-                  placeholder="Es. 20000"
-                  disabled={loading}
-                  min="0"
-                  step="100"
-                />
-                <p className="text-sm text-muted-foreground">
-                  Puoi sempre modificarlo in seguito
+            <div className="flex items-start space-x-3 py-2">
+              <Checkbox
+                id="tentative"
+                checked={isTentativeDate}
+                onCheckedChange={(checked) => setIsTentativeDate(checked as boolean)}
+              />
+              <div>
+                <Label htmlFor="tentative" className="cursor-pointer select-none text-sm font-medium">
+                  Non abbiamo ancora una data precisa
+                </Label>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Potrai modificarla in seguito nelle impostazioni
                 </p>
               </div>
+            </div>
 
-              <Button type="submit" className="w-full" disabled={loading}>
+            {isTentativeDate && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Mese indicativo</Label>
+                  <Select value={tentativeMonth} onValueChange={setTentativeMonth}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Mese" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MONTHS.map((m) => (
+                        <SelectItem key={m} value={m}>{m}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Anno</Label>
+                  <Select value={tentativeYear} onValueChange={setTentativeYear}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Anno" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {YEARS.map((y) => (
+                        <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1 h-12"
+                onClick={() => setStep(1)}
+                disabled={loading}
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Indietro
+              </Button>
+              <Button
+                className="flex-1 h-12 text-base"
+                disabled={!canProceedStep2 || loading}
+                onClick={handleSubmit}
+              >
                 {loading ? (
                   <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
                     Creazione...
                   </>
                 ) : (
-                  "Inizia l'Avventura"
-                )}
-              </Button>
-            </form>
-          </TabsContent>
-
-          <TabsContent value="join" className="space-y-4 mt-6">
-            <p className="text-sm text-muted-foreground text-center">
-              Inserisci il codice che hai ricevuto via email
-            </p>
-
-            <form onSubmit={handleJoinWithCode} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="accessCode">Codice di Accesso</Label>
-                <Input
-                  id="accessCode"
-                  value={accessCode}
-                  onChange={(e) => setAccessCode(e.target.value.toUpperCase())}
-                  placeholder="WED-XXXX"
-                  required
-                  disabled={loading}
-                  maxLength={8}
-                  className="font-mono text-center text-lg tracking-wider"
-                />
-                <p className="text-sm text-muted-foreground text-center">
-                  Il codice è nel formato <strong>WED-XXXX</strong>
-                </p>
-              </div>
-
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? (
                   <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Accesso...
-                  </>
-                ) : (
-                  <>
-                    <LogIn className="w-4 h-4 mr-2" />
-                    Accedi al Matrimonio
+                    <CalendarDays className="w-4 h-4 mr-2" />
+                    Entra nella Dashboard
                   </>
                 )}
               </Button>
-            </form>
-          </TabsContent>
-        </Tabs>
+            </div>
+          </div>
+        )}
       </Card>
     </div>
   );
