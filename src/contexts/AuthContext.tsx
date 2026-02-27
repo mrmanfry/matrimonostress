@@ -1,7 +1,8 @@
-import { createContext, useContext, useEffect, useState, useRef, ReactNode, useCallback } from "react";
+import { createContext, useContext, useEffect, useState, useRef, ReactNode, useCallback, useMemo } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { weddingStorage } from "@/utils/weddingStorage";
+import { modeStorage, ActiveMode } from "@/utils/modeStorage";
 
 // --- Types ---
 
@@ -22,7 +23,7 @@ export interface WeddingContext {
 type AuthState = 
   | { status: "loading" }
   | { status: "unauthenticated" }
-  | { status: "authenticated"; user: User; session: Session; weddings: WeddingContext[]; activeWeddingId: string; activeRole: string; activePermissions: PermissionsConfig | null }
+  | { status: "authenticated"; user: User; session: Session; weddings: WeddingContext[]; activeWeddingId: string; activeRole: string; activePermissions: PermissionsConfig | null; activeMode: ActiveMode }
   | { status: "no_wedding"; user: User; session: Session }
   | { status: "authenticated_wedding_error"; user: User; session: Session; error: Error }
   | { status: "error"; error: Error };
@@ -32,8 +33,11 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   refreshAuth: () => Promise<void>;
   switchWedding: (weddingId: string) => void;
+  switchMode: (mode: ActiveMode) => void;
   weddingId: string;
   isPlanner: boolean;
+  hasMultiplePersonas: boolean;
+  activeMode: ActiveMode;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -61,6 +65,30 @@ function resolveActiveWedding(weddings: WeddingContext[], cachedId: string | nul
   return weddings[0];
 }
 
+/** Determine if user has both couple and planner personas */
+function computePersonas(weddings: WeddingContext[]) {
+  const hasPlannerRole = weddings.some(w => w.role === 'planner');
+  const hasCoupleRole = weddings.some(w => w.role === 'co_planner' || w.role === 'manager' || w.role === 'guest');
+  // If user created weddings (co_planner) AND manages others as planner
+  return { hasPlannerRole, hasCoupleRole, hasMultiplePersonas: hasPlannerRole && hasCoupleRole };
+}
+
+/** Infer initial activeMode based on roles */
+function inferActiveMode(weddings: WeddingContext[]): ActiveMode {
+  const cached = modeStorage.get();
+  const { hasPlannerRole, hasCoupleRole } = computePersonas(weddings);
+  
+  if (cached) {
+    // Validate cached mode still makes sense
+    if (cached === 'planner' && hasPlannerRole) return 'planner';
+    if (cached === 'couple' && hasCoupleRole) return 'couple';
+  }
+  
+  // Default inference
+  if (hasPlannerRole && !hasCoupleRole) return 'planner';
+  return 'couple';
+}
+
 const RPC_TIMEOUT_MS = 45000;
 
 async function loadUserContextWithTimeout(): Promise<WeddingContext[]> {
@@ -86,10 +114,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [authState, setAuthState] = useState<AuthState>({ status: "loading" });
   const isLoadingContext = useRef(false);
   const lastProcessedUserId = useRef<string | null>(null);
-  // Track whether we're in the initial page load phase
   const authStateRef = useRef<AuthState>({ status: "loading" });
 
-  // Keep ref in sync with state for synchronous reads inside callbacks
   const updateAuthState = useCallback((newState: AuthState | ((prev: AuthState) => AuthState)) => {
     setAuthState(prev => {
       const resolved = typeof newState === 'function' ? newState(prev) : newState;
@@ -99,7 +125,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const handleAuthSession = useCallback(async (session: Session) => {
-    // Only guard: skip if same user already fully processed
     if (lastProcessedUserId.current === session.user.id) {
       console.log('[AuthContext] Same user already processed, skipping');
       return;
@@ -111,6 +136,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (weddings.length > 0) {
         const cached = weddingStorage.get();
         const active = resolveActiveWedding(weddings, cached);
+        const mode = inferActiveMode(weddings);
+        modeStorage.set(mode);
         
         if (active) {
           weddingStorage.set(active.weddingId);
@@ -122,6 +149,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             activeWeddingId: active.weddingId,
             activeRole: active.role,
             activePermissions: active.permissionsConfig,
+            activeMode: mode,
           });
         }
       } else {
@@ -155,7 +183,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!session && mounted) {
           updateAuthState({ status: "unauthenticated" });
         }
-        // If session exists, INITIAL_SESSION from onAuthStateChange will handle it
       } catch (error) {
         console.error('[AuthContext] Init session error:', error);
         if (mounted) {
@@ -176,6 +203,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (event === 'SIGNED_OUT' || !session) {
           weddingStorage.clear();
+          modeStorage.clear();
           lastProcessedUserId.current = null;
           isLoadingContext.current = false;
           updateAuthState({ status: "unauthenticated" });
@@ -191,17 +219,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        // Determine if we should process this event
         let shouldProcess = false;
 
         if (event === 'INITIAL_SESSION') {
-          // Always process INITIAL_SESSION — it's the definitive first-load signal
           shouldProcess = true;
         }
 
         if (event === 'SIGNED_IN') {
-          // Only process SIGNED_IN if we're NOT in the initial loading phase
-          // (i.e., user just logged in during this session, not a page reload)
           if (authStateRef.current.status !== 'loading') {
             shouldProcess = true;
           } else {
@@ -211,7 +235,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (!shouldProcess) return;
 
-        // Synchronous lock: only one caller can enter at a time
         if (isLoadingContext.current) {
           console.log('[AuthContext] Lock active, skipping duplicate event');
           return;
@@ -251,9 +274,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, [updateAuthState]);
 
+  const switchMode = useCallback((mode: ActiveMode) => {
+    modeStorage.set(mode);
+    updateAuthState(prev => {
+      if (prev.status !== 'authenticated') return prev;
+      return { ...prev, activeMode: mode };
+    });
+  }, [updateAuthState]);
+
   const signOut = async () => {
     await supabase.auth.signOut();
     weddingStorage.clear();
+    modeStorage.clear();
     lastProcessedUserId.current = null;
     isLoadingContext.current = false;
     updateAuthState({ status: "unauthenticated" });
@@ -278,9 +310,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const weddingId = authState.status === 'authenticated' ? authState.activeWeddingId : '';
   const isPlanner = authState.status === 'authenticated' && authState.activeRole === 'planner';
+  const activeMode: ActiveMode = authState.status === 'authenticated' ? authState.activeMode : 'couple';
+  
+  const hasMultiplePersonas = useMemo(() => {
+    if (authState.status !== 'authenticated') return false;
+    return computePersonas(authState.weddings).hasMultiplePersonas;
+  }, [authState]);
 
   return (
-    <AuthContext.Provider value={{ authState, signOut, refreshAuth, switchWedding, weddingId, isPlanner }}>
+    <AuthContext.Provider value={{ authState, signOut, refreshAuth, switchWedding, switchMode, weddingId, isPlanner, hasMultiplePersonas, activeMode }}>
       {children}
     </AuthContext.Provider>
   );
