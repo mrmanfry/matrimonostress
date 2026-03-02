@@ -1,82 +1,44 @@
 
-# Completamento Piano: Modifiche Rimanenti
 
-## Cosa manca
+# Messaggi nella Sidebar del Planner Cockpit
 
-Tutti i componenti principali (Chat, Inbox, Badge Delegato, Audit Trail) sono gia implementati. Restano 5 integrazioni "collante" che collegano il tutto.
+## Problema
 
----
+Quando sei nella vista Planner Cockpit (`/app/planner`), la sidebar e completamente vuota -- nessuna voce di navigazione. La voce "Messaggi" (che porta all'Inbox multi-wedding) non e accessibile da li.
 
-## 1. Bridge Task-Chat (Messaggio automatico)
+## Soluzione
 
-**File**: `src/pages/Checklist.tsx`
-
-Dopo l'inserimento di un task delegato (riga ~519, dopo `setTasks(prev => [...prev, data])`), inserire automaticamente un messaggio di sistema nella chat:
-
-```text
-INSERT INTO messages: {
-  wedding_id, sender_id (planner), 
-  content: "Ti ho assegnato un nuovo task: [Titolo] con scadenza il [Data]",
-  visibility: "all", message_type: "system",
-  system_action_type: "task_created",
-  system_action_ref_id: task.id
-}
-```
-
-Il deep link nel ChatMessage.tsx navighera a `/app/checklist?task_id=<id>` al click sui messaggi di sistema.
-
-## 2. Aggiornamento `last_seen_at`
-
-**File**: `src/contexts/AuthContext.tsx`
-
-Dopo il caricamento del contesto utente (quando `authState` diventa `authenticated`), fare un `UPDATE profiles SET last_seen_at = NOW() WHERE id = user.id`. Una sola chiamata, non ad ogni render.
-
-## 3. Mostrare "Ultimo accesso" nel Cockpit Planner
-
-**File**: `src/pages/PlannerCockpit.tsx`
-- Nella query `crossData`, aggiungere una fetch di `profiles.last_seen_at` per tutti gli utenti co_planner dei matrimoni gestiti.
-
-**File**: `src/components/planner/WeddingCard.tsx`
-- Aggiungere prop `lastSeenAt?: string` a `WeddingCardData`
-- Mostrare "Ultimo accesso: 2h fa" sotto la data del matrimonio, usando `formatDistanceToNow` di date-fns
-
-## 4. Badge messaggi non letti nella Sidebar
+### 1. Aggiungere "Messaggi" nella sidebar del Cockpit
 
 **File**: `src/pages/AppLayout.tsx`
-- Aggiungere un contatore non-letti con query Supabase (messaggi dove `sender_id != userId` e non presenti in `message_reads` per l'utente corrente)
-- Mostrare un badge numerico rosso accanto a "Messaggi" nella sidebar
-- Sottoscriversi a Realtime su `messages` per aggiornare il contatore in tempo reale
 
-## 5. Realtime checklist_tasks nel PlannerCockpit
+Modificare la logica di navigazione condizionale (linea 181-182): quando siamo in `isPlannerMode && isOnCockpit`, invece di `navigation = []`, mostrare almeno la voce "Messaggi" con il badge dei non-letti.
 
-**File**: `src/pages/PlannerCockpit.tsx`
-- Aggiungere subscription Supabase Realtime su `checklist_tasks` (gia abilitato nel DB)
-- Al ricevimento di un UPDATE (status cambiato), invalidare la query `planner-cockpit` per aggiornare KPI e feed
+```text
+Prima:  if (isPlannerMode && isOnCockpit) { navigation = []; }
+Dopo:   if (isPlannerMode && isOnCockpit) { navigation = [{ name: "Messaggi", href: "/app/inbox", icon: MessageCircle, badge: unreadCount }]; }
+```
 
----
+### 2. Aggiornare contatore non-letti per Planner (multi-wedding)
+
+Attualmente il contatore non-letti si basa solo sul `activeWeddingId`. Per il planner nel Cockpit, deve contare i non-letti su **tutti** i matrimoni gestiti.
+
+**File**: `src/pages/AppLayout.tsx`
+
+- Quando `isPlannerMode`, calcolare gli unread su tutti i `weddingIds` (non solo `activeWeddingId`)
+- Usare una query che filtra per `wedding_id IN (...)` invece di `eq`
+
+Questo rende il badge accurato sia nella vista Cockpit che dentro un singolo matrimonio.
+
+## Risultato
+
+- Nella sidebar del Cockpit Planner appare la voce "Messaggi" con badge non-letti aggregato
+- Cliccando si apre `/app/inbox` con la lista di tutti i matrimoni come thread di chat
+- L'Inbox gia esistente (2 colonne desktop, drill-down mobile) funziona senza modifiche
 
 ## File da Modificare
 
 | File | Modifica |
 |------|----------|
-| `src/pages/Checklist.tsx` | Inserire messaggio di sistema dopo creazione task delegato |
-| `src/contexts/AuthContext.tsx` | Aggiornare `last_seen_at` al login |
-| `src/pages/PlannerCockpit.tsx` | Fetch `last_seen_at`, Realtime subscription |
-| `src/components/planner/WeddingCard.tsx` | Prop e UI "Ultimo accesso" |
-| `src/pages/AppLayout.tsx` | Badge non-letti per "Messaggi" |
-| `src/components/chat/ChatMessage.tsx` | Click handler per messaggi di sistema (deep link) |
+| `src/pages/AppLayout.tsx` | Aggiungere "Messaggi" nella nav del Cockpit + contatore multi-wedding |
 
-## Dettagli Tecnici
-
-### Bridge Task-Chat
-- Il messaggio viene inserito lato frontend subito dopo il successo dell'insert del task
-- Se l'insert del messaggio fallisce, non blocca il flusso (fire-and-forget)
-- `system_action_ref_id` contiene l'UUID del task per il deep link
-
-### Badge Non-Letti
-- Query iniziale: `SELECT COUNT(*) FROM messages WHERE wedding_id = X AND visibility = 'all' AND sender_id != me AND id NOT IN (SELECT message_id FROM message_reads WHERE user_id = me)`
-- Realtime: incrementa al ricevimento di nuovi messaggi, decrementa quando l'utente apre la chat
-
-### Last Seen
-- Aggiornamento una sola volta per sessione (flag `useRef` per evitare chiamate multiple)
-- `formatDistanceToNow(lastSeenAt, { addSuffix: true, locale: it })` per display "2 ore fa"
