@@ -154,7 +154,7 @@ const Guests = () => {
           const parsed = JSON.parse(savedProgress);
           // Only reopen if it's recent (within 24 hours) and same wedding
           const isRecent = Date.now() - parsed.timestamp < 24 * 60 * 60 * 1000;
-          if (isRecent && parsed.weddingId === wedding.id) {
+          if (isRecent && parsed.weddingId === wedding.id && !maskGuestData) {
             // Reopen the RSVP Campaign dialog
             setRsvpCampaignOpen(true);
           }
@@ -1358,15 +1358,17 @@ const Guests = () => {
                 />
               </div>
 
-              <Button
-                onClick={handleBulkSendRSVP}
-                disabled={parties.length === 0}
-                variant="default"
-                className="gap-2 w-full sm:w-auto sm:whitespace-nowrap"
-              >
-                <span className="sm:hidden">💬 Campagna</span>
-                <span className="hidden sm:inline">💬 Campagna RSVP</span>
-              </Button>
+              {!maskGuestData && (
+                <Button
+                  onClick={handleBulkSendRSVP}
+                  disabled={parties.length === 0}
+                  variant="default"
+                  className="gap-2 w-full sm:w-auto sm:whitespace-nowrap"
+                >
+                  <span className="sm:hidden">💬 Campagna</span>
+                  <span className="hidden sm:inline">💬 Campagna RSVP</span>
+                </Button>
+              )}
             </div>
 
             {/* Configurable Filters with Settings Cog */}
@@ -1431,7 +1433,7 @@ const Guests = () => {
             onDissolveParties={handleBulkDissolveParties}
             onClearSelection={clearSelection}
             onSendRSVP={handleSendRSVPFromSelection}
-            hasContactsToSend={hasContactsToSend}
+            hasContactsToSend={maskGuestData ? false : hasContactsToSend}
           />
         </>
       )}
