@@ -1,115 +1,217 @@
 
 
-# Ristrutturazione Permessi: Visualizza / Modifica / Crea per Area
+# Piano di Implementazione: Capitoli 1-3 (Executive Briefing)
 
-## Nuovo Modello Permessi
+## Analisi dello Stato Attuale
 
-Sostituire i 4 toggle attuali (`budget_visible`, `vendor_costs_visible`, `guests_names_visible`, `communications_editable`) con un modello strutturato per area, ciascuna con 3 livelli:
+Il sistema ha gia una solida base multi-tenant:
+- **RBAC**: `user_roles` con enum `app_role` (co_planner, planner, manager, guest)
+- **RLS**: Policy basate su `has_wedding_access()` e `has_wedding_role()`
+- **Multi-tenant**: `WorkspaceSwitcher`, `ModeSwitcher`, `PlannerCockpit`
+- **Permessi granulari**: Sistema 3 livelli (View/Edit/Create) per area, appena implementato
 
-```text
-permissions_config = {
-  guests:         { view: true,  edit: false, create: false },
-  budget:         { view: false, edit: false, create: false },
-  vendors:        { view: true,  edit: false, create: false },
-  vendor_costs:   { view: false, edit: false, create: false },
-  communications: { view: false, edit: false, create: false }
-}
-```
+Quello che **manca** sono i Capitoli 2 e 3: Task Delegati e Chat.
 
-Logica gerarchica: `create` implica `edit`, che implica `view`. Se `view = false`, l'intera area e nascosta.
+---
 
-## Compatibilita con i dati esistenti
+## Fase 1: Task Delegati (Capitolo 2)
 
-Il codice leggera il vecchio formato e lo mappera automaticamente al nuovo:
-- `budget_visible: true` diventa `budget: { view: true, edit: false, create: false }`
-- `vendor_costs_visible: true` diventa `vendor_costs: { view: true, ... }`
-- `guests_names_visible: false` diventa `guests: { view: false, ... }`
-- `communications_editable: true` diventa `communications: { view: true, edit: true, create: true }`
+### 1.1 Migrazione Database
 
-## Modifiche per Area
-
-### 1. AuthContext.tsx - Nuovo tipo PermissionsConfig
-
-Aggiornare l'interfaccia `PermissionsConfig` per supportare il nuovo formato strutturato, con una funzione helper `normalizePermissions()` che converte vecchio formato in nuovo.
-
-### 2. CollaboratorPermissionsCard.tsx - Nuova UI Permessi
-
-Ristrutturare la card con sezioni per area, ciascuna con fino a 3 toggle:
+Aggiungere colonne alla tabella `checklist_tasks`:
 
 ```text
---- Invitati ---
-[x] Visualizza (nome + iniziale cognome, nuclei, statistiche)
-[ ] Modifica (editare invitati esistenti)
-[ ] Crea (aggiungere nuovi invitati, importare)
-
---- Fornitori ---
-[x] Visualizza schede (nome, telefono, stato)
-[ ] Costi e Pagamenti
-[ ] Modifica
-
---- Budget e Tesoreria ---
-[ ] Visualizza
-
---- Comunicazioni ---
-[ ] Visualizza e Gestisci campagne
+ALTER TABLE checklist_tasks ADD COLUMN delegated_by_user_id UUID REFERENCES auth.users(id);
+ALTER TABLE checklist_tasks ADD COLUMN delegated_at TIMESTAMPTZ;
+ALTER TABLE checklist_tasks ADD COLUMN completed_at TIMESTAMPTZ;
+ALTER TABLE checklist_tasks ADD COLUMN completed_by_user_id UUID REFERENCES auth.users(id);
 ```
 
-### 3. Guests.tsx - Enforcement Vista/Modifica/Crea
+Nessuna nuova tabella necessaria -- riusiamo `checklist_tasks` con campi extra.
 
-Tre flag derivati dai permessi:
-- `canViewGuests` - se false, pagina non accessibile
-- `canEditGuests` - se false, nascondere: bottone edit nelle card, SelectionToolbar, toggle +1, dialog modifica
-- `canCreateGuests` - se false, nascondere: bottone "Crea", ImportDropdown, FAB mobile, Smart Import, Contact Sync, empty state "aggiungi"
+### 1.2 Frontend: Badge "Assegnato dal Planner"
 
-**Mascheramento nomi (quando view = true ma con dati parziali)**:
-- Nome completo + iniziale cognome puntata: "Mario R."
-- Telefono nascosto
-- Nuclei: nome nucleo visibile, singoli membri mascherati
-- Statistiche e filtri RSVP visibili
+**File**: `src/pages/Checklist.tsx`
+- Aggiungere `delegated_by_user_id` e `delegated_at` all'interfaccia `Task`
+- Nella query Supabase, selezionare anche i nuovi campi
+- Nel rendering dei task, mostrare un badge visivo "Richiesto dal Planner" quando `delegated_by_user_id` e presente
+- Il badge usa un colore distinto (es. blu) con icona utente
 
-### 4. GuestSingleCard.tsx - Modalita Read-Only
+**File**: `src/components/checklist/DelegatedBadge.tsx` (nuovo)
+- Componente riutilizzabile con icona e nome planner
 
-- Quando `maskSensitiveData = true`: mostra "Mario R." invece di "Mario Rossi", nasconde telefono
-- Nuovo prop `readOnly`: se true, nasconde bottone Edit, bottone "aggiungi a nucleo", toggle +1, checkbox selezione
+### 1.3 Azione "Delega Task" (Vista Planner)
 
-### 5. GuestNucleoCard.tsx - Modalita Read-Only
+**File**: `src/pages/Checklist.tsx`
+- Quando il planner crea un task in un matrimonio dove il suo ruolo e `planner`, il campo `delegated_by_user_id` viene valorizzato automaticamente con il suo `user.id`
+- Possibilita di convertire un task esistente in "delegato" tramite menu contestuale
 
-- Mascheramento: singoli membri come "Mario R.", telefono nascosto
-- `readOnly`: nasconde bottone Edit nucleo, toggle +1 per singoli membri, checkbox selezione
+### 1.4 Audit Trail
 
-### 6. VendorDetails.tsx e Vendors.tsx - Enforcement
+- Al completamento di un task, salvare `completed_at = NOW()` e `completed_by_user_id = auth.uid()`
+- Visibile al planner nella card del task
 
-- `vendor_costs.view = false`: nasconde cifre (gia implementato, solo adattare al nuovo formato)
-- `vendors.edit = false`: nascondere bottoni modifica fornitore
-- `vendors.create = false`: nascondere bottone "Nuovo Fornitore"
+### 1.5 Sincronizzazione Realtime
 
-### 7. Dashboard.tsx, Treasury.tsx, BudgetLegacy.tsx
+- Abilitare `ALTER PUBLICATION supabase_realtime ADD TABLE checklist_tasks`
+- Nella vista PlannerCockpit, sottoscriversi ai cambiamenti di stato per aggiornare KPI e feed in tempo reale
 
-Adattare i check dal vecchio formato (`budget_visible`) al nuovo (`budget.view`).
+---
 
-### 8. Settings.tsx
+## Fase 2: Sistema Chat (Capitolo 3)
 
-- Sezione "Contributi Finanziari": visibile solo se `budget.edit = true` o ruolo `co_planner`
-- Tab "Comunicazioni": visibile solo se `communications.view = true`
+### 2.1 Migrazione Database
+
+Creare 2 nuove tabelle:
+
+```text
+-- Messaggi
+CREATE TABLE messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  wedding_id UUID NOT NULL REFERENCES weddings(id) ON DELETE CASCADE,
+  sender_id UUID NOT NULL REFERENCES auth.users(id),
+  content TEXT NOT NULL,
+  visibility TEXT NOT NULL DEFAULT 'all' CHECK (visibility IN ('couple', 'all')),
+  message_type TEXT NOT NULL DEFAULT 'user' CHECK (message_type IN ('user', 'system')),
+  system_action_type TEXT,       -- 'task_created', 'task_completed', etc.
+  system_action_ref_id UUID,     -- ID del task/payment collegato
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Conferme di lettura
+CREATE TABLE message_reads (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  message_id UUID NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES auth.users(id),
+  read_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(message_id, user_id)
+);
+```
+
+Abilitare Realtime:
+```text
+ALTER PUBLICATION supabase_realtime ADD TABLE messages;
+ALTER PUBLICATION supabase_realtime ADD TABLE message_reads;
+```
+
+### 2.2 RLS Policies
+
+```text
+-- messages: Tutti i membri vedono i messaggi 'all'
+-- Solo co_planner vedono i messaggi 'couple'
+-- Il planner NON vede mai i messaggi 'couple'
+```
+
+Policy chiave:
+- **SELECT**: `has_wedding_access(uid, wedding_id) AND (visibility = 'all' OR role IN ('co_planner'))`
+- **INSERT**: `has_wedding_access(uid, wedding_id) AND sender_id = uid`
+- **No UPDATE/DELETE** (messaggi immutabili per MVP)
+
+### 2.3 Frontend: Pagina Chat (Vista Sposi)
+
+**Nuova route**: `/app/chat`
+
+**File**: `src/pages/Chat.tsx` (nuovo)
+- Thread singolo per il matrimonio attivo
+- Toggle "Privato / Condiviso con Planner":
+  - Privato: sfondo grigio, icona lucchetto
+  - Condiviso: sfondo con bordo primario, placeholder "Scrivi a [Nome Planner]..."
+- Infinite scroll: carica ultimi 50 messaggi, poi paginazione cursor-based
+- Messaggi di sistema (card centrate, stile notifica)
+- Optimistic UI: messaggio appare subito, fallback in caso di errore
+- Typing indicator via Supabase Presence
+
+**File**: `src/components/chat/ChatMessage.tsx` (nuovo)
+- Bolla messaggio con timestamp, read receipt, icona lucchetto per messaggi privati
+
+**File**: `src/components/chat/VisibilityToggle.tsx` (nuovo)
+- Toggle Privato/Condiviso con cambio colore dell'input area
+
+### 2.4 Frontend: Inbox Planner (Vista Planner)
+
+**File**: `src/pages/PlannerInbox.tsx` (nuovo)
+- Layout a 2 colonne (desktop) / drill-down (mobile)
+- Colonna sinistra: lista matrimoni con ultimo messaggio, badge non-letti, ordinata per ultimo messaggio
+- Colonna destra: thread attivo del matrimonio selezionato
+- Bottone "Vai ai dettagli Matrimonio" nella testata
+
+**Nuova route**: `/app/inbox` (visibile solo in planner mode)
+
+### 2.5 Messaggi Automatici (Bridge Task-Chat)
+
+Quando il planner crea un task delegato, inserire automaticamente un messaggio di sistema:
+
+```text
+INSERT INTO messages (wedding_id, sender_id, content, visibility, message_type, system_action_type, system_action_ref_id)
+VALUES (wedding_id, planner_user_id, 'Ti ho assegnato un nuovo task: [Titolo] con scadenza il [Data]', 'all', 'system', 'task_created', task_id);
+```
+
+Deep link nel messaggio: cliccando si naviga a `/app/checklist?highlight=task_id`.
+
+### 2.6 Contatore Non-Letti (Sidebar)
+
+**File**: `src/pages/AppLayout.tsx`
+- Aggiungere voce "Chat" / "Messaggi" nella sidebar
+- Badge numerico con conteggio messaggi non letti (query `messages LEFT JOIN message_reads`)
+
+---
+
+## Fase 3: Miglioramenti Cap. 1 (Gap Residui)
+
+### 3.1 "Ultimo Accesso" degli Sposi
+
+- Aggiungere colonna `last_seen_at TIMESTAMPTZ` alla tabella `profiles`
+- Aggiornare via trigger o chiamata frontend al login
+- Mostrare nel `PlannerCockpit` e `WeddingCard`: "Ultimo accesso: 2 ore fa"
+
+### 3.2 Transfer Ownership
+
+- Edge function `transfer-ownership` che cambia il `created_by` e ri-assegna i ruoli
+- Accessibile solo dal co_planner corrente, nella sezione Settings
+
+---
+
+## Sequenza di Implementazione Consigliata
+
+| Step | Cosa | Stima |
+|------|------|-------|
+| 1 | Migrazione DB: colonne task delegati | 10 min |
+| 2 | Badge "Delegato" + auto-fill planner | 30 min |
+| 3 | Audit trail (completed_at/by) | 15 min |
+| 4 | Realtime su checklist_tasks | 10 min |
+| 5 | Migrazione DB: tables messages + message_reads + RLS | 20 min |
+| 6 | Pagina Chat sposi (thread singolo) | 45 min |
+| 7 | Inbox Planner (multi-thread) | 45 min |
+| 8 | Bridge task-chat (messaggi automatici) | 20 min |
+| 9 | Contatore non-letti sidebar | 15 min |
+| 10 | Last seen + Transfer Ownership | 20 min |
+
+**Totale stimato: ~4 ore di sviluppo**
+
+## Rischi e Mitigazioni
+
+| Rischio | Mitigazione |
+|---------|-------------|
+| Data leak messaggi "couple" al planner | RLS rigida: `visibility = 'couple'` bloccato per ruolo planner. Test E2E obbligatorio |
+| Race condition completamento task | Debounce 5s prima di generare notifica/messaggio di sistema |
+| Limiti Realtime Supabase | MVP ok, monitorare connessioni concorrenti in produzione |
+| Messaggi immutabili | Scelta deliberata per MVP -- nessun "elimina per tutti" |
+
+## File Nuovi
+
+- `src/pages/Chat.tsx`
+- `src/pages/PlannerInbox.tsx`
+- `src/components/chat/ChatMessage.tsx`
+- `src/components/chat/VisibilityToggle.tsx`
+- `src/components/chat/ChatInput.tsx`
+- `src/components/chat/InboxList.tsx`
+- `src/components/checklist/DelegatedBadge.tsx`
 
 ## File da Modificare
 
-| File | Modifica |
-|------|----------|
-| `src/contexts/AuthContext.tsx` | Nuovo tipo `PermissionsConfig` + helper `normalizePermissions()` |
-| `src/components/settings/CollaboratorPermissionsCard.tsx` | Riscrivere UI con sezioni per area e 3 livelli |
-| `src/pages/Guests.tsx` | Aggiungere `canEditGuests`, `canCreateGuests`, nascondere azioni |
-| `src/components/guests/GuestSingleCard.tsx` | Prop `readOnly`, mascheramento "Mario R." |
-| `src/components/guests/GuestNucleoCard.tsx` | Prop `readOnly`, mascheramento membri |
-| `src/pages/Dashboard.tsx` | Adattare check al nuovo formato |
-| `src/pages/Vendors.tsx` | Adattare check + read-only |
-| `src/pages/VendorDetails.tsx` | Adattare check + read-only |
-| `src/pages/Treasury.tsx` | Adattare check |
-| `src/pages/BudgetLegacy.tsx` | Adattare check |
-| `src/pages/Settings.tsx` | Adattare check |
-| `src/pages/AppLayout.tsx` | Adattare navigazione al nuovo formato |
-
-## Nessuna Modifica Backend
-
-Il campo `permissions_config` e gia JSONB, quindi accetta qualsiasi struttura. La migrazione e trasparente: il codice frontend gestisce entrambi i formati.
+- `src/pages/AppLayout.tsx` (nuove voci sidebar)
+- `src/pages/Checklist.tsx` (campi delegati, badge, audit)
+- `src/pages/PlannerCockpit.tsx` (realtime, last seen)
+- `src/App.tsx` (nuove route /app/chat, /app/inbox)
+- `src/contexts/AuthContext.tsx` (nessuna modifica strutturale necessaria)
 
