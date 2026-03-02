@@ -6,7 +6,9 @@ import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { CheckSquare, Plus, Calendar, Filter, ChevronDown, ChevronUp, Trash2, Sparkles, MessageSquare, StickyNote, Phone, Mail, Link2, Lock, List, CalendarDays, ExternalLink, CalendarPlus, X, LayoutGrid } from "lucide-react";
+import { CheckSquare, Plus, Calendar, Filter, ChevronDown, ChevronUp, Trash2, Sparkles, MessageSquare, StickyNote, Phone, Mail, Link2, Lock, List, CalendarDays, ExternalLink, CalendarPlus, X, LayoutGrid, UserCheck } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { DelegatedBadge } from "@/components/checklist/DelegatedBadge";
 import { useNavigate } from "react-router-dom";
 import { ChecklistCalendarView } from "@/components/checklist/ChecklistCalendarView";
 import { ChecklistExportMenu } from "@/components/checklist/ChecklistExportMenu";
@@ -49,6 +51,10 @@ interface Task {
   blocked_by_task_id?: string | null;
   linked_payment_id?: string | null;
   category?: string | null;
+  delegated_by_user_id?: string | null;
+  delegated_at?: string | null;
+  completed_at?: string | null;
+  completed_by_user_id?: string | null;
 }
 interface Payment {
   id: string;
@@ -78,6 +84,7 @@ interface Wedding {
   partner2_name: string;
 }
 const Checklist = () => {
+  const { authState } = useAuth();
   const navigate = useNavigate();
   const [wedding, setWedding] = useState<Wedding | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -274,11 +281,18 @@ const Checklist = () => {
   const completeToggleTask = async (taskId: string, currentStatus: string, alsoMarkPayment = false) => {
     const newStatus = currentStatus === "completed" ? "pending" : "completed";
     const task = tasks.find(t => t.id === taskId);
-    const {
-      error
-    } = await supabase.from("checklist_tasks").update({
-      status: newStatus
-    }).eq("id", taskId);
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    const updatePayload: any = { status: newStatus };
+    if (newStatus === "completed") {
+      updatePayload.completed_at = new Date().toISOString();
+      updatePayload.completed_by_user_id = user?.id || null;
+    } else {
+      updatePayload.completed_at = null;
+      updatePayload.completed_by_user_id = null;
+    }
+    
+    const { error } = await supabase.from("checklist_tasks").update(updatePayload).eq("id", taskId);
     if (error) {
       toast({
         title: "Errore",
@@ -477,10 +491,11 @@ const Checklist = () => {
       }
     }
     
-    const {
-      data,
-      error
-    } = await supabase.from("checklist_tasks").insert({
+    // Auto-detect if current user is a planner for this wedding
+    const isPlanner = authState.status === 'authenticated' && (authState.activeRole === 'planner');
+    const currentUserId = authState.status === 'authenticated' ? authState.user.id : null;
+
+    const insertPayload: any = {
       wedding_id: wedding.id,
       title: newTask.title,
       description: newTask.description || null,
@@ -490,8 +505,18 @@ const Checklist = () => {
       priority: newTask.priority,
       notes: newTask.notes || null,
       assigned_to: newTask.assigned_to === "both" ? null : newTask.assigned_to,
-      category: taskCategory
-    }).select().single();
+      category: taskCategory,
+    };
+
+    if (isPlanner && currentUserId) {
+      insertPayload.delegated_by_user_id = currentUserId;
+      insertPayload.delegated_at = new Date().toISOString();
+    }
+
+    const {
+      data,
+      error
+    } = await supabase.from("checklist_tasks").insert(insertPayload).select().single();
     if (error) {
       toast({
         title: "Errore",
@@ -902,6 +927,7 @@ const Checklist = () => {
                             {task.title}
                           </h3>
                           <PriorityBadge priority={task.priority} size="sm" />
+                          {task.delegated_by_user_id && <DelegatedBadge compact />}
                           <BlockedIndicator blockedByTaskId={task.blocked_by_task_id} allTasks={tasks} />
                           {task.linked_payment_id && <Badge variant="outline" className="text-xs gap-1">
                               <Link2 className="w-3 h-3" />
