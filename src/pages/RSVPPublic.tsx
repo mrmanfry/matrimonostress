@@ -125,10 +125,24 @@ export default function RSVPPublic({ forceStdMode }: RSVPPublicProps) {
         return;
       }
 
+      // Fetch wedding via user_roles (supports co-planners, not just creator)
+      const { data: roleData } = await supabase
+        .from("user_roles")
+        .select("wedding_id")
+        .eq("user_id", user.id)
+        .limit(1)
+        .maybeSingle();
+
+      if (!roleData) {
+        toast.error("Matrimonio non trovato");
+        navigate("/app/settings");
+        return;
+      }
+
       const { data: wedding, error } = await supabase
         .from("weddings")
         .select("*")
-        .eq("created_by", user.id)
+        .eq("id", roleData.wedding_id)
         .maybeSingle();
 
       if (error || !wedding) {
