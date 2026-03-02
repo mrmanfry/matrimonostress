@@ -28,6 +28,8 @@ import RSVPPublic from "./pages/RSVPPublic";
 import Calendar from "./pages/Calendar";
 import Upgrade from "./pages/Upgrade";
 import PlannerCockpit from "./pages/PlannerCockpit";
+import Chat from "./pages/Chat";
+import PlannerInbox from "./pages/PlannerInbox";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -81,6 +83,8 @@ const App = () => (
               <Route path="tables" element={<Tables />} />
               <Route path="timeline" element={<Timeline />} />
               <Route path="settings" element={<Settings />} />
+              <Route path="chat" element={<Chat />} />
+              <Route path="inbox" element={<PlannerInbox />} />
               <Route path="upgrade" element={<Upgrade />} />
             </Route>
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

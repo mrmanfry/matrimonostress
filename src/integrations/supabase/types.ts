@@ -19,7 +19,11 @@ export type Database = {
           assigned_to: string | null
           blocked_by_task_id: string | null
           category: string | null
+          completed_at: string | null
+          completed_by_user_id: string | null
           created_at: string
+          delegated_at: string | null
+          delegated_by_user_id: string | null
           description: string | null
           due_date: string | null
           id: string
@@ -37,7 +41,11 @@ export type Database = {
           assigned_to?: string | null
           blocked_by_task_id?: string | null
           category?: string | null
+          completed_at?: string | null
+          completed_by_user_id?: string | null
           created_at?: string
+          delegated_at?: string | null
+          delegated_by_user_id?: string | null
           description?: string | null
           due_date?: string | null
           id?: string
@@ -55,7 +63,11 @@ export type Database = {
           assigned_to?: string | null
           blocked_by_task_id?: string | null
           category?: string | null
+          completed_at?: string | null
+          completed_by_user_id?: string | null
           created_at?: string
+          delegated_at?: string | null
+          delegated_by_user_id?: string | null
           description?: string | null
           due_date?: string | null
           id?: string
@@ -625,6 +637,79 @@ export type Database = {
           },
         ]
       }
+      message_reads: {
+        Row: {
+          id: string
+          message_id: string
+          read_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          message_id: string
+          read_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          message_id?: string
+          read_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_reads_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          message_type: string
+          sender_id: string
+          system_action_ref_id: string | null
+          system_action_type: string | null
+          visibility: string
+          wedding_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          message_type?: string
+          sender_id: string
+          system_action_ref_id?: string | null
+          system_action_type?: string | null
+          visibility?: string
+          wedding_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          message_type?: string
+          sender_id?: string
+          system_action_ref_id?: string | null
+          system_action_type?: string | null
+          visibility?: string
+          wedding_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_allocations: {
         Row: {
           amount: number
@@ -749,6 +834,7 @@ export type Database = {
           first_name: string | null
           id: string
           last_name: string | null
+          last_seen_at: string | null
           updated_at: string
           wedding_role: string | null
         }
@@ -759,6 +845,7 @@ export type Database = {
           first_name?: string | null
           id: string
           last_name?: string | null
+          last_seen_at?: string | null
           updated_at?: string
           wedding_role?: string | null
         }
@@ -769,6 +856,7 @@ export type Database = {
           first_name?: string | null
           id?: string
           last_name?: string | null
+          last_seen_at?: string | null
           updated_at?: string
           wedding_role?: string | null
         }
@@ -1539,6 +1627,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_see_couple_messages: {
+        Args: { _user_id: string; _wedding_id: string }
+        Returns: boolean
+      }
       cleanup_expired_sync_tokens: { Args: never; Returns: undefined }
       generate_progress_token: { Args: never; Returns: string }
       generate_wedding_slug: {
