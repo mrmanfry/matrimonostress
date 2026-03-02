@@ -97,7 +97,11 @@ const Guests = () => {
   const isMobile = useIsMobile();
   
   // Determine if guest sensitive data should be masked
-  const maskGuestData = isCollaborator && authState.status === 'authenticated' && authState.activePermissions?.guests_names_visible === false;
+  const activePerms = authState.status === 'authenticated' ? authState.activePermissions : null;
+  const maskGuestData = isCollaborator && authState.status === 'authenticated' && activePerms?.guests?.view === true && !activePerms?.guests?.edit;
+  const canEditGuests = !isCollaborator || !!activePerms?.guests?.edit;
+  const canCreateGuests = !isCollaborator || !!activePerms?.guests?.create;
+  const canViewGuests = !isCollaborator || !!activePerms?.guests?.view;
   
   const [wedding, setWedding] = useState<Wedding | null>(null);
   const [parties, setParties] = useState<InviteParty[]>([]);
@@ -1089,7 +1093,7 @@ const Guests = () => {
           </p>
         </div>
 
-        {!isMobile && !hasNoGuests && (
+        {!isMobile && !hasNoGuests && canCreateGuests && (
           <div className="flex gap-2">
             <ImportDropdown
               onSmartImport={() => setSmartImportOpen(true)}
@@ -1403,6 +1407,7 @@ const Guests = () => {
                       onEdit={handleEditParty}
                       onGuestUpdate={loadData}
                       maskSensitiveData={maskGuestData}
+                      readOnly={!canEditGuests}
                     />
                   );
                 } else {
@@ -1417,6 +1422,7 @@ const Guests = () => {
                       onAddToParty={handleAddGuestToParty}
                       onGuestUpdate={loadData}
                       maskSensitiveData={maskGuestData}
+                      readOnly={!canEditGuests}
                     />
                   );
                 }
@@ -1424,22 +1430,24 @@ const Guests = () => {
             </div>
           )}
 
-          {/* Selection Toolbar - Gestisce sia invitati singoli che nuclei */}
-          <SelectionToolbar
-            selectedGuestCount={selectedGuestIds.size}
-            selectedPartyCount={selectedPartyIds.size}
-            onCreateParty={handleCreatePartyFromSelection}
-            onDeleteGuests={handleBulkDeleteGuests}
-            onDissolveParties={handleBulkDissolveParties}
-            onClearSelection={clearSelection}
-            onSendRSVP={handleSendRSVPFromSelection}
-            hasContactsToSend={maskGuestData ? false : hasContactsToSend}
-          />
+          {/* Selection Toolbar - only for edit-capable users */}
+          {canEditGuests && (
+            <SelectionToolbar
+              selectedGuestCount={selectedGuestIds.size}
+              selectedPartyCount={selectedPartyIds.size}
+              onCreateParty={handleCreatePartyFromSelection}
+              onDeleteGuests={handleBulkDeleteGuests}
+              onDissolveParties={handleBulkDissolveParties}
+              onClearSelection={clearSelection}
+              onSendRSVP={handleSendRSVPFromSelection}
+              hasContactsToSend={maskGuestData ? false : hasContactsToSend}
+            />
+          )}
         </>
       )}
 
-      {/* FAB - Mobile Only with dropdown menu */}
-      {isMobile && !hasNoGuests && (
+      {/* FAB - Mobile Only with dropdown menu - only for creators */}
+      {isMobile && !hasNoGuests && canCreateGuests && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button

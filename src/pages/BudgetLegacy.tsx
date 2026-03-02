@@ -394,7 +394,7 @@ export default function BudgetLegacy() {
 
   // Locked state for planners without budget access
   const activePermissions = authState.status === 'authenticated' ? authState.activePermissions : null;
-  if (isCollaborator && !activePermissions?.budget_visible) {
+  if (isCollaborator && !activePermissions?.budget?.view) {
     return (
       <LockedCard
         variant="full-page"

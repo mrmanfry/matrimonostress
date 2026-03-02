@@ -50,6 +50,7 @@ interface GuestNucleoCardProps {
   onEdit: (party: InviteParty) => void;
   onGuestUpdate?: () => void;
   maskSensitiveData?: boolean;
+  readOnly?: boolean;
 }
 
 /**
@@ -107,6 +108,7 @@ export const GuestNucleoCard = ({
   onEdit,
   onGuestUpdate,
   maskSensitiveData = false,
+  readOnly = false,
 }: GuestNucleoCardProps) => {
   const [editingGuest, setEditingGuest] = useState<Guest | null>(null);
   const [guestEditDialogOpen, setGuestEditDialogOpen] = useState(false);
@@ -299,12 +301,14 @@ export const GuestNucleoCard = ({
       
       <div className="p-3 sm:p-4 pl-4 sm:pl-5">
         <div className="flex items-start gap-2 sm:gap-3">
-          {/* Checkbox */}
-          <Checkbox
-            checked={selected}
-            onCheckedChange={() => onToggleSelect(party.id)}
-            className="mt-1"
-          />
+          {/* Checkbox - hidden in readOnly */}
+          {!readOnly && (
+            <Checkbox
+              checked={selected}
+              onCheckedChange={() => onToggleSelect(party.id)}
+              className="mt-1"
+            />
+          )}
 
           {/* Content */}
           <div className="flex-1 min-w-0">
@@ -366,18 +370,20 @@ export const GuestNucleoCard = ({
                 </div>
               </div>
 
-              {/* Actions */}
-              <div className="flex gap-1 flex-shrink-0">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 gap-1 px-2"
-                  onClick={() => onEdit(party)}
-                >
-                  <Edit className="w-3.5 h-3.5" />
-                  <span className="text-xs hidden sm:inline">Modifica Nucleo</span>
-                </Button>
-              </div>
+              {/* Actions - hidden in readOnly */}
+              {!readOnly && (
+                <div className="flex gap-1 flex-shrink-0">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 gap-1 px-2"
+                    onClick={() => onEdit(party)}
+                  >
+                    <Edit className="w-3.5 h-3.5" />
+                    <span className="text-xs hidden sm:inline">Modifica Nucleo</span>
+                  </Button>
+                </div>
+              )}
             </div>
 
             {/* Divider */}
@@ -391,7 +397,7 @@ export const GuestNucleoCard = ({
                   <div key={guest.id} className="flex items-center justify-between text-sm group gap-1 min-w-0">
                     <div className="flex items-center gap-1 sm:gap-2 min-w-0 flex-1">
                       <span className="truncate text-xs sm:text-sm">
-                        {maskSensitiveData ? 'Membro' : `${guest.first_name} ${guest.last_name}`}
+                        {maskSensitiveData ? `${guest.first_name} ${guest.last_name.charAt(0)}.` : `${guest.first_name} ${guest.last_name}`}
                       </span>
                       {guest.alias && !maskSensitiveData && (
                         <span className="hidden sm:inline text-xs text-muted-foreground bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded border">
@@ -416,15 +422,17 @@ export const GuestNucleoCard = ({
                         <span className="text-[10px] text-muted-foreground bg-muted px-1 rounded">+1</span>
                       )}
                       {getSendStatusIcon(guest.rsvp_send_status)}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
-                        onClick={() => handleEditGuest(guest)}
-                        title="Modifica invitato"
-                      >
-                        <Edit2 className="w-3 h-3" />
-                      </Button>
+                      {!readOnly && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => handleEditGuest(guest)}
+                          title="Modifica invitato"
+                        >
+                          <Edit2 className="w-3 h-3" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -437,19 +445,21 @@ export const GuestNucleoCard = ({
                     {children.map(guest => (
                       <div key={guest.id} className="flex items-center justify-between text-sm pl-2 group">
                         <span className="text-muted-foreground truncate">
-                          {maskSensitiveData ? 'Bambino' : `${guest.first_name} ${guest.last_name}`}
+                          {maskSensitiveData ? `${guest.first_name} ${guest.last_name.charAt(0)}.` : `${guest.first_name} ${guest.last_name}`}
                         </span>
                         <div className="flex items-center gap-1">
                           {getSendStatusIcon(guest.rsvp_send_status)}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6"
-                            onClick={() => handleEditGuest(guest)}
-                            title="Modifica invitato"
-                          >
-                            <Edit2 className="w-3 h-3" />
-                          </Button>
+                          {!readOnly && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => handleEditGuest(guest)}
+                              title="Modifica invitato"
+                            >
+                              <Edit2 className="w-3 h-3" />
+                            </Button>
+                          )}
                         </div>
                       </div>
                     ))}

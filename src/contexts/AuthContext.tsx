@@ -6,11 +6,59 @@ import { modeStorage, ActiveMode } from "@/utils/modeStorage";
 
 // --- Types ---
 
+export interface AreaPermission {
+  view: boolean;
+  edit: boolean;
+  create: boolean;
+}
+
 export interface PermissionsConfig {
-  budget_visible?: boolean;
-  vendor_costs_visible?: boolean;
-  guests_names_visible?: boolean;
-  communications_editable?: boolean;
+  guests: AreaPermission;
+  budget: AreaPermission;
+  vendors: AreaPermission;
+  vendor_costs: AreaPermission;
+  communications: AreaPermission;
+}
+
+const DEFAULT_AREA: AreaPermission = { view: false, edit: false, create: false };
+
+/**
+ * Normalizes permissions from either old flat format or new structured format.
+ * Old format: { budget_visible, vendor_costs_visible, guests_names_visible, communications_editable }
+ * New format: { guests: {view,edit,create}, budget: {...}, ... }
+ */
+export function normalizePermissions(raw: any): PermissionsConfig {
+  if (!raw) {
+    return {
+      guests: { ...DEFAULT_AREA },
+      budget: { ...DEFAULT_AREA },
+      vendors: { ...DEFAULT_AREA },
+      vendor_costs: { ...DEFAULT_AREA },
+      communications: { ...DEFAULT_AREA },
+    };
+  }
+
+  // Detect new format: has at least one area key with {view} sub-key
+  if (raw.guests && typeof raw.guests === 'object' && 'view' in raw.guests) {
+    return {
+      guests: { view: !!raw.guests?.view, edit: !!raw.guests?.edit, create: !!raw.guests?.create },
+      budget: { view: !!raw.budget?.view, edit: !!raw.budget?.edit, create: !!raw.budget?.create },
+      vendors: { view: !!raw.vendors?.view, edit: !!raw.vendors?.edit, create: !!raw.vendors?.create },
+      vendor_costs: { view: !!raw.vendor_costs?.view, edit: !!raw.vendor_costs?.edit, create: !!raw.vendor_costs?.create },
+      communications: { view: !!raw.communications?.view, edit: !!raw.communications?.edit, create: !!raw.communications?.create },
+    };
+  }
+
+  // Old format migration
+  return {
+    guests: { view: raw.guests_names_visible !== false, edit: false, create: false },
+    budget: { view: raw.budget_visible !== false, edit: false, create: false },
+    vendors: { view: true, edit: false, create: false },
+    vendor_costs: { view: raw.vendor_costs_visible !== false, edit: false, create: false },
+    communications: raw.communications_editable
+      ? { view: true, edit: true, create: true }
+      : { view: false, edit: false, create: false },
+  };
 }
 
 export interface WeddingContext {
@@ -52,7 +100,7 @@ function parseWeddingsFromRpc(data: any): WeddingContext[] {
   return data.weddings.map((w: any) => ({
     weddingId: w.wedding_id,
     role: w.role || 'owner',
-    permissionsConfig: w.permissions_config || null,
+    permissionsConfig: w.permissions_config ? normalizePermissions(w.permissions_config) : null,
     partner1Name: w.partner1_name || '',
     partner2Name: w.partner2_name || '',
     weddingDate: w.wedding_date || '',

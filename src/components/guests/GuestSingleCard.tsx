@@ -43,6 +43,7 @@ interface GuestSingleCardProps {
   onAddToParty: (guestId: string) => void;
   onGuestUpdate?: () => void;
   maskSensitiveData?: boolean;
+  readOnly?: boolean;
 }
 
 export const GuestSingleCard = ({
@@ -53,12 +54,13 @@ export const GuestSingleCard = ({
   onAddToParty,
   onGuestUpdate,
   maskSensitiveData = false,
+  readOnly = false,
 }: GuestSingleCardProps) => {
   const [guestEditDialogOpen, setGuestEditDialogOpen] = useState(false);
   const [togglingPlusOne, setTogglingPlusOne] = useState(false);
   
   const displayName = maskSensitiveData 
-    ? `Invitato ${guest.is_child ? '(bambino)' : ''}` 
+    ? `${guest.first_name} ${guest.last_name.charAt(0)}.`
     : `${guest.first_name} ${guest.last_name}`;
 
   const handleEditClick = () => {
@@ -91,8 +93,8 @@ export const GuestSingleCard = ({
   return (
     <Card className={`p-3 md:p-4 hover:shadow-md transition-all ${selected ? 'ring-2 ring-primary' : ''} ${guest.is_couple_member ? 'border-pink-200 dark:border-pink-900/50 bg-pink-50/30 dark:bg-pink-950/10' : ''}`}>
       <div className="flex items-start gap-2 md:gap-3">
-        {/* Checkbox - hidden for couple members */}
-        {!guest.is_couple_member && (
+        {/* Checkbox - hidden for couple members and readOnly */}
+        {!guest.is_couple_member && !readOnly && (
           <Checkbox
             checked={selected}
             onCheckedChange={() => onToggleSelect(guest.id)}
@@ -153,29 +155,31 @@ export const GuestSingleCard = ({
               )}
             </div>
 
-            {/* Actions */}
-            <div className="flex gap-1 flex-shrink-0">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={handleEditClick}
-                title={guest.is_couple_member ? "Modifica preferenze alimentari" : "Modifica dettagli invitato"}
-              >
-                <Edit className="w-4 h-4" />
-              </Button>
-              {!guest.is_couple_member && (
+            {/* Actions - hidden in readOnly */}
+            {!readOnly && (
+              <div className="flex gap-1 flex-shrink-0">
                 <Button
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8"
-                  onClick={() => onAddToParty(guest.id)}
-                  title="Aggiungi a nucleo"
+                  onClick={handleEditClick}
+                  title={guest.is_couple_member ? "Modifica preferenze alimentari" : "Modifica dettagli invitato"}
                 >
-                  <UserPlus className="w-4 h-4" />
+                  <Edit className="w-4 h-4" />
                 </Button>
-              )}
-            </div>
+                {!guest.is_couple_member && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => onAddToParty(guest.id)}
+                    title="Aggiungi a nucleo"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Contact Info - Hidden for couple members and when masked */}
