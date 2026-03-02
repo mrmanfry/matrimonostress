@@ -1,6 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { PlannerKPIs } from "@/components/planner/PlannerKPIs";
@@ -14,6 +14,7 @@ import { JoinWeddingDialog } from "@/components/workspace/JoinWeddingDialog";
 export default function PlannerCockpit() {
   const { authState, switchWedding } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [calendarMonth, setCalendarMonth] = useState(new Date());
   const [showJoin, setShowJoin] = useState(false);
 
@@ -26,7 +27,7 @@ export default function PlannerCockpit() {
     enabled: weddingIds.length > 0,
     staleTime: 60_000,
     queryFn: async () => {
-      const [tasksRes, paymentsRes, guestsRes] = await Promise.all([
+      const [tasksRes, paymentsRes, guestsRes, rolesRes] = await Promise.all([
         supabase
           .from("checklist_tasks")
           .select("id, wedding_id, title, status, due_date, priority")
@@ -40,12 +41,41 @@ export default function PlannerCockpit() {
           .from("guests")
           .select("id, wedding_id, rsvp_status, is_couple_member, is_staff")
           .in("wedding_id", weddingIds),
+        // Fetch co_planner user_ids per wedding to get their last_seen_at
+        supabase
+          .from("user_roles")
+          .select("user_id, wedding_id, role")
+          .in("wedding_id", weddingIds)
+          .eq("role", "co_planner"),
       ]);
+
+      // Fetch profiles for co_planners to get last_seen_at
+      const coplannerUserIds = [...new Set((rolesRes.data || []).map(r => r.user_id))];
+      let profilesMap: Record<string, string | null> = {};
+      if (coplannerUserIds.length > 0) {
+        const { data: profilesData } = await supabase
+          .from("profiles")
+          .select("id, last_seen_at")
+          .in("id", coplannerUserIds);
+        (profilesData || []).forEach(p => { profilesMap[p.id] = p.last_seen_at; });
+      }
+
+      // Build per-wedding lastSeenAt: most recent co_planner last_seen_at
+      const weddingLastSeen: Record<string, string | null> = {};
+      (rolesRes.data || []).forEach(r => {
+        const ls = profilesMap[r.user_id];
+        if (ls) {
+          if (!weddingLastSeen[r.wedding_id] || ls > weddingLastSeen[r.wedding_id]!) {
+            weddingLastSeen[r.wedding_id] = ls;
+          }
+        }
+      });
 
       return {
         tasks: tasksRes.data || [],
         payments: paymentsRes.data || [],
         guests: guestsRes.data || [],
+        weddingLastSeen,
       };
     },
   });
@@ -53,6 +83,19 @@ export default function PlannerCockpit() {
   const tasks = crossData?.tasks || [];
   const payments = crossData?.payments || [];
   const guests = crossData?.guests || [];
+  const weddingLastSeen = crossData?.weddingLastSeen || {};
+
+  // Realtime: invalidate on checklist_tasks changes
+  useEffect(() => {
+    if (weddingIds.length === 0) return;
+    const channel = supabase
+      .channel('planner-cockpit-tasks')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'checklist_tasks' }, () => {
+        queryClient.invalidateQueries({ queryKey: ["planner-cockpit", weddingIds] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [weddingIds, queryClient]);
 
   // Build per-wedding card data
   const weddingCards: WeddingCardData[] = useMemo(() => {
@@ -68,9 +111,10 @@ export default function PlannerCockpit() {
         totalTasks: wTasks.length,
         completedTasks: wTasks.filter((t) => t.status === "completed").length,
         pendingPayments: wPayments.length,
+        lastSeenAt: weddingLastSeen[w.weddingId] || null,
       };
     });
-  }, [weddings, guests, tasks, payments]);
+  }, [weddings, guests, tasks, payments, weddingLastSeen]);
 
   // KPI counts
   const now = new Date();

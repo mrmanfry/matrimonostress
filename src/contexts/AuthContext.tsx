@@ -214,6 +214,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       
       lastProcessedUserId.current = session.user.id;
+
+      // Update last_seen_at (fire-and-forget, once per session)
+      supabase.from("profiles").update({ last_seen_at: new Date().toISOString() }).eq("id", session.user.id).then(({ error: lsErr }) => {
+        if (lsErr) console.warn("[AuthContext] Failed to update last_seen_at:", lsErr);
+      });
     } catch (error) {
       console.error('[AuthContext] Error finalizing auth session:', error);
       updateAuthState({

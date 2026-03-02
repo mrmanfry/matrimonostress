@@ -2,9 +2,9 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { WeddingContext } from "@/contexts/AuthContext";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import { it } from "date-fns/locale";
-import { ArrowRight, Users, CheckSquare, CreditCard } from "lucide-react";
+import { ArrowRight, Users, CheckSquare, CreditCard, Clock } from "lucide-react";
 
 const WEDDING_COLORS = [
   "hsl(250 80% 65%)",
@@ -22,6 +22,7 @@ export interface WeddingCardData {
   totalTasks: number;
   completedTasks: number;
   pendingPayments: number;
+  lastSeenAt?: string | null;
 }
 
 interface WeddingCardProps {
@@ -54,6 +55,12 @@ export function WeddingCard({ data, colorIndex, onOpen }: WeddingCardProps) {
             <p className="text-xs text-muted-foreground">
               {format(weddingDate, "d MMMM yyyy", { locale: it })}
             </p>
+            {data.lastSeenAt && (
+              <p className="text-[9px] text-muted-foreground/70 flex items-center gap-0.5 mt-0.5">
+                <Clock className="w-2.5 h-2.5" />
+                Ultimo accesso: {formatDistanceToNow(new Date(data.lastSeenAt), { addSuffix: true, locale: it })}
+              </p>
+            )}
           </div>
         </div>
         <Badge variant={isPast ? "secondary" : isUrgent ? "destructive" : "outline"} className="shrink-0 text-[10px]">

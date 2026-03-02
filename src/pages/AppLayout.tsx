@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,7 @@ import {
 import { NavLink } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { TrialBadge } from "@/components/subscription/TrialBadge";
+import { Badge } from "@/components/ui/badge";
 import { SoftPaywallDialog } from "@/components/subscription/SoftPaywallDialog";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import { WorkspaceSwitcher } from "@/components/workspace/WorkspaceSwitcher";
@@ -132,6 +133,10 @@ const AppLayoutInner = ({
   const { setOpenMobile } = useSidebar();
   const { authState, activeMode } = useAuth();
   const isMobile = useIsMobile();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const userId = authState.status === 'authenticated' ? authState.user.id : null;
+  const activeWeddingId = authState.status === 'authenticated' ? authState.activeWeddingId : null;
 
   const isOnCockpit = location.pathname === '/app/planner';
   const isPlannerMode = activeMode === 'planner';
@@ -139,10 +144,41 @@ const AppLayoutInner = ({
   const activePermissions = authState.status === 'authenticated' ? authState.activePermissions : null;
   const isCollaborator = authState.status === 'authenticated' && (authState.activeRole === 'planner' || authState.activeRole === 'manager');
 
+  // Unread messages count
+  const fetchUnreadCount = useCallback(async () => {
+    if (!userId || !activeWeddingId) return;
+    const { count, error } = await supabase
+      .from("messages")
+      .select("id", { count: "exact", head: true })
+      .eq("wedding_id", activeWeddingId)
+      .neq("sender_id", userId);
+    if (error) return;
+    // Now subtract read ones
+    const { count: readCount } = await supabase
+      .from("message_reads")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId);
+    setUnreadCount(Math.max(0, (count || 0) - (readCount || 0)));
+  }, [userId, activeWeddingId]);
+
+  useEffect(() => {
+    fetchUnreadCount();
+    if (!activeWeddingId) return;
+    const channel = supabase
+      .channel('unread-badge')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `wedding_id=eq.${activeWeddingId}` }, () => {
+        fetchUnreadCount();
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'message_reads' }, () => {
+        fetchUnreadCount();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [activeWeddingId, fetchUnreadCount]);
+
   // Build navigation conditionally
-  let navigation: { name: string; href: string; icon: any }[] = [];
+  let navigation: { name: string; href: string; icon: any; badge?: number }[] = [];
   if (isPlannerMode && isOnCockpit) {
-    // Cockpit view: no project navigation
     navigation = [];
   } else {
     const allNav = [
@@ -153,7 +189,7 @@ const AppLayoutInner = ({
       { name: "Tesoreria", href: "/app/treasury", icon: TrendingUp, hidden: isCollaborator && !activePermissions?.budget?.view },
       { name: "Fornitori", href: "/app/vendors", icon: Package },
       { name: "Checklist", href: "/app/checklist", icon: CheckSquare },
-      { name: "Messaggi", href: isPlannerMode ? "/app/inbox" : "/app/chat", icon: MessageCircle },
+      { name: "Messaggi", href: isPlannerMode ? "/app/inbox" : "/app/chat", icon: MessageCircle, badge: unreadCount },
       { name: "Calendario", href: "/app/calendar", icon: CalendarDays },
       { name: "Tavoli", href: "/app/tables", icon: UtensilsCrossed },
       { name: "Timeline", href: "/app/timeline", icon: Calendar },
@@ -196,7 +232,12 @@ const AppLayoutInner = ({
                           className={active ? "bg-accent/20 text-foreground font-medium" : ""}
                         >
                           <Icon className="w-5 h-5" />
-                          <span>{item.name}</span>
+                          <span className="flex-1">{item.name}</span>
+                          {'badge' in item && item.badge && item.badge > 0 ? (
+                            <Badge variant="destructive" className="ml-auto h-5 min-w-5 px-1.5 text-[10px] rounded-full">
+                              {item.badge > 99 ? '99+' : item.badge}
+                            </Badge>
+                          ) : null}
                         </NavLink>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
