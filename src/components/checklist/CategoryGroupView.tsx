@@ -74,7 +74,8 @@ export const CategoryGroupView = ({
     }
     
     for (const task of allTasks) {
-      const categoryId = (task.category as TaskMacroCategory) || "altro";
+      const rawCategory = (task.category as TaskMacroCategory) || "altro";
+      const categoryId = stats.has(rawCategory) ? rawCategory : "altro";
       const stat = stats.get(categoryId)!;
       stat.total++;
       if (task.status === "completed") {
