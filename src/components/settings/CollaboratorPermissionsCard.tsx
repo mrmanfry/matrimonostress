@@ -2,23 +2,19 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Shield, AlertTriangle } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { Shield, Users, Package, Euro, MessageSquare } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { normalizePermissions, type PermissionsConfig, type AreaPermission } from "@/contexts/AuthContext";
 
 interface CollaboratorPermissionsCardProps {
   weddingId: string;
   collaboratorRoleIds: string[];
   collaboratorRole: "planner" | "manager";
   collaboratorName?: string;
-  initialConfig: {
-    budget_visible: boolean;
-    vendor_costs_visible: boolean;
-    guests_names_visible: boolean;
-    communications_editable: boolean;
-  };
+  initialConfig: any; // accepts both old and new format
   onUpdated: () => void;
 }
 
@@ -30,55 +26,70 @@ export function CollaboratorPermissionsCard({
   initialConfig,
   onUpdated,
 }: CollaboratorPermissionsCardProps) {
-  const [budgetVisible, setBudgetVisible] = useState(initialConfig.budget_visible);
-  const [vendorCostsVisible, setVendorCostsVisible] = useState(initialConfig.vendor_costs_visible);
-  const [guestsNamesVisible, setGuestsNamesVisible] = useState(initialConfig.guests_names_visible);
-  const [communicationsEditable, setCommunicationsEditable] = useState(initialConfig.communications_editable);
+  const normalized = normalizePermissions(initialConfig);
+  const [perms, setPerms] = useState<PermissionsConfig>(normalized);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
   const { refreshAuth } = useAuth();
 
   const roleLabel = collaboratorRole === "planner" ? "Planner" : "Manager";
 
-  const updatePermissions = async (key: string, value: boolean) => {
+  const updatePerms = async (newPerms: PermissionsConfig) => {
     setSaving(true);
     try {
-      const newConfig = {
-        budget_visible: key === "budget_visible" ? value : budgetVisible,
-        vendor_costs_visible: key === "vendor_costs_visible" ? value : vendorCostsVisible,
-        guests_names_visible: key === "guests_names_visible" ? value : guestsNamesVisible,
-        communications_editable: key === "communications_editable" ? value : communicationsEditable,
+      // Enforce hierarchy: create → edit → view
+      const enforce = (area: AreaPermission): AreaPermission => ({
+        view: area.view || area.edit || area.create,
+        edit: area.edit || area.create,
+        create: area.create,
+      });
+
+      const enforced: PermissionsConfig = {
+        guests: enforce(newPerms.guests),
+        budget: enforce(newPerms.budget),
+        vendors: enforce(newPerms.vendors),
+        vendor_costs: enforce(newPerms.vendor_costs),
+        communications: enforce(newPerms.communications),
       };
 
       for (const roleId of collaboratorRoleIds) {
         const { error } = await supabase
           .from("user_roles")
-          .update({ permissions_config: newConfig as any })
+          .update({ permissions_config: enforced as any })
           .eq("id", roleId);
         if (error) throw error;
       }
 
-      if (key === "budget_visible") setBudgetVisible(value);
-      if (key === "vendor_costs_visible") setVendorCostsVisible(value);
-      if (key === "guests_names_visible") setGuestsNamesVisible(value);
-      if (key === "communications_editable") setCommunicationsEditable(value);
-
-      toast({
-        title: "Permessi aggiornati",
-        description: "Le modifiche sono state salvate",
-      });
-
+      setPerms(enforced);
+      toast({ title: "Permessi aggiornati", description: "Le modifiche sono state salvate" });
       await refreshAuth();
       onUpdated();
     } catch (error: any) {
-      toast({
-        title: "Errore",
-        description: error.message || "Impossibile aggiornare i permessi",
-        variant: "destructive",
-      });
+      toast({ title: "Errore", description: error.message || "Impossibile aggiornare", variant: "destructive" });
     } finally {
       setSaving(false);
     }
+  };
+
+  const toggle = (area: keyof PermissionsConfig, level: keyof AreaPermission, value: boolean) => {
+    const newPerms = { ...perms, [area]: { ...perms[area], [level]: value } };
+    // If disabling view, disable everything
+    if (level === "view" && !value) {
+      newPerms[area] = { view: false, edit: false, create: false };
+    }
+    // If disabling edit, disable create too
+    if (level === "edit" && !value) {
+      newPerms[area] = { ...newPerms[area], edit: false, create: false };
+    }
+    // If enabling create, enable edit+view
+    if (level === "create" && value) {
+      newPerms[area] = { view: true, edit: true, create: true };
+    }
+    // If enabling edit, enable view
+    if (level === "edit" && value) {
+      newPerms[area] = { ...newPerms[area], view: true, edit: true };
+    }
+    updatePerms(newPerms);
   };
 
   return (
@@ -88,84 +99,161 @@ export function CollaboratorPermissionsCard({
         Permessi {roleLabel}{collaboratorName ? ` — ${collaboratorName}` : ""}
       </h2>
       <p className="text-sm text-muted-foreground mb-5">
-        Controlla cosa può vedere il {roleLabel}
+        Controlla cosa può fare il {roleLabel} in ogni area
       </p>
 
       <div className="space-y-6">
-        {/* Budget toggle */}
-        <div className="flex items-center justify-between gap-4">
-          <div className="space-y-1">
-            <Label className="text-base font-medium">Gestione Budget Globale</Label>
-            <p className="text-sm text-muted-foreground">
-              Se attivo, il {roleLabel} può vedere Tesoreria e Budget
-            </p>
-          </div>
-          <Switch
-            checked={budgetVisible}
-            onCheckedChange={(v) => updatePermissions("budget_visible", v)}
-            disabled={saving}
+        {/* Invitati */}
+        <PermissionSection
+          icon={<Users className="w-4 h-4" />}
+          title="Invitati"
+          area={perms.guests}
+          saving={saving}
+          onToggle={(level, value) => toggle("guests", level, value)}
+          viewLabel="Visualizza lista (nome + iniziale cognome)"
+          editLabel="Modifica invitati esistenti"
+          createLabel="Crea nuovi invitati e importa"
+        />
+
+        <Separator />
+
+        {/* Fornitori */}
+        <PermissionSection
+          icon={<Package className="w-4 h-4" />}
+          title="Fornitori"
+          area={perms.vendors}
+          saving={saving}
+          onToggle={(level, value) => toggle("vendors", level, value)}
+          viewLabel="Visualizza schede fornitori"
+          editLabel="Modifica fornitori esistenti"
+          createLabel="Crea nuovi fornitori"
+        />
+
+        {/* Sub-area: Costi Fornitori */}
+        <div className="ml-6 pl-4 border-l-2 border-muted">
+          <ToggleRow
+            label="Costi e Pagamenti"
+            description="Se disattivo, nasconde cifre e piani di pagamento"
+            checked={perms.vendor_costs.view}
+            disabled={saving || !perms.vendors.view}
+            onCheckedChange={(v) => toggle("vendor_costs", "view", v)}
           />
         </div>
 
-        {/* Vendor costs toggle */}
+        <Separator />
+
+        {/* Budget */}
         <div className="space-y-3">
-          <div className="flex items-center justify-between gap-4">
-            <div className="space-y-1">
-              <Label className="text-base font-medium">Costi e Pagamenti Fornitori</Label>
-              <p className="text-sm text-muted-foreground">
-                Se disattivi, il {roleLabel} non vedrà cifre e piani di pagamento dei fornitori
-              </p>
-            </div>
-            <Switch
-              checked={vendorCostsVisible}
-              onCheckedChange={(v) => updatePermissions("vendor_costs_visible", v)}
-              disabled={saving}
-            />
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <Euro className="w-4 h-4" />
+            Budget e Tesoreria
           </div>
-          {!vendorCostsVisible && (
-            <Alert className="border-orange-200 bg-orange-50 dark:bg-orange-950/20">
-              <AlertTriangle className="h-4 w-4 text-orange-600" />
-              <AlertDescription className="text-sm text-orange-800 dark:text-orange-300">
-                Attenzione: il {roleLabel} non potrà ricordarti le scadenze dei pagamenti
-              </AlertDescription>
-            </Alert>
-          )}
+          <ToggleRow
+            label="Visualizza"
+            description="Accesso a Budget e Tesoreria"
+            checked={perms.budget.view}
+            disabled={saving}
+            onCheckedChange={(v) => toggle("budget", "view", v)}
+          />
         </div>
 
-        {/* Guest names toggle (manager only) */}
-        {collaboratorRole === "manager" && (
-          <div className="flex items-center justify-between gap-4">
-            <div className="space-y-1">
-              <Label className="text-base font-medium">Nomi e Dettagli Invitati</Label>
-              <p className="text-sm text-muted-foreground">
-                Se disattivi, il Manager vedrà solo conteggi aggregati senza nomi e numeri
-              </p>
-            </div>
-            <Switch
-              checked={guestsNamesVisible}
-              onCheckedChange={(v) => updatePermissions("guests_names_visible", v)}
-              disabled={saving}
-            />
-          </div>
-        )}
+        <Separator />
 
-        {/* Communications toggle */}
+        {/* Comunicazioni */}
         <div className="space-y-3">
-          <div className="flex items-center justify-between gap-4">
-            <div className="space-y-1">
-              <Label className="text-base font-medium">Comunicazioni e Campagne</Label>
-              <p className="text-sm text-muted-foreground">
-                Se disattivi, il {roleLabel} non potrà modificare le campagne RSVP e Save the Date
-              </p>
-            </div>
-            <Switch
-              checked={communicationsEditable}
-              onCheckedChange={(v) => updatePermissions("communications_editable", v)}
-              disabled={saving}
-            />
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <MessageSquare className="w-4 h-4" />
+            Comunicazioni
           </div>
+          <ToggleRow
+            label="Visualizza e Gestisci"
+            description="Accesso a campagne RSVP e Save the Date"
+            checked={perms.communications.view}
+            disabled={saving}
+            onCheckedChange={(v) => {
+              // Communications is all-or-nothing
+              const full = v ? { view: true, edit: true, create: true } : { view: false, edit: false, create: false };
+              updatePerms({ ...perms, communications: full });
+            }}
+          />
         </div>
       </div>
     </Card>
+  );
+}
+
+function ToggleRow({
+  label,
+  description,
+  checked,
+  disabled,
+  onCheckedChange,
+}: {
+  label: string;
+  description: string;
+  checked: boolean;
+  disabled: boolean;
+  onCheckedChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <div className="space-y-0.5">
+        <Label className="text-sm font-medium">{label}</Label>
+        <p className="text-xs text-muted-foreground">{description}</p>
+      </div>
+      <Switch checked={checked} onCheckedChange={onCheckedChange} disabled={disabled} />
+    </div>
+  );
+}
+
+function PermissionSection({
+  icon,
+  title,
+  area,
+  saving,
+  onToggle,
+  viewLabel,
+  editLabel,
+  createLabel,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  area: AreaPermission;
+  saving: boolean;
+  onToggle: (level: keyof AreaPermission, value: boolean) => void;
+  viewLabel: string;
+  editLabel: string;
+  createLabel: string;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 text-sm font-semibold">
+        {icon}
+        {title}
+      </div>
+      <div className="space-y-2 ml-6">
+        <ToggleRow
+          label="Visualizza"
+          description={viewLabel}
+          checked={area.view}
+          disabled={saving}
+          onCheckedChange={(v) => onToggle("view", v)}
+        />
+        <ToggleRow
+          label="Modifica"
+          description={editLabel}
+          checked={area.edit}
+          disabled={saving || !area.view}
+          onCheckedChange={(v) => onToggle("edit", v)}
+        />
+        <ToggleRow
+          label="Crea"
+          description={createLabel}
+          checked={area.create}
+          disabled={saving || !area.edit}
+          onCheckedChange={(v) => onToggle("create", v)}
+        />
+      </div>
+    </div>
   );
 }

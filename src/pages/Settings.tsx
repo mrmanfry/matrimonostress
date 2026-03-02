@@ -703,7 +703,7 @@ const Settings = () => {
               <span className="hidden sm:inline">Abbonamento</span>
             </TabsTrigger>
           )}
-          {(isCoPlanner || (activePermissions?.communications_editable !== false && activePermissions?.guests_names_visible !== false)) && (
+          {(isCoPlanner || activePermissions?.communications?.view) && (
             <TabsTrigger value="communications" className="gap-2">
               <MessageSquare className="w-4 h-4" />
               <span className="hidden sm:inline">Comunicazioni</span>

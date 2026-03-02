@@ -535,7 +535,7 @@ const Dashboard = () => {
         {/* Widget 2: Finanze - Impegno/Pagato/Da Pagare */}
         {(() => {
           const activePermissions = authState.status === 'authenticated' ? authState.activePermissions : null;
-          const budgetLocked = isCollaborator && !activePermissions?.budget_visible;
+          const budgetLocked = isCollaborator && !activePermissions?.budget?.view;
           
           if (budgetLocked) {
             return (
