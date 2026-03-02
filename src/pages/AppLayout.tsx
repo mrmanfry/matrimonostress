@@ -137,6 +137,7 @@ const AppLayoutInner = ({
 
   const userId = authState.status === 'authenticated' ? authState.user.id : null;
   const activeWeddingId = authState.status === 'authenticated' ? authState.activeWeddingId : null;
+  const allWeddingIds = authState.status === 'authenticated' ? (authState.weddings?.map((w: any) => w.weddingId) || []) : [];
 
   const isOnCockpit = location.pathname === '/app/planner';
   const isPlannerMode = activeMode === 'planner';
@@ -146,20 +147,27 @@ const AppLayoutInner = ({
 
   // Unread messages count
   const fetchUnreadCount = useCallback(async () => {
-    if (!userId || !activeWeddingId) return;
-    const { count, error } = await supabase
-      .from("messages")
-      .select("id", { count: "exact", head: true })
-      .eq("wedding_id", activeWeddingId)
-      .neq("sender_id", userId);
-    if (error) return;
-    // Now subtract read ones
-    const { count: readCount } = await supabase
-      .from("message_reads")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", userId);
-    setUnreadCount(Math.max(0, (count || 0) - (readCount || 0)));
-  }, [userId, activeWeddingId]);
+    if (!userId) return;
+    
+    // For planner mode, count across all weddings; otherwise just active
+    const weddingIds = isPlannerMode && allWeddingIds.length > 0 ? allWeddingIds : (activeWeddingId ? [activeWeddingId] : []);
+    if (weddingIds.length === 0) return;
+
+    let totalUnread = 0;
+    for (const wId of weddingIds) {
+      const { count } = await supabase
+        .from("messages")
+        .select("id", { count: "exact", head: true })
+        .eq("wedding_id", wId)
+        .neq("sender_id", userId);
+      const { count: readCount } = await supabase
+        .from("message_reads")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId);
+      totalUnread += Math.max(0, (count || 0) - (readCount || 0));
+    }
+    setUnreadCount(totalUnread);
+  }, [userId, activeWeddingId, isPlannerMode, allWeddingIds]);
 
   useEffect(() => {
     fetchUnreadCount();
@@ -179,7 +187,7 @@ const AppLayoutInner = ({
   // Build navigation conditionally
   let navigation: { name: string; href: string; icon: any; badge?: number }[] = [];
   if (isPlannerMode && isOnCockpit) {
-    navigation = [];
+    navigation = [{ name: "Messaggi", href: "/app/inbox", icon: MessageCircle, badge: unreadCount }];
   } else {
     const allNav = [
       ...(isPlannerMode ? [{ name: "Cockpit", href: "/app/planner", icon: LayoutGrid }] : []),
