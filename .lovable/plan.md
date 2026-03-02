@@ -1,36 +1,41 @@
 
-# ✅ COMPLETATO - Enforcement dei Permessi per il Ruolo Manager
 
-## Modifiche Effettuate
+# Nascondere Campagne quando i Dati Invitati sono Mascherati
 
-### 1. AuthContext.tsx
-- Aggiunto flag `isCollaborator` (copre `planner` e `manager`) al contesto
+## Logica
 
-### 2. Dashboard.tsx
-- Widget finanze usa `isCollaborator` per il check `budget_visible`
+Se un collaboratore (planner/manager) non ha il permesso di vedere nomi e telefoni degli invitati, non ha senso che possa accedere alle campagne WhatsApp -- non saprebbe nemmeno a chi sta inviando.
 
-### 3. Vendors.tsx
-- `vendorCostsHidden` usa `isCollaborator` al posto di `isPlanner`
+## Modifiche
 
-### 4. VendorDetails.tsx
-- `vendorCostsHidden` usa `isCollaborator` al posto di `isPlanner`
+### 1. `src/pages/Guests.tsx`
 
-### 5. BudgetLegacy.tsx
-- Check accesso pagina usa `isCollaborator`
+- **Bottone "Campagna RSVP"** (riga ~1361): nasconderlo quando `maskGuestData === true`
+- **SelectionToolbar** (riga ~1426): nascondere il bottone "Invia RSVP" passando `hasContactsToSend={false}` quando `maskGuestData` e attivo, oppure non renderizzare proprio la toolbar
+- **Recovery della campagna** (riga ~157): non riaprire automaticamente il dialog di campagna se i dati sono mascherati
 
-### 6. Treasury.tsx
-- Check accesso pagina usa `isCollaborator`
+### 2. `src/pages/Settings.tsx`
 
-### 7. Guests.tsx
-- Aggiunta logica `maskGuestData` quando `guests_names_visible === false`
-- Passato `maskSensitiveData` a `GuestSingleCard` e `GuestNucleoCard`
-- Ricerca disabilitata quando dati mascherati
+- **Tab "Comunicazioni"** (riga ~706): aggiungere il check `guests_names_visible !== false` alla condizione di visibilita. Se il collaboratore non vede i nomi, non puo nemmeno configurare le campagne
 
-### 8. GuestSingleCard.tsx
-- Prop `maskSensitiveData`: nome mascherato come "Invitato", alias nascosto, telefono nascosto
+La condizione attuale:
+```text
+isCoPlanner || communications_editable !== false
+```
 
-### 9. GuestNucleoCard.tsx
-- Prop `maskSensitiveData`: nomi membri mascherati come "Membro"/"Bambino", alias e telefono nascosti
+Diventa:
+```text
+isCoPlanner || (communications_editable !== false && guests_names_visible !== false)
+```
 
-### 10. Settings.tsx
-- Sezione "Contributi Finanziari" visibile solo ai `co_planner`
+## File da Modificare
+
+| File | Modifica |
+|------|----------|
+| `src/pages/Guests.tsx` | Nascondere bottone campagna e disabilitare recovery quando `maskGuestData` |
+| `src/pages/Settings.tsx` | Bloccare tab Comunicazioni se `guests_names_visible === false` |
+
+## Impatto
+
+Solo frontend, nessuna modifica al database. Le campagne restano attive per chi ha i permessi corretti.
+
