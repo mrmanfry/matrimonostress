@@ -526,6 +526,25 @@ const Checklist = () => {
       return;
     }
     setTasks(prev => [...prev, data]);
+
+    // Bridge Task-Chat: fire-and-forget system message for delegated tasks
+    if (isPlanner && currentUserId && data.id) {
+      const dueDateLabel = newTask.due_date
+        ? format(new Date(newTask.due_date), "d MMMM yyyy", { locale: it })
+        : "nessuna scadenza";
+      supabase.from("messages").insert({
+        wedding_id: wedding.id,
+        sender_id: currentUserId,
+        content: `📋 Ti ho assegnato un nuovo task: "${newTask.title}" — scadenza: ${dueDateLabel}`,
+        visibility: "all",
+        message_type: "system",
+        system_action_type: "task_created",
+        system_action_ref_id: data.id,
+      }).then(({ error: msgErr }) => {
+        if (msgErr) console.warn("[Bridge] Failed to insert system message:", msgErr);
+      });
+    }
+
     setNewTask({
       title: "",
       description: "",
