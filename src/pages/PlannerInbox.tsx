@@ -188,6 +188,11 @@ export default function PlannerInbox() {
 
     if (error) {
       setMessages(prev => prev.filter(m => m.id !== optimisticMsg.id));
+    } else {
+      // Fire-and-forget email notification
+      supabase.functions.invoke("notify-chat-message", {
+        body: { wedding_id: selectedWeddingId, sender_id: userId, content, visibility: "all" },
+      });
     }
   };
 
