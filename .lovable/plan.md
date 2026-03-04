@@ -1,44 +1,40 @@
 
 
-# Messaggi nella Sidebar del Planner Cockpit
+# Fix: Mostrare il nome del mittente nei messaggi Chat
 
 ## Problema
 
-Quando sei nella vista Planner Cockpit (`/app/planner`), la sidebar e completamente vuota -- nessuna voce di navigazione. La voce "Messaggi" (che porta all'Inbox multi-wedding) non e accessibile da li.
+I messaggi nella chat non mostrano chi li ha inviati. Il campo `sender_name` nell'interfaccia `ChatMessageData` esiste ma non viene mai popolato: la query carica solo `messages.*` senza fare un join con la tabella `profiles`.
 
 ## Soluzione
 
-### 1. Aggiungere "Messaggi" nella sidebar del Cockpit
+### 1. Popolare `sender_name` nella query messaggi (`src/pages/Chat.tsx`)
 
-**File**: `src/pages/AppLayout.tsx`
+Dopo il caricamento dei messaggi, fare una query batch su `profiles` per tutti i `sender_id` unici e mappare `first_name + last_name` su ogni messaggio.
 
-Modificare la logica di navigazione condizionale (linea 181-182): quando siamo in `isPlannerMode && isOnCockpit`, invece di `navigation = []`, mostrare almeno la voce "Messaggi" con il badge dei non-letti.
+Stesso fix va applicato a `src/pages/PlannerInbox.tsx` che ha lo stesso problema.
+
+### 2. Mostrare sempre il sender per messaggi non propri (`src/pages/Chat.tsx`)
+
+Cambiare la logica `showSender`: mostrare il nome del mittente su **tutti** i messaggi ricevuti (non solo in base al ruolo co_planner).
 
 ```text
-Prima:  if (isPlannerMode && isOnCockpit) { navigation = []; }
-Dopo:   if (isPlannerMode && isOnCockpit) { navigation = [{ name: "Messaggi", href: "/app/inbox", icon: MessageCircle, badge: unreadCount }]; }
+Prima:  showSender={!isCoPlanner || msg.sender_id !== userId}
+Dopo:   showSender={msg.sender_id !== userId}
 ```
 
-### 2. Aggiornare contatore non-letti per Planner (multi-wedding)
+### 3. Migliorare la UI del nome mittente (`src/components/chat/ChatMessage.tsx`)
 
-Attualmente il contatore non-letti si basa solo sul `activeWeddingId`. Per il planner nel Cockpit, deve contare i non-letti su **tutti** i matrimoni gestiti.
+Il nome attualmente e troppo piccolo (`text-[10px]` con `opacity-70`). Renderlo piu leggibile:
+- Aumentare a `text-xs`
+- Rimuovere `opacity-70`, usare `text-muted-foreground`
+- Aggiungere un colore distintivo per differenziare i mittenti
 
-**File**: `src/pages/AppLayout.tsx`
-
-- Quando `isPlannerMode`, calcolare gli unread su tutti i `weddingIds` (non solo `activeWeddingId`)
-- Usare una query che filtra per `wedding_id IN (...)` invece di `eq`
-
-Questo rende il badge accurato sia nella vista Cockpit che dentro un singolo matrimonio.
-
-## Risultato
-
-- Nella sidebar del Cockpit Planner appare la voce "Messaggi" con badge non-letti aggregato
-- Cliccando si apre `/app/inbox` con la lista di tutti i matrimoni come thread di chat
-- L'Inbox gia esistente (2 colonne desktop, drill-down mobile) funziona senza modifiche
-
-## File da Modificare
+## File da modificare
 
 | File | Modifica |
 |------|----------|
-| `src/pages/AppLayout.tsx` | Aggiungere "Messaggi" nella nav del Cockpit + contatore multi-wedding |
+| `src/pages/Chat.tsx` | Fetch profili mittenti, popolare `sender_name`, fix `showSender` |
+| `src/pages/PlannerInbox.tsx` | Stessa logica di fetch profili |
+| `src/components/chat/ChatMessage.tsx` | Migliorare visibilita del nome mittente |
 
