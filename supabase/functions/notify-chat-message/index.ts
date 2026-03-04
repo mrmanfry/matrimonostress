@@ -213,7 +213,7 @@ Deno.serve(async (req) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          from: "WedsApp <noreply@notify.wedsapp.it>",
+          from: "WedsApp <noreply@stenders.cloud>",
           to: [recipientEmail],
           subject: `💬 Nuovo messaggio da ${senderName} — ${weddingLabel}`,
           html,
