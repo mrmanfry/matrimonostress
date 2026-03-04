@@ -167,6 +167,11 @@ export default function Chat() {
 
     if (error) {
       setMessages(prev => prev.filter(m => m.id !== optimisticMsg.id));
+    } else {
+      // Fire-and-forget email notification
+      supabase.functions.invoke("notify-chat-message", {
+        body: { wedding_id: weddingId, sender_id: userId, content, visibility },
+      });
     }
   };
 
