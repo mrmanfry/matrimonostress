@@ -1637,6 +1637,13 @@ export type Database = {
         Args: { p1_name: string; p2_name: string }
         Returns: string
       }
+      get_display_names: {
+        Args: { user_ids: string[] }
+        Returns: {
+          display_name: string
+          id: string
+        }[]
+      }
       get_user_context: { Args: never; Returns: Json }
       get_user_email: { Args: { _user_id: string }; Returns: string }
       get_wedding_role: {
