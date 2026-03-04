@@ -139,7 +139,8 @@ const AppLayoutInner = ({
   const activeWeddingId = authState.status === 'authenticated' ? authState.activeWeddingId : null;
   const allWeddingIds = authState.status === 'authenticated' ? (authState.weddings?.map((w: any) => w.weddingId) || []) : [];
 
-  const isOnCockpit = location.pathname === '/app/planner';
+  const cockpitPaths = ['/app/planner', '/app/inbox'];
+  const isOnCockpit = cockpitPaths.includes(location.pathname);
   const isPlannerMode = activeMode === 'planner';
 
   const activePermissions = authState.status === 'authenticated' ? authState.activePermissions : null;
