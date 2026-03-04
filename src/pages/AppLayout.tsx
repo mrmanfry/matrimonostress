@@ -156,16 +156,23 @@ const AppLayoutInner = ({
 
     let totalUnread = 0;
     for (const wId of weddingIds) {
-      const { count } = await supabase
+      // Get IDs of messages in this wedding not sent by me
+      const { data: msgs } = await supabase
         .from("messages")
-        .select("id", { count: "exact", head: true })
+        .select("id")
         .eq("wedding_id", wId)
         .neq("sender_id", userId);
+      if (!msgs || msgs.length === 0) continue;
+
+      const msgIds = msgs.map((m) => m.id);
+      // Count how many of those I've already read
       const { count: readCount } = await supabase
         .from("message_reads")
         .select("id", { count: "exact", head: true })
-        .eq("user_id", userId);
-      totalUnread += Math.max(0, (count || 0) - (readCount || 0));
+        .eq("user_id", userId)
+        .in("message_id", msgIds);
+
+      totalUnread += Math.max(0, msgIds.length - (readCount || 0));
     }
     setUnreadCount(totalUnread);
   }, [userId, activeWeddingId, isPlannerMode, allWeddingIds]);
