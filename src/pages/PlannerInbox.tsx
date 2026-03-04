@@ -151,14 +151,14 @@ export default function PlannerInbox() {
       }, (payload) => {
         const raw = payload.new as any;
         const newMsg: ChatMessageData = { ...raw, visibility: raw.visibility as "couple" | "all", message_type: raw.message_type as "user" | "system" };
-        if (newMsg.visibility !== "all") return; // Planner can't see couple messages
+        if (newMsg.visibility !== "all") return;
+        // Skip own messages — already added optimistically
+        if (newMsg.sender_id === userId) return;
         setMessages(prev => {
           if (prev.some(m => m.id === newMsg.id)) return prev;
           return [...prev, newMsg];
         });
-        if (newMsg.sender_id !== userId) {
-          supabase.from("message_reads").insert({ message_id: newMsg.id, user_id: userId }).then(() => {});
-        }
+        supabase.from("message_reads").insert({ message_id: newMsg.id, user_id: userId }).then(() => {});
       })
       .subscribe();
 
