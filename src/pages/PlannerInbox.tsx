@@ -251,6 +251,22 @@ export default function PlannerInbox() {
     );
   }
 
+  // Mobile: show only inbox list (no right pane)
+  if (isMobile) {
+    return (
+      <div className="flex flex-col h-[calc(100vh-3.5rem)]">
+        <div className="p-3 border-b border-border bg-card">
+          <h2 className="font-serif font-semibold text-sm flex items-center gap-2">
+            <MessageCircle className="w-4 h-4 text-primary" /> Messaggi
+          </h2>
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          <InboxList items={inboxItems} selectedWeddingId={selectedWeddingId} onSelect={setSelectedWeddingId} />
+        </div>
+      </div>
+    );
+  }
+
   // Desktop: two columns
   let lastDateKey = "";
   return (
