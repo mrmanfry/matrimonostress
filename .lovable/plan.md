@@ -1,41 +1,36 @@
 
 
-# Messaggi: Comportamento Contestuale per il Planner
+# Planner: Atterraggio sul Cockpit dopo il Login
 
-## Situazione Attuale
+## Problema
 
-Quando il planner e dentro un matrimonio specifico, cliccando "Messaggi" nella sidebar viene portato a `/app/inbox` (la vista multi-wedding). Questo e sbagliato: dovrebbe vedere solo la chat del matrimonio attivo, come fa la coppia.
+Quando un planner fa login, il routing lo porta a `/app/dashboard` (dentro un matrimonio specifico). Questo è sbagliato perché la centralità per un planner è il Cockpit, non un singolo matrimonio.
+
+I punti da correggere sono **due**:
+
+1. **Route index di `/app`** in `src/App.tsx` (riga 73): `<Route index element={<Navigate to="/app/dashboard" replace />} />` — porta sempre a dashboard indipendentemente dal ruolo.
+
+2. **Redirect post-onboarding** in `src/guards/ProtectedRoute.tsx` (riga 120-125): quando `redirectIfHasWedding` è true, il redirect usa `activeMode` ma l'onboarding `/onboarding` usa questo guard — già corretto qui.
 
 ## Piano
 
-### 1. Sidebar: routing condizionale per "Messaggi" (`src/pages/AppLayout.tsx`)
+### 1. Route index condizionale (`src/App.tsx`)
 
-Cambiare la logica di navigazione:
-- **Planner nel Cockpit** (`/app/planner`): "Messaggi" porta a `/app/inbox` (vista multi-wedding WhatsApp-like)
-- **Planner dentro un matrimonio** (qualsiasi altra pagina): "Messaggi" porta a `/app/chat` (chat singola del matrimonio attivo)
+Sostituire il `<Navigate to="/app/dashboard">` statico con un componente che legge `activeMode` dal contesto e redirige di conseguenza:
 
 ```text
-Prima:  "Messaggi", href: isPlannerMode ? "/app/inbox" : "/app/chat"
-Dopo:   "Messaggi", href: (isPlannerMode && isOnCockpit) ? "/app/inbox" : "/app/chat"
+/app → activeMode === 'planner' ? /app/planner : /app/dashboard
 ```
 
-Nella nav del cockpit (riga 190), resta `/app/inbox` -- gia corretto.
+Creare un piccolo componente `AppIndexRedirect` inline che usa `useAuth()` per decidere.
 
-### 2. Chat.tsx: supporto planner dentro un matrimonio (`src/pages/Chat.tsx`)
+### 2. Redirect post-login in ProtectedRoute (`src/guards/ProtectedRoute.tsx`)
 
-Attualmente Chat.tsx mostra il toggle di visibilita solo per `co_planner`. Per il planner dentro un matrimonio, deve funzionare allo stesso modo ma senza il toggle (il planner vede solo messaggi `visibility: "all"`).
-
-Nessuna modifica necessaria: Chat.tsx gia filtra in base alle RLS policies (il planner vede solo `visibility: "all"` grazie alla policy `can_see_couple_messages`). Il toggle `showVisibilityToggle` e gia `false` per non-co_planner.
-
-### 3. Nessuna modifica a PlannerInbox.tsx
-
-La pagina Inbox multi-wedding resta invariata -- funziona gia come WhatsApp con la lista dei matrimoni a sinistra e la chat a destra.
+Già gestito correttamente alla riga 124: `const target = activeMode === 'planner' ? '/app/planner' : '/app/dashboard'`. Nessuna modifica necessaria.
 
 ## File da Modificare
 
 | File | Modifica |
 |------|----------|
-| `src/pages/AppLayout.tsx` | Cambiare href di "Messaggi" nella nav non-cockpit: usare `/app/chat` anche per il planner quando e dentro un matrimonio |
-
-Modifica minima: una sola riga, cambiare la condizione dell'href da `isPlannerMode` a `isPlannerMode && isOnCockpit`.
+| `src/App.tsx` | Sostituire `<Navigate to="/app/dashboard">` con redirect condizionale basato su `activeMode` |
 
