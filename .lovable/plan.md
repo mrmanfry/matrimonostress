@@ -1,36 +1,52 @@
 
 
-# Planner: Atterraggio sul Cockpit dopo il Login
+# Cockpit Sidebar: Cockpit link + Calendario Planner
 
-## Problema
+## Richieste
 
-Quando un planner fa login, il routing lo porta a `/app/dashboard` (dentro un matrimonio specifico). Questo è sbagliato perché la centralità per un planner è il Cockpit, non un singolo matrimonio.
-
-I punti da correggere sono **due**:
-
-1. **Route index di `/app`** in `src/App.tsx` (riga 73): `<Route index element={<Navigate to="/app/dashboard" replace />} />` — porta sempre a dashboard indipendentemente dal ruolo.
-
-2. **Redirect post-onboarding** in `src/guards/ProtectedRoute.tsx` (riga 120-125): quando `redirectIfHasWedding` è true, il redirect usa `activeMode` ma l'onboarding `/onboarding` usa questo guard — già corretto qui.
+1. Nella sidebar cockpit, aggiungere **"Cockpit"** sopra "Messaggi" per tornare alla pagina principale del planner.
+2. Aggiungere una nuova sezione **"Calendario"** nella sidebar cockpit -- una pagina dedicata al planner con vista calendario degli eventi dei matrimoni seguiti, con card dettaglio (nomi sposi, data, location, chiesa) e sezione contatti (sposi + fornitori).
 
 ## Piano
 
-### 1. Route index condizionale (`src/App.tsx`)
+### 1. Sidebar cockpit: aggiungere Cockpit e Calendario (`src/pages/AppLayout.tsx`)
 
-Sostituire il `<Navigate to="/app/dashboard">` statico con un componente che legge `activeMode` dal contesto e redirige di conseguenza:
+Nella sezione `if (isPlannerMode && isOnCockpit)` (riga 190-191), espandere la navigation:
 
-```text
-/app → activeMode === 'planner' ? /app/planner : /app/dashboard
+```typescript
+navigation = [
+  { name: "Cockpit", href: "/app/planner", icon: LayoutGrid },
+  { name: "Calendario", href: "/app/planner-calendar", icon: CalendarDays },
+  { name: "Messaggi", href: "/app/inbox", icon: MessageCircle, badge: unreadCount },
+];
 ```
 
-Creare un piccolo componente `AppIndexRedirect` inline che usa `useAuth()` per decidere.
+Aggiungere `/app/planner-calendar` ai `cockpitPaths` per mantenere il contesto cockpit nell'header.
 
-### 2. Redirect post-login in ProtectedRoute (`src/guards/ProtectedRoute.tsx`)
+### 2. Nuova pagina PlannerCalendarPage (`src/pages/PlannerCalendarPage.tsx`)
 
-Già gestito correttamente alla riga 124: `const target = activeMode === 'planner' ? '/app/planner' : '/app/dashboard'`. Nessuna modifica necessaria.
+Pagina che mostra:
 
-## File da Modificare
+- **Calendario mensile** con gli eventi (appuntamenti fornitori) di tutti i matrimoni seguiti, color-coded per matrimonio
+- **Card dettaglio matrimonio**: per ogni matrimonio una card con nomi sposi, data, location cerimonia, location ricevimento, orari
+- **Sezione Contatti**: 
+  - Contatti sposi (dal profilo/wedding data)
+  - Contatti fornitori (da `vendors` con telefono/email)
 
-| File | Modifica |
-|------|----------|
-| `src/App.tsx` | Sostituire `<Navigate to="/app/dashboard">` con redirect condizionale basato su `activeMode` |
+Dati caricati via `useQuery` cross-wedding (vendor_appointments, weddings details, vendors).
+
+### 3. Route (`src/App.tsx`)
+
+Aggiungere:
+```typescript
+<Route path="planner-calendar" element={<PlannerCalendarPage />} />
+```
+
+## File da Modificare/Creare
+
+| File | Azione |
+|------|--------|
+| `src/pages/AppLayout.tsx` | Aggiungere Cockpit + Calendario alla nav cockpit, aggiornare cockpitPaths |
+| `src/pages/PlannerCalendarPage.tsx` | **Nuovo** -- pagina calendario planner con card matrimoni e contatti |
+| `src/App.tsx` | Aggiungere route `planner-calendar` |
 
