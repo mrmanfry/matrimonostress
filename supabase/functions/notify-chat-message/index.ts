@@ -79,11 +79,13 @@ Deno.serve(async (req) => {
       .in("role", recipientRoles);
 
     if (!recipients || recipients.length === 0) {
+      console.log("[notify-chat-message] no recipients found for roles:", recipientRoles);
       return new Response(
         JSON.stringify({ skipped: true, reason: "no_recipients" }),
         { headers: corsHeaders }
       );
     }
+    console.log("[notify-chat-message] recipients found:", recipients.length, JSON.stringify(recipients));
 
     // 4. Get sender display name
     const { data: senderProfile } = await supabase
@@ -124,11 +126,13 @@ Deno.serve(async (req) => {
 
     // If there are 2+ recent messages from same sender, skip (conversation is active)
     if (recentMsgs && recentMsgs.length >= 2) {
+      console.log("[notify-chat-message] throttled, recent msgs:", recentMsgs.length);
       return new Response(
         JSON.stringify({ skipped: true, reason: "throttled" }),
         { headers: corsHeaders }
       );
     }
+    console.log("[notify-chat-message] throttle passed, recent msgs:", recentMsgs?.length ?? 0);
 
     // 7. Send email to each recipient
     const contentPreview =
@@ -143,16 +147,28 @@ Deno.serve(async (req) => {
 
     for (const recipient of recipients) {
       // Skip self-notification
-      if (recipient.user_id === sender_id) continue;
+      if (recipient.user_id === sender_id) {
+        console.log("[notify-chat-message] skipping self:", recipient.user_id);
+        continue;
+      }
 
       // Get recipient email
-      const { data: userData } = await supabase.auth.admin.getUserById(
+      const { data: userData, error: userError } = await supabase.auth.admin.getUserById(
         recipient.user_id
       );
 
-      if (!userData?.user?.email) continue;
+      if (userError) {
+        console.log("[notify-chat-message] getUserById error for", recipient.user_id, ":", userError.message);
+        continue;
+      }
+
+      if (!userData?.user?.email) {
+        console.log("[notify-chat-message] no email for user:", recipient.user_id);
+        continue;
+      }
 
       const recipientEmail = userData.user.email;
+      console.log("[notify-chat-message] sending email to:", recipientEmail);
 
       const html = `
 <!DOCTYPE html>
@@ -162,12 +178,10 @@ Deno.serve(async (req) => {
   <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f5;padding:32px 16px;">
     <tr><td align="center">
       <table width="100%" style="max-width:520px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
-        <!-- Header -->
         <tr><td style="background:linear-gradient(135deg,#6366f1,#818cf8);padding:28px 24px;text-align:center;">
           <h1 style="margin:0;color:#ffffff;font-size:20px;font-weight:600;">💬 Nuovo Messaggio</h1>
           <p style="margin:6px 0 0;color:rgba(255,255,255,0.85);font-size:13px;">${weddingLabel}</p>
         </td></tr>
-        <!-- Body -->
         <tr><td style="padding:28px 24px;">
           <p style="margin:0 0 16px;color:#18181b;font-size:15px;line-height:1.5;">
             <strong>${senderName}</strong> ti ha inviato un messaggio:
@@ -183,7 +197,6 @@ Deno.serve(async (req) => {
             </td></tr>
           </table>
         </td></tr>
-        <!-- Footer -->
         <tr><td style="padding:20px 24px;border-top:1px solid #e4e4e7;text-align:center;">
           <p style="margin:0;color:#a1a1aa;font-size:12px;">WedsApp — Il tuo wedding planner digitale</p>
         </td></tr>
@@ -206,6 +219,9 @@ Deno.serve(async (req) => {
           html,
         }),
       });
+
+      const resBody = await res.text();
+      console.log("[notify-chat-message] Resend response:", res.status, resBody);
 
       if (res.ok) emailsSent++;
     }
