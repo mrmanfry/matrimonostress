@@ -28,6 +28,7 @@ import RSVPPublic from "./pages/RSVPPublic";
 import Calendar from "./pages/Calendar";
 import Upgrade from "./pages/Upgrade";
 import PlannerCockpit from "./pages/PlannerCockpit";
+import PlannerCalendarPage from "./pages/PlannerCalendarPage";
 import Chat from "./pages/Chat";
 import PlannerInbox from "./pages/PlannerInbox";
 import NotFound from "./pages/NotFound";
@@ -78,6 +79,7 @@ const App = () => (
               <Route index element={<AppIndexRedirect />} />
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="planner" element={<PlannerCockpit />} />
+              <Route path="planner-calendar" element={<PlannerCalendarPage />} />
               <Route path="guests" element={<Guests />} />
               <Route path="budget" element={<BudgetLegacy />} />
               <Route path="treasury" element={<Treasury />} />

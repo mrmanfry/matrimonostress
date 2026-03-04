@@ -139,7 +139,7 @@ const AppLayoutInner = ({
   const activeWeddingId = authState.status === 'authenticated' ? authState.activeWeddingId : null;
   const allWeddingIds = authState.status === 'authenticated' ? (authState.weddings?.map((w: any) => w.weddingId) || []) : [];
 
-  const cockpitPaths = ['/app/planner', '/app/inbox'];
+  const cockpitPaths = ['/app/planner', '/app/inbox', '/app/planner-calendar'];
   const isOnCockpit = cockpitPaths.includes(location.pathname);
   const isPlannerMode = activeMode === 'planner';
 
@@ -188,7 +188,11 @@ const AppLayoutInner = ({
   // Build navigation conditionally
   let navigation: { name: string; href: string; icon: any; badge?: number }[] = [];
   if (isPlannerMode && isOnCockpit) {
-    navigation = [{ name: "Messaggi", href: "/app/inbox", icon: MessageCircle, badge: unreadCount }];
+    navigation = [
+      { name: "Cockpit", href: "/app/planner", icon: LayoutGrid },
+      { name: "Calendario", href: "/app/planner-calendar", icon: CalendarDays },
+      { name: "Messaggi", href: "/app/inbox", icon: MessageCircle, badge: unreadCount },
+    ];
   } else {
     const allNav = [
       ...(isPlannerMode ? [{ name: "Cockpit", href: "/app/planner", icon: LayoutGrid }] : []),
