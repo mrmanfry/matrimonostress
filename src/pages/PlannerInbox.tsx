@@ -192,6 +192,10 @@ export default function PlannerInbox() {
       // Fire-and-forget email notification
       supabase.functions.invoke("notify-chat-message", {
         body: { wedding_id: selectedWeddingId, sender_id: userId, content, visibility: "all" },
+      }).then(res => {
+        console.log("[notify-chat-message] response:", res.data, "error:", res.error);
+      }).catch(err => {
+        console.error("[notify-chat-message] invoke failed:", err);
       });
     }
   };

@@ -14,9 +14,12 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { wedding_id, sender_id, content, visibility } = await req.json();
+    const body = await req.json();
+    console.log("[notify-chat-message] received body:", JSON.stringify(body));
+    const { wedding_id, sender_id, content, visibility } = body;
 
     if (!wedding_id || !sender_id || !content) {
+      console.log("[notify-chat-message] missing fields:", { wedding_id, sender_id, content });
       return new Response(JSON.stringify({ error: "Missing fields" }), {
         status: 400,
         headers: corsHeaders,
@@ -39,10 +42,12 @@ Deno.serve(async (req) => {
       .single();
 
     if (!senderRole) {
+      console.log("[notify-chat-message] no role found for sender:", sender_id, "wedding:", wedding_id);
       return new Response(JSON.stringify({ skipped: true, reason: "no_role" }), {
         headers: corsHeaders,
       });
     }
+    console.log("[notify-chat-message] sender role:", senderRole.role);
 
     // 2. Determine recipients based on sender's role
     let recipientRoles: string[];
