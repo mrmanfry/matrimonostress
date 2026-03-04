@@ -197,7 +197,7 @@ const AppLayoutInner = ({
       { name: "Tesoreria", href: "/app/treasury", icon: TrendingUp, hidden: isCollaborator && !activePermissions?.budget?.view },
       { name: "Fornitori", href: "/app/vendors", icon: Package },
       { name: "Checklist", href: "/app/checklist", icon: CheckSquare },
-      { name: "Messaggi", href: isPlannerMode ? "/app/inbox" : "/app/chat", icon: MessageCircle, badge: unreadCount },
+      { name: "Messaggi", href: (isPlannerMode && isOnCockpit) ? "/app/inbox" : "/app/chat", icon: MessageCircle, badge: unreadCount },
       { name: "Calendario", href: "/app/calendar", icon: CalendarDays },
       { name: "Tavoli", href: "/app/tables", icon: UtensilsCrossed },
       { name: "Timeline", href: "/app/timeline", icon: Calendar },
