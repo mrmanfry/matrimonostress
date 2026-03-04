@@ -1,40 +1,41 @@
 
 
-# Fix: Mostrare il nome del mittente nei messaggi Chat
+# Messaggi: Comportamento Contestuale per il Planner
 
-## Problema
+## Situazione Attuale
 
-I messaggi nella chat non mostrano chi li ha inviati. Il campo `sender_name` nell'interfaccia `ChatMessageData` esiste ma non viene mai popolato: la query carica solo `messages.*` senza fare un join con la tabella `profiles`.
+Quando il planner e dentro un matrimonio specifico, cliccando "Messaggi" nella sidebar viene portato a `/app/inbox` (la vista multi-wedding). Questo e sbagliato: dovrebbe vedere solo la chat del matrimonio attivo, come fa la coppia.
 
-## Soluzione
+## Piano
 
-### 1. Popolare `sender_name` nella query messaggi (`src/pages/Chat.tsx`)
+### 1. Sidebar: routing condizionale per "Messaggi" (`src/pages/AppLayout.tsx`)
 
-Dopo il caricamento dei messaggi, fare una query batch su `profiles` per tutti i `sender_id` unici e mappare `first_name + last_name` su ogni messaggio.
-
-Stesso fix va applicato a `src/pages/PlannerInbox.tsx` che ha lo stesso problema.
-
-### 2. Mostrare sempre il sender per messaggi non propri (`src/pages/Chat.tsx`)
-
-Cambiare la logica `showSender`: mostrare il nome del mittente su **tutti** i messaggi ricevuti (non solo in base al ruolo co_planner).
+Cambiare la logica di navigazione:
+- **Planner nel Cockpit** (`/app/planner`): "Messaggi" porta a `/app/inbox` (vista multi-wedding WhatsApp-like)
+- **Planner dentro un matrimonio** (qualsiasi altra pagina): "Messaggi" porta a `/app/chat` (chat singola del matrimonio attivo)
 
 ```text
-Prima:  showSender={!isCoPlanner || msg.sender_id !== userId}
-Dopo:   showSender={msg.sender_id !== userId}
+Prima:  "Messaggi", href: isPlannerMode ? "/app/inbox" : "/app/chat"
+Dopo:   "Messaggi", href: (isPlannerMode && isOnCockpit) ? "/app/inbox" : "/app/chat"
 ```
 
-### 3. Migliorare la UI del nome mittente (`src/components/chat/ChatMessage.tsx`)
+Nella nav del cockpit (riga 190), resta `/app/inbox` -- gia corretto.
 
-Il nome attualmente e troppo piccolo (`text-[10px]` con `opacity-70`). Renderlo piu leggibile:
-- Aumentare a `text-xs`
-- Rimuovere `opacity-70`, usare `text-muted-foreground`
-- Aggiungere un colore distintivo per differenziare i mittenti
+### 2. Chat.tsx: supporto planner dentro un matrimonio (`src/pages/Chat.tsx`)
 
-## File da modificare
+Attualmente Chat.tsx mostra il toggle di visibilita solo per `co_planner`. Per il planner dentro un matrimonio, deve funzionare allo stesso modo ma senza il toggle (il planner vede solo messaggi `visibility: "all"`).
+
+Nessuna modifica necessaria: Chat.tsx gia filtra in base alle RLS policies (il planner vede solo `visibility: "all"` grazie alla policy `can_see_couple_messages`). Il toggle `showVisibilityToggle` e gia `false` per non-co_planner.
+
+### 3. Nessuna modifica a PlannerInbox.tsx
+
+La pagina Inbox multi-wedding resta invariata -- funziona gia come WhatsApp con la lista dei matrimoni a sinistra e la chat a destra.
+
+## File da Modificare
 
 | File | Modifica |
 |------|----------|
-| `src/pages/Chat.tsx` | Fetch profili mittenti, popolare `sender_name`, fix `showSender` |
-| `src/pages/PlannerInbox.tsx` | Stessa logica di fetch profili |
-| `src/components/chat/ChatMessage.tsx` | Migliorare visibilita del nome mittente |
+| `src/pages/AppLayout.tsx` | Cambiare href di "Messaggi" nella nav non-cockpit: usare `/app/chat` anche per il planner quando e dentro un matrimonio |
+
+Modifica minima: una sola riga, cambiare la condizione dell'href da `isPlannerMode` a `isPlannerMode && isOnCockpit`.
 
