@@ -45,6 +45,25 @@ export default function Chat() {
     loadPlanner();
   }, [weddingId]);
 
+  // Profile name cache
+  const [profileNames, setProfileNames] = useState<Record<string, string>>({});
+
+  const enrichWithNames = useCallback(async (msgs: ChatMessageData[]) => {
+    const unknownIds = [...new Set(msgs.map(m => m.sender_id))].filter(id => !profileNames[id]);
+    if (unknownIds.length === 0) {
+      return msgs.map(m => ({ ...m, sender_name: profileNames[m.sender_id] || undefined }));
+    }
+    const { data: names } = await supabase.rpc("get_display_names", { user_ids: unknownIds });
+    const newNames: Record<string, string> = { ...profileNames };
+    if (names) {
+      for (const n of names as any[]) {
+        if (n.display_name?.trim()) newNames[n.id] = n.display_name.trim();
+      }
+    }
+    setProfileNames(newNames);
+    return msgs.map(m => ({ ...m, sender_name: newNames[m.sender_id] || undefined }));
+  }, [profileNames]);
+
   // Load messages
   const loadMessages = useCallback(async (before?: string) => {
     if (!weddingId) return;
@@ -63,15 +82,16 @@ export default function Chat() {
     if (data) {
       const typed = (data as any[]).map(m => ({ ...m, visibility: m.visibility as "couple" | "all", message_type: m.message_type as "user" | "system" })) as ChatMessageData[];
       const reversed = typed.reverse();
+      const enriched = await enrichWithNames(reversed);
       if (!before) {
-        setMessages(reversed);
+        setMessages(enriched);
       } else {
-        setMessages(prev => [...reversed, ...prev]);
+        setMessages(prev => [...(enriched), ...prev]);
       }
       setHasMore(data.length === PAGE_SIZE);
     }
     setLoading(false);
-  }, [weddingId]);
+  }, [weddingId, enrichWithNames]);
 
   useEffect(() => {
     loadMessages();
@@ -213,7 +233,7 @@ export default function Chat() {
                 <ChatMessage
                   message={msg}
                   isOwn={msg.sender_id === userId}
-                  showSender={!isCoPlanner || msg.sender_id !== userId}
+                  showSender={msg.sender_id !== userId}
                 />
               </div>
             );

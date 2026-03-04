@@ -85,6 +85,25 @@ export default function PlannerInbox() {
     loadInbox();
   }, [weddings, userId]);
 
+  // Profile name cache
+  const [profileNames, setProfileNames] = useState<Record<string, string>>({});
+
+  const enrichWithNames = useCallback(async (msgs: ChatMessageData[]) => {
+    const unknownIds = [...new Set(msgs.map(m => m.sender_id))].filter(id => !profileNames[id]);
+    if (unknownIds.length === 0) {
+      return msgs.map(m => ({ ...m, sender_name: profileNames[m.sender_id] || undefined }));
+    }
+    const { data: names } = await supabase.rpc("get_display_names", { user_ids: unknownIds });
+    const newNames: Record<string, string> = { ...profileNames };
+    if (names) {
+      for (const n of names as any[]) {
+        if (n.display_name?.trim()) newNames[n.id] = n.display_name.trim();
+      }
+    }
+    setProfileNames(newNames);
+    return msgs.map(m => ({ ...m, sender_name: newNames[m.sender_id] || undefined }));
+  }, [profileNames]);
+
   // Load messages for selected wedding
   const loadMessages = useCallback(async (weddingId: string) => {
     setLoadingMessages(true);
@@ -92,13 +111,14 @@ export default function PlannerInbox() {
       .from("messages")
       .select("*")
       .eq("wedding_id", weddingId)
-      .eq("visibility", "all") // Planner can only see 'all' messages
+      .eq("visibility", "all")
       .order("created_at", { ascending: false })
       .limit(PAGE_SIZE);
 
     if (data) {
       const typed = (data as any[]).map(m => ({ ...m, visibility: m.visibility as "couple" | "all", message_type: m.message_type as "user" | "system" })) as ChatMessageData[];
-      setMessages(typed.reverse());
+      const enriched = await enrichWithNames(typed.reverse());
+      setMessages(enriched);
     }
     setLoadingMessages(false);
 

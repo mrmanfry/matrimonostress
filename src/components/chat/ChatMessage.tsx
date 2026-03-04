@@ -64,7 +64,7 @@ export function ChatMessage({ message, isOwn, showSender }: ChatMessageProps) {
         )}
       >
         {showSender && !isOwn && message.sender_name && (
-          <p className="text-[10px] font-semibold mb-0.5 opacity-70">{message.sender_name}</p>
+          <p className="text-xs font-semibold mb-0.5 text-primary/80">{message.sender_name}</p>
         )}
         <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
         <div className={cn("flex items-center gap-1 mt-1 justify-end", isOwn ? "text-primary-foreground/60" : "text-muted-foreground")}>
