@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/guards/ProtectedRoute";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
@@ -31,6 +31,11 @@ import PlannerCockpit from "./pages/PlannerCockpit";
 import Chat from "./pages/Chat";
 import PlannerInbox from "./pages/PlannerInbox";
 import NotFound from "./pages/NotFound";
+
+const AppIndexRedirect = () => {
+  const { activeMode } = useAuth();
+  return <Navigate to={activeMode === 'planner' ? '/app/planner' : '/app/dashboard'} replace />;
+};
 
 const queryClient = new QueryClient();
 
@@ -70,7 +75,7 @@ const App = () => (
                 </ProtectedRoute>
               }
             >
-              <Route index element={<Navigate to="/app/dashboard" replace />} />
+              <Route index element={<AppIndexRedirect />} />
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="planner" element={<PlannerCockpit />} />
               <Route path="guests" element={<Guests />} />
