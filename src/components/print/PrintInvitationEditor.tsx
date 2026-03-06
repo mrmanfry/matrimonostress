@@ -261,6 +261,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
     setFontStyle('garamond');
     setShowSafeZone(false);
     setImageTransform({ x: 0, y: 0, scale: 1 });
+    setEdgeStyle('none');
     onOpenChange(false);
   };
 
