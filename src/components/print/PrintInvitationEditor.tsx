@@ -16,7 +16,6 @@ import PrintDesignStep, { type FontStyle, FONT_MAP, type WeddingPrintData } from
 import PrintAudienceStep from "./PrintAudienceStep";
 import PrintGenerationStep from "./PrintGenerationStep";
 import HiddenPrintNode from "./HiddenPrintNode";
-import { useAuth } from "@/contexts/AuthContext";
 
 export type EdgeStyle = 'none' | 'watercolor' | 'soft';
 
@@ -24,6 +23,13 @@ export interface ImageTransform {
   x: number;
   y: number;
   scale: number;
+}
+
+interface PrintDesignConfig {
+  fontStyle: FontStyle;
+  edgeStyle: EdgeStyle;
+  imageTransform: ImageTransform;
+  backgroundImagePath: string | null;
 }
 
 interface PrintInvitationEditorProps {
@@ -49,6 +55,11 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
   const [showSafeZone, setShowSafeZone] = useState(false);
   const [imageTransform, setImageTransform] = useState<ImageTransform>({ x: 0, y: 0, scale: 1 });
   const [edgeStyle, setEdgeStyle] = useState<EdgeStyle>('none');
+
+  // Persistence tracking
+  const [bgDirty, setBgDirty] = useState(false);
+  const [savedBgPath, setSavedBgPath] = useState<string | null>(null);
+  const [designLoaded, setDesignLoaded] = useState(false);
 
   // Wedding data
   const [weddingData, setWeddingData] = useState<WeddingPrintData>({
@@ -76,7 +87,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
 
   const bgDataUrlRef = useRef<string | null>(null);
 
-  // Fetch wedding data on open
+  // Fetch wedding data + saved design on open
   useEffect(() => {
     if (open && weddingId) {
       fetchWeddingData();
@@ -86,7 +97,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
   const fetchWeddingData = async () => {
     const { data } = await supabase
       .from('weddings')
-      .select('partner1_name, partner2_name, wedding_date, ceremony_start_time, ceremony_venue_name, ceremony_venue_address, reception_venue_name, reception_venue_address, reception_start_time')
+      .select('partner1_name, partner2_name, wedding_date, ceremony_start_time, ceremony_venue_name, ceremony_venue_address, reception_venue_name, reception_venue_address, reception_start_time, print_design')
       .eq('id', weddingId)
       .single();
 
@@ -102,13 +113,101 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
         receptionVenueAddress: data.reception_venue_address,
         receptionTime: data.reception_start_time,
       });
+
+      // Restore saved design if available and not already loaded
+      if (data.print_design && !designLoaded) {
+        const config = data.print_design as unknown as PrintDesignConfig;
+        if (config.fontStyle) setFontStyle(config.fontStyle);
+        if (config.edgeStyle) setEdgeStyle(config.edgeStyle);
+        if (config.imageTransform) setImageTransform(config.imageTransform);
+        if (config.backgroundImagePath) {
+          setSavedBgPath(config.backgroundImagePath);
+          // Download the image from storage
+          loadBackgroundFromStorage(config.backgroundImagePath);
+        }
+        setDesignLoaded(true);
+      }
     }
   };
+
+  const loadBackgroundFromStorage = async (path: string) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('print-assets')
+        .download(path);
+      if (error || !data) return;
+      const url = URL.createObjectURL(data);
+      setBackgroundImage(url);
+      setBgDirty(false);
+    } catch (err) {
+      console.error('Error loading print background:', err);
+    }
+  };
+
+  // Track when user changes the background image
+  const handleBackgroundChange = useCallback((url: string | null) => {
+    setBackgroundImage(url);
+    setBgDirty(true);
+  }, []);
+
+  // Save design to DB + upload photo if dirty
+  const saveDesign = useCallback(async () => {
+    let bgPath = savedBgPath;
+
+    // Upload new background if changed
+    if (bgDirty && backgroundImage) {
+      try {
+        // Delete old file if exists
+        if (savedBgPath) {
+          await supabase.storage.from('print-assets').remove([savedBgPath]);
+        }
+
+        const response = await fetch(backgroundImage);
+        const blob = await response.blob();
+        const ext = blob.type.includes('png') ? 'png' : 'jpg';
+        const newPath = `${weddingId}/print_bg_${Date.now()}.${ext}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('print-assets')
+          .upload(newPath, blob, { contentType: blob.type, upsert: true });
+
+        if (!uploadError) {
+          bgPath = newPath;
+          setSavedBgPath(newPath);
+        }
+      } catch (err) {
+        console.error('Error uploading print background:', err);
+      }
+    } else if (bgDirty && !backgroundImage) {
+      // User removed the background
+      if (savedBgPath) {
+        await supabase.storage.from('print-assets').remove([savedBgPath]);
+      }
+      bgPath = null;
+      setSavedBgPath(null);
+    }
+
+    const config: PrintDesignConfig = {
+      fontStyle,
+      edgeStyle,
+      imageTransform,
+      backgroundImagePath: bgPath,
+    };
+
+    await supabase
+      .from('weddings')
+      .update({ print_design: config as any })
+      .eq('id', weddingId);
+
+    setBgDirty(false);
+  }, [backgroundImage, bgDirty, savedBgPath, fontStyle, edgeStyle, imageTransform, weddingId]);
 
   // Load parties when entering step 2
   useEffect(() => {
     if (step === 2 && weddingId) {
       loadParties();
+      // Save design when advancing to step 2
+      saveDesign();
     }
   }, [step, weddingId]);
 
@@ -248,20 +347,15 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
 
   const handleClose = () => {
     if (step === 3 && !isSuccess) return;
+    // Reset only wizard-session state, NOT design settings
     setStep(1);
     setProgress(0);
     setCurrentProcessingParty(null);
     setCurrentIndex(0);
     setIsSuccess(false);
     setSelectedPartyIds([]);
-    if (backgroundImage?.startsWith('blob:')) {
-      URL.revokeObjectURL(backgroundImage);
-    }
-    setBackgroundImage(null);
-    setFontStyle('garamond');
-    setShowSafeZone(false);
-    setImageTransform({ x: 0, y: 0, scale: 1 });
-    setEdgeStyle('none');
+    // Save design on close so settings are persisted
+    saveDesign();
     onOpenChange(false);
   };
 
@@ -311,7 +405,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
             {step === 1 && (
               <PrintDesignStep
                 backgroundImage={backgroundImage}
-                onBackgroundChange={setBackgroundImage}
+                onBackgroundChange={handleBackgroundChange}
                 fontStyle={fontStyle}
                 onFontStyleChange={setFontStyle}
                 showSafeZone={showSafeZone}
