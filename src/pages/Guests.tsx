@@ -19,6 +19,7 @@ import {
   ChevronDown,
   BarChart3,
   ChevronRight,
+  Printer,
 } from "lucide-react";
 import {
   DropdownMenu,
