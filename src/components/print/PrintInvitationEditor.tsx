@@ -61,6 +61,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
   const [bgDirty, setBgDirty] = useState(false);
   const [savedBgPath, setSavedBgPath] = useState<string | null>(null);
   const [designLoaded, setDesignLoaded] = useState(false);
+  const [printedPartyIds, setPrintedPartyIds] = useState<string[]>([]);
 
   // Wedding data
   const [weddingData, setWeddingData] = useState<WeddingPrintData>({
