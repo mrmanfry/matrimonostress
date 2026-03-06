@@ -391,6 +391,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
           backgroundImageUrl={bgDataUrlRef.current}
           weddingData={weddingData}
           imageTransform={imageTransform}
+          edgeStyle={edgeStyle}
         />
       )}
     </>
