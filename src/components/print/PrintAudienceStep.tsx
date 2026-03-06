@@ -26,12 +26,15 @@ const PrintAudienceStep = ({
   onSelectionChange,
   printedPartyIds = [],
 }: PrintAudienceStepProps) => {
-  const [filter, setFilter] = useState<'all' | 'pending'>('all');
+  const [filter, setFilter] = useState<'all' | 'pending' | 'not_printed'>('all');
+
+  const notPrintedCount = useMemo(() => parties.filter(p => !printedPartyIds.includes(p.partyId)).length, [parties, printedPartyIds]);
 
   const filtered = useMemo(() => {
     if (filter === 'pending') return parties.filter(p => p.rsvpStatus === 'pending');
+    if (filter === 'not_printed') return parties.filter(p => !printedPartyIds.includes(p.partyId));
     return parties;
-  }, [parties, filter]);
+  }, [parties, filter, printedPartyIds]);
 
   const allSelected = filtered.length > 0 && filtered.every(p => selectedPartyIds.includes(p.partyId));
 
@@ -71,10 +74,11 @@ const PrintAudienceStep = ({
   return (
     <div className="flex flex-col h-full">
       <div className="p-4 border-b border-border">
-        <Tabs value={filter} onValueChange={(v) => setFilter(v as 'all' | 'pending')}>
+        <Tabs value={filter} onValueChange={(v) => setFilter(v as 'all' | 'pending' | 'not_printed')}>
           <TabsList>
-            <TabsTrigger value="all">Tutti i Nuclei ({parties.length})</TabsTrigger>
-            <TabsTrigger value="pending">Solo In Attesa ({parties.filter(p => p.rsvpStatus === 'pending').length})</TabsTrigger>
+            <TabsTrigger value="all">Tutti ({parties.length})</TabsTrigger>
+            <TabsTrigger value="not_printed">Da Generare ({notPrintedCount})</TabsTrigger>
+            <TabsTrigger value="pending">In Attesa ({parties.filter(p => p.rsvpStatus === 'pending').length})</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>

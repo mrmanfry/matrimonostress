@@ -1,32 +1,63 @@
 
 
-## Plan: Filtro "Da generare", PDF separati per nucleo, nomi file intelligenti
+# Notifiche Email per Messaggi Chat (Planner ↔ Sposi)
 
-### 3 problemi da risolvere
+## Obiettivo
+Quando il planner invia un messaggio, gli sposi ricevono un'email di notifica. Quando gli sposi scrivono, il planner riceve un'email. Bidirezionale.
 
-1. **Filtro mancante**: Non si può filtrare per escludere i nuclei già stampati. Serve un tab "Da generare" che mostri solo quelli senza PDF.
+## Approccio
 
-2. **200 PDF in un unico file**: Attualmente tutti gli inviti finiscono in un singolo PDF multipagina (`Inviti_Cartacei_Nozze.pdf`). Impossibile distinguere chi è chi. Soluzione: generare **un PDF per nucleo** con nome file basato sul displayName (es. `Famiglia_Rossi.pdf`). Se sono selezionati più di 1 nucleo, creare un **file ZIP** che li contiene tutti.
+### 1. Nuova Edge Function `notify-chat-message`
 
-3. **Nome file generico**: Anche il singolo PDF si chiama `Inviti_Cartacei_Nozze.pdf`. Deve chiamarsi come il nucleo.
+Creazione di `supabase/functions/notify-chat-message/index.ts` che:
 
-### Implementazione
+- Riceve `{ wedding_id, sender_id, content, visibility }` come payload
+- Usa il service role key per determinare chi notificare:
+  - Se il sender è un **planner/manager** → notifica tutti i **co_planner** del matrimonio
+  - Se il sender è un **co_planner** → notifica il **planner** del matrimonio
+- Ignora messaggi con `visibility = "couple"` per il planner (non li vede)
+- Recupera l'email dei destinatari via `auth.admin.getUserById()`
+- Invia email via Resend (già configurato) con template branded
+- Aggiunge un link diretto alla chat (`APP_URL/app/chat`)
+- Rate limiting: non invia se l'ultimo messaggio notificato allo stesso utente per lo stesso wedding è stato < 5 minuti fa (per evitare spam in conversazioni attive)
 
-**PrintAudienceStep.tsx** — Aggiungere un terzo tab filtro:
-- `all` → Tutti i Nuclei
-- `pending` → Solo In Attesa (RSVP)
-- `not_printed` → Da Generare (esclude quelli in `printedPartyIds`)
+### 2. Integrazione nel flusso di invio messaggio
 
-**PrintInvitationEditor.tsx** — Riscrivere `generatePDF()`:
-- Se 1 nucleo selezionato → singolo PDF, nome = `Invito_{displayName}.pdf` (spazi → underscore)
-- Se 2+ nuclei → generare un PDF per nucleo, poi impacchettarli in uno ZIP via la libreria `JSZip` (da aggiungere come dipendenza)
-- Nome ZIP: `Inviti_Cartacei_{data}.zip`
-- Ogni PDF dentro lo ZIP: `Invito_{displayName}.pdf`
+In `src/pages/Chat.tsx` e `src/pages/PlannerInbox.tsx`, dopo l'insert del messaggio (quando non c'è errore), invocare la edge function:
 
-**Dipendenza nuova**: `jszip` per la creazione dello ZIP lato client.
+```typescript
+// Dopo insert riuscito
+supabase.functions.invoke("notify-chat-message", {
+  body: { wedding_id: weddingId, sender_id: userId, content, visibility }
+});
+```
 
-### File coinvolti
-1. `src/components/print/PrintAudienceStep.tsx` — nuovo tab filtro "Da generare"
-2. `src/components/print/PrintInvitationEditor.tsx` — logica PDF singoli + ZIP + nomi file
-3. `package.json` — aggiunta `jszip`
+Fire-and-forget (non blocca la UI).
+
+### 3. Tabella di throttling (opzionale ma consigliata)
+
+Per evitare email flood durante conversazioni in tempo reale, usare un approccio semplice nella edge function: controllare l'ultimo messaggio nella tabella `messages` per lo stesso wedding dove il sender è diverso dal destinatario, e inviare solo se non ci sono messaggi recenti (< 5 min) già notificati. Implementato interamente nella edge function senza nuove tabelle — usa un semplice check temporale sui messaggi esistenti.
+
+### 4. Configurazione
+
+- `verify_jwt = false` in config.toml per la function (validazione JWT interna)
+- Usa secrets già disponibili: `RESEND_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `APP_URL`
+
+## File da creare/modificare
+
+| File | Azione |
+|------|--------|
+| `supabase/functions/notify-chat-message/index.ts` | **Nuovo** — Edge function notifica email |
+| `supabase/config.toml` | Aggiungere config per la nuova function |
+| `src/pages/Chat.tsx` | Aggiungere invoke dopo invio messaggio |
+| `src/pages/PlannerInbox.tsx` | Aggiungere invoke dopo invio messaggio |
+
+## Template Email
+
+Email semplice e branda con:
+- Header colorato (gradient indaco come le altre email)
+- "Hai un nuovo messaggio da [Nome Mittente]"
+- Preview del contenuto (troncato a ~200 char)
+- CTA "Vai alla Chat →"
+- Footer WedsApp
 
