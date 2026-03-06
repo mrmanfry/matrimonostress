@@ -2,6 +2,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { format, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
 import type { WeddingPrintData } from "./PrintDesignStep";
+import type { ImageTransform } from "./PrintInvitationEditor";
 
 interface HiddenPrintNodeProps {
   displayName: string;
@@ -9,6 +10,7 @@ interface HiddenPrintNodeProps {
   fontFamily: string;
   backgroundImageUrl: string | null;
   weddingData: WeddingPrintData;
+  imageTransform: ImageTransform;
 }
 
 function formatWeddingDate(dateStr: string): string {
@@ -31,6 +33,7 @@ const HiddenPrintNode = ({
   fontFamily,
   backgroundImageUrl,
   weddingData,
+  imageTransform,
 }: HiddenPrintNodeProps) => {
   const rsvpUrl = syncToken ? `https://wedsapp.it/rsvp/${syncToken}` : '';
   const shortLink = syncToken ? `wedsapp.it/rsvp/${syncToken.substring(0, 8)}` : '';
@@ -53,20 +56,31 @@ const HiddenPrintNode = ({
         fontFamily,
       }}
     >
-      {/* TOP HALF: Photo with watercolor edges */}
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '50%' }}>
+      {/* TOP HALF: Photo with transform */}
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '50%', overflow: 'hidden', backgroundColor: '#ffffff' }}>
         {backgroundImageUrl ? (
           <div
             style={{
-              width: '100%',
-              height: '100%',
-              backgroundImage: `url(${backgroundImageUrl})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
+              position: 'absolute',
+              inset: 0,
               WebkitMaskImage: 'linear-gradient(to bottom, black 60%, transparent 100%)',
               maskImage: 'linear-gradient(to bottom, black 60%, transparent 100%)',
             }}
-          />
+          >
+            <img
+              src={backgroundImageUrl}
+              alt=""
+              style={{
+                position: 'absolute',
+                left: '50%',
+                top: '50%',
+                transform: `translate(calc(-50% + ${imageTransform.x}%), calc(-50% + ${imageTransform.y}%)) scale(${imageTransform.scale})`,
+                minWidth: '100%',
+                minHeight: '100%',
+                objectFit: 'cover',
+              }}
+            />
+          </div>
         ) : (
           <div style={{ width: '100%', height: '100%', backgroundColor: '#f5f5f5' }} />
         )}
@@ -88,20 +102,15 @@ const HiddenPrintNode = ({
           textAlign: 'center',
         }}
       >
-        {/* Guest name */}
         <p style={{ fontSize: '11px', letterSpacing: '0.05em', color: '#888', marginBottom: '10px' }}>
           Cari <span style={{ fontWeight: 600 }}>{displayName}</span>
         </p>
-
-        {/* Couple names */}
         <p style={{ fontSize: '18px', fontWeight: 600, color: '#1a1a1a', lineHeight: 1.3 }}>
           {weddingData.partner1Name} e {weddingData.partner2Name}
         </p>
         <p style={{ fontSize: '11px', color: '#888', marginTop: '4px', marginBottom: '10px' }}>
           sono lieti di annunciare il loro matrimonio
         </p>
-
-        {/* Date & time */}
         <p style={{ fontSize: '13px', fontWeight: 500, color: '#1a1a1a', textTransform: 'capitalize' }}>
           {formattedDate}
         </p>
@@ -110,8 +119,6 @@ const HiddenPrintNode = ({
             alle ore {ceremonyTime}
           </p>
         )}
-
-        {/* Ceremony venue */}
         {hasCeremony && (
           <div style={{ marginTop: '8px' }}>
             <p style={{ fontSize: '10px', color: '#888' }}>presso</p>
@@ -123,8 +130,6 @@ const HiddenPrintNode = ({
             )}
           </div>
         )}
-
-        {/* Reception venue */}
         {hasReception && (
           <div style={{ marginTop: '8px' }}>
             <p style={{ fontSize: '10px', color: '#888' }}>
@@ -135,8 +140,6 @@ const HiddenPrintNode = ({
             </p>
           </div>
         )}
-
-        {/* QR code + shortlink */}
         {syncToken ? (
           <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <div style={{ padding: '4px', backgroundColor: '#ffffff', borderRadius: '4px', border: '1px solid #eee' }}>
