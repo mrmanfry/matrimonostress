@@ -30,6 +30,7 @@ interface PrintDesignConfig {
   edgeStyle: EdgeStyle;
   imageTransform: ImageTransform;
   backgroundImagePath: string | null;
+  printed_party_ids?: string[];
 }
 
 interface PrintInvitationEditorProps {
