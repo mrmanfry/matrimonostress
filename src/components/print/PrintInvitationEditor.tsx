@@ -12,10 +12,11 @@ import {
   resolveSyncToken,
   type PartyPrintTarget,
 } from "@/lib/printNameResolver";
-import PrintDesignStep, { type FontStyle, FONT_MAP } from "./PrintDesignStep";
+import PrintDesignStep, { type FontStyle, FONT_MAP, type WeddingPrintData } from "./PrintDesignStep";
 import PrintAudienceStep from "./PrintAudienceStep";
 import PrintGenerationStep from "./PrintGenerationStep";
 import HiddenPrintNode from "./HiddenPrintNode";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface PrintInvitationEditorProps {
   open: boolean;
@@ -36,10 +37,21 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
 
   // Step 1 state
   const [backgroundImage, setBackgroundImage] = useState<string | null>(null);
-  const [backgroundFile, setBackgroundFile] = useState<File | null>(null);
-  const [welcomeText, setWelcomeText] = useState('Siamo felici di invitarvi\nal nostro matrimonio');
-  const [fontStyle, setFontStyle] = useState<FontStyle>('serif');
+  const [fontStyle, setFontStyle] = useState<FontStyle>('garamond');
   const [showSafeZone, setShowSafeZone] = useState(false);
+
+  // Wedding data
+  const [weddingData, setWeddingData] = useState<WeddingPrintData>({
+    partner1Name: '',
+    partner2Name: '',
+    weddingDate: '',
+    ceremonyTime: null,
+    ceremonyVenueName: null,
+    ceremonyVenueAddress: null,
+    receptionVenueName: null,
+    receptionVenueAddress: null,
+    receptionTime: null,
+  });
 
   // Step 2 state
   const [parties, setParties] = useState<PartyPrintTarget[]>([]);
@@ -52,8 +64,36 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isSuccess, setIsSuccess] = useState(false);
 
-  // Keep a ref to the background image as a data URL for html2canvas
   const bgDataUrlRef = useRef<string | null>(null);
+
+  // Fetch wedding data on open
+  useEffect(() => {
+    if (open && weddingId) {
+      fetchWeddingData();
+    }
+  }, [open, weddingId]);
+
+  const fetchWeddingData = async () => {
+    const { data } = await supabase
+      .from('weddings')
+      .select('partner1_name, partner2_name, wedding_date, ceremony_start_time, ceremony_venue_name, ceremony_venue_address, reception_venue_name, reception_venue_address, reception_start_time')
+      .eq('id', weddingId)
+      .single();
+
+    if (data) {
+      setWeddingData({
+        partner1Name: data.partner1_name,
+        partner2Name: data.partner2_name,
+        weddingDate: data.wedding_date,
+        ceremonyTime: data.ceremony_start_time,
+        ceremonyVenueName: data.ceremony_venue_name,
+        ceremonyVenueAddress: data.ceremony_venue_address,
+        receptionVenueName: data.reception_venue_name,
+        receptionVenueAddress: data.reception_venue_address,
+        receptionTime: data.reception_start_time,
+      });
+    }
+  };
 
   // Load parties when entering step 2
   useEffect(() => {
@@ -65,13 +105,11 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
   const loadParties = async () => {
     setLoadingParties(true);
     try {
-      // Fetch parties
       const { data: partiesData } = await supabase
         .from('invite_parties')
         .select('id, party_name, rsvp_status, wedding_id')
         .eq('wedding_id', weddingId);
 
-      // Fetch all guests
       const { data: guestsData } = await supabase
         .from('guests')
         .select('id, first_name, last_name, is_child, unique_rsvp_token, phone, party_id, is_couple_member, is_staff')
@@ -79,21 +117,17 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
 
       if (!partiesData || !guestsData) return;
 
-      // Filter out couple members and staff
       const realGuests = guestsData.filter(g => !g.is_couple_member && !g.is_staff);
-
-      // Build party targets
       const partyTargets: PartyPrintTarget[] = [];
 
-      // Parties with members
+      const rsvpMap: Record<string, PartyPrintTarget['rsvpStatus']> = {
+        'Confermato': 'confirmed',
+        'Rifiutato': 'declined',
+      };
+
       for (const party of partiesData) {
         const members = realGuests.filter(g => g.party_id === party.id);
         if (members.length === 0) continue;
-
-        const rsvpMap: Record<string, PartyPrintTarget['rsvpStatus']> = {
-          'Confermato': 'confirmed',
-          'Rifiutato': 'declined',
-        };
 
         partyTargets.push({
           partyId: party.id,
@@ -108,7 +142,6 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
         });
       }
 
-      // Solo guests (no party)
       const soloGuests = realGuests.filter(g => !g.party_id);
       for (const guest of soloGuests) {
         partyTargets.push({
@@ -163,7 +196,6 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
         setCurrentIndex(i + 1);
         setProgress(((i) / selectedParties.length) * 100);
 
-        // Let React re-render the hidden node
         await new Promise(resolve => setTimeout(resolve, 200));
 
         const printNode = document.getElementById('hidden-print-node');
@@ -185,7 +217,6 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
       setProgress(100);
       pdf.save('Inviti_Cartacei_Nozze.pdf');
 
-      // Small delay to let the download start
       await new Promise(resolve => setTimeout(resolve, 500));
       setIsSuccess(true);
     } catch (error) {
@@ -199,7 +230,6 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
     }
   }, [parties, selectedPartyIds, toast]);
 
-  // Start generation when entering step 3
   useEffect(() => {
     if (step === 3) {
       generatePDF();
@@ -207,8 +237,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
   }, [step]);
 
   const handleClose = () => {
-    if (step === 3 && !isSuccess) return; // Block close during generation
-    // Cleanup
+    if (step === 3 && !isSuccess) return;
     setStep(1);
     setProgress(0);
     setCurrentProcessingParty(null);
@@ -219,9 +248,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
       URL.revokeObjectURL(backgroundImage);
     }
     setBackgroundImage(null);
-    setBackgroundFile(null);
-    setWelcomeText('Siamo felici di invitarvi\nal nostro matrimonio');
-    setFontStyle('serif');
+    setFontStyle('garamond');
     setShowSafeZone(false);
     onOpenChange(false);
   };
@@ -241,7 +268,6 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
           <div className="flex items-center justify-between px-4 py-3 border-b border-border">
             <div className="flex items-center gap-4">
               <h2 className="text-lg font-semibold text-foreground">Progetta il tuo Invito</h2>
-              {/* Stepper */}
               {step < 3 && (
                 <div className="hidden md:flex items-center gap-2 text-sm">
                   {STEPS.map((s, idx) => (
@@ -274,12 +300,11 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
               <PrintDesignStep
                 backgroundImage={backgroundImage}
                 onBackgroundChange={setBackgroundImage}
-                welcomeText={welcomeText}
-                onWelcomeTextChange={setWelcomeText}
                 fontStyle={fontStyle}
                 onFontStyleChange={setFontStyle}
                 showSafeZone={showSafeZone}
                 onShowSafeZoneChange={setShowSafeZone}
+                weddingData={weddingData}
               />
             )}
 
@@ -346,9 +371,9 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
         <HiddenPrintNode
           displayName={currentProcessingParty.displayName}
           syncToken={currentProcessingParty.syncToken}
-          welcomeText={welcomeText}
           fontFamily={fontFamily}
           backgroundImageUrl={bgDataUrlRef.current}
+          weddingData={weddingData}
         />
       )}
     </>

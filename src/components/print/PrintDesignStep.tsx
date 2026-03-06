@@ -1,6 +1,5 @@
 import { useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -11,41 +10,93 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Upload, ImageIcon } from "lucide-react";
+import { format, parseISO } from "date-fns";
+import { it } from "date-fns/locale";
 
-export type FontStyle = 'serif' | 'sans' | 'cursive';
+export type FontStyle =
+  | 'garamond'
+  | 'cormorant'
+  | 'playfair'
+  | 'lora'
+  | 'dancing'
+  | 'greatvibes'
+  | 'alex'
+  | 'lato'
+  | 'montserrat'
+  | 'josefin';
+
+export interface WeddingPrintData {
+  partner1Name: string;
+  partner2Name: string;
+  weddingDate: string;
+  ceremonyTime: string | null;
+  ceremonyVenueName: string | null;
+  ceremonyVenueAddress: string | null;
+  receptionVenueName: string | null;
+  receptionVenueAddress: string | null;
+  receptionTime: string | null;
+}
 
 interface PrintDesignStepProps {
   backgroundImage: string | null;
   onBackgroundChange: (url: string | null) => void;
-  welcomeText: string;
-  onWelcomeTextChange: (text: string) => void;
   fontStyle: FontStyle;
   onFontStyleChange: (style: FontStyle) => void;
   showSafeZone: boolean;
   onShowSafeZoneChange: (show: boolean) => void;
+  weddingData: WeddingPrintData;
 }
 
-const FONT_MAP: Record<FontStyle, string> = {
-  serif: "'EB Garamond', 'Cormorant Garamond', Georgia, serif",
-  sans: "'Lato', 'Inter', system-ui, sans-serif",
-  cursive: "'Dancing Script', 'Great Vibes', cursive",
+export const FONT_MAP: Record<FontStyle, string> = {
+  garamond: "'EB Garamond', Georgia, serif",
+  cormorant: "'Cormorant Garamond', Georgia, serif",
+  playfair: "'Playfair Display', Georgia, serif",
+  lora: "'Lora', Georgia, serif",
+  dancing: "'Dancing Script', cursive",
+  greatvibes: "'Great Vibes', cursive",
+  alex: "'Alex Brush', cursive",
+  lato: "'Lato', system-ui, sans-serif",
+  montserrat: "'Montserrat', system-ui, sans-serif",
+  josefin: "'Josefin Sans', system-ui, sans-serif",
 };
 
 const FONT_LABELS: Record<FontStyle, string> = {
-  serif: 'Elegante (Serif)',
-  sans: 'Moderno (Sans)',
-  cursive: 'Romantico (Corsivo)',
+  garamond: 'EB Garamond (Classico)',
+  cormorant: 'Cormorant (Raffinato)',
+  playfair: 'Playfair Display (Editoriale)',
+  lora: 'Lora (Caldo)',
+  dancing: 'Dancing Script (Romantico)',
+  greatvibes: 'Great Vibes (Calligrafico)',
+  alex: 'Alex Brush (Firma)',
+  lato: 'Lato (Moderno)',
+  montserrat: 'Montserrat (Contemporaneo)',
+  josefin: 'Josefin Sans (Minimalista)',
 };
+
+function formatWeddingDate(dateStr: string): string {
+  try {
+    const d = parseISO(dateStr);
+    return format(d, "EEEE d MMMM yyyy", { locale: it });
+  } catch {
+    return dateStr;
+  }
+}
+
+function formatTime(timeStr: string | null): string {
+  if (!timeStr) return '';
+  // timeStr is "HH:mm:ss" or "HH:mm"
+  const parts = timeStr.split(':');
+  return `${parts[0]}:${parts[1]}`;
+}
 
 const PrintDesignStep = ({
   backgroundImage,
   onBackgroundChange,
-  welcomeText,
-  onWelcomeTextChange,
   fontStyle,
   onFontStyleChange,
   showSafeZone,
   onShowSafeZoneChange,
+  weddingData,
 }: PrintDesignStepProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -57,13 +108,17 @@ const PrintDesignStep = ({
   };
 
   const fontFamily = FONT_MAP[fontStyle];
+  const formattedDate = formatWeddingDate(weddingData.weddingDate);
+  const ceremonyTime = formatTime(weddingData.ceremonyTime);
+  const hasCeremony = !!weddingData.ceremonyVenueName;
+  const hasReception = !!weddingData.receptionVenueName;
 
   return (
     <div className="flex flex-col md:flex-row h-full gap-4 md:gap-0">
       {/* Sidebar Controls */}
       <div className="w-full md:w-[30%] p-4 md:p-6 space-y-6 overflow-y-auto border-b md:border-b-0 md:border-r border-border">
         <div>
-          <h3 className="text-sm font-semibold text-foreground mb-3">Immagine di sfondo</h3>
+          <h3 className="text-sm font-semibold text-foreground mb-3">Foto dell'invito</h3>
           <input
             ref={fileInputRef}
             type="file"
@@ -75,22 +130,14 @@ const PrintDesignStep = ({
             <div className="relative group">
               <img
                 src={backgroundImage}
-                alt="Sfondo invito"
+                alt="Foto invito"
                 className="w-full aspect-video object-cover rounded-lg border border-border"
               />
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => fileInputRef.current?.click()}
-                >
+                <Button size="sm" variant="secondary" onClick={() => fileInputRef.current?.click()}>
                   Cambia
                 </Button>
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={() => onBackgroundChange(null)}
-                >
+                <Button size="sm" variant="destructive" onClick={() => onBackgroundChange(null)}>
                   Rimuovi
                 </Button>
               </div>
@@ -101,20 +148,9 @@ const PrintDesignStep = ({
               className="w-full aspect-video border-2 border-dashed border-muted rounded-lg flex flex-col items-center justify-center gap-2 text-muted-foreground hover:border-primary hover:text-primary transition-colors"
             >
               <Upload className="w-6 h-6" />
-              <span className="text-sm">Carica immagine</span>
+              <span className="text-sm">Carica foto</span>
             </button>
           )}
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="welcome-text">Testo di Benvenuto</Label>
-          <Textarea
-            id="welcome-text"
-            value={welcomeText}
-            onChange={(e) => onWelcomeTextChange(e.target.value)}
-            placeholder="Siamo felici di invitarvi al nostro matrimonio..."
-            rows={4}
-          />
         </div>
 
         <div className="space-y-2">
@@ -126,7 +162,7 @@ const PrintDesignStep = ({
             <SelectContent>
               {(Object.keys(FONT_LABELS) as FontStyle[]).map((key) => (
                 <SelectItem key={key} value={key}>
-                  {FONT_LABELS[key]}
+                  <span style={{ fontFamily: FONT_MAP[key] }}>{FONT_LABELS[key]}</span>
                 </SelectItem>
               ))}
             </SelectContent>
@@ -151,31 +187,9 @@ const PrintDesignStep = ({
             width: '100%',
             maxWidth: '400px',
             aspectRatio: '1 / 1.414',
+            fontFamily,
           }}
         >
-          {/* Background image */}
-          {backgroundImage && (
-            <div
-              className="absolute inset-0"
-              style={{
-                backgroundImage: `url(${backgroundImage})`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-              }}
-            />
-          )}
-
-          {/* Gradient overlay */}
-          {backgroundImage && (
-            <div
-              className="absolute inset-0"
-              style={{
-                background:
-                  'linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.05) 40%, rgba(255,255,255,0.6) 75%, rgba(255,255,255,0.9) 100%)',
-              }}
-            />
-          )}
-
           {/* Safe zone indicator */}
           {showSafeZone && (
             <div
@@ -188,36 +202,97 @@ const PrintDesignStep = ({
             />
           )}
 
-          {/* Content */}
-          <div className="relative h-full flex flex-col justify-between p-6 md:p-8 z-10">
-            {/* Welcome text */}
-            <div className="text-center pt-6">
-              <p
-                className="text-base md:text-lg leading-relaxed whitespace-pre-line"
+          {/* TOP HALF: Photo with watercolor edges */}
+          <div className="absolute top-0 left-0 right-0" style={{ height: '50%' }}>
+            {backgroundImage ? (
+              <div
+                className="w-full h-full"
                 style={{
-                  fontFamily,
-                  color: backgroundImage ? '#ffffff' : 'hsl(var(--foreground))',
-                  textShadow: backgroundImage ? '0 1px 4px rgba(0,0,0,0.4)' : 'none',
+                  backgroundImage: `url(${backgroundImage})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  WebkitMaskImage: 'linear-gradient(to bottom, black 60%, transparent 100%)',
+                  maskImage: 'linear-gradient(to bottom, black 60%, transparent 100%)',
                 }}
-              >
-                {welcomeText || (
-                  <span className="opacity-40 italic">Il tuo testo apparirà qui...</span>
-                )}
-              </p>
-            </div>
-
-            {/* Footer mock */}
-            <div className="bg-white/95 rounded-xl p-4 text-center space-y-2">
-              <p className="text-sm font-semibold text-foreground italic">
-                Gentilissima Famiglia Rossi
-              </p>
-              <div className="flex justify-center">
-                <div className="w-[80px] h-[80px] bg-muted/50 rounded-lg flex items-center justify-center">
-                  <ImageIcon className="w-8 h-8 text-muted-foreground/50" />
-                </div>
+              />
+            ) : (
+              <div className="w-full h-full bg-muted/30 flex items-center justify-center">
+                <ImageIcon className="w-12 h-12 text-muted-foreground/30" />
               </div>
-              <p className="text-[9px] font-mono text-muted-foreground">
-                wedsapp.it/rsvp/token123
+            )}
+          </div>
+
+          {/* Fold line */}
+          <div
+            className="absolute left-[10%] right-[10%] z-10"
+            style={{
+              top: '50%',
+              borderTop: '1px dashed hsl(var(--muted-foreground) / 0.2)',
+            }}
+          />
+
+          {/* BOTTOM HALF: Formal text */}
+          <div
+            className="absolute left-0 right-0 bottom-0 flex flex-col items-center justify-center px-6 text-center"
+            style={{ height: '50%' }}
+          >
+            {/* Guest name placeholder */}
+            <p className="text-xs tracking-wide text-muted-foreground mb-3" style={{ fontFamily }}>
+              Cari <span className="font-semibold">Famiglia Rossi</span>
+            </p>
+
+            {/* Couple names */}
+            <p className="text-base md:text-lg font-semibold text-foreground leading-tight" style={{ fontFamily }}>
+              {weddingData.partner1Name || 'Anna'} e {weddingData.partner2Name || 'Marco'}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1 mb-3" style={{ fontFamily }}>
+              sono lieti di annunciare il loro matrimonio
+            </p>
+
+            {/* Date & time */}
+            <p className="text-sm font-medium text-foreground capitalize" style={{ fontFamily }}>
+              {formattedDate || 'Sabato 15 giugno 2026'}
+            </p>
+            {ceremonyTime && (
+              <p className="text-xs text-muted-foreground" style={{ fontFamily }}>
+                alle ore {ceremonyTime}
+              </p>
+            )}
+
+            {/* Ceremony venue */}
+            {hasCeremony && (
+              <div className="mt-2">
+                <p className="text-xs text-muted-foreground" style={{ fontFamily }}>presso</p>
+                <p className="text-sm font-medium text-foreground" style={{ fontFamily }}>
+                  {weddingData.ceremonyVenueName}
+                </p>
+                {weddingData.ceremonyVenueAddress && (
+                  <p className="text-[10px] text-muted-foreground" style={{ fontFamily }}>
+                    {weddingData.ceremonyVenueAddress}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Reception venue */}
+            {hasReception && (
+              <div className="mt-2">
+                <p className="text-xs text-muted-foreground" style={{ fontFamily }}>
+                  A seguire festeggeremo insieme presso
+                </p>
+                <p className="text-sm font-medium text-foreground" style={{ fontFamily }}>
+                  {weddingData.receptionVenueName}
+                </p>
+              </div>
+            )}
+
+            {/* QR placeholder */}
+            <div className="mt-3 flex items-center gap-2">
+              <div className="w-[40px] h-[40px] bg-muted/50 rounded flex items-center justify-center">
+                <ImageIcon className="w-4 h-4 text-muted-foreground/40" />
+              </div>
+              <p className="text-[8px] font-mono text-muted-foreground">
+                wedsapp.it/rsvp/abc12345
               </p>
             </div>
           </div>
@@ -228,5 +303,3 @@ const PrintDesignStep = ({
 };
 
 export default PrintDesignStep;
-
-export { FONT_MAP };

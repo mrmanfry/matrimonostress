@@ -1,120 +1,63 @@
 
 
-# Piano: Ridisegno Layout Invito Cartaceo (Foglio Pieghevole)
+# Notifiche Email per Messaggi Chat (Planner ↔ Sposi)
 
-## Cosa cambia
+## Obiettivo
+Quando il planner invia un messaggio, gli sposi ricevono un'email di notifica. Quando gli sposi scrivono, il planner riceve un'email. Bidirezionale.
 
-L'invito attuale e un foglio singolo con sfondo + testo sovrapposto. Il nuovo layout e un **foglio da piegare a meta**: la meta superiore mostra la foto (con bordi acquarellati/sfumati), la meta inferiore contiene il testo formale con i dettagli del matrimonio presi dalle impostazioni.
+## Approccio
 
-## Nuovo Layout del "Foglio" (Preview + HiddenPrintNode)
+### 1. Nuova Edge Function `notify-chat-message`
 
-```text
-┌──────────────────────────┐
-│                          │
-│   FOTO (con bordi        │
-│   sfumati/acquarellati)  │
-│                          │
-│                          │
-├─ ─ ─ ─ piega ─ ─ ─ ─ ─ ┤
-│                          │
-│   Cari Famiglia Rossi    │
-│                          │
-│   Anna Rossi e           │
-│   Marco Bianchi          │
-│   sono lieti di          │
-│   annunciare il loro     │
-│   matrimonio             │
-│                          │
-│   Sabato 15 giugno 2026  │
-│   alle ore 16:00         │
-│   presso                 │
-│   Chiesa di San Pietro   │
-│   Roma                   │
-│                          │
-│   A seguire presso       │
-│   Villa Aurelia          │
-│                          │
-│   [QR]  link             │
-│                          │
-└──────────────────────────┘
+Creazione di `supabase/functions/notify-chat-message/index.ts` che:
+
+- Riceve `{ wedding_id, sender_id, content, visibility }` come payload
+- Usa il service role key per determinare chi notificare:
+  - Se il sender è un **planner/manager** → notifica tutti i **co_planner** del matrimonio
+  - Se il sender è un **co_planner** → notifica il **planner** del matrimonio
+- Ignora messaggi con `visibility = "couple"` per il planner (non li vede)
+- Recupera l'email dei destinatari via `auth.admin.getUserById()`
+- Invia email via Resend (già configurato) con template branded
+- Aggiunge un link diretto alla chat (`APP_URL/app/chat`)
+- Rate limiting: non invia se l'ultimo messaggio notificato allo stesso utente per lo stesso wedding è stato < 5 minuti fa (per evitare spam in conversazioni attive)
+
+### 2. Integrazione nel flusso di invio messaggio
+
+In `src/pages/Chat.tsx` e `src/pages/PlannerInbox.tsx`, dopo l'insert del messaggio (quando non c'è errore), invocare la edge function:
+
+```typescript
+// Dopo insert riuscito
+supabase.functions.invoke("notify-chat-message", {
+  body: { wedding_id: weddingId, sender_id: userId, content, visibility }
+});
 ```
 
-## Dati dal DB (weddings table)
+Fire-and-forget (non blocca la UI).
 
-I seguenti campi vengono passati al componente:
-- `partner1_name`, `partner2_name` — nomi degli sposi
-- `wedding_date` — data formattata in italiano
-- `ceremony_start_time` — ora cerimonia
-- `ceremony_venue_name`, `ceremony_venue_address` — luogo cerimonia
-- `reception_venue_name`, `reception_venue_address` — luogo ricevimento
-- `reception_start_time` — ora ricevimento
+### 3. Tabella di throttling (opzionale ma consigliata)
 
-**Logica location singola (matrimonio civile):** Se `reception_venue_name` e vuoto/null, mostra solo la cerimonia senza il blocco "A seguire". Se `ceremony_venue_name` e vuoto ma c'e `reception_venue_name`, mostra solo quello.
+Per evitare email flood durante conversazioni in tempo reale, usare un approccio semplice nella edge function: controllare l'ultimo messaggio nella tabella `messages` per lo stesso wedding dove il sender è diverso dal destinatario, e inviare solo se non ci sono messaggi recenti (< 5 min) già notificati. Implementato interamente nella edge function senza nuove tabelle — usa un semplice check temporale sui messaggi esistenti.
 
-## Modifiche ai Componenti
+### 4. Configurazione
 
-### 1. `PrintInvitationEditor.tsx`
-- Fetch dei dati wedding (`partner1_name`, `partner2_name`, `wedding_date`, `ceremony_start_time`, `ceremony_venue_name`, `ceremony_venue_address`, `reception_venue_name`, `reception_venue_address`, `reception_start_time`) all'apertura del dialog
-- Passare questi dati a `PrintDesignStep` e `HiddenPrintNode`
+- `verify_jwt = false` in config.toml per la function (validazione JWT interna)
+- Usa secrets già disponibili: `RESEND_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `APP_URL`
 
-### 2. `PrintDesignStep.tsx` — Ridisegno completo
-**Sidebar:**
-- Upload immagine (invariato ma label "Foto dell'invito")
-- Rimuovere la Textarea "Testo di Benvenuto" (il testo ora e strutturato e viene dai dati wedding)
-- Font selector con **molte piu scelte** (8-10 opzioni):
-  - `garamond` — EB Garamond (Classico Elegante)
-  - `cormorant` — Cormorant Garamond (Raffinato)
-  - `playfair` — Playfair Display (Editoriale)
-  - `lora` — Lora (Caldo)
-  - `dancing` — Dancing Script (Romantico)
-  - `greatvibes` — Great Vibes (Calligrafico)
-  - `alex` — Alex Brush (Firma)
-  - `lato` — Lato (Moderno Pulito)
-  - `montserrat` — Montserrat (Contemporaneo)
-  - `josefin` — Josefin Sans (Minimalista)
-- Toggle Safe Zone (invariato)
+## File da creare/modificare
 
-**Preview:** Il foglio ora mostra:
-- Meta superiore: foto con bordi sfumati (CSS mask/gradient fade sui bordi, effetto acquarello)
-- Linea di piega tratteggiata leggera al centro
-- Meta inferiore: testo formale mockato con dati wedding reali (o placeholder se non caricati)
+| File | Azione |
+|------|--------|
+| `supabase/functions/notify-chat-message/index.ts` | **Nuovo** — Edge function notifica email |
+| `supabase/config.toml` | Aggiungere config per la nuova function |
+| `src/pages/Chat.tsx` | Aggiungere invoke dopo invio messaggio |
+| `src/pages/PlannerInbox.tsx` | Aggiungere invoke dopo invio messaggio |
 
-### 3. `HiddenPrintNode.tsx` — Ridisegno completo
-Stessa struttura del preview ma con dati dinamici:
-- Meta superiore: foto con bordi sfumati
-- Meta inferiore:
-  - "Cari [displayName]"
-  - "[Partner1] e [Partner2]"
-  - "sono lieti di annunciare il loro matrimonio"
-  - Data formattata + ora
-  - Venue cerimonia
-  - (condizionale) "A seguire festeggeremo insieme presso [reception_venue]"
-  - QR code + shortlink in basso
+## Template Email
 
-### 4. Nuovi Google Fonts da aggiungere in `index.css`
-Playfair Display, Lora, Great Vibes, Alex Brush, Montserrat, Josefin Sans
-
-### 5. `PrintDesignStep` props aggiornate
-Aggiungere: `partner1Name`, `partner2Name`, `weddingDate`, `ceremonyTime`, `ceremonyVenueName`, `ceremonyVenueAddress`, `receptionVenueName`, `receptionVenueAddress`, `receptionTime`
-Rimuovere: `welcomeText`, `onWelcomeTextChange`
-
-### 6. `HiddenPrintNode` props aggiornate
-Aggiungere stessi campi wedding + rimuovere `welcomeText`
-
-## Effetto bordi acquarellati sulla foto
-
-Usare CSS `mask-image` con gradient radiale per sfumare i bordi della foto:
-```css
-mask-image: radial-gradient(ellipse 85% 80% at center, black 60%, transparent 100%);
-```
-Oppure gradient lineare sui 4 lati per un fade piu morbido. Questo da l'effetto "acquarellato" senza manipolare l'immagine.
-
-## File modificati
-1. `src/index.css` — nuovi font imports
-2. `src/components/print/PrintDesignStep.tsx` — ridisegno completo
-3. `src/components/print/HiddenPrintNode.tsx` — ridisegno completo
-4. `src/components/print/PrintInvitationEditor.tsx` — fetch dati wedding, passaggio props
-
-## File invariati
-- `PrintAudienceStep.tsx`, `PrintGenerationStep.tsx`, `printNameResolver.ts` — nessuna modifica
+Email semplice e branda con:
+- Header colorato (gradient indaco come le altre email)
+- "Hai un nuovo messaggio da [Nome Mittente]"
+- Preview del contenuto (troncato a ~200 char)
+- CTA "Vai alla Chat →"
+- Footer WedsApp
 
