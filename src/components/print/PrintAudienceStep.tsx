@@ -11,7 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { QrCode, AlertTriangle } from "lucide-react";
+import { QrCode, AlertTriangle, Printer } from "lucide-react";
 import { PartyPrintTarget } from "@/lib/printNameResolver";
 
 interface PrintAudienceStepProps {
