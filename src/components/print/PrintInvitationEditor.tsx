@@ -328,6 +328,20 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
       setProgress(100);
       pdf.save('Inviti_Cartacei_Nozze.pdf');
 
+      // Save printed party IDs to print_design
+      const newPrintedIds = [...new Set([...printedPartyIds, ...selectedPartyIds])];
+      setPrintedPartyIds(newPrintedIds);
+      const { data: wData } = await supabase
+        .from('weddings')
+        .select('print_design')
+        .eq('id', weddingId)
+        .single();
+      const existingConfig = (wData?.print_design as unknown as PrintDesignConfig) || {};
+      await supabase
+        .from('weddings')
+        .update({ print_design: { ...existingConfig, printed_party_ids: newPrintedIds } as any })
+        .eq('id', weddingId);
+
       await new Promise(resolve => setTimeout(resolve, 500));
       setIsSuccess(true);
     } catch (error) {
