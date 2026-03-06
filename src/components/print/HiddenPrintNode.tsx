@@ -11,6 +11,7 @@ interface HiddenPrintNodeProps {
   backgroundImageUrl: string | null;
   weddingData: WeddingPrintData;
   imageTransform: ImageTransform;
+  edgeStyle: EdgeStyle;
 }
 
 function formatWeddingDate(dateStr: string): string {
