@@ -1115,6 +1115,13 @@ const Guests = () => {
               <Smartphone className="w-4 h-4 mr-2" />
               Sincronizza Contatti
             </Button>
+            <Button
+              onClick={() => setPrintEditorOpen(true)}
+              variant="outline"
+            >
+              <Printer className="w-4 h-4 mr-2" />
+              Inviti Cartacei
+            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button>
