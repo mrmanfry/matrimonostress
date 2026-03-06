@@ -246,6 +246,23 @@ const PrintDesignStep = ({
           </div>
         )}
 
+        {/* Edge style selector */}
+        {backgroundImage && (
+          <div className="space-y-2">
+            <Label>Bordo immagine</Label>
+            <Select value={edgeStyle} onValueChange={(v) => onEdgeStyleChange(v as EdgeStyle)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Nessuno (Netto)</SelectItem>
+                <SelectItem value="watercolor">Acquerello</SelectItem>
+                <SelectItem value="soft">Sfumato morbido</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
         <div className="space-y-2">
           <Label>Stile Font</Label>
           <Select value={fontStyle} onValueChange={(v) => onFontStyleChange(v as FontStyle)}>
