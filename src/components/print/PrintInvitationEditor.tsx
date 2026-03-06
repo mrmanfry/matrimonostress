@@ -122,9 +122,9 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
         if (config.fontStyle) setFontStyle(config.fontStyle);
         if (config.edgeStyle) setEdgeStyle(config.edgeStyle);
         if (config.imageTransform) setImageTransform(config.imageTransform);
+        if (config.printed_party_ids) setPrintedPartyIds(config.printed_party_ids);
         if (config.backgroundImagePath) {
           setSavedBgPath(config.backgroundImagePath);
-          // Download the image from storage
           loadBackgroundFromStorage(config.backgroundImagePath);
         }
         setDesignLoaded(true);
