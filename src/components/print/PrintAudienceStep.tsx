@@ -74,10 +74,11 @@ const PrintAudienceStep = ({
   return (
     <div className="flex flex-col h-full">
       <div className="p-4 border-b border-border">
-        <Tabs value={filter} onValueChange={(v) => setFilter(v as 'all' | 'pending')}>
+        <Tabs value={filter} onValueChange={(v) => setFilter(v as 'all' | 'pending' | 'not_printed')}>
           <TabsList>
-            <TabsTrigger value="all">Tutti i Nuclei ({parties.length})</TabsTrigger>
-            <TabsTrigger value="pending">Solo In Attesa ({parties.filter(p => p.rsvpStatus === 'pending').length})</TabsTrigger>
+            <TabsTrigger value="all">Tutti ({parties.length})</TabsTrigger>
+            <TabsTrigger value="not_printed">Da Generare ({notPrintedCount})</TabsTrigger>
+            <TabsTrigger value="pending">In Attesa ({parties.filter(p => p.rsvpStatus === 'pending').length})</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>

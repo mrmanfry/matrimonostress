@@ -289,7 +289,10 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
     }
   }, [backgroundImage]);
 
-  // PDF Generation
+  const sanitizeFileName = (name: string) =>
+    name.replace(/[^a-zA-Z0-9À-ÿ\s_-]/g, '').replace(/\s+/g, '_');
+
+  // PDF Generation — one PDF per party, ZIP if multiple
   const generatePDF = useCallback(async () => {
     const selectedParties = parties.filter(p => selectedPartyIds.includes(p.partyId));
     if (selectedParties.length === 0) return;
@@ -298,7 +301,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
       const jsPDF = (await import('jspdf')).default;
       const html2canvas = (await import('html2canvas')).default;
 
-      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a5' });
+      const pdfBlobs: { name: string; blob: Blob }[] = [];
 
       for (let i = 0; i < selectedParties.length; i++) {
         const party = selectedParties[i];
@@ -319,14 +322,41 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
           backgroundColor: '#ffffff',
         });
 
-        const imgData = canvas.toDataURL('image/jpeg', 0.9);
+        const imgData = canvas.toDataURL('image/jpeg', 0.92);
 
-        if (i > 0) pdf.addPage();
+        const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a5' });
         pdf.addImage(imgData, 'JPEG', 0, 0, 148, 210);
+
+        const fileName = `Invito_${sanitizeFileName(party.displayName)}.pdf`;
+        pdfBlobs.push({ name: fileName, blob: pdf.output('blob') });
       }
 
       setProgress(100);
-      pdf.save('Inviti_Cartacei_Nozze.pdf');
+
+      if (pdfBlobs.length === 1) {
+        // Single PDF — direct download
+        const url = URL.createObjectURL(pdfBlobs[0].blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = pdfBlobs[0].name;
+        a.click();
+        URL.revokeObjectURL(url);
+      } else {
+        // Multiple PDFs — bundle into ZIP
+        const JSZip = (await import('jszip')).default;
+        const zip = new JSZip();
+        for (const { name, blob } of pdfBlobs) {
+          zip.file(name, blob);
+        }
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        const today = new Date().toISOString().slice(0, 10);
+        const url = URL.createObjectURL(zipBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Inviti_Cartacei_${today}.zip`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
 
       // Save printed party IDs to print_design
       const newPrintedIds = [...new Set([...printedPartyIds, ...selectedPartyIds])];
