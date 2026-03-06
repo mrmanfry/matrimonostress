@@ -30,6 +30,7 @@ interface PrintDesignConfig {
   edgeStyle: EdgeStyle;
   imageTransform: ImageTransform;
   backgroundImagePath: string | null;
+  printed_party_ids?: string[];
 }
 
 interface PrintInvitationEditorProps {
@@ -60,6 +61,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
   const [bgDirty, setBgDirty] = useState(false);
   const [savedBgPath, setSavedBgPath] = useState<string | null>(null);
   const [designLoaded, setDesignLoaded] = useState(false);
+  const [printedPartyIds, setPrintedPartyIds] = useState<string[]>([]);
 
   // Wedding data
   const [weddingData, setWeddingData] = useState<WeddingPrintData>({
@@ -120,9 +122,9 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
         if (config.fontStyle) setFontStyle(config.fontStyle);
         if (config.edgeStyle) setEdgeStyle(config.edgeStyle);
         if (config.imageTransform) setImageTransform(config.imageTransform);
+        if (config.printed_party_ids) setPrintedPartyIds(config.printed_party_ids);
         if (config.backgroundImagePath) {
           setSavedBgPath(config.backgroundImagePath);
-          // Download the image from storage
           loadBackgroundFromStorage(config.backgroundImagePath);
         }
         setDesignLoaded(true);
@@ -311,7 +313,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
         if (!printNode) continue;
 
         const canvas = await html2canvas(printNode, {
-          scale: 2,
+          scale: 1,
           useCORS: true,
           logging: false,
           backgroundColor: '#ffffff',
@@ -325,6 +327,20 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
 
       setProgress(100);
       pdf.save('Inviti_Cartacei_Nozze.pdf');
+
+      // Save printed party IDs to print_design
+      const newPrintedIds = [...new Set([...printedPartyIds, ...selectedPartyIds])];
+      setPrintedPartyIds(newPrintedIds);
+      const { data: wData } = await supabase
+        .from('weddings')
+        .select('print_design')
+        .eq('id', weddingId)
+        .single();
+      const existingConfig = (wData?.print_design as unknown as PrintDesignConfig) || {};
+      await supabase
+        .from('weddings')
+        .update({ print_design: { ...existingConfig, printed_party_ids: newPrintedIds } as any })
+        .eq('id', weddingId);
 
       await new Promise(resolve => setTimeout(resolve, 500));
       setIsSuccess(true);
@@ -428,6 +444,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
                   parties={parties}
                   selectedPartyIds={selectedPartyIds}
                   onSelectionChange={setSelectedPartyIds}
+                  printedPartyIds={printedPartyIds}
                 />
               )
             )}

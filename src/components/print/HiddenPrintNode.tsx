@@ -28,6 +28,11 @@ function formatTime(timeStr: string | null): string {
   return `${parts[0]}:${parts[1]}`;
 }
 
+// Native A5 at 300 DPI = 1748 x 2480 px
+// Scale factor from old 400px width: ~4.37
+const W = 1748;
+const H = 2480;
+
 const HiddenPrintNode = ({
   displayName,
   syncToken,
@@ -51,8 +56,8 @@ const HiddenPrintNode = ({
         position: 'fixed',
         top: '-9999px',
         left: '-9999px',
-        width: '400px',
-        height: `${Math.round(400 * 1.414)}px`,
+        width: `${W}px`,
+        height: `${H}px`,
         overflow: 'hidden',
         backgroundColor: '#ffffff',
         fontFamily,
@@ -99,7 +104,7 @@ const HiddenPrintNode = ({
         )}
       </div>
 
-      {/* BOTTOM HALF: Formal text */}
+      {/* BOTTOM HALF: Formal text — all sizes scaled ~4.37x */}
       <div
         style={{
           position: 'absolute',
@@ -111,58 +116,58 @@ const HiddenPrintNode = ({
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          padding: '12px 24px',
+          padding: '52px 105px',
           textAlign: 'center',
         }}
       >
-        <p style={{ fontSize: '11px', letterSpacing: '0.05em', color: '#888', marginBottom: '10px' }}>
+        <p style={{ fontSize: '48px', letterSpacing: '0.05em', color: '#888', marginBottom: '44px' }}>
           Cari <span style={{ fontWeight: 600 }}>{displayName}</span>
         </p>
-        <p style={{ fontSize: '18px', fontWeight: 600, color: '#1a1a1a', lineHeight: 1.3 }}>
+        <p style={{ fontSize: '79px', fontWeight: 600, color: '#1a1a1a', lineHeight: 1.3 }}>
           {weddingData.partner1Name} e {weddingData.partner2Name}
         </p>
-        <p style={{ fontSize: '11px', color: '#888', marginTop: '4px', marginBottom: '10px' }}>
+        <p style={{ fontSize: '48px', color: '#888', marginTop: '17px', marginBottom: '44px' }}>
           sono lieti di annunciare il loro matrimonio
         </p>
-        <p style={{ fontSize: '13px', fontWeight: 500, color: '#1a1a1a', textTransform: 'capitalize' }}>
+        <p style={{ fontSize: '57px', fontWeight: 500, color: '#1a1a1a', textTransform: 'capitalize' }}>
           {formattedDate}
         </p>
         {ceremonyTime && (
-          <p style={{ fontSize: '11px', color: '#888' }}>
+          <p style={{ fontSize: '48px', color: '#888' }}>
             alle ore {ceremonyTime}
           </p>
         )}
         {hasCeremony && (
-          <div style={{ marginTop: '8px' }}>
-            <p style={{ fontSize: '10px', color: '#888' }}>presso</p>
-            <p style={{ fontSize: '13px', fontWeight: 500, color: '#1a1a1a' }}>
+          <div style={{ marginTop: '35px' }}>
+            <p style={{ fontSize: '44px', color: '#888' }}>presso</p>
+            <p style={{ fontSize: '57px', fontWeight: 500, color: '#1a1a1a' }}>
               {weddingData.ceremonyVenueName}
             </p>
             {weddingData.ceremonyVenueAddress && (
-              <p style={{ fontSize: '9px', color: '#999' }}>{weddingData.ceremonyVenueAddress}</p>
+              <p style={{ fontSize: '39px', color: '#999' }}>{weddingData.ceremonyVenueAddress}</p>
             )}
           </div>
         )}
         {hasReception && (
-          <div style={{ marginTop: '8px' }}>
-            <p style={{ fontSize: '10px', color: '#888' }}>
+          <div style={{ marginTop: '35px' }}>
+            <p style={{ fontSize: '44px', color: '#888' }}>
               A seguire festeggeremo insieme presso
             </p>
-            <p style={{ fontSize: '13px', fontWeight: 500, color: '#1a1a1a' }}>
+            <p style={{ fontSize: '57px', fontWeight: 500, color: '#1a1a1a' }}>
               {weddingData.receptionVenueName}
             </p>
           </div>
         )}
         {syncToken ? (
-          <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ padding: '4px', backgroundColor: '#ffffff', borderRadius: '4px', border: '1px solid #eee' }}>
-              <QRCodeSVG value={rsvpUrl} size={50} />
+          <div style={{ marginTop: '44px', display: 'flex', alignItems: 'center', gap: '35px' }}>
+            <div style={{ padding: '17px', backgroundColor: '#ffffff', borderRadius: '17px', border: '4px solid #eee' }}>
+              <QRCodeSVG value={rsvpUrl} size={220} />
             </div>
             <div style={{ textAlign: 'left' }}>
-              <p style={{ fontSize: '7px', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#aaa' }}>
+              <p style={{ fontSize: '31px', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#aaa' }}>
                 Oppure visita il link:
               </p>
-              <p style={{ fontSize: '9px', fontFamily: 'monospace', fontWeight: 700, color: '#333' }}>
+              <p style={{ fontSize: '39px', fontFamily: 'monospace', fontWeight: 700, color: '#333' }}>
                 {shortLink}
               </p>
             </div>
