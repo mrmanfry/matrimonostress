@@ -19,6 +19,7 @@ import {
   ChevronDown,
   BarChart3,
   ChevronRight,
+  Printer,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -47,6 +48,7 @@ import { generateCateringReport } from "@/utils/pdfHelpers";
 import { CSVImportDialog } from "@/components/guests/CSVImportDialog";
 import { generateCSVTemplate, downloadCSV, exportGuestsToCSV } from "@/utils/csvHelpers";
 import { matchesFunnelFilter } from "@/lib/nucleusStatusHelper";
+import PrintInvitationEditor from "@/components/print/PrintInvitationEditor";
 
 interface Guest {
   id: string;
@@ -138,6 +140,7 @@ const Guests = () => {
   const [selectedPartiesForRSVP, setSelectedPartiesForRSVP] = useState<InviteParty[]>([]);
   const [analyticsSheetOpen, setAnalyticsSheetOpen] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
+  const [printEditorOpen, setPrintEditorOpen] = useState(false);
   
   // Selection state for multi-select
   const [selectedGuestIds, setSelectedGuestIds] = useState<Set<string>>(new Set());
@@ -1112,6 +1115,13 @@ const Guests = () => {
               <Smartphone className="w-4 h-4 mr-2" />
               Sincronizza Contatti
             </Button>
+            <Button
+              onClick={() => setPrintEditorOpen(true)}
+              variant="outline"
+            >
+              <Printer className="w-4 h-4 mr-2" />
+              Inviti Cartacei
+            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button>
@@ -1584,6 +1594,12 @@ const Guests = () => {
           setSingleGuestDialogOpen(false);
           loadData();
         }}
+      />
+
+      <PrintInvitationEditor
+        open={printEditorOpen}
+        onOpenChange={setPrintEditorOpen}
+        weddingId={wedding?.id || ""}
       />
     </div>
   );

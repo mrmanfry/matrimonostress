@@ -1,125 +1,63 @@
 
 
-# Piano: Feature "Inviti Cartacei" - Editor Visivo con Wizard 3 Step e Generazione PDF
+# Notifiche Email per Messaggi Chat (Planner ↔ Sposi)
 
-## Panoramica
+## Obiettivo
+Quando il planner invia un messaggio, gli sposi ricevono un'email di notifica. Quando gli sposi scrivono, il planner riceve un'email. Bidirezionale.
 
-Implementare un editor visivo completo per creare inviti cartacei personalizzati con QR code univoci per ogni nucleo familiare. L'editor sarà un wizard a 3 step: Design, Selezione Destinatari, Generazione PDF.
+## Approccio
 
-## Architettura dei Componenti
+### 1. Nuova Edge Function `notify-chat-message`
 
-```text
-Guests.tsx
-  └─ PrintInvitationEditor (Dialog fullscreen)
-       ├─ Step 1: PrintDesignStep (sidebar + anteprima)
-       ├─ Step 2: PrintAudienceStep (tabella selezione nuclei)
-       └─ Step 3: PrintGenerationStep (progress + download)
-```
+Creazione di `supabase/functions/notify-chat-message/index.ts` che:
 
-Nuovi file:
-- `src/components/print/PrintInvitationEditor.tsx` — Wizard container + stepper
-- `src/components/print/PrintDesignStep.tsx` — Sidebar controlli + anteprima foglio
-- `src/components/print/PrintAudienceStep.tsx` — Tabella selezione nuclei con filtri
-- `src/components/print/PrintGenerationStep.tsx` — Progress bar + success state
-- `src/components/print/HiddenPrintNode.tsx` — Div invisibile per rendering PDF
-- `src/lib/printNameResolver.ts` — Utility per generare displayName dei nuclei
+- Riceve `{ wedding_id, sender_id, content, visibility }` come payload
+- Usa il service role key per determinare chi notificare:
+  - Se il sender è un **planner/manager** → notifica tutti i **co_planner** del matrimonio
+  - Se il sender è un **co_planner** → notifica il **planner** del matrimonio
+- Ignora messaggi con `visibility = "couple"` per il planner (non li vede)
+- Recupera l'email dei destinatari via `auth.admin.getUserById()`
+- Invia email via Resend (già configurato) con template branded
+- Aggiunge un link diretto alla chat (`APP_URL/app/chat`)
+- Rate limiting: non invia se l'ultimo messaggio notificato allo stesso utente per lo stesso wedding è stato < 5 minuti fa (per evitare spam in conversazioni attive)
 
-Nuova dipendenza: `html2canvas` (jspdf e qrcode.react sono gia installati).
+### 2. Integrazione nel flusso di invio messaggio
 
-## Entry Point
+In `src/pages/Chat.tsx` e `src/pages/PlannerInbox.tsx`, dopo l'insert del messaggio (quando non c'è errore), invocare la edge function:
 
-Aggiungere nella toolbar della pagina Guests.tsx (accanto a "Sincronizza Contatti"), un bottone `<Printer />` "Inviti Cartacei" che apre il `PrintInvitationEditor` in un Dialog fullscreen.
-
-Stato da aggiungere in Guests.tsx:
-- `const [printEditorOpen, setPrintEditorOpen] = useState(false)`
-
-## Step 1 — Design (PrintDesignStep)
-
-Layout split: sidebar sinistra 30% + anteprima destra 70%.
-
-**Sidebar (controlli):**
-- Upload immagine sfondo → `URL.createObjectURL` per preview locale
-- Textarea "Testo di Benvenuto"
-- Select font: Elegante (Cormorant), Moderno (sans-serif), Romantico (cursive)
-- Switch "Mostra Safe Zone"
-
-**Anteprima (foglio A5):**
-- Container con `aspect-[1/1.414]`, max-w-[400px], shadow-xl, bg-white
-- Background-image dall'upload, object-cover
-- Overlay gradiente semitrasparente per leggibilità testo
-- Testo di benvenuto in alto/centro con font selezionato
-- Footer fisso in basso: box bianco semitrasparente con:
-  - "Gentilissima Famiglia Rossi" (mock)
-  - Placeholder QR code grigio
-  - "nozze.it/rsvp/token123" (mock)
-- Se Safe Zone attiva: bordo tratteggiato rosso inset 16px
-
-Tutto reattivo in tempo reale via state React.
-
-## Step 2 — Selezione Audience (PrintAudienceStep)
-
-Fetch dati da Supabase: `invite_parties` con guests annidati (stessa query usata in Guests.tsx).
-
-**Interface locale:**
 ```typescript
-interface PartyPrintTarget {
-  partyId: string;
-  displayName: string;
-  guestCount: number;
-  syncToken: string; // unique_rsvp_token del primo guest del party
-  rsvpStatus: 'pending' | 'confirmed' | 'declined';
-}
+// Dopo insert riuscito
+supabase.functions.invoke("notify-chat-message", {
+  body: { wedding_id: weddingId, sender_id: userId, content, visibility }
+});
 ```
 
-**Logica displayName** (`printNameResolver.ts`):
-1. Party con nome custom → usa `party_name`
-2. Party senza nome → concatena first_name dei membri ("Mario e Giulia")
-3. Guest singolo (senza party) → "Nome Cognome"
+Fire-and-forget (non blocca la UI).
 
-**UI:**
-- Tabs filtro: "Tutti i Nuclei" / "Solo In Attesa"
-- Tabella shadcn con colonne: Checkbox, Nome Invito (bold), Membri, Stato RSVP (Badge), Link QR (icona + token troncato)
-- Checkbox "Seleziona Tutti" nell'header
-- Footer: "Selezionati X inviti (Y ospiti)" + bottone "Conferma e Genera" (disabled se 0 selezionati)
+### 3. Tabella di throttling (opzionale ma consigliata)
 
-**Token QR:** Usa il `unique_rsvp_token` del primo guest adulto del party. Se nessun guest ha token, mostra warning.
+Per evitare email flood durante conversazioni in tempo reale, usare un approccio semplice nella edge function: controllare l'ultimo messaggio nella tabella `messages` per lo stesso wedding dove il sender è diverso dal destinatario, e inviare solo se non ci sono messaggi recenti (< 5 min) già notificati. Implementato interamente nella edge function senza nuove tabelle — usa un semplice check temporale sui messaggi esistenti.
 
-## Step 3 — Generazione PDF (PrintGenerationStep)
+### 4. Configurazione
 
-**Componente HiddenPrintNode:** div `position: fixed, top: -9999px` che replica il layout del foglio A5 ma con dati dinamici:
-- `displayName` del party corrente
-- `<QRCodeSVG value={https://wedsapp.it/rsvp/${syncToken}} size={100} />` con sfondo bianco forzato
-- Shortlink: `wedsapp.it/rsvp/${token.substring(0, 8)}`
+- `verify_jwt = false` in config.toml per la function (validazione JWT interna)
+- Usa secrets già disponibili: `RESEND_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `APP_URL`
 
-**Loop chunked asincrono:**
-```
-for each selectedParty:
-  1. setState(currentParty) → React re-renders HiddenPrintNode
-  2. await setTimeout(150ms) → breathing per UI
-  3. html2canvas(printNode, { scale: 2, useCORS: true })
-  4. pdf.addImage → pagina A5 (148x210mm)
-  5. update progress bar
-pdf.save('Inviti_Cartacei_Nozze.pdf')
-```
+## File da creare/modificare
 
-**UI Loading:** Progress bar shadcn, testo "Generazione invito: [Nome] (X di Y)... Non chiudere questa finestra."
+| File | Azione |
+|------|--------|
+| `supabase/functions/notify-chat-message/index.ts` | **Nuovo** — Edge function notifica email |
+| `supabase/config.toml` | Aggiungere config per la nuova function |
+| `src/pages/Chat.tsx` | Aggiungere invoke dopo invio messaggio |
+| `src/pages/PlannerInbox.tsx` | Aggiungere invoke dopo invio messaggio |
 
-**UI Success:** Checkmark verde, "Inviti Pronti!", bottone "Chiudi".
+## Template Email
 
-**Error handling:** try/catch con toast destructive, fallback a Step 2.
-
-**Prevenzione chiusura:** `onInteractOutside` bloccato durante step 3.
-
-**Cleanup on close:** reset di tutti gli state (step, progress, selections, immagine).
-
-## Riepilogo Task
-
-1. Installare `html2canvas`
-2. Creare `printNameResolver.ts`
-3. Creare `HiddenPrintNode.tsx`
-4. Creare `PrintDesignStep.tsx` (sidebar + anteprima)
-5. Creare `PrintAudienceStep.tsx` (tabella selezione)
-6. Creare `PrintGenerationStep.tsx` (progress + success)
-7. Creare `PrintInvitationEditor.tsx` (wizard container)
-8. Integrare in `Guests.tsx` con Dialog + bottone entry point
+Email semplice e branda con:
+- Header colorato (gradient indaco come le altre email)
+- "Hai un nuovo messaggio da [Nome Mittente]"
+- Preview del contenuto (troncato a ~200 char)
+- CTA "Vai alla Chat →"
+- Footer WedsApp
 
