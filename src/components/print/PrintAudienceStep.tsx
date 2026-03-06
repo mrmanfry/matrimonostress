@@ -26,12 +26,15 @@ const PrintAudienceStep = ({
   onSelectionChange,
   printedPartyIds = [],
 }: PrintAudienceStepProps) => {
-  const [filter, setFilter] = useState<'all' | 'pending'>('all');
+  const [filter, setFilter] = useState<'all' | 'pending' | 'not_printed'>('all');
+
+  const notPrintedCount = useMemo(() => parties.filter(p => !printedPartyIds.includes(p.partyId)).length, [parties, printedPartyIds]);
 
   const filtered = useMemo(() => {
     if (filter === 'pending') return parties.filter(p => p.rsvpStatus === 'pending');
+    if (filter === 'not_printed') return parties.filter(p => !printedPartyIds.includes(p.partyId));
     return parties;
-  }, [parties, filter]);
+  }, [parties, filter, printedPartyIds]);
 
   const allSelected = filtered.length > 0 && filtered.every(p => selectedPartyIds.includes(p.partyId));
 
