@@ -96,8 +96,13 @@ const PrintDesignStep = ({
   onFontStyleChange,
   showSafeZone,
   onShowSafeZoneChange,
-  weddingData,
+  weddingData: weddingDataProp,
 }: PrintDesignStepProps) => {
+  const weddingData = weddingDataProp ?? {
+    partner1Name: '', partner2Name: '', weddingDate: '',
+    ceremonyTime: null, ceremonyVenueName: null, ceremonyVenueAddress: null,
+    receptionVenueName: null, receptionVenueAddress: null, receptionTime: null,
+  };
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -108,7 +113,7 @@ const PrintDesignStep = ({
   };
 
   const fontFamily = FONT_MAP[fontStyle];
-  const formattedDate = formatWeddingDate(weddingData.weddingDate);
+  const formattedDate = weddingData.weddingDate ? formatWeddingDate(weddingData.weddingDate) : '';
   const ceremonyTime = formatTime(weddingData.ceremonyTime);
   const hasCeremony = !!weddingData.ceremonyVenueName;
   const hasReception = !!weddingData.receptionVenueName;
