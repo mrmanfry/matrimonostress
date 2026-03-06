@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
           { headers: corsHeaders }
         );
       }
-      recipientRoles = ["planner"];
+      recipientRoles = ["planner", "manager"];
     } else {
       return new Response(
         JSON.stringify({ skipped: true, reason: "role_not_handled" }),
