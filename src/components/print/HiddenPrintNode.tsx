@@ -1,26 +1,43 @@
 import { QRCodeSVG } from "qrcode.react";
+import { format, parseISO } from "date-fns";
+import { it } from "date-fns/locale";
+import type { WeddingPrintData } from "./PrintDesignStep";
 
 interface HiddenPrintNodeProps {
   displayName: string;
   syncToken: string;
-  welcomeText: string;
   fontFamily: string;
   backgroundImageUrl: string | null;
+  weddingData: WeddingPrintData;
+}
+
+function formatWeddingDate(dateStr: string): string {
+  try {
+    return format(parseISO(dateStr), "EEEE d MMMM yyyy", { locale: it });
+  } catch {
+    return dateStr;
+  }
+}
+
+function formatTime(timeStr: string | null): string {
+  if (!timeStr) return '';
+  const parts = timeStr.split(':');
+  return `${parts[0]}:${parts[1]}`;
 }
 
 const HiddenPrintNode = ({
   displayName,
   syncToken,
-  welcomeText,
   fontFamily,
   backgroundImageUrl,
+  weddingData,
 }: HiddenPrintNodeProps) => {
-  const rsvpUrl = syncToken
-    ? `https://wedsapp.it/rsvp/${syncToken}`
-    : '';
-  const shortLink = syncToken
-    ? `wedsapp.it/rsvp/${syncToken.substring(0, 8)}`
-    : '';
+  const rsvpUrl = syncToken ? `https://wedsapp.it/rsvp/${syncToken}` : '';
+  const shortLink = syncToken ? `wedsapp.it/rsvp/${syncToken.substring(0, 8)}` : '';
+  const formattedDate = formatWeddingDate(weddingData.weddingDate);
+  const ceremonyTime = formatTime(weddingData.ceremonyTime);
+  const hasCeremony = !!weddingData.ceremonyVenueName;
+  const hasReception = !!weddingData.receptionVenueName;
 
   return (
     <div
@@ -30,138 +47,111 @@ const HiddenPrintNode = ({
         top: '-9999px',
         left: '-9999px',
         width: '400px',
-        // A5 ratio: 1/1.414
         height: `${Math.round(400 * 1.414)}px`,
         overflow: 'hidden',
         backgroundColor: '#ffffff',
         fontFamily,
       }}
     >
-      {/* Background image */}
-      {backgroundImageUrl && (
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            backgroundImage: `url(${backgroundImageUrl})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-          }}
-        />
-      )}
+      {/* TOP HALF: Photo with watercolor edges */}
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '50%' }}>
+        {backgroundImageUrl ? (
+          <div
+            style={{
+              width: '100%',
+              height: '100%',
+              backgroundImage: `url(${backgroundImageUrl})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              WebkitMaskImage: 'linear-gradient(to bottom, black 60%, transparent 100%)',
+              maskImage: 'linear-gradient(to bottom, black 60%, transparent 100%)',
+            }}
+          />
+        ) : (
+          <div style={{ width: '100%', height: '100%', backgroundColor: '#f5f5f5' }} />
+        )}
+      </div>
 
-      {/* Gradient overlay for readability */}
+      {/* BOTTOM HALF: Formal text */}
       <div
         style={{
           position: 'absolute',
-          inset: 0,
-          background: backgroundImageUrl
-            ? 'linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.05) 40%, rgba(255,255,255,0.6) 75%, rgba(255,255,255,0.9) 100%)'
-            : 'transparent',
-        }}
-      />
-
-      {/* Content */}
-      <div
-        style={{
-          position: 'relative',
-          height: '100%',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: '50%',
           display: 'flex',
           flexDirection: 'column',
-          justifyContent: 'space-between',
-          padding: '32px 24px 20px',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '12px 24px',
+          textAlign: 'center',
         }}
       >
-        {/* Welcome text */}
-        <div style={{ textAlign: 'center', paddingTop: '24px' }}>
-          <p
-            style={{
-              fontSize: '18px',
-              lineHeight: '1.5',
-              color: backgroundImageUrl ? '#ffffff' : '#1a1a1a',
-              textShadow: backgroundImageUrl ? '0 1px 4px rgba(0,0,0,0.4)' : 'none',
-              whiteSpace: 'pre-line',
-            }}
-          >
-            {welcomeText}
-          </p>
-        </div>
+        {/* Guest name */}
+        <p style={{ fontSize: '11px', letterSpacing: '0.05em', color: '#888', marginBottom: '10px' }}>
+          Cari <span style={{ fontWeight: 600 }}>{displayName}</span>
+        </p>
 
-        {/* Footer block with family name + QR */}
-        <div
-          style={{
-            backgroundColor: 'rgba(255,255,255,0.95)',
-            borderRadius: '12px',
-            padding: '16px',
-            textAlign: 'center',
-          }}
-        >
-          <p
-            style={{
-              fontSize: '14px',
-              fontWeight: 600,
-              color: '#333',
-              marginBottom: '12px',
-              fontStyle: 'italic',
-            }}
-          >
-            Gentilissima {displayName}
-          </p>
+        {/* Couple names */}
+        <p style={{ fontSize: '18px', fontWeight: 600, color: '#1a1a1a', lineHeight: 1.3 }}>
+          {weddingData.partner1Name} e {weddingData.partner2Name}
+        </p>
+        <p style={{ fontSize: '11px', color: '#888', marginTop: '4px', marginBottom: '10px' }}>
+          sono lieti di annunciare il loro matrimonio
+        </p>
 
-          {syncToken ? (
-            <>
-              <div
-                style={{
-                  display: 'inline-block',
-                  padding: '8px',
-                  backgroundColor: '#ffffff',
-                  borderRadius: '8px',
-                }}
-              >
-                <QRCodeSVG value={rsvpUrl} size={100} />
-              </div>
-              <div style={{ marginTop: '8px' }}>
-                <p
-                  style={{
-                    fontSize: '8px',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.1em',
-                    color: '#888',
-                  }}
-                >
-                  Oppure visita il link:
-                </p>
-                <p
-                  style={{
-                    fontSize: '10px',
-                    fontFamily: 'monospace',
-                    fontWeight: 700,
-                    color: '#111',
-                  }}
-                >
-                  {shortLink}
-                </p>
-              </div>
-            </>
-          ) : (
-            <div
-              style={{
-                width: '100px',
-                height: '100px',
-                backgroundColor: '#e5e5e5',
-                borderRadius: '8px',
-                margin: '0 auto',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '10px',
-                color: '#999',
-              }}
-            >
-              Nessun QR
+        {/* Date & time */}
+        <p style={{ fontSize: '13px', fontWeight: 500, color: '#1a1a1a', textTransform: 'capitalize' }}>
+          {formattedDate}
+        </p>
+        {ceremonyTime && (
+          <p style={{ fontSize: '11px', color: '#888' }}>
+            alle ore {ceremonyTime}
+          </p>
+        )}
+
+        {/* Ceremony venue */}
+        {hasCeremony && (
+          <div style={{ marginTop: '8px' }}>
+            <p style={{ fontSize: '10px', color: '#888' }}>presso</p>
+            <p style={{ fontSize: '13px', fontWeight: 500, color: '#1a1a1a' }}>
+              {weddingData.ceremonyVenueName}
+            </p>
+            {weddingData.ceremonyVenueAddress && (
+              <p style={{ fontSize: '9px', color: '#999' }}>{weddingData.ceremonyVenueAddress}</p>
+            )}
+          </div>
+        )}
+
+        {/* Reception venue */}
+        {hasReception && (
+          <div style={{ marginTop: '8px' }}>
+            <p style={{ fontSize: '10px', color: '#888' }}>
+              A seguire festeggeremo insieme presso
+            </p>
+            <p style={{ fontSize: '13px', fontWeight: 500, color: '#1a1a1a' }}>
+              {weddingData.receptionVenueName}
+            </p>
+          </div>
+        )}
+
+        {/* QR code + shortlink */}
+        {syncToken ? (
+          <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ padding: '4px', backgroundColor: '#ffffff', borderRadius: '4px', border: '1px solid #eee' }}>
+              <QRCodeSVG value={rsvpUrl} size={50} />
             </div>
-          )}
-        </div>
+            <div style={{ textAlign: 'left' }}>
+              <p style={{ fontSize: '7px', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#aaa' }}>
+                Oppure visita il link:
+              </p>
+              <p style={{ fontSize: '9px', fontFamily: 'monospace', fontWeight: 700, color: '#333' }}>
+                {shortLink}
+              </p>
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );
