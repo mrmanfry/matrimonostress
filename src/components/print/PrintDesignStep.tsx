@@ -49,6 +49,8 @@ interface PrintDesignStepProps {
   weddingData: WeddingPrintData;
   imageTransform: ImageTransform;
   onImageTransformChange: (t: ImageTransform) => void;
+  edgeStyle: EdgeStyle;
+  onEdgeStyleChange: (s: EdgeStyle) => void;
 }
 
 export const FONT_MAP: Record<FontStyle, string> = {
