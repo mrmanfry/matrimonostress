@@ -1,63 +1,79 @@
 
+# Piano: Editor Immagine Canva-like per Inviti Cartacei
 
-# Notifiche Email per Messaggi Chat (Planner ↔ Sposi)
+## Cosa vuole l'utente
 
-## Obiettivo
-Quando il planner invia un messaggio, gli sposi ricevono un'email di notifica. Quando gli sposi scrivono, il planner riceve un'email. Bidirezionale.
+1. **Drag & Resize dell'immagine** nella metà superiore dell'invito — poter spostare e ridimensionare la foto dentro il contenitore
+2. **Guide di centratura** (linee rosse al centro orizzontale/verticale) che appaiono durante il drag, come Canva
+3. **Supporto PNG con trasparenza** — sfondo bianco del foglio visibile dove la PNG è trasparente, nessuno "stacco" visivo
 
-## Approccio
+## Approccio tecnico
 
-### 1. Nuova Edge Function `notify-chat-message`
+Nessuna libreria esterna necessaria. Implementiamo drag + resize con mouse/touch events nativi e stato React.
 
-Creazione di `supabase/functions/notify-chat-message/index.ts` che:
-
-- Riceve `{ wedding_id, sender_id, content, visibility }` come payload
-- Usa il service role key per determinare chi notificare:
-  - Se il sender è un **planner/manager** → notifica tutti i **co_planner** del matrimonio
-  - Se il sender è un **co_planner** → notifica il **planner** del matrimonio
-- Ignora messaggi con `visibility = "couple"` per il planner (non li vede)
-- Recupera l'email dei destinatari via `auth.admin.getUserById()`
-- Invia email via Resend (già configurato) con template branded
-- Aggiunge un link diretto alla chat (`APP_URL/app/chat`)
-- Rate limiting: non invia se l'ultimo messaggio notificato allo stesso utente per lo stesso wedding è stato < 5 minuti fa (per evitare spam in conversazioni attive)
-
-### 2. Integrazione nel flusso di invio messaggio
-
-In `src/pages/Chat.tsx` e `src/pages/PlannerInbox.tsx`, dopo l'insert del messaggio (quando non c'è errore), invocare la edge function:
+### Nuovo stato immagine (in PrintInvitationEditor)
 
 ```typescript
-// Dopo insert riuscito
-supabase.functions.invoke("notify-chat-message", {
-  body: { wedding_id: weddingId, sender_id: userId, content, visibility }
-});
+interface ImageTransform {
+  x: number;      // offset X in % (-50 to 50)
+  y: number;      // offset Y in % (-50 to 50)  
+  scale: number;  // 0.5 to 2.0
+}
 ```
 
-Fire-and-forget (non blocca la UI).
+Stato iniziale: `{ x: 0, y: 0, scale: 1 }`. Passato a `PrintDesignStep` e `HiddenPrintNode`.
 
-### 3. Tabella di throttling (opzionale ma consigliata)
+### Interazioni nella Preview (PrintDesignStep)
 
-Per evitare email flood durante conversazioni in tempo reale, usare un approccio semplice nella edge function: controllare l'ultimo messaggio nella tabella `messages` per lo stesso wedding dove il sender è diverso dal destinatario, e inviare solo se non ci sono messaggi recenti (< 5 min) già notificati. Implementato interamente nella edge function senza nuove tabelle — usa un semplice check temporale sui messaggi esistenti.
+**Drag per riposizionare:**
+- `onMouseDown` / `onTouchStart` sulla zona foto → traccia il delta di movimento
+- Aggiorna `x, y` del transform in tempo reale
+- Cursore `grab` / `grabbing`
 
-### 4. Configurazione
+**Slider per scala:**
+- Nella sidebar, aggiungere un `Slider` (shadcn) sotto l'upload foto: "Dimensione immagine" (range 50%-200%)
+- Controlla `transform.scale`
 
-- `verify_jwt = false` in config.toml per la function (validazione JWT interna)
-- Usa secrets già disponibili: `RESEND_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `APP_URL`
+**Guide di centratura (snap lines):**
+- Quando `|x| < 2` → mostra linea verticale rossa al centro
+- Quando `|y| < 2` → mostra linea orizzontale rossa al centro
+- Opzionale: snap magnetico quando vicino al centro
 
-## File da creare/modificare
+### Rendering dell'immagine (sia Preview che HiddenPrintNode)
 
-| File | Azione |
-|------|--------|
-| `supabase/functions/notify-chat-message/index.ts` | **Nuovo** — Edge function notifica email |
-| `supabase/config.toml` | Aggiungere config per la nuova function |
-| `src/pages/Chat.tsx` | Aggiungere invoke dopo invio messaggio |
-| `src/pages/PlannerInbox.tsx` | Aggiungere invoke dopo invio messaggio |
+Invece di `background-image` con `cover`, usiamo un `<img>` tag posizionato:
 
-## Template Email
+```css
+/* Container */
+position: relative; overflow: hidden;
 
-Email semplice e branda con:
-- Header colorato (gradient indaco come le altre email)
-- "Hai un nuovo messaggio da [Nome Mittente]"
-- Preview del contenuto (troncato a ~200 char)
-- CTA "Vai alla Chat →"
-- Footer WedsApp
+/* Immagine */
+position: absolute;
+left: 50%; top: 50%;
+transform: translate(calc(-50% + Xoffset), calc(-50% + Yoffset)) scale(S);
+/* Niente object-fit — l'immagine mantiene le sue dimensioni naturali */
+/* PNG con trasparenza: sfondo bianco del container traspare */
+```
+
+Il `mask-image` gradient viene applicato al **container**, non all'immagine, per mantenere l'effetto sfumato.
+
+### File modificati
+
+1. **`PrintInvitationEditor.tsx`** — Aggiungere stato `imageTransform`, passarlo a PrintDesignStep e HiddenPrintNode
+2. **`PrintDesignStep.tsx`** — Ridisegno zona foto:
+   - Immagine come `<img>` con `transform` dinamico
+   - Mouse drag handlers (`onMouseDown`, `onMouseMove`, `onMouseUp`)
+   - Guide di centratura (2 div assoluti rossi, visibili solo durante drag quando vicini al centro)
+   - Slider "Dimensione" nella sidebar
+   - Accept `.png` esplicitamente nell'input file
+3. **`HiddenPrintNode.tsx`** — Applicare stesso transform all'immagine per coerenza col PDF
+4. **`PrintDesignStep.tsx` props** — Aggiungere `imageTransform` e `onImageTransformChange`
+
+### Dettagli UX
+
+- Le guide rosse appaiono **solo durante il drag** e solo quando l'immagine è vicina al centro (threshold ~2%)
+- Snap magnetico opzionale: se entro 2% dal centro, scatta a 0
+- Il slider scala ha step di 0.05 per controllo fine
+- Il file input accetta `image/*` (include PNG)
+- La zona foto ha sfondo bianco, quindi PNG trasparenti si integrano naturalmente
 
