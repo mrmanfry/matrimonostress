@@ -18,6 +18,8 @@ import PrintGenerationStep from "./PrintGenerationStep";
 import HiddenPrintNode from "./HiddenPrintNode";
 import { useAuth } from "@/contexts/AuthContext";
 
+export type EdgeStyle = 'none' | 'watercolor' | 'soft';
+
 export interface ImageTransform {
   x: number;
   y: number;
