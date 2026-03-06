@@ -18,6 +18,12 @@ import PrintGenerationStep from "./PrintGenerationStep";
 import HiddenPrintNode from "./HiddenPrintNode";
 import { useAuth } from "@/contexts/AuthContext";
 
+export interface ImageTransform {
+  x: number;
+  y: number;
+  scale: number;
+}
+
 interface PrintInvitationEditorProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -39,6 +45,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
   const [backgroundImage, setBackgroundImage] = useState<string | null>(null);
   const [fontStyle, setFontStyle] = useState<FontStyle>('garamond');
   const [showSafeZone, setShowSafeZone] = useState(false);
+  const [imageTransform, setImageTransform] = useState<ImageTransform>({ x: 0, y: 0, scale: 1 });
 
   // Wedding data
   const [weddingData, setWeddingData] = useState<WeddingPrintData>({
@@ -250,6 +257,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
     setBackgroundImage(null);
     setFontStyle('garamond');
     setShowSafeZone(false);
+    setImageTransform({ x: 0, y: 0, scale: 1 });
     onOpenChange(false);
   };
 
@@ -305,6 +313,8 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
                 showSafeZone={showSafeZone}
                 onShowSafeZoneChange={setShowSafeZone}
                 weddingData={weddingData}
+                imageTransform={imageTransform}
+                onImageTransformChange={setImageTransform}
               />
             )}
 
@@ -374,6 +384,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
           fontFamily={fontFamily}
           backgroundImageUrl={bgDataUrlRef.current}
           weddingData={weddingData}
+          imageTransform={imageTransform}
         />
       )}
     </>
