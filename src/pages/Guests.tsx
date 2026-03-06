@@ -1595,6 +1595,12 @@ const Guests = () => {
           loadData();
         }}
       />
+
+      <PrintInvitationEditor
+        open={printEditorOpen}
+        onOpenChange={setPrintEditorOpen}
+        weddingId={wedding?.id || ""}
+      />
     </div>
   );
 };
