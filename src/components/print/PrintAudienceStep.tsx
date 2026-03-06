@@ -18,6 +18,7 @@ interface PrintAudienceStepProps {
   parties: PartyPrintTarget[];
   selectedPartyIds: string[];
   onSelectionChange: (ids: string[]) => void;
+  printedPartyIds?: string[];
 }
 
 const PrintAudienceStep = ({
