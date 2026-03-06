@@ -13,7 +13,7 @@ import {
 import { Upload, ImageIcon, RotateCcw } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
-import type { ImageTransform } from "./PrintInvitationEditor";
+import type { ImageTransform, EdgeStyle } from "./PrintInvitationEditor";
 
 export type FontStyle =
   | 'garamond'
