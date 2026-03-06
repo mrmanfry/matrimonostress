@@ -112,7 +112,17 @@ const PrintAudienceStep = ({
                       onCheckedChange={() => toggleOne(party.partyId)}
                     />
                   </TableCell>
-                  <TableCell className="font-semibold">{party.displayName}</TableCell>
+                  <TableCell className="font-semibold">
+                    <div className="flex items-center gap-2">
+                      {party.displayName}
+                      {printedPartyIds.includes(party.partyId) && (
+                        <Badge variant="outline" className="text-[10px] gap-1 px-1.5 py-0.5 text-muted-foreground border-muted-foreground/30">
+                          <Printer className="w-3 h-3" />
+                          PDF generato
+                        </Badge>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell className="text-center">{party.guestCount}</TableCell>
                   <TableCell className="text-center">{statusBadge(party.rsvpStatus)}</TableCell>
                   <TableCell className="text-center">
