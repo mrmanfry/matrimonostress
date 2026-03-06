@@ -48,6 +48,7 @@ import { generateCateringReport } from "@/utils/pdfHelpers";
 import { CSVImportDialog } from "@/components/guests/CSVImportDialog";
 import { generateCSVTemplate, downloadCSV, exportGuestsToCSV } from "@/utils/csvHelpers";
 import { matchesFunnelFilter } from "@/lib/nucleusStatusHelper";
+import PrintInvitationEditor from "@/components/print/PrintInvitationEditor";
 
 interface Guest {
   id: string;
