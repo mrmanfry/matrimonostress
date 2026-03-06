@@ -106,6 +106,8 @@ const PrintDesignStep = ({
   weddingData: weddingDataProp,
   imageTransform,
   onImageTransformChange,
+  edgeStyle,
+  onEdgeStyleChange,
 }: PrintDesignStepProps) => {
   const weddingData = weddingDataProp ?? {
     partner1Name: '', partner2Name: '', weddingDate: '',
