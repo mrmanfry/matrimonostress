@@ -48,6 +48,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
   const [fontStyle, setFontStyle] = useState<FontStyle>('garamond');
   const [showSafeZone, setShowSafeZone] = useState(false);
   const [imageTransform, setImageTransform] = useState<ImageTransform>({ x: 0, y: 0, scale: 1 });
+  const [edgeStyle, setEdgeStyle] = useState<EdgeStyle>('none');
 
   // Wedding data
   const [weddingData, setWeddingData] = useState<WeddingPrintData>({
