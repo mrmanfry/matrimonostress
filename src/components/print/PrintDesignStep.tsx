@@ -234,8 +234,8 @@ const PrintDesignStep = ({
             <Slider
               value={[imageTransform.scale]}
               onValueChange={([v]) => onImageTransformChange({ ...imageTransform, scale: v })}
-              min={0.5}
-              max={2}
+              min={0.2}
+              max={2.5}
               step={0.05}
             />
             <p className="text-[10px] text-muted-foreground">Trascina la foto nell'anteprima per riposizionarla</p>
