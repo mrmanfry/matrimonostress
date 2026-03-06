@@ -311,8 +311,14 @@ const PrintDesignStep = ({
               <div
                 className="absolute inset-0"
                 style={{
-                  WebkitMaskImage: 'radial-gradient(ellipse 85% 80% at 50% 45%, black 50%, transparent 95%)',
-                  maskImage: 'radial-gradient(ellipse 85% 80% at 50% 45%, black 50%, transparent 95%)',
+                  WebkitMaskImage: 'url(/images/watercolor-mask.png)',
+                  maskImage: 'url(/images/watercolor-mask.png)',
+                  WebkitMaskSize: 'cover',
+                  maskSize: 'cover',
+                  WebkitMaskPosition: 'center',
+                  maskPosition: 'center',
+                  WebkitMaskRepeat: 'no-repeat',
+                  maskRepeat: 'no-repeat',
                 }}
               >
                 <img
