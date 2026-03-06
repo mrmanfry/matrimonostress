@@ -1527,6 +1527,7 @@ export type Database = {
           location: string | null
           partner1_name: string
           partner2_name: string
+          print_design: Json | null
           reception_start_time: string | null
           reception_venue_address: string | null
           reception_venue_name: string | null
@@ -1563,6 +1564,7 @@ export type Database = {
           location?: string | null
           partner1_name: string
           partner2_name: string
+          print_design?: Json | null
           reception_start_time?: string | null
           reception_venue_address?: string | null
           reception_venue_name?: string | null
@@ -1599,6 +1601,7 @@ export type Database = {
           location?: string | null
           partner1_name?: string
           partner2_name?: string
+          print_design?: Json | null
           reception_start_time?: string | null
           reception_venue_address?: string | null
           reception_venue_name?: string | null
