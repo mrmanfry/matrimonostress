@@ -313,7 +313,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
         if (!printNode) continue;
 
         const canvas = await html2canvas(printNode, {
-          scale: 2,
+          scale: 1,
           useCORS: true,
           logging: false,
           backgroundColor: '#ffffff',
