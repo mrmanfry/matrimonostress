@@ -444,6 +444,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
                   parties={parties}
                   selectedPartyIds={selectedPartyIds}
                   onSelectionChange={setSelectedPartyIds}
+                  printedPartyIds={printedPartyIds}
                 />
               )
             )}
