@@ -234,8 +234,8 @@ const PrintDesignStep = ({
             <Slider
               value={[imageTransform.scale]}
               onValueChange={([v]) => onImageTransformChange({ ...imageTransform, scale: v })}
-              min={0.5}
-              max={2}
+              min={0.2}
+              max={2.5}
               step={0.05}
             />
             <p className="text-[10px] text-muted-foreground">Trascina la foto nell'anteprima per riposizionarla</p>
@@ -311,8 +311,8 @@ const PrintDesignStep = ({
               <div
                 className="absolute inset-0"
                 style={{
-                  WebkitMaskImage: 'linear-gradient(to bottom, black 60%, transparent 100%)',
-                  maskImage: 'linear-gradient(to bottom, black 60%, transparent 100%)',
+                  WebkitMaskImage: 'radial-gradient(ellipse 85% 80% at 50% 45%, black 50%, transparent 95%)',
+                  maskImage: 'radial-gradient(ellipse 85% 80% at 50% 45%, black 50%, transparent 95%)',
                 }}
               >
                 <img
