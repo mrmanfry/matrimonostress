@@ -2,7 +2,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { format, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
 import type { WeddingPrintData } from "./PrintDesignStep";
-import type { ImageTransform } from "./PrintInvitationEditor";
+import type { ImageTransform, EdgeStyle } from "./PrintInvitationEditor";
 
 interface HiddenPrintNodeProps {
   displayName: string;
