@@ -25,6 +25,7 @@ const PrintAudienceStep = ({
   parties,
   selectedPartyIds,
   onSelectionChange,
+  printedPartyIds = [],
 }: PrintAudienceStepProps) => {
   const [filter, setFilter] = useState<'all' | 'pending'>('all');
 
