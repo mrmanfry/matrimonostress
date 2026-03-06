@@ -319,6 +319,8 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
                 weddingData={weddingData}
                 imageTransform={imageTransform}
                 onImageTransformChange={setImageTransform}
+                edgeStyle={edgeStyle}
+                onEdgeStyleChange={setEdgeStyle}
               />
             )}
 
