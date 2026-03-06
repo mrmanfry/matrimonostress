@@ -2,7 +2,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { format, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
 import type { WeddingPrintData } from "./PrintDesignStep";
-import type { ImageTransform } from "./PrintInvitationEditor";
+import type { ImageTransform, EdgeStyle } from "./PrintInvitationEditor";
 
 interface HiddenPrintNodeProps {
   displayName: string;
@@ -11,6 +11,7 @@ interface HiddenPrintNodeProps {
   backgroundImageUrl: string | null;
   weddingData: WeddingPrintData;
   imageTransform: ImageTransform;
+  edgeStyle: EdgeStyle;
 }
 
 function formatWeddingDate(dateStr: string): string {
@@ -34,6 +35,7 @@ const HiddenPrintNode = ({
   backgroundImageUrl,
   weddingData,
   imageTransform,
+  edgeStyle,
 }: HiddenPrintNodeProps) => {
   const rsvpUrl = syncToken ? `https://wedsapp.it/rsvp/${syncToken}` : '';
   const shortLink = syncToken ? `wedsapp.it/rsvp/${syncToken.substring(0, 8)}` : '';
@@ -63,14 +65,19 @@ const HiddenPrintNode = ({
             style={{
               position: 'absolute',
               inset: 0,
-              WebkitMaskImage: 'url(/images/watercolor-mask.png)',
-              maskImage: 'url(/images/watercolor-mask.png)',
-              WebkitMaskSize: 'cover',
-              maskSize: 'cover',
-              WebkitMaskPosition: 'center',
-              maskPosition: 'center',
-              WebkitMaskRepeat: 'no-repeat',
-              maskRepeat: 'no-repeat',
+              ...(edgeStyle === 'watercolor' ? {
+                WebkitMaskImage: 'url(/images/watercolor-mask.png)',
+                maskImage: 'url(/images/watercolor-mask.png)',
+                WebkitMaskSize: 'cover',
+                maskSize: 'cover' as any,
+                WebkitMaskPosition: 'center',
+                maskPosition: 'center' as any,
+                WebkitMaskRepeat: 'no-repeat',
+                maskRepeat: 'no-repeat' as any,
+              } : edgeStyle === 'soft' ? {
+                WebkitMaskImage: 'radial-gradient(ellipse 85% 80% at 50% 45%, black 50%, transparent 95%)',
+                maskImage: 'radial-gradient(ellipse 85% 80% at 50% 45%, black 50%, transparent 95%)',
+              } : {}),
             }}
           >
             <img

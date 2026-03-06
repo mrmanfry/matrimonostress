@@ -13,7 +13,7 @@ import {
 import { Upload, ImageIcon, RotateCcw } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
-import type { ImageTransform } from "./PrintInvitationEditor";
+import type { ImageTransform, EdgeStyle } from "./PrintInvitationEditor";
 
 export type FontStyle =
   | 'garamond'
@@ -49,6 +49,8 @@ interface PrintDesignStepProps {
   weddingData: WeddingPrintData;
   imageTransform: ImageTransform;
   onImageTransformChange: (t: ImageTransform) => void;
+  edgeStyle: EdgeStyle;
+  onEdgeStyleChange: (s: EdgeStyle) => void;
 }
 
 export const FONT_MAP: Record<FontStyle, string> = {
@@ -104,6 +106,8 @@ const PrintDesignStep = ({
   weddingData: weddingDataProp,
   imageTransform,
   onImageTransformChange,
+  edgeStyle,
+  onEdgeStyleChange,
 }: PrintDesignStepProps) => {
   const weddingData = weddingDataProp ?? {
     partner1Name: '', partner2Name: '', weddingDate: '',
@@ -242,6 +246,23 @@ const PrintDesignStep = ({
           </div>
         )}
 
+        {/* Edge style selector */}
+        {backgroundImage && (
+          <div className="space-y-2">
+            <Label>Bordo immagine</Label>
+            <Select value={edgeStyle} onValueChange={(v) => onEdgeStyleChange(v as EdgeStyle)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Nessuno (Netto)</SelectItem>
+                <SelectItem value="watercolor">Acquerello</SelectItem>
+                <SelectItem value="soft">Sfumato morbido</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
         <div className="space-y-2">
           <Label>Stile Font</Label>
           <Select value={fontStyle} onValueChange={(v) => onFontStyleChange(v as FontStyle)}>
@@ -311,14 +332,19 @@ const PrintDesignStep = ({
               <div
                 className="absolute inset-0"
                 style={{
-                  WebkitMaskImage: 'url(/images/watercolor-mask.png)',
-                  maskImage: 'url(/images/watercolor-mask.png)',
-                  WebkitMaskSize: 'cover',
-                  maskSize: 'cover',
-                  WebkitMaskPosition: 'center',
-                  maskPosition: 'center',
-                  WebkitMaskRepeat: 'no-repeat',
-                  maskRepeat: 'no-repeat',
+                  ...(edgeStyle === 'watercolor' ? {
+                    WebkitMaskImage: 'url(/images/watercolor-mask.png)',
+                    maskImage: 'url(/images/watercolor-mask.png)',
+                    WebkitMaskSize: 'cover',
+                    maskSize: 'cover',
+                    WebkitMaskPosition: 'center',
+                    maskPosition: 'center',
+                    WebkitMaskRepeat: 'no-repeat',
+                    maskRepeat: 'no-repeat',
+                  } : edgeStyle === 'soft' ? {
+                    WebkitMaskImage: 'radial-gradient(ellipse 85% 80% at 50% 45%, black 50%, transparent 95%)',
+                    maskImage: 'radial-gradient(ellipse 85% 80% at 50% 45%, black 50%, transparent 95%)',
+                  } : {}),
                 }}
               >
                 <img

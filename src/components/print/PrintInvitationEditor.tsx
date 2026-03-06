@@ -18,6 +18,8 @@ import PrintGenerationStep from "./PrintGenerationStep";
 import HiddenPrintNode from "./HiddenPrintNode";
 import { useAuth } from "@/contexts/AuthContext";
 
+export type EdgeStyle = 'none' | 'watercolor' | 'soft';
+
 export interface ImageTransform {
   x: number;
   y: number;
@@ -46,6 +48,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
   const [fontStyle, setFontStyle] = useState<FontStyle>('garamond');
   const [showSafeZone, setShowSafeZone] = useState(false);
   const [imageTransform, setImageTransform] = useState<ImageTransform>({ x: 0, y: 0, scale: 1 });
+  const [edgeStyle, setEdgeStyle] = useState<EdgeStyle>('none');
 
   // Wedding data
   const [weddingData, setWeddingData] = useState<WeddingPrintData>({
@@ -258,6 +261,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
     setFontStyle('garamond');
     setShowSafeZone(false);
     setImageTransform({ x: 0, y: 0, scale: 1 });
+    setEdgeStyle('none');
     onOpenChange(false);
   };
 
@@ -315,6 +319,8 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
                 weddingData={weddingData}
                 imageTransform={imageTransform}
                 onImageTransformChange={setImageTransform}
+                edgeStyle={edgeStyle}
+                onEdgeStyleChange={setEdgeStyle}
               />
             )}
 
@@ -385,6 +391,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
           backgroundImageUrl={bgDataUrlRef.current}
           weddingData={weddingData}
           imageTransform={imageTransform}
+          edgeStyle={edgeStyle}
         />
       )}
     </>
