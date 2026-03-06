@@ -1,37 +1,63 @@
 
 
-## Plan: Persistere il design dell'invito cartaceo
+# Notifiche Email per Messaggi Chat (Planner ↔ Sposi)
 
-### Problema
-Quando l'utente chiude il wizard e lo riapre, tutte le impostazioni (foto, font, bordo, posizione/scala immagine) vengono resettate. L'utente deve ricominciare da capo ogni volta.
+## Obiettivo
+Quando il planner invia un messaggio, gli sposi ricevono un'email di notifica. Quando gli sposi scrivono, il planner riceve un'email. Bidirezionale.
 
-### Soluzione
-Salvare le impostazioni di design nel database e la foto nello storage, così alla riapertura il wizard ripristina l'ultimo stato.
+## Approccio
 
-### Implementazione
+### 1. Nuova Edge Function `notify-chat-message`
 
-**1. Migrazione database** — Aggiungere una colonna `print_design` (JSONB, nullable) alla tabella `weddings`:
-```json
-{
-  "fontStyle": "garamond",
-  "edgeStyle": "watercolor",
-  "imageTransform": { "x": 0, "y": 10, "scale": 0.8 },
-  "backgroundImagePath": "wedding-id/print_bg_1234.jpg"
-}
+Creazione di `supabase/functions/notify-chat-message/index.ts` che:
+
+- Riceve `{ wedding_id, sender_id, content, visibility }` come payload
+- Usa il service role key per determinare chi notificare:
+  - Se il sender è un **planner/manager** → notifica tutti i **co_planner** del matrimonio
+  - Se il sender è un **co_planner** → notifica il **planner** del matrimonio
+- Ignora messaggi con `visibility = "couple"` per il planner (non li vede)
+- Recupera l'email dei destinatari via `auth.admin.getUserById()`
+- Invia email via Resend (già configurato) con template branded
+- Aggiunge un link diretto alla chat (`APP_URL/app/chat`)
+- Rate limiting: non invia se l'ultimo messaggio notificato allo stesso utente per lo stesso wedding è stato < 5 minuti fa (per evitare spam in conversazioni attive)
+
+### 2. Integrazione nel flusso di invio messaggio
+
+In `src/pages/Chat.tsx` e `src/pages/PlannerInbox.tsx`, dopo l'insert del messaggio (quando non c'è errore), invocare la edge function:
+
+```typescript
+// Dopo insert riuscito
+supabase.functions.invoke("notify-chat-message", {
+  body: { wedding_id: weddingId, sender_id: userId, content, visibility }
+});
 ```
 
-**2. Storage bucket** — Creare un bucket `print-assets` (privato) per salvare la foto di sfondo dell'invito. Il path sarà `{weddingId}/print_bg_{timestamp}.{ext}`.
+Fire-and-forget (non blocca la UI).
 
-**3. Logica in `PrintInvitationEditor.tsx`**:
-- **Al mount (quando `open` diventa `true`)**: leggere `weddings.print_design`, caricare le impostazioni nello state, e scaricare la foto dallo storage per ricreare il blob URL.
-- **Al salvataggio**: quando l'utente cambia step (da 1 a 2) oppure clicca "Genera", fare un upsert delle impostazioni + upload della foto se cambiata.
-- **`handleClose`**: rimuovere solo lo state temporaneo (step, progress, selezione destinatari), NON resettare le impostazioni di design.
+### 3. Tabella di throttling (opzionale ma consigliata)
 
-**4. Upload foto** — Nel callback `onBackgroundChange` di `PrintDesignStep`, oltre a settare lo state locale, marcare la foto come "dirty" per l'upload successivo. L'upload effettivo avviene quando si avanza allo step 2 (così non si fanno upload inutili).
+Per evitare email flood durante conversazioni in tempo reale, usare un approccio semplice nella edge function: controllare l'ultimo messaggio nella tabella `messages` per lo stesso wedding dove il sender è diverso dal destinatario, e inviare solo se non ci sono messaggi recenti (< 5 min) già notificati. Implementato interamente nella edge function senza nuove tabelle — usa un semplice check temporale sui messaggi esistenti.
 
-**5. RLS** — Policy sulla colonna `print_design`: ereditata dalle policy esistenti sulla tabella `weddings` (già protetta). Per il bucket `print-assets`: policy che permette INSERT/SELECT/DELETE ai membri del wedding (stesse regole di `vendor-contracts`).
+### 4. Configurazione
 
-### File coinvolti
-- **Migrazione SQL**: nuova colonna + bucket + RLS policies
-- `src/components/print/PrintInvitationEditor.tsx`: logica load/save, rimozione reset design da `handleClose`
+- `verify_jwt = false` in config.toml per la function (validazione JWT interna)
+- Usa secrets già disponibili: `RESEND_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `APP_URL`
+
+## File da creare/modificare
+
+| File | Azione |
+|------|--------|
+| `supabase/functions/notify-chat-message/index.ts` | **Nuovo** — Edge function notifica email |
+| `supabase/config.toml` | Aggiungere config per la nuova function |
+| `src/pages/Chat.tsx` | Aggiungere invoke dopo invio messaggio |
+| `src/pages/PlannerInbox.tsx` | Aggiungere invoke dopo invio messaggio |
+
+## Template Email
+
+Email semplice e branda con:
+- Header colorato (gradient indaco come le altre email)
+- "Hai un nuovo messaggio da [Nome Mittente]"
+- Preview del contenuto (troncato a ~200 char)
+- CTA "Vai alla Chat →"
+- Footer WedsApp
 
