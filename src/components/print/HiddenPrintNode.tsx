@@ -35,6 +35,7 @@ const HiddenPrintNode = ({
   backgroundImageUrl,
   weddingData,
   imageTransform,
+  edgeStyle,
 }: HiddenPrintNodeProps) => {
   const rsvpUrl = syncToken ? `https://wedsapp.it/rsvp/${syncToken}` : '';
   const shortLink = syncToken ? `wedsapp.it/rsvp/${syncToken.substring(0, 8)}` : '';
