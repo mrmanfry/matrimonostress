@@ -439,13 +439,10 @@ const PrintDesignStep = ({
                 </p>
               </div>
             }
-            <div className="mt-3 flex items-center gap-2">
-              <div className="w-[40px] h-[40px] bg-muted/50 rounded flex items-center justify-center">
-                <ImageIcon className="w-4 h-4 text-muted-foreground/40" />
+            <div className="mt-3 flex items-center justify-center">
+              <div className="w-[32px] h-[32px] bg-muted/50 rounded flex items-center justify-center">
+                <ImageIcon className="w-3.5 h-3.5 text-muted-foreground/40" />
               </div>
-              
-
-              
             </div>
           </div>
         </div>
