@@ -159,17 +159,9 @@ const HiddenPrintNode = ({
           </div>
         )}
         {syncToken ? (
-          <div style={{ marginTop: '44px', display: 'flex', alignItems: 'center', gap: '35px' }}>
+          <div style={{ marginTop: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div style={{ padding: '17px', backgroundColor: '#ffffff', borderRadius: '17px', border: '4px solid #eee' }}>
-              <QRCodeSVG value={rsvpUrl} size={220} />
-            </div>
-            <div style={{ textAlign: 'left' }}>
-              <p style={{ fontSize: '31px', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#aaa' }}>
-                Oppure visita il link:
-              </p>
-              <p style={{ fontSize: '39px', fontFamily: 'monospace', fontWeight: 700, color: '#333' }}>
-                {shortLink}
-              </p>
+              <QRCodeSVG value={rsvpUrl} size={160} />
             </div>
           </div>
         ) : null}
