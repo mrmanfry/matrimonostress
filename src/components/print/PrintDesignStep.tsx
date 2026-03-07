@@ -8,24 +8,24 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  SelectValue } from
+"@/components/ui/select";
 import { Upload, ImageIcon, RotateCcw } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
 import type { ImageTransform, EdgeStyle } from "./PrintInvitationEditor";
 
 export type FontStyle =
-  | 'garamond'
-  | 'cormorant'
-  | 'playfair'
-  | 'lora'
-  | 'dancing'
-  | 'greatvibes'
-  | 'alex'
-  | 'lato'
-  | 'montserrat'
-  | 'josefin';
+'garamond' |
+'cormorant' |
+'playfair' |
+'lora' |
+'dancing' |
+'greatvibes' |
+'alex' |
+'lato' |
+'montserrat' |
+'josefin';
 
 export interface WeddingPrintData {
   partner1Name: string;
@@ -63,7 +63,7 @@ export const FONT_MAP: Record<FontStyle, string> = {
   alex: "'Alex Brush', cursive",
   lato: "'Lato', system-ui, sans-serif",
   montserrat: "'Montserrat', system-ui, sans-serif",
-  josefin: "'Josefin Sans', system-ui, sans-serif",
+  josefin: "'Josefin Sans', system-ui, sans-serif"
 };
 
 const FONT_LABELS: Record<FontStyle, string> = {
@@ -76,7 +76,7 @@ const FONT_LABELS: Record<FontStyle, string> = {
   alex: 'Alex Brush (Firma)',
   lato: 'Lato (Moderno)',
   montserrat: 'Montserrat (Contemporaneo)',
-  josefin: 'Josefin Sans (Minimalista)',
+  josefin: 'Josefin Sans (Minimalista)'
 };
 
 const SNAP_THRESHOLD = 2; // % threshold for snap guides
@@ -107,18 +107,18 @@ const PrintDesignStep = ({
   imageTransform,
   onImageTransformChange,
   edgeStyle,
-  onEdgeStyleChange,
+  onEdgeStyleChange
 }: PrintDesignStepProps) => {
   const weddingData = weddingDataProp ?? {
     partner1Name: '', partner2Name: '', weddingDate: '',
     ceremonyTime: null, ceremonyVenueName: null, ceremonyVenueAddress: null,
-    receptionVenueName: null, receptionVenueAddress: null, receptionTime: null,
+    receptionVenueName: null, receptionVenueAddress: null, receptionTime: null
   };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragContainerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const dragStartRef = useRef<{ startX: number; startY: number; startTx: number; startTy: number } | null>(null);
+  const dragStartRef = useRef<{startX: number;startY: number;startTx: number;startTy: number;} | null>(null);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -138,7 +138,7 @@ const PrintDesignStep = ({
       startX: e.clientX,
       startY: e.clientY,
       startTx: imageTransform.x,
-      startTy: imageTransform.y,
+      startTy: imageTransform.y
     };
   }, [backgroundImage, imageTransform.x, imageTransform.y]);
 
@@ -146,8 +146,8 @@ const PrintDesignStep = ({
     if (!isDragging || !dragStartRef.current || !dragContainerRef.current) return;
     e.preventDefault();
     const rect = dragContainerRef.current.getBoundingClientRect();
-    const dx = ((e.clientX - dragStartRef.current.startX) / rect.width) * 100;
-    const dy = ((e.clientY - dragStartRef.current.startY) / rect.height) * 100;
+    const dx = (e.clientX - dragStartRef.current.startX) / rect.width * 100;
+    const dy = (e.clientY - dragStartRef.current.startY) / rect.height * 100;
 
     let newX = dragStartRef.current.startTx + dx;
     let newY = dragStartRef.current.startTy + dy;
@@ -188,67 +188,67 @@ const PrintDesignStep = ({
             type="file"
             accept="image/*"
             className="hidden"
-            onChange={handleFileUpload}
-          />
-          {backgroundImage ? (
-            <div className="relative group">
+            onChange={handleFileUpload} />
+          
+          {backgroundImage ?
+          <div className="relative group">
               <img
-                src={backgroundImage}
-                alt="Foto invito"
-                className="w-full aspect-video object-cover rounded-lg border border-border"
-              />
+              src={backgroundImage}
+              alt="Foto invito"
+              className="w-full aspect-video object-cover rounded-lg border border-border" />
+            
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
                 <Button size="sm" variant="secondary" onClick={() => fileInputRef.current?.click()}>
                   Cambia
                 </Button>
-                <Button size="sm" variant="destructive" onClick={() => { onBackgroundChange(null); onImageTransformChange({ x: 0, y: 0, scale: 1 }); }}>
+                <Button size="sm" variant="destructive" onClick={() => {onBackgroundChange(null);onImageTransformChange({ x: 0, y: 0, scale: 1 });}}>
                   Rimuovi
                 </Button>
               </div>
-            </div>
-          ) : (
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="w-full aspect-video border-2 border-dashed border-muted rounded-lg flex flex-col items-center justify-center gap-2 text-muted-foreground hover:border-primary hover:text-primary transition-colors"
-            >
+            </div> :
+
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="w-full aspect-video border-2 border-dashed border-muted rounded-lg flex flex-col items-center justify-center gap-2 text-muted-foreground hover:border-primary hover:text-primary transition-colors">
+            
               <Upload className="w-6 h-6" />
               <span className="text-sm">Carica foto o PNG</span>
             </button>
-          )}
+          }
         </div>
 
         {/* Image scale slider */}
-        {backgroundImage && (
-          <div className="space-y-2">
+        {backgroundImage &&
+        <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label>Dimensione immagine</Label>
               <div className="flex items-center gap-1">
                 <span className="text-xs text-muted-foreground">{Math.round(imageTransform.scale * 100)}%</span>
                 <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  onClick={() => onImageTransformChange({ x: 0, y: 0, scale: 1 })}
-                  title="Ripristina posizione"
-                >
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={() => onImageTransformChange({ x: 0, y: 0, scale: 1 })}
+                title="Ripristina posizione">
+                
                   <RotateCcw className="w-3 h-3" />
                 </Button>
               </div>
             </div>
             <Slider
-              value={[imageTransform.scale]}
-              onValueChange={([v]) => onImageTransformChange({ ...imageTransform, scale: v })}
-              min={0.2}
-              max={2.5}
-              step={0.05}
-            />
+            value={[imageTransform.scale]}
+            onValueChange={([v]) => onImageTransformChange({ ...imageTransform, scale: v })}
+            min={0.2}
+            max={2.5}
+            step={0.05} />
+          
             <p className="text-[10px] text-muted-foreground">Trascina la foto nell'anteprima per riposizionarla</p>
           </div>
-        )}
+        }
 
         {/* Edge style selector */}
-        {backgroundImage && (
-          <div className="space-y-2">
+        {backgroundImage &&
+        <div className="space-y-2">
             <Label>Bordo immagine</Label>
             <Select value={edgeStyle} onValueChange={(v) => onEdgeStyleChange(v as EdgeStyle)}>
               <SelectTrigger>
@@ -261,7 +261,7 @@ const PrintDesignStep = ({
               </SelectContent>
             </Select>
           </div>
-        )}
+        }
 
         <div className="space-y-2">
           <Label>Stile Font</Label>
@@ -270,11 +270,11 @@ const PrintDesignStep = ({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {(Object.keys(FONT_LABELS) as FontStyle[]).map((key) => (
-                <SelectItem key={key} value={key}>
+              {(Object.keys(FONT_LABELS) as FontStyle[]).map((key) =>
+              <SelectItem key={key} value={key}>
                   <span style={{ fontFamily: FONT_MAP[key] }}>{FONT_LABELS[key]}</span>
                 </SelectItem>
-              ))}
+              )}
             </SelectContent>
           </Select>
         </div>
@@ -284,8 +284,8 @@ const PrintDesignStep = ({
           <Switch
             id="safe-zone"
             checked={showSafeZone}
-            onCheckedChange={onShowSafeZoneChange}
-          />
+            onCheckedChange={onShowSafeZoneChange} />
+          
         </div>
       </div>
 
@@ -297,20 +297,20 @@ const PrintDesignStep = ({
             width: '100%',
             maxWidth: '400px',
             aspectRatio: '1 / 1.414',
-            fontFamily,
-          }}
-        >
+            fontFamily
+          }}>
+          
           {/* Safe zone indicator */}
-          {showSafeZone && (
-            <div
-              className="absolute z-20 pointer-events-none"
-              style={{
-                inset: '16px',
-                border: '2px dashed hsl(var(--status-overdue))',
-                borderRadius: '4px',
-              }}
-            />
-          )}
+          {showSafeZone &&
+          <div
+            className="absolute z-20 pointer-events-none"
+            style={{
+              inset: '16px',
+              border: '2px dashed hsl(var(--status-overdue))',
+              borderRadius: '4px'
+            }} />
+
+          }
 
           {/* TOP HALF: Photo with drag support */}
           <div
@@ -318,71 +318,71 @@ const PrintDesignStep = ({
             className="absolute top-0 left-0 right-0"
             style={{
               height: '50%',
-              cursor: backgroundImage ? (isDragging ? 'grabbing' : 'grab') : 'default',
+              cursor: backgroundImage ? isDragging ? 'grabbing' : 'grab' : 'default',
               touchAction: 'none',
               overflow: 'hidden',
-              backgroundColor: '#ffffff',
+              backgroundColor: '#ffffff'
             }}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
-            onPointerCancel={handlePointerUp}
-          >
-            {backgroundImage ? (
-              <div
-                className="absolute inset-0"
-                style={{
-                  ...(edgeStyle === 'watercolor' ? {
-                    WebkitMaskImage: 'url(/images/watercolor-mask.png)',
-                    maskImage: 'url(/images/watercolor-mask.png)',
-                    WebkitMaskSize: 'cover',
-                    maskSize: 'cover',
-                    WebkitMaskPosition: 'center',
-                    maskPosition: 'center',
-                    WebkitMaskRepeat: 'no-repeat',
-                    maskRepeat: 'no-repeat',
-                  } : edgeStyle === 'soft' ? {
-                    WebkitMaskImage: 'radial-gradient(ellipse 85% 80% at 50% 45%, black 50%, transparent 95%)',
-                    maskImage: 'radial-gradient(ellipse 85% 80% at 50% 45%, black 50%, transparent 95%)',
-                  } : {}),
-                }}
-              >
+            onPointerCancel={handlePointerUp}>
+            
+            {backgroundImage ?
+            <div
+              className="absolute inset-0"
+              style={{
+                ...(edgeStyle === 'watercolor' ? {
+                  WebkitMaskImage: 'url(/images/watercolor-mask.png)',
+                  maskImage: 'url(/images/watercolor-mask.png)',
+                  WebkitMaskSize: 'cover',
+                  maskSize: 'cover',
+                  WebkitMaskPosition: 'center',
+                  maskPosition: 'center',
+                  WebkitMaskRepeat: 'no-repeat',
+                  maskRepeat: 'no-repeat'
+                } : edgeStyle === 'soft' ? {
+                  WebkitMaskImage: 'radial-gradient(ellipse 85% 80% at 50% 45%, black 50%, transparent 95%)',
+                  maskImage: 'radial-gradient(ellipse 85% 80% at 50% 45%, black 50%, transparent 95%)'
+                } : {})
+              }}>
+              
                 <img
-                  src={backgroundImage}
-                  alt=""
-                  draggable={false}
-                  style={{
-                    position: 'absolute',
-                    left: '50%',
-                    top: '50%',
-                    transform: `translate(calc(-50% + ${imageTransform.x}%), calc(-50% + ${imageTransform.y}%)) scale(${imageTransform.scale})`,
-                    minWidth: '100%',
-                    minHeight: '100%',
-                    objectFit: 'cover',
-                    pointerEvents: 'none',
-                    userSelect: 'none',
-                  }}
-                />
-              </div>
-            ) : (
-              <div className="w-full h-full bg-muted/30 flex items-center justify-center">
+                src={backgroundImage}
+                alt=""
+                draggable={false}
+                style={{
+                  position: 'absolute',
+                  left: '50%',
+                  top: '50%',
+                  transform: `translate(calc(-50% + ${imageTransform.x}%), calc(-50% + ${imageTransform.y}%)) scale(${imageTransform.scale})`,
+                  minWidth: '100%',
+                  minHeight: '100%',
+                  objectFit: 'cover',
+                  pointerEvents: 'none',
+                  userSelect: 'none'
+                }} />
+              
+              </div> :
+
+            <div className="w-full h-full bg-muted/30 flex items-center justify-center">
                 <ImageIcon className="w-12 h-12 text-muted-foreground/30" />
               </div>
-            )}
+            }
 
             {/* Snap guides */}
-            {showGuideV && (
-              <div
-                className="absolute top-0 bottom-0 z-30 pointer-events-none"
-                style={{ left: '50%', width: '1px', backgroundColor: 'hsl(0 80% 55%)' }}
-              />
-            )}
-            {showGuideH && (
-              <div
-                className="absolute left-0 right-0 z-30 pointer-events-none"
-                style={{ top: '50%', height: '1px', backgroundColor: 'hsl(0 80% 55%)' }}
-              />
-            )}
+            {showGuideV &&
+            <div
+              className="absolute top-0 bottom-0 z-30 pointer-events-none"
+              style={{ left: '50%', width: '1px', backgroundColor: 'hsl(0 80% 55%)' }} />
+
+            }
+            {showGuideH &&
+            <div
+              className="absolute left-0 right-0 z-30 pointer-events-none"
+              style={{ top: '50%', height: '1px', backgroundColor: 'hsl(0 80% 55%)' }} />
+
+            }
           </div>
 
           {/* Fold line */}
@@ -390,15 +390,15 @@ const PrintDesignStep = ({
             className="absolute left-[10%] right-[10%] z-10"
             style={{
               top: '50%',
-              borderTop: '1px dashed hsl(var(--muted-foreground) / 0.2)',
-            }}
-          />
+              borderTop: '1px dashed hsl(var(--muted-foreground) / 0.2)'
+            }} />
+          
 
           {/* BOTTOM HALF: Formal text */}
           <div
             className="absolute left-0 right-0 bottom-0 flex flex-col items-center justify-center px-6 text-center"
-            style={{ height: '50%' }}
-          >
+            style={{ height: '50%' }}>
+            
             <p className="text-xs tracking-wide text-muted-foreground mb-3" style={{ fontFamily }}>
               Cari <span className="font-semibold">Famiglia Rossi</span>
             </p>
@@ -411,26 +411,26 @@ const PrintDesignStep = ({
             <p className="text-sm font-medium text-foreground capitalize" style={{ fontFamily }}>
               {formattedDate || 'Sabato 15 giugno 2026'}
             </p>
-            {ceremonyTime && (
-              <p className="text-xs text-muted-foreground" style={{ fontFamily }}>
+            {ceremonyTime &&
+            <p className="text-xs text-muted-foreground" style={{ fontFamily }}>
                 alle ore {ceremonyTime}
               </p>
-            )}
-            {hasCeremony && (
-              <div className="mt-2">
+            }
+            {hasCeremony &&
+            <div className="mt-2">
                 <p className="text-xs text-muted-foreground" style={{ fontFamily }}>presso</p>
                 <p className="text-sm font-medium text-foreground" style={{ fontFamily }}>
                   {weddingData.ceremonyVenueName}
                 </p>
-                {weddingData.ceremonyVenueAddress && (
-                  <p className="text-[10px] text-muted-foreground" style={{ fontFamily }}>
+                {weddingData.ceremonyVenueAddress &&
+              <p className="text-[10px] text-muted-foreground" style={{ fontFamily }}>
                     {weddingData.ceremonyVenueAddress}
                   </p>
-                )}
+              }
               </div>
-            )}
-            {hasReception && (
-              <div className="mt-2">
+            }
+            {hasReception &&
+            <div className="mt-2">
                 <p className="text-xs text-muted-foreground" style={{ fontFamily }}>
                   A seguire festeggeremo insieme presso
                 </p>
@@ -438,20 +438,20 @@ const PrintDesignStep = ({
                   {weddingData.receptionVenueName}
                 </p>
               </div>
-            )}
+            }
             <div className="mt-3 flex items-center gap-2">
               <div className="w-[40px] h-[40px] bg-muted/50 rounded flex items-center justify-center">
                 <ImageIcon className="w-4 h-4 text-muted-foreground/40" />
               </div>
-              <p className="text-[8px] font-mono text-muted-foreground">
-                wedsapp.it/rsvp/abc12345
-              </p>
+              
+
+              
             </div>
           </div>
         </div>
       </div>
-    </div>
-  );
+    </div>);
+
 };
 
 export default PrintDesignStep;
