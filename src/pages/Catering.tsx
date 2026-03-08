@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { isConfirmed, isDeclined } from "@/lib/rsvpHelpers";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CateringKPIs } from "@/components/catering/CateringKPIs";
@@ -62,15 +63,29 @@ const Catering = () => {
         .select("id, name")
         .eq("wedding_id", weddingId);
 
-      // Fetch parties for nucleus names
+      // Fetch parties for nucleus names + rsvp_status
       const { data: parties } = await supabase
         .from("invite_parties")
-        .select("id, party_name")
+        .select("id, party_name, rsvp_status")
         .eq("wedding_id", weddingId);
 
       const tableMap = new Map((tables || []).map(t => [t.id, t.name]));
       const assignMap = new Map((assignments || []).map(a => [a.guest_id, a.table_id]));
       const partyMap = new Map((parties || []).map(p => [p.id, p.party_name]));
+      const partyStatusMap = new Map((parties || []).map(p => [p.id, p.rsvp_status as string]));
+
+      const deriveRsvpStatus = (guestRsvp: string | null, partyId: string | null): string => {
+        if (partyId && partyStatusMap.has(partyId)) {
+          const ps = partyStatusMap.get(partyId)!;
+          if (isConfirmed(ps)) return "confirmed";
+          if (isDeclined(ps)) return "declined";
+          return "pending";
+        }
+        // For guests without party (e.g. couple members), normalize their own status
+        if (isConfirmed(guestRsvp)) return "confirmed";
+        if (isDeclined(guestRsvp)) return "declined";
+        return "pending";
+      };
 
       const enriched: CateringGuestRow[] = (guestsData || []).map(g => ({
         id: g.id,
@@ -79,7 +94,7 @@ const Catering = () => {
         menu_choice: g.menu_choice,
         dietary_restrictions: g.dietary_restrictions,
         is_child: g.is_child,
-        rsvp_status: g.rsvp_status,
+        rsvp_status: deriveRsvpStatus(g.rsvp_status, g.party_id),
         notes: g.notes,
         table_name: assignMap.has(g.id) ? (tableMap.get(assignMap.get(g.id)!) || null) : null,
         party_name: g.party_id ? (partyMap.get(g.party_id) || null) : null,
