@@ -615,7 +615,7 @@ export function FormalInviteView({
                                   disabled={isReadOnly}
                                 />
                                 <span className="text-sm text-stone-600">{opt.label}</span>
-                              </label>
+                              </div>
                             ));
                           })()}
                         </div>
