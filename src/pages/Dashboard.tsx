@@ -632,6 +632,11 @@ const Dashboard = () => {
           );
         })()}
 
+        {/* Widget: Sito Web AI - solo per la coppia */}
+        {!isCollaborator && !isPlanner && (
+          <WebsiteGeneratorCard weddingId={wedding.id} />
+        )}
+
         {/* Widget 3: Azioni Urgenti */}
         <Card className="p-4 md:p-6">
           <div className="flex items-center gap-2 mb-4">
