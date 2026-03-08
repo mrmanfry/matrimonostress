@@ -595,7 +595,7 @@ export function FormalInviteView({
                                   }
                                   onCheckedChange={(checked) => {
                                     // Build updated member data in one shot to avoid stale state
-                                    const currentData = memberData[member.id] || {};
+                                    const currentData: MemberData = memberData[member.id] || { rsvpStatus: 'pending' };
                                     const updates: Partial<MemberData> = {};
                                     
                                     if (opt.id === "vegetariano") {
