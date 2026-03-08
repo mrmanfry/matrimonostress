@@ -1,63 +1,65 @@
 
 
-# Notifiche Email per Messaggi Chat (Planner ↔ Sposi)
+## Piano: Sezione Catering Management (Fase 1)
 
-## Obiettivo
-Quando il planner invia un messaggio, gli sposi ricevono un'email di notifica. Quando gli sposi scrivono, il planner riceve un'email. Bidirezionale.
+### Panoramica
 
-## Approccio
+Nuova pagina `/app/catering` con 3 tab: **Riepilogo** (KPI + analytics), **Dettaglio Ospiti** (tabella con tavoli), **Impostazioni Diete** (configurazione opzioni per RSVP). La configurazione dietetica vive dentro la pagina Catering stessa, non nelle Settings.
 
-### 1. Nuova Edge Function `notify-chat-message`
+### Migrazione DB
 
-Creazione di `supabase/functions/notify-chat-message/index.ts` che:
+Aggiungere colonna JSONB `catering_config` alla tabella `weddings` con default:
 
-- Riceve `{ wedding_id, sender_id, content, visibility }` come payload
-- Usa il service role key per determinare chi notificare:
-  - Se il sender è un **planner/manager** → notifica tutti i **co_planner** del matrimonio
-  - Se il sender è un **co_planner** → notifica il **planner** del matrimonio
-- Ignora messaggi con `visibility = "couple"` per il planner (non li vede)
-- Recupera l'email dei destinatari via `auth.admin.getUserById()`
-- Invia email via Resend (già configurato) con template branded
-- Aggiunge un link diretto alla chat (`APP_URL/app/chat`)
-- Rate limiting: non invia se l'ultimo messaggio notificato allo stesso utente per lo stesso wedding è stato < 5 minuti fa (per evitare spam in conversazioni attive)
-
-### 2. Integrazione nel flusso di invio messaggio
-
-In `src/pages/Chat.tsx` e `src/pages/PlannerInbox.tsx`, dopo l'insert del messaggio (quando non c'è errore), invocare la edge function:
-
-```typescript
-// Dopo insert riuscito
-supabase.functions.invoke("notify-chat-message", {
-  body: { wedding_id: weddingId, sender_id: userId, content, visibility }
-});
+```sql
+ALTER TABLE public.weddings 
+ADD COLUMN catering_config jsonb DEFAULT '{
+  "dietary_options": [
+    {"id": "vegetariano", "label": "Vegetariano", "enabled": true, "is_custom": false},
+    {"id": "vegano", "label": "Vegano", "enabled": true, "is_custom": false},
+    {"id": "celiaco", "label": "Celiaco / Senza Glutine", "enabled": true, "is_custom": false}
+  ],
+  "show_allergy_field": true,
+  "show_dietary_notes": true
+}'::jsonb;
 ```
 
-Fire-and-forget (non blocca la UI).
+### File da creare
 
-### 3. Tabella di throttling (opzionale ma consigliata)
+**`src/pages/Catering.tsx`** — Pagina principale con 3 tab:
+- **Riepilogo**: KPI cards (confermati, vegetariani, vegani, celiaci, con allergie, bambini, senza preferenza) + grafico a torta distribuzione diete
+- **Dettaglio Ospiti**: Tabella con colonne Nome, Nucleo, Tavolo, Dieta, Allergie/Intolleranze, Note, Adulto/Bambino. Filtri per tavolo e tipo dieta. Bottoni export Excel (CSV) e PDF
+- **Impostazioni**: Card con toggle per opzioni predefinite (Vegetariano, Vegano, Celiaco) + bottone "Aggiungi opzione custom" + switch per campo allergie e campo note. Pattern View/Edit. Salva su `weddings.catering_config`
 
-Per evitare email flood durante conversazioni in tempo reale, usare un approccio semplice nella edge function: controllare l'ultimo messaggio nella tabella `messages` per lo stesso wedding dove il sender è diverso dal destinatario, e inviare solo se non ci sono messaggi recenti (< 5 min) già notificati. Implementato interamente nella edge function senza nuove tabelle — usa un semplice check temporale sui messaggi esistenti.
+**`src/components/catering/CateringKPIs.tsx`** — Cards KPI con conteggi aggregati
 
-### 4. Configurazione
+**`src/components/catering/CateringGuestTable.tsx`** — Tabella ospiti con JOIN a `table_assignments` + `tables` per colonna tavolo
 
-- `verify_jwt = false` in config.toml per la function (validazione JWT interna)
-- Usa secrets già disponibili: `RESEND_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `APP_URL`
+**`src/components/catering/CateringByTable.tsx`** — Vista raggruppata per tavolo con subtotali dietetici per tavolo
 
-## File da creare/modificare
+**`src/components/catering/CateringDietarySettings.tsx`** — UI configurazione opzioni dietetiche (toggle standard + custom + campi liberi)
 
-| File | Azione |
-|------|--------|
-| `supabase/functions/notify-chat-message/index.ts` | **Nuovo** — Edge function notifica email |
-| `supabase/config.toml` | Aggiungere config per la nuova function |
-| `src/pages/Chat.tsx` | Aggiungere invoke dopo invio messaggio |
-| `src/pages/PlannerInbox.tsx` | Aggiungere invoke dopo invio messaggio |
+**`src/components/catering/CateringExportMenu.tsx`** — Dropdown con "Esporta CSV" e "Esporta PDF". Il CSV include foglio riepilogo aggregati (conteggi per tipo dieta, per tavolo)
 
-## Template Email
+### File da modificare
 
-Email semplice e branda con:
-- Header colorato (gradient indaco come le altre email)
-- "Hai un nuovo messaggio da [Nome Mittente]"
-- Preview del contenuto (troncato a ~200 char)
-- CTA "Vai alla Chat →"
-- Footer WedsApp
+**`src/App.tsx`** — Aggiungere route `catering` sotto `/app`
+
+**`src/pages/AppLayout.tsx`** — Aggiungere voce "Catering" con icona `Utensils` nella sidebar, tra "Tavoli" e "Timeline"
+
+**`src/components/rsvp/FormalInviteView.tsx`** — Rendere le checkbox dietetiche dinamiche: leggere `catering_config` dal wedding (passato come prop) e mostrare solo le opzioni con `enabled: true`, incluse quelle custom. Mantenere backward compatibility (se `catering_config` è null, mostrare Vegetariano/Vegano come default attuale)
+
+**`src/utils/pdfHelpers.ts`** — Estendere `generateCateringReport` per includere colonna Tavolo e sezione conteggi aggregati per tavolo
+
+### Dati e query
+
+La pagina Catering fa una query che unisce:
+- `guests` (filtro `wedding_id`, esclusi `is_couple_member` e `is_staff`)
+- `table_assignments` LEFT JOIN per ottenere `table_id`
+- `tables` LEFT JOIN per ottenere `name` del tavolo
+
+I campi dietetici letti da `guests`: `menu_choice`, `dietary_restrictions`, `rsvp_status`
+
+### Nessun impatto su permessi/RLS
+
+Si usano le RLS esistenti su `guests`, `tables`, `table_assignments`, `weddings`. Nessuna nuova tabella.
 
