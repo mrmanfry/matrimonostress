@@ -248,6 +248,7 @@ export default function RSVPPublic({ forceStdMode }: RSVPPublicProps) {
         stdConfig,
         faqs,
         giftInfo,
+        cateringConfig: wedding.catering_config || null,
         isReadOnly: false,
       };
 
