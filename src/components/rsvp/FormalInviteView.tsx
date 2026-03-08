@@ -138,6 +138,7 @@ export function FormalInviteView({
   theme,
   faqs,
   giftInfo,
+  cateringConfig,
   isReadOnly,
   isPreview,
   deadlineDate,
