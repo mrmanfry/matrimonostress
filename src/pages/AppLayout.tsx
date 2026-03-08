@@ -213,6 +213,7 @@ const AppLayoutInner = ({
       { name: "Messaggi", href: (isPlannerMode && isOnCockpit) ? "/app/inbox" : "/app/chat", icon: MessageCircle, badge: unreadCount },
       { name: "Calendario", href: "/app/calendar", icon: CalendarDays },
       { name: "Tavoli", href: "/app/tables", icon: UtensilsCrossed },
+      { name: "Catering", href: "/app/catering", icon: ChefHat },
       { name: "Timeline", href: "/app/timeline", icon: Calendar },
       { name: "Impostazioni", href: "/app/settings", icon: Settings },
     ];
