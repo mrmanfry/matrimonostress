@@ -74,6 +74,7 @@ interface RSVPData {
   } | null;
   faqs?: FAQItem[];
   giftInfo?: GiftInfo | null;
+  cateringConfig?: any;
   isReadOnly: boolean;
 }
 
