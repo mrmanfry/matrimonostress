@@ -12,50 +12,135 @@ export interface WeddingPromptData {
   cover_photo_url?: string | null;
 }
 
-export const generateWeddingPrompt = (data: WeddingPromptData): string => {
-  const names = `${data.partner1_name} & ${data.partner2_name}`;
+export interface WizardChoices {
+  style: string;
+  tone: string;
+  sections: {
+    story: boolean;
+    dressCode: boolean;
+    giftRegistry: boolean;
+    logistics: boolean;
+  };
+  enableRsvp: boolean;
+}
 
-  // Build location string from available venue data
-  const locationParts: string[] = [];
+export const DEFAULT_WIZARD_CHOICES: WizardChoices = {
+  style: "Classico ed Elegante",
+  tone: "Sobrio e Formale",
+  sections: {
+    story: false,
+    dressCode: false,
+    giftRegistry: false,
+    logistics: false,
+  },
+  enableRsvp: true,
+};
+
+const STYLE_MAP: Record<string, string> = {
+  "Classico ed Elegante":
+    "Classic & Elegant. Use refined serif fonts (e.g., Playfair Display) for headings, warm ivory/cream backgrounds, gold or champagne accents, and subtle ornamental details.",
+  "Moderno e Minimalista":
+    "Modern & Minimalist. Use clean sans-serif typography (e.g., DM Sans), generous whitespace, a neutral palette (white, charcoal, light grey) with one accent color, sharp lines.",
+  "Romantico e Floreale":
+    "Romantic & Floral. Use delicate serif or script fonts for headings, soft pastel tones (blush pink, dusty rose, sage green), subtle floral watercolor textures or borders.",
+  "Rustico e Boho":
+    "Rustic & Boho. Use earthy tones (terracotta, olive, warm sand), handwritten or slab-serif fonts, natural textures (linen, kraft paper feel), organic shapes.",
+};
+
+export const generateWeddingPrompt = (
+  data: WeddingPromptData,
+  choices: WizardChoices
+): string => {
+  const names = `${data.partner1_name} & ${data.partner2_name}`;
+  const styleInstruction = STYLE_MAP[choices.style] || STYLE_MAP["Classico ed Elegante"];
+
+  // Build venue/details block
+  const detailLines: string[] = [];
   if (data.ceremony_venue_name) {
-    locationParts.push(`Cerimonia: ${data.ceremony_venue_name}${data.ceremony_venue_address ? ` (${data.ceremony_venue_address})` : ""}`);
+    detailLines.push(
+      `   - Cerimonia: ${data.ceremony_venue_name}${data.ceremony_venue_address ? ` (${data.ceremony_venue_address})` : ""}`
+    );
   }
   if (data.reception_venue_name) {
-    locationParts.push(`Ricevimento: ${data.reception_venue_name}${data.reception_venue_address ? ` (${data.reception_venue_address})` : ""}`);
+    detailLines.push(
+      `   - Ricevimento: ${data.reception_venue_name}${data.reception_venue_address ? ` (${data.reception_venue_address})` : ""}`
+    );
   }
-  const locationBlock = locationParts.length > 0
-    ? `3. The Details: Display the event information:\n${locationParts.map(l => `   - ${l}`).join("\n")}${data.wedding_date ? `\n   - Data: ${data.wedding_date}` : ""}`
-    : data.wedding_date
-      ? `3. The Details: Display the event date "${data.wedding_date}". Add a placeholder for the venue details.`
-      : `3. The Details: Add elegant placeholders for date and venue details.`;
+  if (data.wedding_date) {
+    detailLines.push(`   - Data: ${data.wedding_date}`);
+  }
+
+  const detailsBlock =
+    detailLines.length > 0
+      ? `2. The Details (Mandatory): Display the event information:\n${detailLines.join("\n")}`
+      : `2. The Details (Mandatory): Add elegant placeholders for date and venue details.`;
+
+  // Conditional sections
+  const optionalSections: string[] = [];
+  let sectionNum = 3;
+  if (choices.sections.story) {
+    optionalSections.push(
+      `${sectionNum}. Our Story: A short, elegant timeline or paragraph about the couple. Use placeholder text.`
+    );
+    sectionNum++;
+  }
+  if (choices.sections.dressCode) {
+    optionalSections.push(
+      `${sectionNum}. Dress Code: Add a section indicating the required attire with a placeholder.`
+    );
+    sectionNum++;
+  }
+  if (choices.sections.giftRegistry) {
+    optionalSections.push(
+      `${sectionNum}. Wedding Registry: Add a polite section for gifts or IBAN payment details with placeholders.`
+    );
+    sectionNum++;
+  }
+  if (choices.sections.logistics) {
+    optionalSections.push(
+      `${sectionNum}. Logistics: Add placeholders for recommended hotels and transportation options.`
+    );
+    sectionNum++;
+  }
 
   const rsvpUrl = `https://matrimonostress.lovable.app/rsvp/${data.wedding_id}`;
+
+  const rsvpBlock = choices.enableRsvp
+    ? `
+CRITICAL FUNCTIONALITY (RSVP):
+Add an RSVP Section at the bottom with a prominent button labeled "Conferma la tua Presenza".
+The RSVP button MUST be a standard HTML <a> link that redirects EXACTLY to: ${rsvpUrl}
+Do NOT build a form for the RSVP, just use the external link provided above. Do not deviate from this URL.`
+    : `
+Do NOT add any RSVP buttons, forms, or sections anywhere on the website.`;
 
   return `
 Build a beautiful, modern, and mobile-responsive Wedding Website for ${names}.
 
-DESIGN INSTRUCTIONS:
-- Style: Elegant, romantic, minimalist. Use modern serif typography for headings (e.g., Playfair Display) and clean sans-serif for body text.
-- Color Palette: Soft pastel tones (warm white, blush pink, sage green accents) with dark elegant text.
-- Framework: Use Tailwind CSS and shadcn/ui. Ensure it looks perfect on mobile devices.
+DESIGN & THEME INSTRUCTIONS:
+- Visual Style: ${styleInstruction}
+- Framework: Use Tailwind CSS and shadcn/ui. Ensure perfect mobile responsiveness.
 - Add subtle scroll animations for a luxurious feel.
 
+COPYWRITING RULES (CRITICAL!):
+- Language: Strictly Italian.
+- Tone of Voice: ${choices.tone}.
+- STRICT CONSTRAINT: Do NOT use cheesy, cliché, or overly emotional romantic quotes (e.g., avoid phrases like "l'amore vince su tutto", "due anime un cuore", "favola d'amore").
+- Keep the text factual, refined, sophisticated, and elegant. Avoid long paragraphs. Less is more.
+
 REQUIRED SECTIONS:
-1. Hero Section: Full screen, showing the names "${names}"${data.wedding_date ? `, the date "${data.wedding_date}"` : ""}, and a romantic welcoming message.
-2. Our Story: A short elegant placeholder section for the couple's story with a timeline layout.
-${locationBlock}
-4. RSVP Section: A clear, prominent Call-to-Action section at the bottom.
-
-CRITICAL FUNCTIONALITY (RSVP):
-Add an RSVP button labeled "Conferma la tua Presenza". The RSVP button MUST be a standard HTML <a> link that redirects EXACTLY to: ${rsvpUrl}
-Do NOT build a form for the RSVP, just use the external link provided above. Do not deviate from this URL.
-
-LANGUAGE: All text content must be in Italian.
+1. Hero Section: Full screen, showing the names "${names}"${data.wedding_date ? `, the date "${data.wedding_date}"` : ""}, and a very brief, elegant welcome.
+${detailsBlock}
+${optionalSections.join("\n")}
+${rsvpBlock}
   `.trim();
 };
 
-export const buildLovableUrl = (data: WeddingPromptData): string => {
-  const prompt = generateWeddingPrompt(data);
+export const buildLovableUrl = (
+  data: WeddingPromptData,
+  choices: WizardChoices
+): string => {
+  const prompt = generateWeddingPrompt(data, choices);
   let url = `${LOVABLE_BASE_URL}${encodeURIComponent(prompt)}`;
 
   if (data.cover_photo_url) {
