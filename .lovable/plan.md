@@ -1,40 +1,63 @@
 
 
-## Plan: Website Setup Wizard + Dynamic Prompt Engineering
+# Notifiche Email per Messaggi Chat (Planner ↔ Sposi)
 
-### Overview
-Replace the simple confirmation dialog with a multi-step wizard that collects style, tone, section, and RSVP preferences before generating a dynamic Lovable prompt.
+## Obiettivo
+Quando il planner invia un messaggio, gli sposi ricevono un'email di notifica. Quando gli sposi scrivono, il planner riceve un'email. Bidirezionale.
 
-### Files to modify/create
+## Approccio
 
-**1. `src/lib/generateLovableUrl.ts`** — Update:
-- Add `WizardChoices` interface (`style`, `tone`, `sections: {story, dressCode, giftRegistry, logistics}`, `enableRsvp`)
-- Rewrite `generateWeddingPrompt(data, choices)` to use dynamic style/tone, conditional sections, negative copywriting rules ("no cheesy quotes"), and conditional RSVP block
-- Update `buildLovableUrl(data, choices)` signature to pass choices through
+### 1. Nuova Edge Function `notify-chat-message`
 
-**2. `src/components/website/WebsiteSetupWizard.tsx`** — New component (Dialog-based):
-- State: `WizardChoices` with defaults (`style: 'Classico ed Elegante'`, `tone: 'Sobrio e Formale'`, all sections off, `enableRsvp: true`)
-- On open: fetch wedding data from Supabase (same query as current dialog)
-- UI sections (all Italian):
-  - **Stile Visivo**: 4 selectable cards/RadioGroup (Classico ed Elegante, Moderno e Minimalista, Romantico e Floreale, Rustico e Boho)
-  - **Tono di Voce**: RadioGroup (Sobrio e Formale, Leggero e Divertente)
-  - **Sezioni del Sito**: 4 Checkboxes (La Nostra Storia, Dress Code, Lista Nozze, Alloggi e Trasporti)
-  - **RSVP**: Switch "Abilita ricezione RSVP dal sito web" (default ON)
-  - Warning block (same Italian copy about redirect + Lovable account)
-- Footer: "Annulla" + "Genera Sito Magico" button
-- On submit: `buildLovableUrl(weddingData, choices)` → `window.open` synchronously → close dialog
+Creazione di `supabase/functions/notify-chat-message/index.ts` che:
 
-**3. `src/components/website/WebsiteGeneratorCard.tsx`** — Update import:
-- Replace `WebsiteGeneratorDialog` with `WebsiteSetupWizard`
+- Riceve `{ wedding_id, sender_id, content, visibility }` come payload
+- Usa il service role key per determinare chi notificare:
+  - Se il sender è un **planner/manager** → notifica tutti i **co_planner** del matrimonio
+  - Se il sender è un **co_planner** → notifica il **planner** del matrimonio
+- Ignora messaggi con `visibility = "couple"` per il planner (non li vede)
+- Recupera l'email dei destinatari via `auth.admin.getUserById()`
+- Invia email via Resend (già configurato) con template branded
+- Aggiunge un link diretto alla chat (`APP_URL/app/chat`)
+- Rate limiting: non invia se l'ultimo messaggio notificato allo stesso utente per lo stesso wedding è stato < 5 minuti fa (per evitare spam in conversazioni attive)
 
-**4. Delete or keep `WebsiteGeneratorDialog.tsx`** — No longer needed, replaced by wizard. Will keep file but stop importing it.
+### 2. Integrazione nel flusso di invio messaggio
 
-### Prompt template key changes
-- Style mapped to design instructions (typography, color palette per style)
-- Tone injected + strict "COPYWRITING RULES" block forbidding cheesy/cliché phrases
-- Sections 3-6 conditionally included based on checkbox state
-- RSVP section conditionally included based on switch; when off, explicit "Do NOT add RSVP"
-- RSVP URL remains `https://matrimonostress.lovable.app/rsvp/${wedding_id}`
+In `src/pages/Chat.tsx` e `src/pages/PlannerInbox.tsx`, dopo l'insert del messaggio (quando non c'è errore), invocare la edge function:
 
-### No database changes needed
+```typescript
+// Dopo insert riuscito
+supabase.functions.invoke("notify-chat-message", {
+  body: { wedding_id: weddingId, sender_id: userId, content, visibility }
+});
+```
+
+Fire-and-forget (non blocca la UI).
+
+### 3. Tabella di throttling (opzionale ma consigliata)
+
+Per evitare email flood durante conversazioni in tempo reale, usare un approccio semplice nella edge function: controllare l'ultimo messaggio nella tabella `messages` per lo stesso wedding dove il sender è diverso dal destinatario, e inviare solo se non ci sono messaggi recenti (< 5 min) già notificati. Implementato interamente nella edge function senza nuove tabelle — usa un semplice check temporale sui messaggi esistenti.
+
+### 4. Configurazione
+
+- `verify_jwt = false` in config.toml per la function (validazione JWT interna)
+- Usa secrets già disponibili: `RESEND_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `APP_URL`
+
+## File da creare/modificare
+
+| File | Azione |
+|------|--------|
+| `supabase/functions/notify-chat-message/index.ts` | **Nuovo** — Edge function notifica email |
+| `supabase/config.toml` | Aggiungere config per la nuova function |
+| `src/pages/Chat.tsx` | Aggiungere invoke dopo invio messaggio |
+| `src/pages/PlannerInbox.tsx` | Aggiungere invoke dopo invio messaggio |
+
+## Template Email
+
+Email semplice e branda con:
+- Header colorato (gradient indaco come le altre email)
+- "Hai un nuovo messaggio da [Nome Mittente]"
+- Preview del contenuto (troncato a ~200 char)
+- CTA "Vai alla Chat →"
+- Footer WedsApp
 
