@@ -72,6 +72,20 @@ const Catering = () => {
       const tableMap = new Map((tables || []).map(t => [t.id, t.name]));
       const assignMap = new Map((assignments || []).map(a => [a.guest_id, a.table_id]));
       const partyMap = new Map((parties || []).map(p => [p.id, p.party_name]));
+      const partyStatusMap = new Map((parties || []).map(p => [p.id, p.rsvp_status as string]));
+
+      const deriveRsvpStatus = (guestRsvp: string | null, partyId: string | null): string => {
+        if (partyId && partyStatusMap.has(partyId)) {
+          const ps = partyStatusMap.get(partyId)!;
+          if (isConfirmed(ps)) return "confirmed";
+          if (isDeclined(ps)) return "declined";
+          return "pending";
+        }
+        // For guests without party (e.g. couple members), normalize their own status
+        if (isConfirmed(guestRsvp)) return "confirmed";
+        if (isDeclined(guestRsvp)) return "declined";
+        return "pending";
+      };
 
       const enriched: CateringGuestRow[] = (guestsData || []).map(g => ({
         id: g.id,
