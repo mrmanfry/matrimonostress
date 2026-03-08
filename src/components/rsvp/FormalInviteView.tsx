@@ -39,6 +39,19 @@ interface MemberData {
   plusOneMenu: string;
 }
 
+interface DietaryOptionConfig {
+  id: string;
+  label: string;
+  enabled: boolean;
+  is_custom: boolean;
+}
+
+interface CateringConfigProp {
+  dietary_options: DietaryOptionConfig[];
+  show_allergy_field: boolean;
+  show_dietary_notes: boolean;
+}
+
 interface FormalInviteViewProps {
   // Couple and date
   coupleName: string;
@@ -73,6 +86,9 @@ interface FormalInviteViewProps {
   // New sections
   faqs?: FAQItem[];
   giftInfo?: GiftInfo;
+
+  // Catering config (dynamic dietary options)
+  cateringConfig?: CateringConfigProp | null;
 
   // State
   isReadOnly?: boolean;
@@ -122,6 +138,7 @@ export function FormalInviteView({
   theme,
   faqs,
   giftInfo,
+  cateringConfig,
   isReadOnly,
   isPreview,
   deadlineDate,
@@ -562,38 +579,57 @@ export function FormalInviteView({
                           Preferenze alimentari
                         </p>
                         <div className="flex flex-wrap gap-3">
-                          <label className="flex items-center gap-2 cursor-pointer">
-                            <Checkbox
-                            checked={data?.isVegetarian || false}
-                            onCheckedChange={(checked) => {
-                              handleMemberFieldChange(member.id, 'isVegetarian', checked);
-                              if (checked) handleMemberFieldChange(member.id, 'isVegan', false);
-                            }}
-                            disabled={isReadOnly} />
-
-                            <span className="text-sm text-stone-600">Vegetariano</span>
-                          </label>
-                          <label className="flex items-center gap-2 cursor-pointer">
-                            <Checkbox
-                            checked={data?.isVegan || false}
-                            onCheckedChange={(checked) => {
-                              handleMemberFieldChange(member.id, 'isVegan', checked);
-                              if (checked) handleMemberFieldChange(member.id, 'isVegetarian', false);
-                            }}
-                            disabled={isReadOnly} />
-
-                            <span className="text-sm text-stone-600">Vegano</span>
-                          </label>
+                          {(() => {
+                            const defaultOptions = [
+                              { id: "vegetariano", label: "Vegetariano", enabled: true },
+                              { id: "vegano", label: "Vegano", enabled: true },
+                            ];
+                            const options = cateringConfig?.dietary_options?.filter(o => o.enabled) || defaultOptions;
+                            return options.map(opt => (
+                              <label key={opt.id} className="flex items-center gap-2 cursor-pointer">
+                                <Checkbox
+                                  checked={
+                                    opt.id === "vegetariano" ? (data?.isVegetarian || false) :
+                                    opt.id === "vegano" ? (data?.isVegan || false) :
+                                    data?.dietaryRestrictions?.includes(opt.label) || false
+                                  }
+                                  onCheckedChange={(checked) => {
+                                    if (opt.id === "vegetariano") {
+                                      handleMemberFieldChange(member.id, 'isVegetarian', checked);
+                                      if (checked) handleMemberFieldChange(member.id, 'isVegan', false);
+                                    } else if (opt.id === "vegano") {
+                                      handleMemberFieldChange(member.id, 'isVegan', checked);
+                                      if (checked) handleMemberFieldChange(member.id, 'isVegetarian', false);
+                                    } else {
+                                      // For custom/celiaco options, append to dietary restrictions
+                                      const current = data?.dietaryRestrictions || "";
+                                      if (checked) {
+                                        const updated = current ? `${current}, ${opt.label}` : opt.label;
+                                        handleMemberFieldChange(member.id, 'dietaryRestrictions', updated);
+                                      } else {
+                                        const updated = current.split(",").map(s => s.trim()).filter(s => s !== opt.label).join(", ");
+                                        handleMemberFieldChange(member.id, 'dietaryRestrictions', updated);
+                                      }
+                                    }
+                                  }}
+                                  disabled={isReadOnly}
+                                />
+                                <span className="text-sm text-stone-600">{opt.label}</span>
+                              </label>
+                            ));
+                          })()}
                         </div>
                         
-                        {/* Allergies */}
-                        <Input
-                        placeholder="Allergie o intolleranze..."
-                        value={data?.dietaryRestrictions || ""}
-                        onChange={(e) => handleMemberFieldChange(member.id, 'dietaryRestrictions', e.target.value)}
-                        disabled={isReadOnly}
-                        className="text-sm" />
-
+                        {/* Allergies - only show if configured */}
+                        {(cateringConfig?.show_allergy_field !== false) && (
+                          <Input
+                            placeholder="Allergie o intolleranze..."
+                            value={data?.dietaryRestrictions || ""}
+                            onChange={(e) => handleMemberFieldChange(member.id, 'dietaryRestrictions', e.target.value)}
+                            disabled={isReadOnly}
+                            className="text-sm"
+                          />
+                        )}
                       </div>
 
                       {/* Plus One (if allowed) */}

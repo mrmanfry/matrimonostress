@@ -1516,6 +1516,7 @@ export type Database = {
           access_code: string | null
           calculation_mode: string | null
           campaigns_config: Json | null
+          catering_config: Json | null
           ceremony_start_time: string | null
           ceremony_venue_address: string | null
           ceremony_venue_name: string | null
@@ -1553,6 +1554,7 @@ export type Database = {
           access_code?: string | null
           calculation_mode?: string | null
           campaigns_config?: Json | null
+          catering_config?: Json | null
           ceremony_start_time?: string | null
           ceremony_venue_address?: string | null
           ceremony_venue_name?: string | null
@@ -1590,6 +1592,7 @@ export type Database = {
           access_code?: string | null
           calculation_mode?: string | null
           campaigns_config?: Json | null
+          catering_config?: Json | null
           ceremony_start_time?: string | null
           ceremony_venue_address?: string | null
           ceremony_venue_name?: string | null
