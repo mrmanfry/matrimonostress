@@ -36,7 +36,7 @@ const WebsiteGeneratorDialog = ({ weddingId, open, onOpenChange }: Props) => {
 
   const handleProceed = () => {
     if (!weddingData) return;
-    const url = buildLovableUrl(weddingData);
+    const url = buildLovableUrl(weddingData, DEFAULT_WIZARD_CHOICES);
     window.open(url, "_blank");
     onOpenChange(false);
   };
