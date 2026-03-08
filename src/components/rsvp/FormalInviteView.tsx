@@ -39,6 +39,19 @@ interface MemberData {
   plusOneMenu: string;
 }
 
+interface DietaryOptionConfig {
+  id: string;
+  label: string;
+  enabled: boolean;
+  is_custom: boolean;
+}
+
+interface CateringConfigProp {
+  dietary_options: DietaryOptionConfig[];
+  show_allergy_field: boolean;
+  show_dietary_notes: boolean;
+}
+
 interface FormalInviteViewProps {
   // Couple and date
   coupleName: string;
@@ -73,6 +86,9 @@ interface FormalInviteViewProps {
   // New sections
   faqs?: FAQItem[];
   giftInfo?: GiftInfo;
+
+  // Catering config (dynamic dietary options)
+  cateringConfig?: CateringConfigProp | null;
 
   // State
   isReadOnly?: boolean;
