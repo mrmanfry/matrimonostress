@@ -20,6 +20,7 @@ import VendorDetails from "./pages/VendorDetails";
 import Checklist from "./pages/Checklist";
 import Settings from "./pages/Settings";
 import Tables from "./pages/Tables";
+import Catering from "./pages/Catering";
 import Timeline from "./pages/Timeline";
 import TimelinePublic from "./pages/TimelinePublic";
 import ProgressPublic from "./pages/ProgressPublic";
