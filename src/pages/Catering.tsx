@@ -94,7 +94,7 @@ const Catering = () => {
         menu_choice: g.menu_choice,
         dietary_restrictions: g.dietary_restrictions,
         is_child: g.is_child,
-        rsvp_status: g.rsvp_status,
+        rsvp_status: deriveRsvpStatus(g.rsvp_status, g.party_id),
         notes: g.notes,
         table_name: assignMap.has(g.id) ? (tableMap.get(assignMap.get(g.id)!) || null) : null,
         party_name: g.party_id ? (partyMap.get(g.party_id) || null) : null,
