@@ -143,7 +143,7 @@ Deno.serve(async (req) => {
         // Get wedding data - including campaigns_config, venue details, and timing
         const { data: wedding } = await supabase
           .from("weddings")
-          .select("partner1_name, partner2_name, wedding_date, rsvp_config, campaigns_config, location, ceremony_start_time, timezone, ceremony_venue_name, ceremony_venue_address, reception_venue_name, reception_venue_address, reception_start_time")
+          .select("partner1_name, partner2_name, wedding_date, rsvp_config, campaigns_config, catering_config, location, ceremony_start_time, timezone, ceremony_venue_name, ceremony_venue_address, reception_venue_name, reception_venue_address, reception_start_time")
           .eq("id", weddingId)
           .single();
 
@@ -241,6 +241,7 @@ Deno.serve(async (req) => {
           theme,
           faqs: faqsData,
           giftInfo: giftInfoData,
+          cateringConfig: wedding?.catering_config || null,
           isReadOnly,
         }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },

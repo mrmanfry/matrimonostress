@@ -74,6 +74,7 @@ interface RSVPData {
   } | null;
   faqs?: FAQItem[];
   giftInfo?: GiftInfo | null;
+  cateringConfig?: any;
   isReadOnly: boolean;
 }
 
@@ -248,6 +249,7 @@ export default function RSVPPublic({ forceStdMode }: RSVPPublicProps) {
         stdConfig,
         faqs,
         giftInfo,
+        cateringConfig: wedding.catering_config || null,
         isReadOnly: false,
       };
 
@@ -482,6 +484,7 @@ export default function RSVPPublic({ forceStdMode }: RSVPPublicProps) {
       theme={rsvpData.theme}
       faqs={rsvpData.faqs}
       giftInfo={rsvpData.giftInfo || undefined}
+      cateringConfig={rsvpData.cateringConfig || undefined}
       isReadOnly={isReadOnly}
       isPreview={isPreview}
       deadlineDate={config.deadline_date}

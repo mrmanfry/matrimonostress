@@ -586,7 +586,7 @@ export function FormalInviteView({
                             ];
                             const options = cateringConfig?.dietary_options?.filter(o => o.enabled) || defaultOptions;
                             return options.map(opt => (
-                              <label key={opt.id} className="flex items-center gap-2 cursor-pointer">
+                              <div key={opt.id} className="flex items-center gap-2 cursor-pointer">
                                 <Checkbox
                                   checked={
                                     opt.id === "vegetariano" ? (data?.isVegetarian || false) :
@@ -615,7 +615,7 @@ export function FormalInviteView({
                                   disabled={isReadOnly}
                                 />
                                 <span className="text-sm text-stone-600">{opt.label}</span>
-                              </label>
+                              </div>
                             ));
                           })()}
                         </div>
@@ -635,7 +635,7 @@ export function FormalInviteView({
                       {/* Plus One (if allowed) */}
                       {member.allow_plus_one &&
                     <div className="space-y-3 pt-2 border-t border-stone-100">
-                          <label className="flex items-center gap-2 cursor-pointer">
+                          <div className="flex items-center gap-2 cursor-pointer">
                             <Checkbox
                           checked={data?.hasPlusOne || false}
                           onCheckedChange={(checked) => handleMemberFieldChange(member.id, 'hasPlusOne', checked)}
@@ -645,7 +645,7 @@ export function FormalInviteView({
                               <UserPlus className="w-4 h-4" />
                               Porto un accompagnatore
                             </span>
-                          </label>
+                          </div>
 
                           {data?.hasPlusOne &&
                       <div className="space-y-2 pl-6">
@@ -657,22 +657,22 @@ export function FormalInviteView({
                           className="text-sm" />
 
                               <div className="flex flex-wrap gap-3">
-                                <label className="flex items-center gap-2 cursor-pointer text-xs text-stone-500">
-                                  <Checkbox
-                              checked={data?.plusOneMenu === "vegetariano"}
-                              onCheckedChange={(checked) => handleMemberFieldChange(member.id, 'plusOneMenu', checked ? "vegetariano" : "")}
-                              disabled={isReadOnly} />
-
-                                  Vegetariano
-                                </label>
-                                <label className="flex items-center gap-2 cursor-pointer text-xs text-stone-500">
-                                  <Checkbox
-                              checked={data?.plusOneMenu === "vegano"}
-                              onCheckedChange={(checked) => handleMemberFieldChange(member.id, 'plusOneMenu', checked ? "vegano" : "")}
-                              disabled={isReadOnly} />
-
-                                  Vegano
-                                </label>
+                                {(() => {
+                                  const defaultPlusOneOptions = [
+                                    { id: "vegetariano", label: "Vegetariano", enabled: true },
+                                    { id: "vegano", label: "Vegano", enabled: true },
+                                  ];
+                                  const plusOneOptions = cateringConfig?.dietary_options?.filter(o => o.enabled) || defaultPlusOneOptions;
+                                  return plusOneOptions.map(opt => (
+                                    <div key={opt.id} className="flex items-center gap-2 cursor-pointer text-xs text-stone-500">
+                                      <Checkbox
+                                        checked={data?.plusOneMenu === opt.id}
+                                        onCheckedChange={(checked) => handleMemberFieldChange(member.id, 'plusOneMenu', checked ? opt.id : "")}
+                                        disabled={isReadOnly} />
+                                      {opt.label}
+                                    </div>
+                                  ));
+                                })()}
                               </div>
                             </div>
                       }
