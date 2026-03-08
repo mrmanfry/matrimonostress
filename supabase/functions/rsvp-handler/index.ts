@@ -241,6 +241,7 @@ Deno.serve(async (req) => {
           theme,
           faqs: faqsData,
           giftInfo: giftInfoData,
+          cateringConfig: wedding?.catering_config || null,
           isReadOnly,
         }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },

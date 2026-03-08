@@ -482,6 +482,7 @@ export default function RSVPPublic({ forceStdMode }: RSVPPublicProps) {
       theme={rsvpData.theme}
       faqs={rsvpData.faqs}
       giftInfo={rsvpData.giftInfo || undefined}
+      cateringConfig={(rsvpData as any).cateringConfig || undefined}
       isReadOnly={isReadOnly}
       isPreview={isPreview}
       deadlineDate={config.deadline_date}
