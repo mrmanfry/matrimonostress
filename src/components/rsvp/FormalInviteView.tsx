@@ -594,23 +594,31 @@ export function FormalInviteView({
                                     data?.dietaryRestrictions?.includes(opt.label) || false
                                   }
                                   onCheckedChange={(checked) => {
+                                    // Build updated member data in one shot to avoid stale state
+                                    const currentData = memberData[member.id] || {};
+                                    const updates: Partial<MemberData> = {};
+                                    
                                     if (opt.id === "vegetariano") {
-                                      handleMemberFieldChange(member.id, 'isVegetarian', checked);
-                                      if (checked) handleMemberFieldChange(member.id, 'isVegan', false);
+                                      updates.isVegetarian = !!checked;
                                     } else if (opt.id === "vegano") {
-                                      handleMemberFieldChange(member.id, 'isVegan', checked);
-                                      if (checked) handleMemberFieldChange(member.id, 'isVegetarian', false);
+                                      updates.isVegan = !!checked;
                                     } else {
-                                      // For custom/celiaco options, append to dietary restrictions
-                                      const current = data?.dietaryRestrictions || "";
+                                      // For custom options (celiaco, etc.), toggle in dietaryRestrictions
+                                      const current = currentData.dietaryRestrictions || "";
+                                      const items = current.split(",").map(s => s.trim()).filter(Boolean);
                                       if (checked) {
-                                        const updated = current ? `${current}, ${opt.label}` : opt.label;
-                                        handleMemberFieldChange(member.id, 'dietaryRestrictions', updated);
+                                        if (!items.includes(opt.label)) items.push(opt.label);
                                       } else {
-                                        const updated = current.split(",").map(s => s.trim()).filter(s => s !== opt.label).join(", ");
-                                        handleMemberFieldChange(member.id, 'dietaryRestrictions', updated);
+                                        const idx = items.indexOf(opt.label);
+                                        if (idx >= 0) items.splice(idx, 1);
                                       }
+                                      updates.dietaryRestrictions = items.join(", ");
                                     }
+                                    
+                                    onMemberDataChange({
+                                      ...memberData,
+                                      [member.id]: { ...currentData, ...updates }
+                                    });
                                   }}
                                   disabled={isReadOnly}
                                 />
