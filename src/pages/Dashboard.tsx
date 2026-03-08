@@ -14,6 +14,7 @@ import { useGuestMetrics } from "@/hooks/useGuestMetrics";
 import { GuestSummaryWidget } from "@/components/dashboard/GuestSummaryWidget";
 import { LockedCard } from "@/components/ui/locked-card";
 import { JoinWeddingDialog } from "@/components/workspace/JoinWeddingDialog";
+import WebsiteGeneratorCard from "@/components/website/WebsiteGeneratorCard";
 import { calculateExpenseAmount, resolveGuestCounts, inferExpenseType, formatCurrency } from "@/lib/expenseCalculations";
 import type { ExpenseItem, ExpenseLineItem, GuestCounts } from "@/lib/expenseCalculations";
 import { calculateExpectedCounts, calculateTotalVendorStaff } from "@/lib/expectedCalculator";
@@ -630,6 +631,11 @@ const Dashboard = () => {
             </Card>
           );
         })()}
+
+        {/* Widget: Sito Web AI - solo per la coppia */}
+        {!isCollaborator && !isPlanner && (
+          <WebsiteGeneratorCard weddingId={wedding.id} />
+        )}
 
         {/* Widget 3: Azioni Urgenti */}
         <Card className="p-4 md:p-6">
