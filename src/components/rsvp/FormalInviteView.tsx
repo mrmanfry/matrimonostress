@@ -594,23 +594,31 @@ export function FormalInviteView({
                                     data?.dietaryRestrictions?.includes(opt.label) || false
                                   }
                                   onCheckedChange={(checked) => {
+                                    // Build updated member data in one shot to avoid stale state
+                                    const currentData = (memberData[member.id] || { rsvpStatus: 'pending' as const, isVegetarian: false, isVegan: false, dietaryRestrictions: '', hasPlusOne: false, plusOneName: '', plusOneMenu: '' }) as MemberData;
+                                    const updates: Partial<MemberData> = {};
+                                    
                                     if (opt.id === "vegetariano") {
-                                      handleMemberFieldChange(member.id, 'isVegetarian', checked);
-                                      if (checked) handleMemberFieldChange(member.id, 'isVegan', false);
+                                      updates.isVegetarian = !!checked;
                                     } else if (opt.id === "vegano") {
-                                      handleMemberFieldChange(member.id, 'isVegan', checked);
-                                      if (checked) handleMemberFieldChange(member.id, 'isVegetarian', false);
+                                      updates.isVegan = !!checked;
                                     } else {
-                                      // For custom/celiaco options, append to dietary restrictions
-                                      const current = data?.dietaryRestrictions || "";
+                                      // For custom options (celiaco, etc.), toggle in dietaryRestrictions
+                                      const current = currentData.dietaryRestrictions || "";
+                                      const items = current.split(",").map(s => s.trim()).filter(Boolean);
                                       if (checked) {
-                                        const updated = current ? `${current}, ${opt.label}` : opt.label;
-                                        handleMemberFieldChange(member.id, 'dietaryRestrictions', updated);
+                                        if (!items.includes(opt.label)) items.push(opt.label);
                                       } else {
-                                        const updated = current.split(",").map(s => s.trim()).filter(s => s !== opt.label).join(", ");
-                                        handleMemberFieldChange(member.id, 'dietaryRestrictions', updated);
+                                        const idx = items.indexOf(opt.label);
+                                        if (idx >= 0) items.splice(idx, 1);
                                       }
+                                      updates.dietaryRestrictions = items.join(", ");
                                     }
+                                    
+                                    onMemberDataChange({
+                                      ...memberData,
+                                      [member.id]: { ...currentData, ...updates }
+                                    });
                                   }}
                                   disabled={isReadOnly}
                                 />
@@ -666,8 +674,19 @@ export function FormalInviteView({
                                   return plusOneOptions.map(opt => (
                                     <div key={opt.id} className="flex items-center gap-2 cursor-pointer text-xs text-stone-500">
                                       <Checkbox
-                                        checked={data?.plusOneMenu === opt.id}
-                                        onCheckedChange={(checked) => handleMemberFieldChange(member.id, 'plusOneMenu', checked ? opt.id : "")}
+                                        checked={
+                                          (data?.plusOneMenu || "").split(",").map(s => s.trim()).filter(Boolean).includes(opt.id)
+                                        }
+                                        onCheckedChange={(checked) => {
+                                          const current = (data?.plusOneMenu || "").split(",").map(s => s.trim()).filter(Boolean);
+                                          if (checked) {
+                                            if (!current.includes(opt.id)) current.push(opt.id);
+                                          } else {
+                                            const idx = current.indexOf(opt.id);
+                                            if (idx >= 0) current.splice(idx, 1);
+                                          }
+                                          handleMemberFieldChange(member.id, 'plusOneMenu', current.join(", "));
+                                        }}
                                         disabled={isReadOnly} />
                                       {opt.label}
                                     </div>
