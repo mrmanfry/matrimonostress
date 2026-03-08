@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Wand2 } from "lucide-react";
-import WebsiteGeneratorDialog from "./WebsiteGeneratorDialog";
+import WebsiteSetupWizard from "./WebsiteSetupWizard";
 
 interface Props {
   weddingId: string;
@@ -29,7 +29,7 @@ const WebsiteGeneratorCard = ({ weddingId }: Props) => {
         </Button>
       </Card>
 
-      <WebsiteGeneratorDialog
+      <WebsiteSetupWizard
         weddingId={weddingId}
         open={dialogOpen}
         onOpenChange={setDialogOpen}
