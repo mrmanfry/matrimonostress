@@ -594,8 +594,9 @@ export function FormalInviteView({
                                     data?.dietaryRestrictions?.includes(opt.label) || false
                                   }
                                   onCheckedChange={(checked) => {
+                                    console.log('[RSVP-DEBUG] Checkbox clicked:', opt.id, 'checked:', checked, 'memberId:', member.id);
                                     // Build updated member data in one shot to avoid stale state
-                                    const currentData = (memberData[member.id] || { rsvpStatus: 'pending' as const, isVegetarian: false, isVegan: false, dietaryRestrictions: '', hasPlusOne: false, plusOneName: '', plusOneMenu: '' }) as MemberData;
+                                    const currentData = memberData[member.id] || { rsvpStatus: 'pending' as const, isVegetarian: false, isVegan: false, dietaryRestrictions: '', hasPlusOne: false, plusOneName: '', plusOneMenu: '' };
                                     const updates: Partial<MemberData> = {};
                                     
                                     if (opt.id === "vegetariano") {
@@ -615,9 +616,11 @@ export function FormalInviteView({
                                       updates.dietaryRestrictions = items.join(", ");
                                     }
                                     
+                                    const newData = { ...currentData, ...updates };
+                                    console.log('[RSVP-DEBUG] New member data:', JSON.stringify(newData));
                                     onMemberDataChange({
                                       ...memberData,
-                                      [member.id]: { ...currentData, ...updates }
+                                      [member.id]: newData as MemberData
                                     });
                                   }}
                                   disabled={isReadOnly}
