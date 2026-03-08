@@ -586,7 +586,7 @@ export function FormalInviteView({
                             ];
                             const options = cateringConfig?.dietary_options?.filter(o => o.enabled) || defaultOptions;
                             return options.map(opt => (
-                              <label key={opt.id} className="flex items-center gap-2 cursor-pointer">
+                              <div key={opt.id} className="flex items-center gap-2 cursor-pointer">
                                 <Checkbox
                                   checked={
                                     opt.id === "vegetariano" ? (data?.isVegetarian || false) :
