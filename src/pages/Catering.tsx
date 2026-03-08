@@ -63,10 +63,10 @@ const Catering = () => {
         .select("id, name")
         .eq("wedding_id", weddingId);
 
-      // Fetch parties for nucleus names
+      // Fetch parties for nucleus names + rsvp_status
       const { data: parties } = await supabase
         .from("invite_parties")
-        .select("id, party_name")
+        .select("id, party_name, rsvp_status")
         .eq("wedding_id", weddingId);
 
       const tableMap = new Map((tables || []).map(t => [t.id, t.name]));
