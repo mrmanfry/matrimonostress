@@ -674,8 +674,19 @@ export function FormalInviteView({
                                   return plusOneOptions.map(opt => (
                                     <div key={opt.id} className="flex items-center gap-2 cursor-pointer text-xs text-stone-500">
                                       <Checkbox
-                                        checked={data?.plusOneMenu === opt.id}
-                                        onCheckedChange={(checked) => handleMemberFieldChange(member.id, 'plusOneMenu', checked ? opt.id : "")}
+                                        checked={
+                                          (data?.plusOneMenu || "").split(",").map(s => s.trim()).filter(Boolean).includes(opt.id)
+                                        }
+                                        onCheckedChange={(checked) => {
+                                          const current = (data?.plusOneMenu || "").split(",").map(s => s.trim()).filter(Boolean);
+                                          if (checked) {
+                                            if (!current.includes(opt.id)) current.push(opt.id);
+                                          } else {
+                                            const idx = current.indexOf(opt.id);
+                                            if (idx >= 0) current.splice(idx, 1);
+                                          }
+                                          handleMemberFieldChange(member.id, 'plusOneMenu', current.join(", "));
+                                        }}
                                         disabled={isReadOnly} />
                                       {opt.label}
                                     </div>
