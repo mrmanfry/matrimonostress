@@ -49,7 +49,6 @@ const Catering = () => {
         .from("guests")
         .select("id, first_name, last_name, menu_choice, dietary_restrictions, is_child, rsvp_status, notes, party_id")
         .eq("wedding_id", weddingId)
-        .eq("is_couple_member", false)
         .eq("is_staff", false);
 
       // Fetch table assignments
