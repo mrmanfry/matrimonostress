@@ -635,7 +635,7 @@ export function FormalInviteView({
                       {/* Plus One (if allowed) */}
                       {member.allow_plus_one &&
                     <div className="space-y-3 pt-2 border-t border-stone-100">
-                          <label className="flex items-center gap-2 cursor-pointer">
+                          <div className="flex items-center gap-2 cursor-pointer">
                             <Checkbox
                           checked={data?.hasPlusOne || false}
                           onCheckedChange={(checked) => handleMemberFieldChange(member.id, 'hasPlusOne', checked)}
@@ -645,7 +645,7 @@ export function FormalInviteView({
                               <UserPlus className="w-4 h-4" />
                               Porto un accompagnatore
                             </span>
-                          </label>
+                          </div>
 
                           {data?.hasPlusOne &&
                       <div className="space-y-2 pl-6">
