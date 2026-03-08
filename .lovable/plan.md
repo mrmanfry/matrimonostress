@@ -1,86 +1,63 @@
 
 
-## Fase 2 Catering: Composizione Menu + Stampa
+# Notifiche Email per Messaggi Chat (Planner ↔ Sposi)
 
-### Concetto
+## Obiettivo
+Quando il planner invia un messaggio, gli sposi ricevono un'email di notifica. Quando gli sposi scrivono, il planner riceve un'email. Bidirezionale.
 
-Due parti distinte ma collegate:
-1. **Configurazione Menu** — Un nuovo tab "Menu" nella pagina Catering dove gli sposi compongono il menu (portate, piatti, vini). Dati salvati nel JSONB `catering_config` della tabella `weddings`.
-2. **Stampa Menu** — Un wizard (stile `PrintInvitationEditor`) che prende i dati del menu configurato e genera PDF stampabili (A5 per tavolo o A6 segnaposto).
+## Approccio
 
-### Struttura dati del menu (dentro `catering_config`)
+### 1. Nuova Edge Function `notify-chat-message`
 
-```text
-catering_config.menu = {
-  title: "Il Nostro Menu",
-  courses: [
-    { id: "...", category: "Antipasto", items: ["Tartare di tonno", "Bruschetta"] },
-    { id: "...", category: "Primo",     items: ["Risotto allo zafferano", "Paccheri all'astice"] },
-    { id: "...", category: "Secondo",   items: ["Filetto al pepe verde"] },
-    { id: "...", category: "Dolce",     items: ["Torta nuziale", "Millefoglie"] },
-    { id: "...", category: "Vini",      items: ["Prosecco Valdobbiadene", "Barolo 2018"] },
-  ]
-}
+Creazione di `supabase/functions/notify-chat-message/index.ts` che:
+
+- Riceve `{ wedding_id, sender_id, content, visibility }` come payload
+- Usa il service role key per determinare chi notificare:
+  - Se il sender è un **planner/manager** → notifica tutti i **co_planner** del matrimonio
+  - Se il sender è un **co_planner** → notifica il **planner** del matrimonio
+- Ignora messaggi con `visibility = "couple"` per il planner (non li vede)
+- Recupera l'email dei destinatari via `auth.admin.getUserById()`
+- Invia email via Resend (già configurato) con template branded
+- Aggiunge un link diretto alla chat (`APP_URL/app/chat`)
+- Rate limiting: non invia se l'ultimo messaggio notificato allo stesso utente per lo stesso wedding è stato < 5 minuti fa (per evitare spam in conversazioni attive)
+
+### 2. Integrazione nel flusso di invio messaggio
+
+In `src/pages/Chat.tsx` e `src/pages/PlannerInbox.tsx`, dopo l'insert del messaggio (quando non c'è errore), invocare la edge function:
+
+```typescript
+// Dopo insert riuscito
+supabase.functions.invoke("notify-chat-message", {
+  body: { wedding_id: weddingId, sender_id: userId, content, visibility }
+});
 ```
 
-Nessuna migration SQL necessaria: il campo `catering_config` JSONB esiste già e possiamo estenderlo con la chiave `menu`.
+Fire-and-forget (non blocca la UI).
 
-### Parte 1: Tab "Menu" in Catering
+### 3. Tabella di throttling (opzionale ma consigliata)
 
-**Nuovo file: `src/components/catering/MenuComposer.tsx`**
+Per evitare email flood durante conversazioni in tempo reale, usare un approccio semplice nella edge function: controllare l'ultimo messaggio nella tabella `messages` per lo stesso wedding dove il sender è diverso dal destinatario, e inviare solo se non ci sono messaggi recenti (< 5 min) già notificati. Implementato interamente nella edge function senza nuove tabelle — usa un semplice check temporale sui messaggi esistenti.
 
-- Card con pattern View/Edit (matita per modificare, Salva/Annulla)
-- Titolo menu editabile (default "Il Nostro Menu")
-- Lista portate con categorie predefinite: Antipasto, Primo, Secondo, Contorno, Dolce, Vini, Bevande
-- Bottone "+ Aggiungi Categoria" per categorie custom
-- Per ogni categoria: lista piatti editabile (input + bottone aggiungi, drag-to-reorder opzionale, tasto elimina)
-- In modalità View: rendering elegante del menu come lo vedranno stampato
-- Salva in `weddings.catering_config.menu`
+### 4. Configurazione
 
-**Modifica: `src/pages/Catering.tsx`**
-- Aggiungere tab "Menu" tra "Per Tavolo" e "Impostazioni"
-- Importare e renderizzare `MenuComposer`
-- Aggiungere bottone "Stampa Menu" nell'header (apre il wizard)
+- `verify_jwt = false` in config.toml per la function (validazione JWT interna)
+- Usa secrets già disponibili: `RESEND_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `APP_URL`
 
-### Parte 2: Wizard Stampa Menu
+## File da creare/modificare
 
-**Nuovo file: `src/components/catering/MenuCardEditor.tsx`**
-- Dialog wizard 3 step (stessa architettura di `PrintInvitationEditor`)
-- Step 1 — Design: upload sfondo, font, edge style, scelta formato (A5/A6), preview live con i dati del menu configurato
-- Step 2 — Audience: modalita "Per Tavolo" (checkbox tavoli) o "Segnaposto" (checkbox ospiti confermati)
-- Step 3 — Generazione: pipeline `html2canvas` → `jspdf` → ZIP
+| File | Azione |
+|------|--------|
+| `supabase/functions/notify-chat-message/index.ts` | **Nuovo** — Edge function notifica email |
+| `supabase/config.toml` | Aggiungere config per la nuova function |
+| `src/pages/Chat.tsx` | Aggiungere invoke dopo invio messaggio |
+| `src/pages/PlannerInbox.tsx` | Aggiungere invoke dopo invio messaggio |
 
-**Nuovo file: `src/components/catering/MenuDesignStep.tsx`**
-- Riuso logica di `PrintDesignStep` (upload foto, drag, scale, font, edge style)
-- Preview: foto sopra, sotto il titolo + lista portate centrate + nomi sposi e data in fondo
-- Toggle formato A5/A6
+## Template Email
 
-**Nuovo file: `src/components/catering/MenuAudienceStep.tsx`**
-- Radio "Per Tavolo" / "Segnaposto"
-- Lista tavoli o ospiti confermati con checkbox
-- Per segnaposto: badge dieta accanto al nome
-
-**Nuovo file: `src/components/catering/HiddenMenuNode.tsx`**
-- Nodo nascosto per render PDF ad alta risoluzione
-- A5: 1748x2480px, A6: 1240x1748px
-- Foto sopra con edge style, testo sotto con menu completo
-
-**Riuso: `src/components/print/PrintGenerationStep.tsx`** (import diretto, stessa UI progress)
-
-### File da creare
-| File | Descrizione |
-|------|-------------|
-| `src/components/catering/MenuComposer.tsx` | Tab configurazione menu (View/Edit) |
-| `src/components/catering/MenuCardEditor.tsx` | Wizard stampa menu (3 step) |
-| `src/components/catering/MenuDesignStep.tsx` | Step 1: design con preview menu |
-| `src/components/catering/MenuAudienceStep.tsx` | Step 2: selezione tavoli/ospiti |
-| `src/components/catering/HiddenMenuNode.tsx` | Nodo nascosto per render PDF |
-
-### File da modificare
-| File | Modifica |
-|------|----------|
-| `src/pages/Catering.tsx` | Tab "Menu" + bottone "Stampa Menu" + import nuovi componenti |
-
-### Nessuna migration SQL
-I dati del menu vengono salvati dentro `catering_config` (JSONB già esistente) con la chiave `menu`.
+Email semplice e branda con:
+- Header colorato (gradient indaco come le altre email)
+- "Hai un nuovo messaggio da [Nome Mittente]"
+- Preview del contenuto (troncato a ~200 char)
+- CTA "Vai alla Chat →"
+- Footer WedsApp
 

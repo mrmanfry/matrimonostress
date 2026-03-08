@@ -3,12 +3,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { isConfirmed, isDeclined } from "@/lib/rsvpHelpers";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 import { CateringKPIs } from "@/components/catering/CateringKPIs";
 import { CateringGuestTable, type CateringGuestRow } from "@/components/catering/CateringGuestTable";
 import { CateringByTable } from "@/components/catering/CateringByTable";
 import { CateringDietarySettings, type CateringConfig } from "@/components/catering/CateringDietarySettings";
 import { CateringExportMenu } from "@/components/catering/CateringExportMenu";
-import { Loader2, ChefHat } from "lucide-react";
+import { MenuComposer, type MenuData } from "@/components/catering/MenuComposer";
+import MenuCardEditor from "@/components/catering/MenuCardEditor";
+import { Loader2, ChefHat, Printer } from "lucide-react";
 
 const DEFAULT_CONFIG: CateringConfig = {
   dietary_options: [
@@ -20,6 +23,16 @@ const DEFAULT_CONFIG: CateringConfig = {
   show_dietary_notes: true,
 };
 
+const DEFAULT_MENU: MenuData = {
+  title: "Il Nostro Menu",
+  courses: [
+    { id: crypto.randomUUID(), category: "Antipasto", items: [] },
+    { id: crypto.randomUUID(), category: "Primo", items: [] },
+    { id: crypto.randomUUID(), category: "Secondo", items: [] },
+    { id: crypto.randomUUID(), category: "Dolce", items: [] },
+  ],
+};
+
 const Catering = () => {
   const { authState } = useAuth();
   const weddingId = authState.status === "authenticated" ? authState.activeWeddingId : null;
@@ -28,6 +41,9 @@ const Catering = () => {
   const [tableNames, setTableNames] = useState<string[]>([]);
   const [cateringConfig, setCateringConfig] = useState<CateringConfig>(DEFAULT_CONFIG);
   const [loading, setLoading] = useState(true);
+  const [printEditorOpen, setPrintEditorOpen] = useState(false);
+
+  const menuData: MenuData = (cateringConfig as any)?.menu || DEFAULT_MENU;
 
   useEffect(() => {
     if (!weddingId) return;
@@ -80,7 +96,6 @@ const Catering = () => {
           if (isDeclined(ps)) return "declined";
           return "pending";
         }
-        // For guests without party (e.g. couple members), normalize their own status
         if (isConfirmed(guestRsvp)) return "confirmed";
         if (isDeclined(guestRsvp)) return "declined";
         return "pending";
@@ -114,6 +129,8 @@ const Catering = () => {
     );
   }
 
+  const hasMenuContent = menuData.courses.some(c => c.items.length > 0);
+
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between">
@@ -125,7 +142,14 @@ const Catering = () => {
             Gestisci preferenze alimentari e report per il catering
           </p>
         </div>
-        <CateringExportMenu guests={guests} />
+        <div className="flex items-center gap-2">
+          {hasMenuContent && (
+            <Button variant="outline" onClick={() => setPrintEditorOpen(true)}>
+              <Printer className="w-4 h-4 mr-2" /> Stampa Menu
+            </Button>
+          )}
+          <CateringExportMenu guests={guests} />
+        </div>
       </div>
 
       <Tabs defaultValue="riepilogo" className="space-y-4">
@@ -133,12 +157,12 @@ const Catering = () => {
           <TabsTrigger value="riepilogo">Riepilogo</TabsTrigger>
           <TabsTrigger value="dettaglio">Dettaglio Ospiti</TabsTrigger>
           <TabsTrigger value="tavoli">Per Tavolo</TabsTrigger>
+          <TabsTrigger value="menu">Menu</TabsTrigger>
           <TabsTrigger value="impostazioni">Impostazioni</TabsTrigger>
         </TabsList>
 
         <TabsContent value="riepilogo" className="space-y-6">
           <CateringKPIs guests={guests} />
-          {/* Distribution chart placeholder - can add recharts pie later */}
         </TabsContent>
 
         <TabsContent value="dettaglio">
@@ -147,6 +171,16 @@ const Catering = () => {
 
         <TabsContent value="tavoli">
           <CateringByTable guests={guests} />
+        </TabsContent>
+
+        <TabsContent value="menu">
+          {weddingId && (
+            <MenuComposer
+              weddingId={weddingId}
+              cateringConfig={cateringConfig}
+              onConfigChange={setCateringConfig}
+            />
+          )}
         </TabsContent>
 
         <TabsContent value="impostazioni">
@@ -159,6 +193,15 @@ const Catering = () => {
           )}
         </TabsContent>
       </Tabs>
+
+      {weddingId && (
+        <MenuCardEditor
+          open={printEditorOpen}
+          onOpenChange={setPrintEditorOpen}
+          weddingId={weddingId}
+          menuData={menuData}
+        />
+      )}
     </div>
   );
 };
