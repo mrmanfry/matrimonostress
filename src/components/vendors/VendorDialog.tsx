@@ -85,6 +85,7 @@ export function VendorDialog({
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
+  const [isAccommodation, setIsAccommodation] = useState(false);
   const { toast } = useToast();
   const { authState } = useAuth();
 
