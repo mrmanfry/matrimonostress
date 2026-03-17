@@ -1,39 +1,63 @@
 
 
-## Problema
-I costi delle camere inseriti nella sezione Pernotto (`accommodation_rooms`) vivono in un sistema separato rispetto ai costi dei fornitori (`expense_items` + `expense_line_items`). Risultato: il vendor "Hotel X" mostra €0 nella card Fornitori, anche se in Pernotto ci sono camere con prezzi. Questo è inaccettabile per un gestionale finanziario.
+# Notifiche Email per Messaggi Chat (Planner ↔ Sposi)
 
-## Soluzione: Auto-sync expense_item da accommodation_rooms
+## Obiettivo
+Quando il planner invia un messaggio, gli sposi ricevono un'email di notifica. Quando gli sposi scrivono, il planner riceve un'email. Bidirezionale.
 
-Quando si aggiungono/modificano/eliminano camere in un hotel, il sistema crea o aggiorna automaticamente un `expense_item` di tipo `fixed` collegato a quel vendor, con `total_amount` = somma di `price_per_night * nights` di tutte le camere. Questo fa fluire il costo automaticamente in:
-- Card Fornitori (Totale Spese)
-- Dettaglio Fornitore (tab Spese)
-- Budget
-- Treasury
+## Approccio
 
-### Modifiche
+### 1. Nuova Edge Function `notify-chat-message`
 
-**1. `src/components/accommodation/HotelCard.tsx`**
-- Dopo ogni operazione CRUD sulle camere (add/edit/delete), chiamare una funzione `syncAccommodationExpense(vendorId, weddingId)` che:
-  1. Calcola il totale camere: `SELECT SUM(price_per_night * nights) FROM accommodation_rooms WHERE vendor_id = ?`
-  2. Cerca un `expense_item` esistente con `vendor_id` e `description = 'Pernotto – Camere'`
-  3. Se esiste → `UPDATE total_amount, fixed_amount`
-  4. Se non esiste e totale > 0 → `INSERT` nuovo expense_item di tipo fixed
-  5. Se esiste e totale = 0 → `DELETE` (nessuna camera rimasta)
-- Invalidare anche le query dei vendor dopo il sync
+Creazione di `supabase/functions/notify-chat-message/index.ts` che:
 
-**2. Nuova utility `src/lib/accommodationSync.ts`**
-- Funzione `syncAccommodationExpense(vendorId: string, weddingId: string)` che incapsula la logica di sync
-- Riutilizzabile da qualsiasi punto che modifica le camere
+- Riceve `{ wedding_id, sender_id, content, visibility }` come payload
+- Usa il service role key per determinare chi notificare:
+  - Se il sender è un **planner/manager** → notifica tutti i **co_planner** del matrimonio
+  - Se il sender è un **co_planner** → notifica il **planner** del matrimonio
+- Ignora messaggi con `visibility = "couple"` per il planner (non li vede)
+- Recupera l'email dei destinatari via `auth.admin.getUserById()`
+- Invia email via Resend (già configurato) con template branded
+- Aggiunge un link diretto alla chat (`APP_URL/app/chat`)
+- Rate limiting: non invia se l'ultimo messaggio notificato allo stesso utente per lo stesso wedding è stato < 5 minuti fa (per evitare spam in conversazioni attive)
 
-**3. Nessuna modifica al DB**
-- Si usa la struttura `expense_items` esistente, con una `description` convenzionale ("Pernotto – Camere") per identificare l'expense auto-generato
-- L'expense_item sarà di tipo `fixed` con `total_amount` = somma costi camere
+### 2. Integrazione nel flusso di invio messaggio
 
-### Flusso
-1. Utente aggiunge camera "101" a €80/notte × 2 notti = €160
-2. Sistema crea/aggiorna expense_item con `total_amount = 160`, `expense_type = 'fixed'`
-3. Card Fornitori mostra immediatamente €160
-4. Treasury e Budget vedono il costo
-5. Se l'utente modifica o elimina camere, l'importo si aggiorna automaticamente
+In `src/pages/Chat.tsx` e `src/pages/PlannerInbox.tsx`, dopo l'insert del messaggio (quando non c'è errore), invocare la edge function:
+
+```typescript
+// Dopo insert riuscito
+supabase.functions.invoke("notify-chat-message", {
+  body: { wedding_id: weddingId, sender_id: userId, content, visibility }
+});
+```
+
+Fire-and-forget (non blocca la UI).
+
+### 3. Tabella di throttling (opzionale ma consigliata)
+
+Per evitare email flood durante conversazioni in tempo reale, usare un approccio semplice nella edge function: controllare l'ultimo messaggio nella tabella `messages` per lo stesso wedding dove il sender è diverso dal destinatario, e inviare solo se non ci sono messaggi recenti (< 5 min) già notificati. Implementato interamente nella edge function senza nuove tabelle — usa un semplice check temporale sui messaggi esistenti.
+
+### 4. Configurazione
+
+- `verify_jwt = false` in config.toml per la function (validazione JWT interna)
+- Usa secrets già disponibili: `RESEND_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `APP_URL`
+
+## File da creare/modificare
+
+| File | Azione |
+|------|--------|
+| `supabase/functions/notify-chat-message/index.ts` | **Nuovo** — Edge function notifica email |
+| `supabase/config.toml` | Aggiungere config per la nuova function |
+| `src/pages/Chat.tsx` | Aggiungere invoke dopo invio messaggio |
+| `src/pages/PlannerInbox.tsx` | Aggiungere invoke dopo invio messaggio |
+
+## Template Email
+
+Email semplice e branda con:
+- Header colorato (gradient indaco come le altre email)
+- "Hai un nuovo messaggio da [Nome Mittente]"
+- Preview del contenuto (troncato a ~200 char)
+- CTA "Vai alla Chat →"
+- Footer WedsApp
 

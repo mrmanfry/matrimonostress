@@ -10,6 +10,7 @@ import { RoomAssignmentDialog } from "./RoomAssignmentDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { syncAccommodationExpense } from "@/lib/accommodationSync";
 
 interface Room {
   id: string;
@@ -65,9 +66,12 @@ export const HotelCard = ({ vendor, rooms, guests, allAssignedGuestIds, weddingI
     });
     setSaving(false);
     if (error) { toast.error("Errore nel salvare la camera"); return; }
+    await syncAccommodationExpense(vendor.id, weddingId);
     toast.success("Camera aggiunta");
     setRoomDialogOpen(false);
     qc.invalidateQueries({ queryKey: ["accommodation-rooms"] });
+    qc.invalidateQueries({ queryKey: ["vendor-expenses"] });
+    qc.invalidateQueries({ queryKey: ["expense-items"] });
   };
 
   const handleEditRoom = async (data: RoomFormData) => {
@@ -83,16 +87,22 @@ export const HotelCard = ({ vendor, rooms, guests, allAssignedGuestIds, weddingI
     }).eq("id", editingRoom.id);
     setSaving(false);
     if (error) { toast.error("Errore nel modificare la camera"); return; }
+    await syncAccommodationExpense(vendor.id, weddingId);
     toast.success("Camera aggiornata");
     setEditingRoom(null);
     qc.invalidateQueries({ queryKey: ["accommodation-rooms"] });
+    qc.invalidateQueries({ queryKey: ["vendor-expenses"] });
+    qc.invalidateQueries({ queryKey: ["expense-items"] });
   };
 
   const handleDeleteRoom = async (roomId: string) => {
     const { error } = await supabase.from("accommodation_rooms").delete().eq("id", roomId);
     if (error) { toast.error("Errore nell'eliminare la camera"); return; }
+    await syncAccommodationExpense(vendor.id, weddingId);
     toast.success("Camera eliminata");
     qc.invalidateQueries({ queryKey: ["accommodation-rooms"] });
+    qc.invalidateQueries({ queryKey: ["vendor-expenses"] });
+    qc.invalidateQueries({ queryKey: ["expense-items"] });
   };
 
   const handleSaveAssignments = async (guestIds: string[]) => {
