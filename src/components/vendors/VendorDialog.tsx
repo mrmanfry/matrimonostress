@@ -391,6 +391,7 @@ export function VendorDialog({
         phone: data.phone || null,
         notes: data.notes || null,
         category_id: data.category_id || null,
+        is_accommodation: isAccommodation,
         staff_meals_count: data.staff_meals_count || 0,
         staff_dietary_notes: data.staff_dietary_notes || null,
       };
