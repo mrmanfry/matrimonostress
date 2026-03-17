@@ -10,6 +10,7 @@ import { RoomAssignmentDialog } from "./RoomAssignmentDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { syncAccommodationExpense } from "@/lib/accommodationSync";
 
 interface Room {
   id: string;
