@@ -17,7 +17,8 @@ import {
   CalendarDays,
   TrendingUp,
   MessageCircle,
-  ChefHat
+  ChefHat,
+  Hotel
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -214,6 +215,7 @@ const AppLayoutInner = ({
       { name: "Calendario", href: "/app/calendar", icon: CalendarDays },
       { name: "Tavoli", href: "/app/tables", icon: UtensilsCrossed },
       { name: "Catering", href: "/app/catering", icon: ChefHat },
+      { name: "Pernotto", href: "/app/accommodation", icon: Hotel },
       { name: "Timeline", href: "/app/timeline", icon: Calendar },
       { name: "Impostazioni", href: "/app/settings", icon: Settings },
     ];

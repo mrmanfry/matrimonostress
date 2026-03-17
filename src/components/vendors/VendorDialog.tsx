@@ -37,6 +37,7 @@ interface Vendor {
   status: string;
   notes: string | null;
   category_id: string | null;
+  is_accommodation?: boolean;
   staff_meals_count?: number | null;
   staff_vegan_count?: number | null;
   staff_vegetarian_count?: number | null;
@@ -84,6 +85,7 @@ export function VendorDialog({
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
+  const [isAccommodation, setIsAccommodation] = useState(false);
   const { toast } = useToast();
   const { authState } = useAuth();
 
@@ -120,11 +122,13 @@ export function VendorDialog({
         staff_lactose_free_count: vendor.staff_lactose_free_count || 0,
         staff_dietary_notes: vendor.staff_dietary_notes || "",
       });
+      setIsAccommodation(vendor.is_accommodation ?? false);
       if (vendor.id) {
         loadExistingFiles(vendor.id);
       }
     } else {
       reset(emptyVendor);
+      setIsAccommodation(false);
       setUploadedFiles([]);
     }
   }, [vendor, open, reset]);
@@ -387,6 +391,7 @@ export function VendorDialog({
         phone: data.phone || null,
         notes: data.notes || null,
         category_id: data.category_id || null,
+        is_accommodation: isAccommodation,
         staff_meals_count: data.staff_meals_count || 0,
         staff_dietary_notes: data.staff_dietary_notes || null,
       };
@@ -549,6 +554,25 @@ export function VendorDialog({
             <p className="text-xs text-muted-foreground">
               Spazio per preventivi, pro/contro, dettagli contrattuali
             </p>
+          </div>
+
+          {/* Struttura ricettiva */}
+          <div className="border rounded-lg p-4 bg-muted/30">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="is-accommodation-switch" className="text-sm font-medium">
+                  🏨 Struttura ricettiva
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Attiva per gestire camere e pernotto nella sezione dedicata
+                </p>
+              </div>
+              <Switch
+                id="is-accommodation-switch"
+                checked={isAccommodation}
+                onCheckedChange={(checked) => setIsAccommodation(!!checked)}
+              />
+            </div>
           </div>
 
           {/* Sezione Logistica Evento */}

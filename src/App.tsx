@@ -32,6 +32,7 @@ import PlannerCockpit from "./pages/PlannerCockpit";
 import PlannerCalendarPage from "./pages/PlannerCalendarPage";
 import Chat from "./pages/Chat";
 import PlannerInbox from "./pages/PlannerInbox";
+import Accommodation from "./pages/Accommodation";
 import NotFound from "./pages/NotFound";
 
 const AppIndexRedirect = () => {
@@ -90,6 +91,7 @@ const App = () => (
               <Route path="calendar" element={<Calendar />} />
               <Route path="tables" element={<Tables />} />
               <Route path="catering" element={<Catering />} />
+              <Route path="accommodation" element={<Accommodation />} />
               <Route path="timeline" element={<Timeline />} />
               <Route path="settings" element={<Settings />} />
               <Route path="chat" element={<Chat />} />

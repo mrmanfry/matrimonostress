@@ -14,6 +14,102 @@ export type Database = {
   }
   public: {
     Tables: {
+      accommodation_assignments: {
+        Row: {
+          created_at: string
+          guest_id: string
+          id: string
+          room_id: string
+        }
+        Insert: {
+          created_at?: string
+          guest_id: string
+          id?: string
+          room_id: string
+        }
+        Update: {
+          created_at?: string
+          guest_id?: string
+          id?: string
+          room_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accommodation_assignments_guest_id_fkey"
+            columns: ["guest_id"]
+            isOneToOne: false
+            referencedRelation: "guests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accommodation_assignments_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "accommodation_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      accommodation_rooms: {
+        Row: {
+          capacity: number
+          created_at: string
+          id: string
+          nights: number
+          notes: string | null
+          order_index: number
+          price_per_night: number
+          room_name: string
+          room_type: string | null
+          updated_at: string
+          vendor_id: string
+          wedding_id: string
+        }
+        Insert: {
+          capacity?: number
+          created_at?: string
+          id?: string
+          nights?: number
+          notes?: string | null
+          order_index?: number
+          price_per_night?: number
+          room_name: string
+          room_type?: string | null
+          updated_at?: string
+          vendor_id: string
+          wedding_id: string
+        }
+        Update: {
+          capacity?: number
+          created_at?: string
+          id?: string
+          nights?: number
+          notes?: string | null
+          order_index?: number
+          price_per_night?: number
+          room_name?: string
+          room_type?: string | null
+          updated_at?: string
+          vendor_id?: string
+          wedding_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accommodation_rooms_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accommodation_rooms_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checklist_tasks: {
         Row: {
           assigned_to: string | null
@@ -1393,6 +1489,7 @@ export type Database = {
           id: string
           indirizzo_sede_legale: string | null
           intestatario_conto: string | null
+          is_accommodation: boolean
           name: string
           notes: string | null
           partita_iva_cf: string | null
@@ -1417,6 +1514,7 @@ export type Database = {
           id?: string
           indirizzo_sede_legale?: string | null
           intestatario_conto?: string | null
+          is_accommodation?: boolean
           name: string
           notes?: string | null
           partita_iva_cf?: string | null
@@ -1441,6 +1539,7 @@ export type Database = {
           id?: string
           indirizzo_sede_legale?: string | null
           intestatario_conto?: string | null
+          is_accommodation?: boolean
           name?: string
           notes?: string | null
           partita_iva_cf?: string | null
