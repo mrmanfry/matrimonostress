@@ -37,6 +37,7 @@ interface Vendor {
   status: string;
   notes: string | null;
   category_id: string | null;
+  is_accommodation?: boolean;
   staff_meals_count?: number | null;
   staff_vegan_count?: number | null;
   staff_vegetarian_count?: number | null;
