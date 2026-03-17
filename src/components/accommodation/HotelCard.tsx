@@ -66,9 +66,12 @@ export const HotelCard = ({ vendor, rooms, guests, allAssignedGuestIds, weddingI
     });
     setSaving(false);
     if (error) { toast.error("Errore nel salvare la camera"); return; }
+    await syncAccommodationExpense(vendor.id, weddingId);
     toast.success("Camera aggiunta");
     setRoomDialogOpen(false);
     qc.invalidateQueries({ queryKey: ["accommodation-rooms"] });
+    qc.invalidateQueries({ queryKey: ["vendor-expenses"] });
+    qc.invalidateQueries({ queryKey: ["expense-items"] });
   };
 
   const handleEditRoom = async (data: RoomFormData) => {
