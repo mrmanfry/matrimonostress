@@ -32,6 +32,7 @@ import PlannerCockpit from "./pages/PlannerCockpit";
 import PlannerCalendarPage from "./pages/PlannerCalendarPage";
 import Chat from "./pages/Chat";
 import PlannerInbox from "./pages/PlannerInbox";
+import Accommodation from "./pages/Accommodation";
 import NotFound from "./pages/NotFound";
 
 const AppIndexRedirect = () => {
