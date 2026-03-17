@@ -551,6 +551,25 @@ export function VendorDialog({
             </p>
           </div>
 
+          {/* Struttura ricettiva */}
+          <div className="border rounded-lg p-4 bg-muted/30">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="is-accommodation-switch" className="text-sm font-medium">
+                  🏨 Struttura ricettiva
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Attiva per gestire camere e pernotto nella sezione dedicata
+                </p>
+              </div>
+              <Switch
+                id="is-accommodation-switch"
+                checked={isAccommodation}
+                onCheckedChange={(checked) => setIsAccommodation(!!checked)}
+              />
+            </div>
+          </div>
+
           {/* Sezione Logistica Evento */}
           <div className="space-y-3 pt-2">
             <div className="flex items-center justify-between">
