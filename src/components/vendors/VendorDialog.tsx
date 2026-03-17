@@ -122,11 +122,13 @@ export function VendorDialog({
         staff_lactose_free_count: vendor.staff_lactose_free_count || 0,
         staff_dietary_notes: vendor.staff_dietary_notes || "",
       });
+      setIsAccommodation(vendor.is_accommodation ?? false);
       if (vendor.id) {
         loadExistingFiles(vendor.id);
       }
     } else {
       reset(emptyVendor);
+      setIsAccommodation(false);
       setUploadedFiles([]);
     }
   }, [vendor, open, reset]);
