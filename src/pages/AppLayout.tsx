@@ -17,7 +17,8 @@ import {
   CalendarDays,
   TrendingUp,
   MessageCircle,
-  ChefHat
+  ChefHat,
+  Hotel
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
