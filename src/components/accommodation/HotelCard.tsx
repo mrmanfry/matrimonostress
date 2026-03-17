@@ -98,8 +98,11 @@ export const HotelCard = ({ vendor, rooms, guests, allAssignedGuestIds, weddingI
   const handleDeleteRoom = async (roomId: string) => {
     const { error } = await supabase.from("accommodation_rooms").delete().eq("id", roomId);
     if (error) { toast.error("Errore nell'eliminare la camera"); return; }
+    await syncAccommodationExpense(vendor.id, weddingId);
     toast.success("Camera eliminata");
     qc.invalidateQueries({ queryKey: ["accommodation-rooms"] });
+    qc.invalidateQueries({ queryKey: ["vendor-expenses"] });
+    qc.invalidateQueries({ queryKey: ["expense-items"] });
   };
 
   const handleSaveAssignments = async (guestIds: string[]) => {
