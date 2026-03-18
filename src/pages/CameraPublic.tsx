@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import InAppBrowserGuard from "@/components/memories/InAppBrowserGuard";
-import CameraViewfinder from "@/components/memories/CameraViewfinder";
+import CameraViewfinder, { type CameraViewfinderHandle } from "@/components/memories/CameraViewfinder";
 import GuestNameSheet from "@/components/memories/GuestNameSheet";
 import OfflineQueueBadge from "@/components/memories/OfflineQueueBadge";
 import FilmFrame from "@/components/memories/FilmFrame";
@@ -53,6 +53,7 @@ export default function CameraPublic() {
   const [pendingCount, setPendingCount] = useState(0);
   const [photos, setPhotos] = useState<any[]>([]);
   const pendingBlobRef = useRef<Blob | null>(null);
+  const viewfinderRef = useRef<CameraViewfinderHandle>(null);
   const [participantCount, setParticipantCount] = useState(0);
   const [notifyEmail, setNotifyEmail] = useState("");
   const [emailSaved, setEmailSaved] = useState(false);
@@ -245,6 +246,8 @@ export default function CameraPublic() {
   const handleNameSubmit = useCallback((name: string) => {
     setGuestName(name);
     setShowNameSheet(false);
+    // Restart camera stream after iOS keyboard/sheet disruption
+    viewfinderRef.current?.restartCamera();
     if (pendingBlobRef.current) {
       uploadPhoto(pendingBlobRef.current, name);
       pendingBlobRef.current = null;
@@ -254,6 +257,8 @@ export default function CameraPublic() {
   const handleNameSkip = useCallback(() => {
     setGuestName("Anonimo");
     setShowNameSheet(false);
+    // Restart camera stream after iOS keyboard/sheet disruption
+    viewfinderRef.current?.restartCamera();
     if (pendingBlobRef.current) {
       uploadPhoto(pendingBlobRef.current, "Anonimo");
       pendingBlobRef.current = null;
@@ -390,6 +395,7 @@ export default function CameraPublic() {
         <div className="flex-1 overflow-hidden min-h-0">
           {view === "camera" ? (
             <CameraViewfinder
+              ref={viewfinderRef}
               filmType={(camera?.film_type as FilmType) || "vintage"}
               shotsRemaining={shotsRemaining}
               shotsTotal={camera?.shots_per_person || 27}
