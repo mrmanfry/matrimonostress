@@ -71,15 +71,17 @@ export async function processPhoto(
   // Apply filter
   applyFilter(ctx, w, h, filmType);
 
-  // Export as WebP
+  // Export as WebP (or JPEG fallback for Safari/iOS)
+  const { mime } = getOutputFormat();
+  const quality = mime === "image/webp" ? WEBP_QUALITY : JPEG_QUALITY;
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
       (blob) => {
         if (blob) resolve(blob);
         else reject(new Error("Failed to export canvas to blob"));
       },
-      "image/webp",
-      WEBP_QUALITY
+      mime,
+      quality
     );
   });
 }

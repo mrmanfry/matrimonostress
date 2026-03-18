@@ -82,7 +82,8 @@ async function uploadOne(
   const formData = new FormData();
   formData.append("token", photo.token);
   formData.append("fingerprint", photo.fingerprint);
-  formData.append("photo", photo.blob, "photo.webp");
+  const { getOutputFormat } = await import("@/lib/cameraFilters");
+  formData.append("photo", photo.blob, `photo.${getOutputFormat().ext}`);
   if (photo.guestName) formData.append("guest_name", photo.guestName);
   if (photo.filmType) formData.append("film_type", photo.filmType);
 
