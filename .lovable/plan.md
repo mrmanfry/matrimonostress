@@ -1,50 +1,36 @@
 
-# Memories Reel — Piano di Implementazione (COMPLETATO ✅)
 
-## Stato: Fase 1-6 Completate
+## Diagnosis
 
-### ✅ Fase 1: Database + Storage
-- 3 tabelle create: `disposable_cameras`, `camera_photos`, `camera_participants`
-- Bucket `camera-photos` (pubblico) creato
-- RLS policies per planner/manager/co_planner
-- Indici e trigger `updated_at`
+The shutter button on iPhone likely fails silently because **Safari on iOS does not support `canvas.toBlob("image/webp")`**. When an unsupported format is passed, Safari returns `null` from `toBlob`, which triggers the `reject("Failed to export canvas to blob")` error — but this is caught silently in `captureFromVideo`'s catch block with just a `console.error`.
 
-### ✅ Fase 2: Edge Function `upload-camera-photo`
-- Endpoint pubblico (verify_jwt = false)
-- Validazione token, is_active, ending_date
-- Hard storage limit e shots per person
-- Payload limit 2MB
-- Upload WebP + insert atomico + upsert participant
+The relevant code is in `src/lib/cameraFilters.ts` line 50-58:
+```js
+canvas.toBlob((blob) => {
+  if (blob) resolve(blob);
+  else reject(new Error("Failed to export canvas to blob"));
+}, "image/webp", WEBP_QUALITY);
+```
 
-### ✅ Fase 3: Utilities Client
-- `src/lib/cameraFilters.ts` — Canvas filters (vintage, bw, warm, classic) + compressione WebP
-- `src/lib/offlinePhotoQueue.ts` — IndexedDB queue con flush sequenziale + beforeunload warning
+Desktop Chrome supports WebP encoding, which is why it works there.
 
-### ✅ Fase 4: Pagina Pubblica `/camera/:token`
-- `CameraPublic.tsx` — dark theme, standalone
-- `InAppBrowserGuard` — detector WebView
-- `CameraViewfinder` — getUserMedia + fallback input file + filtri CSS + Vibration API
-- `GuestNameSheet` — bottom sheet post-primo-scatto
-- `OfflineQueueBadge` — indicatore foto in attesa
-- `FilmFrame` — frame estetico vintage
-- Stati limite: film pieno, scatti esauriti, rullino chiuso
-- CTA email notifica reveal
+## Plan
 
-### ✅ Fase 5: Pagina Admin `/app/memories`
-- `MemoriesReel.tsx` — dashboard con tabs
-- `MemoriesKPIs` — foto, partecipanti, disponibilità, da approvare
-- `MemoriesSettings` — configurazione con pattern View/Edit
-- `MemoriesGallery` — galleria con logica free/locked
-- `ModerationView` — approva/rifiuta rapido
-- `ShareCameraDialog` — QR code + copy link + download PNG
+### 1. Add WebP support detection and JPEG fallback (`src/lib/cameraFilters.ts`)
 
-### ✅ Fase 6: Routing + Navigazione
-- Route `/app/memories` (protetta) e `/camera/:token` (pubblica) in App.tsx
-- Voce "Memories" in sidebar con icona Camera, dopo "Pernotto"
+- Add a helper that checks if the browser can encode WebP via `canvas.toBlob`
+- Cache the result so it's only tested once
+- In `processPhoto`, use `"image/webp"` if supported, otherwise fall back to `"image/jpeg"` (quality 0.80)
+- Update the file extension logic so the upload edge function receives the correct content type
 
-### 🔮 Fase 7: Paywall (Futura)
-- Edge Function `create-camera-checkout` con Stripe
-- Sblocco `photos_unlocked = true`
+### 2. Update filename in upload (`src/pages/CameraPublic.tsx`)
 
-### 🔮 Fase 8: Cron Job Cleanup (Futura)
-- Eliminazione foto non sbloccate dopo 30 giorni
+- Change the hardcoded `"photo.webp"` filename in the FormData append to dynamically use `"photo.webp"` or `"photo.jpg"` based on the detected format
+- Export the format detection from cameraFilters so CameraPublic can use it
+
+### 3. Ensure edge function handles both formats (`supabase/functions/upload-camera-photo/index.ts`)
+
+- Verify the upload function doesn't hardcode `.webp` in the storage path — it likely derives it from the uploaded filename, but needs confirmation
+
+This is a one-line root cause with a surgical fix. No UI changes needed.
+
