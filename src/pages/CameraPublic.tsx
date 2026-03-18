@@ -64,6 +64,16 @@ export default function CameraPublic() {
   const firstShot = useRef(true);
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 
+  // Persist guest name in localStorage per token
+  useEffect(() => {
+    if (!token) return;
+    const saved = localStorage.getItem(`camera_guest_name_${token}`);
+    if (saved !== null) {
+      setGuestName(saved || null);
+      firstShot.current = false;
+    }
+  }, [token]);
+
   // Load camera config + wedding info
   useEffect(() => {
     if (!token) {
