@@ -380,19 +380,13 @@ export default function CameraPublic() {
         {/* KPI Bar */}
         <div className="flex items-center gap-1 px-5 pb-4">
           <div className="flex-1 rounded-lg px-3 py-2 text-center" style={{ background: "#2A2A2A" }}>
-            <p className="text-lg font-bold text-white">{shotsTaken}</p>
+            <p className="text-lg font-bold text-white">{shotsTaken}/{camera?.shots_per_person || 27}</p>
             <p className="text-[10px] uppercase tracking-wider" style={{ color: GOLD }}>Scatti</p>
           </div>
           <div className="flex-1 rounded-lg px-3 py-2 text-center" style={{ background: "#2A2A2A" }}>
             <p className="text-lg font-bold text-white">{participantCount}</p>
-            <p className="text-[10px] uppercase tracking-wider" style={{ color: GOLD }}>Fotografi</p>
+            <p className="text-[10px] uppercase tracking-wider" style={{ color: GOLD }}>Ospiti</p>
           </div>
-          {daysLeft !== null && (
-            <div className="flex-1 rounded-lg px-3 py-2 text-center" style={{ background: "#2A2A2A" }}>
-              <p className="text-lg font-bold text-white">{daysLeft}</p>
-              <p className="text-[10px] uppercase tracking-wider" style={{ color: GOLD }}>Giorni</p>
-            </div>
-          )}
         </div>
 
         {/* Content */}
