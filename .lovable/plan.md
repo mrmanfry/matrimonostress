@@ -1,55 +1,50 @@
 
+# Memories Reel — Piano di Implementazione (COMPLETATO ✅)
 
-# Fix: Nome ospite al primo scatto + KPI bar migliorata
+## Stato: Fase 1-6 Completate
 
-## Problemi identificati
+### ✅ Fase 1: Database + Storage
+- 3 tabelle create: `disposable_cameras`, `camera_photos`, `camera_participants`
+- Bucket `camera-photos` (pubblico) creato
+- RLS policies per planner/manager/co_planner
+- Indici e trigger `updated_at`
 
-### 1. Prima foto sempre "Anonimo"
-In `handlePhotoTaken` (riga 161-168), la foto viene inviata PRIMA di chiedere il nome. Il flusso attuale:
-1. Ospite preme shutter → `handlePhotoTaken(blob)` chiamato
-2. Upload parte con `guestName = null`
-3. Solo DOPO appare il `GuestNameSheet`
+### ✅ Fase 2: Edge Function `upload-camera-photo`
+- Endpoint pubblico (verify_jwt = false)
+- Validazione token, is_active, ending_date
+- Hard storage limit e shots per person
+- Payload limit 2MB
+- Upload WebP + insert atomico + upsert participant
 
-**Fix**: Mostrare il `GuestNameSheet` PRIMA dello scatto. Al primo tap sul shutter, intercettare, mostrare il name sheet, salvare il blob in un ref, e inviare la foto solo dopo che l'utente conferma/salta il nome.
+### ✅ Fase 3: Utilities Client
+- `src/lib/cameraFilters.ts` — Canvas filters (vintage, bw, warm, classic) + compressione WebP
+- `src/lib/offlinePhotoQueue.ts` — IndexedDB queue con flush sequenziale + beforeunload warning
 
-### 2. KPI Bar
-- **"Giorni"**: non ha senso per un ospite → rimuovere
-- **"Fotografi"**: poco chiaro → cambiare label in "Ospiti" con sotto-label "al rullino"
-- **"Scatti"**: mostrare formato `3/27` (taken/total) invece del solo numero
+### ✅ Fase 4: Pagina Pubblica `/camera/:token`
+- `CameraPublic.tsx` — dark theme, standalone
+- `InAppBrowserGuard` — detector WebView
+- `CameraViewfinder` — getUserMedia + fallback input file + filtri CSS + Vibration API
+- `GuestNameSheet` — bottom sheet post-primo-scatto
+- `OfflineQueueBadge` — indicatore foto in attesa
+- `FilmFrame` — frame estetico vintage
+- Stati limite: film pieno, scatti esauriti, rullino chiuso
+- CTA email notifica reveal
 
-## File modificati
+### ✅ Fase 5: Pagina Admin `/app/memories`
+- `MemoriesReel.tsx` — dashboard con tabs
+- `MemoriesKPIs` — foto, partecipanti, disponibilità, da approvare
+- `MemoriesSettings` — configurazione con pattern View/Edit
+- `MemoriesGallery` — galleria con logica free/locked
+- `ModerationView` — approva/rifiuta rapido
+- `ShareCameraDialog` — QR code + copy link + download PNG
 
-### `src/pages/CameraPublic.tsx`
-- Aggiungere un `pendingBlob` ref per salvare la foto in attesa del nome
-- Modificare `handlePhotoTaken`: se è il primo scatto e non c'è nome, salvare il blob nel ref e mostrare il name sheet SENZA inviare
-- In `handleNameSubmit` e `onSkip`: dopo aver settato il nome, inviare il blob pendente
-- KPI bar: rimuovere "Giorni", cambiare "Scatti" in formato `shotsTaken/shotsTotal`, cambiare "Fotografi" in "Ospiti"
+### ✅ Fase 6: Routing + Navigazione
+- Route `/app/memories` (protetta) e `/camera/:token` (pubblica) in App.tsx
+- Voce "Memories" in sidebar con icona Camera, dopo "Pernotto"
 
-### `src/components/memories/GuestNameSheet.tsx`
-Nessuna modifica necessaria.
+### 🔮 Fase 7: Paywall (Futura)
+- Edge Function `create-camera-checkout` con Stripe
+- Sblocco `photos_unlocked = true`
 
-## Dettagli tecnici
-
-```
-// Nuovo flusso primo scatto:
-pendingBlobRef = useRef<Blob | null>(null)
-
-handlePhotoTaken(blob):
-  if firstShot && !guestName:
-    pendingBlobRef.current = blob  // salva, NON invia
-    setShowNameSheet(true)
-    return                          // esce senza upload
-
-handleNameSubmit(name):
-  setGuestName(name)
-  setShowNameSheet(false)
-  if pendingBlobRef.current:
-    uploadPhoto(pendingBlobRef.current, name)  // ora invia con nome
-    pendingBlobRef.current = null
-
-// KPI bar:
-<div>"${shotsTaken}/${shotsTotal}"</div> label="Scatti"
-<div>{participantCount}</div> label="Ospiti"
-// rimuovere il terzo box "Giorni"
-```
-
+### 🔮 Fase 8: Cron Job Cleanup (Futura)
+- Eliminazione foto non sbloccate dopo 30 giorni
