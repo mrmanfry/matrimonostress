@@ -8,6 +8,31 @@ export type FilmType = "vintage" | "bw" | "warm" | "classic" | "none";
 /** Max dimension for output images */
 const MAX_DIMENSION = 1920;
 const WEBP_QUALITY = 0.75;
+const JPEG_QUALITY = 0.80;
+
+/** Cached WebP support detection */
+let _webpSupported: boolean | null = null;
+
+/** Check if browser supports WebP encoding via canvas */
+export function canEncodeWebP(): boolean {
+  if (_webpSupported !== null) return _webpSupported;
+  try {
+    const c = document.createElement("canvas");
+    c.width = 1;
+    c.height = 1;
+    _webpSupported = c.toDataURL("image/webp").startsWith("data:image/webp");
+  } catch {
+    _webpSupported = false;
+  }
+  return _webpSupported;
+}
+
+/** Returns the output MIME type and file extension based on browser support */
+export function getOutputFormat(): { mime: string; ext: string } {
+  return canEncodeWebP()
+    ? { mime: "image/webp", ext: "webp" }
+    : { mime: "image/jpeg", ext: "jpg" };
+}
 
 /**
  * Takes an image source (HTMLVideoElement, HTMLImageElement, or File/Blob),
