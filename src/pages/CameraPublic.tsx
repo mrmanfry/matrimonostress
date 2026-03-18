@@ -395,6 +395,7 @@ export default function CameraPublic() {
         <div className="flex-1 overflow-hidden min-h-0">
           {view === "camera" ? (
             <CameraViewfinder
+              ref={viewfinderRef}
               filmType={(camera?.film_type as FilmType) || "vintage"}
               shotsRemaining={shotsRemaining}
               shotsTotal={camera?.shots_per_person || 27}
