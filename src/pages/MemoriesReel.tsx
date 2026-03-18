@@ -24,6 +24,7 @@ export default function MemoriesReel() {
   const [loading, setLoading] = useState(true);
   const [showShare, setShowShare] = useState(false);
   const [showPoster, setShowPoster] = useState(false);
+  const [activeTab, setActiveTab] = useState("gallery");
   const [searchParams, setSearchParams] = useSearchParams();
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
@@ -170,10 +171,15 @@ export default function MemoriesReel() {
         pendingApproval={pendingApproval.length}
         requireApproval={camera?.require_approval || false}
         unlockedPhotoLimit={camera?.unlocked_photo_limit || 150}
-        onUpgradeClick={() => document.getElementById("memories-upgrade")?.scrollIntoView({ behavior: "smooth", block: "center" })}
+        onUpgradeClick={() => {
+          setActiveTab("gallery");
+          setTimeout(() => {
+            document.getElementById("memories-upgrade")?.scrollIntoView({ behavior: "smooth", block: "center" });
+          }, 100);
+        }}
       />
 
-      <Tabs defaultValue="gallery">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="gallery" className="gap-1.5">
             <Image size={14} />
