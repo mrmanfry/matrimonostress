@@ -380,7 +380,7 @@ export default function CameraPublic() {
               disabled={filmFull || shotsExhausted}
             />
           ) : (
-            <div className="h-full overflow-y-auto px-3 pb-24">
+            <div className="h-full overflow-y-auto px-3 pb-4">
               {/* Gallery header */}
               <div className="flex items-center justify-between py-3">
                 <p className="text-xs font-mono" style={{ color: "rgba(255,255,255,0.5)" }}>
