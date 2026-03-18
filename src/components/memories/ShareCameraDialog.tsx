@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Copy, Check, Download } from "lucide-react";
+import { Copy, Check, Download, Palette } from "lucide-react";
 import QRCode from "react-qr-code";
 import html2canvas from "html2canvas";
 
@@ -15,12 +15,14 @@ interface ShareCameraDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   cameraUrl: string;
+  onOpenPoster?: () => void;
 }
 
 export default function ShareCameraDialog({
   open,
   onOpenChange,
   cameraUrl,
+  onOpenPoster,
 }: ShareCameraDialogProps) {
   const [copied, setCopied] = useState(false);
   const qrRef = useRef<HTMLDivElement>(null);
@@ -60,10 +62,7 @@ export default function ShareCameraDialog({
           </p>
 
           {/* QR Code */}
-          <div
-            ref={qrRef}
-            className="bg-white p-6 rounded-xl"
-          >
+          <div ref={qrRef} className="bg-white p-6 rounded-xl">
             <QRCode value={cameraUrl} size={200} level="M" />
             <p className="text-center text-xs text-gray-500 mt-3 font-mono">
               📷 Scansiona per scattare!
@@ -73,11 +72,7 @@ export default function ShareCameraDialog({
           {/* Link */}
           <div className="flex gap-2 w-full">
             <Input value={cameraUrl} readOnly className="text-xs" />
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={handleCopy}
-            >
+            <Button variant="outline" size="icon" onClick={handleCopy}>
               {copied ? <Check size={16} /> : <Copy size={16} />}
             </Button>
           </div>
@@ -91,6 +86,20 @@ export default function ShareCameraDialog({
             <Download size={16} />
             Scarica QR Code
           </Button>
+
+          {/* Poster button */}
+          {onOpenPoster && (
+            <Button
+              className="w-full gap-2"
+              onClick={() => {
+                onOpenChange(false);
+                onOpenPoster();
+              }}
+            >
+              <Palette size={16} />
+              Crea Poster Stampabile
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>

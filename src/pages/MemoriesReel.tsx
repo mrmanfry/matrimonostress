@@ -7,27 +7,30 @@ import MemoriesSettings from "@/components/memories/MemoriesSettings";
 import MemoriesGallery from "@/components/memories/MemoriesGallery";
 import ModerationView from "@/components/memories/ModerationView";
 import ShareCameraDialog from "@/components/memories/ShareCameraDialog";
+import QRPosterEditor from "@/components/memories/QRPosterEditor";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Share2, Settings, Image, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
+import { format } from "date-fns";
+import { it } from "date-fns/locale";
 
 export default function MemoriesReel() {
   const { weddingId } = useAuth();
   const [camera, setCamera] = useState<any>(null);
+  const [wedding, setWedding] = useState<any>(null);
   const [photos, setPhotos] = useState<any[]>([]);
   const [participants, setParticipants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showShare, setShowShare] = useState(false);
+  const [showPoster, setShowPoster] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 
-  // Check for unlock success redirect
   useEffect(() => {
     const unlockParam = searchParams.get("unlock");
     if (unlockParam === "success" && weddingId) {
-      // Verify and activate unlock
       supabase.functions
         .invoke("verify-photo-unlock", { body: { weddingId } })
         .then(({ data }) => {
@@ -46,7 +49,6 @@ export default function MemoriesReel() {
   const loadData = useCallback(async () => {
     if (!weddingId) return;
 
-    // Load or create camera
     let { data: cam } = await supabase
       .from("disposable_cameras" as any)
       .select("*")
@@ -54,7 +56,6 @@ export default function MemoriesReel() {
       .maybeSingle();
 
     if (!cam) {
-      // Auto-create camera on first visit
       const { data: newCam } = await supabase
         .from("disposable_cameras" as any)
         .insert({ wedding_id: weddingId })
@@ -64,6 +65,14 @@ export default function MemoriesReel() {
     }
 
     setCamera(cam);
+
+    // Load wedding info
+    const { data: wed } = await supabase
+      .from("weddings")
+      .select("partner1_name, partner2_name, wedding_date")
+      .eq("id", weddingId)
+      .maybeSingle();
+    if (wed) setWedding(wed);
 
     if (cam) {
       const [photosRes, participantsRes] = await Promise.all([
@@ -130,6 +139,13 @@ export default function MemoriesReel() {
   const pendingApproval = photos.filter((p) => !p.is_approved);
   const cameraUrl = camera
     ? `${window.location.origin}/camera/${camera.token}`
+    : "";
+
+  const weddingNames = wedding
+    ? `${wedding.partner1_name} & ${wedding.partner2_name}`
+    : "";
+  const weddingDateFormatted = wedding?.wedding_date
+    ? format(new Date(wedding.wedding_date), "d MMMM yyyy", { locale: it })
     : "";
 
   return (
@@ -206,7 +222,19 @@ export default function MemoriesReel() {
         open={showShare}
         onOpenChange={setShowShare}
         cameraUrl={cameraUrl}
+        onOpenPoster={() => setShowPoster(true)}
       />
+
+      {camera && (
+        <QRPosterEditor
+          open={showPoster}
+          onOpenChange={setShowPoster}
+          cameraUrl={cameraUrl}
+          cameraId={camera.id}
+          weddingNames={weddingNames}
+          weddingDate={weddingDateFormatted}
+        />
+      )}
     </div>
   );
 }
