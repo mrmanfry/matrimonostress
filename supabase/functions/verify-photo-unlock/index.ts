@@ -8,8 +8,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const UNLOCK_PRODUCT_ID = "prod_UAdy3NLDRXKJh4";
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -37,25 +35,38 @@ serve(async (req) => {
     });
 
     // Find completed checkout sessions for this wedding
-    const sessions = await stripe.checkout.sessions.list({
-      limit: 20,
-    });
+    const sessions = await stripe.checkout.sessions.list({ limit: 50 });
 
-    const unlockSession = sessions.data.find(
-      (s) =>
+    // Find all paid sessions for this wedding, get the highest photo_limit
+    let maxPhotoLimit = 0;
+    for (const s of sessions.data) {
+      if (
         s.payment_status === "paid" &&
         s.metadata?.weddingId === weddingId &&
-        s.metadata?.type === "memories_unlock",
-    );
+        s.metadata?.type === "memories_unlock"
+      ) {
+        const limit = parseInt(s.metadata?.photo_limit || "0", 10);
+        if (limit > maxPhotoLimit) maxPhotoLimit = limit;
+      }
+    }
 
-    if (unlockSession) {
-      // Mark photos as unlocked
+    if (maxPhotoLimit > 0) {
+      // Get current limit to avoid downgrade
+      const { data: cam } = await supabaseAdmin
+        .from("disposable_cameras")
+        .select("unlocked_photo_limit")
+        .eq("wedding_id", weddingId)
+        .maybeSingle();
+
+      const currentLimit = (cam as any)?.unlocked_photo_limit || 150;
+      const newLimit = Math.max(currentLimit, maxPhotoLimit);
+
       await supabaseAdmin
         .from("disposable_cameras")
-        .update({ photos_unlocked: true })
+        .update({ unlocked_photo_limit: newLimit })
         .eq("wedding_id", weddingId);
 
-      return new Response(JSON.stringify({ unlocked: true }), {
+      return new Response(JSON.stringify({ unlocked: true, photo_limit: newLimit }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });

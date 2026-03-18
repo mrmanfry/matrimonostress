@@ -1,8 +1,10 @@
 import FilmFrame from "@/components/memories/FilmFrame";
 import PhotoLightbox from "@/components/memories/PhotoLightbox";
-import { Lock, Unlock, Loader2, CheckSquare, Square, Download, X } from "lucide-react";
+import { Lock, Unlock, Loader2, CheckSquare, X, Download, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useState, useCallback } from "react";
 import { toast } from "sonner";
@@ -19,6 +21,14 @@ interface MemoriesGalleryProps {
   onDeletePhoto?: (photoId: string) => void;
 }
 
+const TIERS = [
+  { key: "starter" as const, label: "Starter", photos: 500, price: 9, priceId: "price_1TCNy4FsI7It2TixwhlUeP4J" },
+  { key: "plus" as const, label: "Plus", photos: 1500, price: 29, priceId: "price_1TCNytFsI7It2TixbYrGIhvS", popular: true },
+  { key: "premium" as const, label: "Premium", photos: 2500, price: 49, priceId: "price_1TCNzDFsI7It2Tix8zLhwALu" },
+];
+
+const FREE_LIMIT = 150;
+
 export default function MemoriesGallery({
   photos,
   camera,
@@ -28,22 +38,30 @@ export default function MemoriesGallery({
   onDeletePhoto,
 }: MemoriesGalleryProps) {
   const approvedPhotos = photos.filter((p) => p.is_approved);
-  const freeLimit = camera?.free_reveal_limit || 100;
-  const unlocked = camera?.photos_unlocked || false;
-  const [unlocking, setUnlocking] = useState(false);
+  const unlockedLimit = camera?.unlocked_photo_limit || FREE_LIMIT;
+  const [unlocking, setUnlocking] = useState<string | null>(null);
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [zipping, setZipping] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
-  const unlockedPhotos = approvedPhotos.filter((_, idx) => unlocked || idx < freeLimit);
+  const visiblePhotos = approvedPhotos.slice(0, unlockedLimit);
+  const lockedCount = Math.max(0, approvedPhotos.length - unlockedLimit);
+  const hasUpgraded = unlockedLimit > FREE_LIMIT;
 
-  const handleUnlock = async () => {
+  // Find which tier is currently active
+  const currentTierIdx = TIERS.findIndex((t) => t.photos === unlockedLimit);
+  const canUpgrade = unlockedLimit < 2500;
+
+  // Suggest the best tier based on total photos
+  const suggestedTier = TIERS.find((t) => t.photos >= approvedPhotos.length) || TIERS[TIERS.length - 1];
+
+  const handleUnlock = async (tierKey: string) => {
     if (!weddingId) return;
-    setUnlocking(true);
+    setUnlocking(tierKey);
     try {
       const { data, error } = await supabase.functions.invoke("unlock-photos", {
-        body: { weddingId },
+        body: { weddingId, tier: tierKey },
       });
       if (error) throw error;
       if (data?.url) {
@@ -52,7 +70,7 @@ export default function MemoriesGallery({
     } catch {
       toast.error("Errore durante l'avvio del pagamento");
     } finally {
-      setUnlocking(false);
+      setUnlocking(null);
     }
   };
 
@@ -65,16 +83,9 @@ export default function MemoriesGallery({
     });
   };
 
-  const selectAll = () => {
-    setSelected(new Set(unlockedPhotos.map((p) => p.id)));
-  };
-
+  const selectAll = () => setSelected(new Set(visiblePhotos.map((p) => p.id)));
   const deselectAll = () => setSelected(new Set());
-
-  const exitSelectMode = () => {
-    setSelectMode(false);
-    setSelected(new Set());
-  };
+  const exitSelectMode = () => { setSelectMode(false); setSelected(new Set()); };
 
   const formatFilename = (p: any) => {
     const name = (p.guest_name || "foto").replace(/\s+/g, "-");
@@ -87,15 +98,13 @@ export default function MemoriesGallery({
     setZipping(true);
     try {
       const zip = new JSZip();
-      const selectedPhotos = unlockedPhotos.filter((p) => selected.has(p.id));
-
+      const selectedPhotos = visiblePhotos.filter((p) => selected.has(p.id));
       for (const photo of selectedPhotos) {
         const url = `${supabaseUrl}/storage/v1/object/public/camera-photos/${photo.file_path}`;
         const res = await fetch(url);
         const blob = await res.blob();
         zip.file(formatFilename(photo), blob);
       }
-
       const content = await zip.generateAsync({ type: "blob" });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(content);
@@ -110,19 +119,18 @@ export default function MemoriesGallery({
     } finally {
       setZipping(false);
     }
-  }, [selected, unlockedPhotos, supabaseUrl]);
+  }, [selected, visiblePhotos, supabaseUrl]);
 
   const handlePhotoClick = (idx: number) => {
     const photo = approvedPhotos[idx];
-    const isLocked = !unlocked && idx >= freeLimit;
+    const isLocked = idx >= unlockedLimit;
     if (isLocked) return;
 
     if (selectMode) {
       toggleSelect(photo.id);
     } else {
-      // Map to unlocked photos index for lightbox
-      const unlockedIdx = unlockedPhotos.findIndex((p) => p.id === photo.id);
-      if (unlockedIdx >= 0) setLightboxIndex(unlockedIdx);
+      const visibleIdx = visiblePhotos.findIndex((p) => p.id === photo.id);
+      if (visibleIdx >= 0) setLightboxIndex(visibleIdx);
     }
   };
 
@@ -142,40 +150,26 @@ export default function MemoriesGallery({
     );
   }
 
-  const lockedCount = !unlocked ? Math.max(0, approvedPhotos.length - freeLimit) : 0;
-
   return (
     <div className="space-y-4">
       {/* Toolbar */}
-      {unlockedPhotos.length > 0 && (
+      {visiblePhotos.length > 0 && (
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             {!selectMode ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setSelectMode(true)}
-                className="gap-1.5"
-              >
+              <Button variant="outline" size="sm" onClick={() => setSelectMode(true)} className="gap-1.5">
                 <CheckSquare size={14} />
                 Seleziona
               </Button>
             ) : (
               <>
                 <Button variant="outline" size="sm" onClick={exitSelectMode} className="gap-1.5">
-                  <X size={14} />
-                  Annulla
+                  <X size={14} /> Annulla
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={selected.size === unlockedPhotos.length ? deselectAll : selectAll}
-                >
-                  {selected.size === unlockedPhotos.length ? "Deseleziona tutto" : "Seleziona tutto"}
+                <Button variant="ghost" size="sm" onClick={selected.size === visiblePhotos.length ? deselectAll : selectAll}>
+                  {selected.size === visiblePhotos.length ? "Deseleziona tutto" : "Seleziona tutto"}
                 </Button>
-                <span className="text-xs text-muted-foreground">
-                  {selected.size} selezionate
-                </span>
+                <span className="text-xs text-muted-foreground">{selected.size} selezionate</span>
               </>
             )}
           </div>
@@ -191,15 +185,11 @@ export default function MemoriesGallery({
       {/* Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
         {approvedPhotos.map((photo, idx) => {
-          const isLocked = !unlocked && idx >= freeLimit;
+          const isLocked = idx >= unlockedLimit;
           const isSelected = selected.has(photo.id);
 
           return (
-            <div
-              key={photo.id}
-              className="relative cursor-pointer group"
-              onClick={() => handlePhotoClick(idx)}
-            >
+            <div key={photo.id} className="relative cursor-pointer group" onClick={() => handlePhotoClick(idx)}>
               {isLocked ? (
                 <div className="aspect-[3/4] rounded-lg bg-muted flex flex-col items-center justify-center">
                   <Lock size={24} className="text-muted-foreground mb-2" />
@@ -229,50 +219,89 @@ export default function MemoriesGallery({
         })}
       </div>
 
-      {/* CTA Sblocco — sempre visibile se non sbloccato */}
-      {!unlocked && (
-        <div className="text-center py-6 bg-muted/50 rounded-lg space-y-3">
-          <Lock size={24} className="mx-auto text-muted-foreground" />
-          <div>
-            {lockedCount > 0 ? (
-              <>
-                <p className="text-sm font-semibold">
-                  {lockedCount} foto bloccate
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Sblocca tutte le foto per vederle e scaricarle in alta risoluzione
-                </p>
-              </>
-            ) : (
-              <>
-                <p className="text-sm font-semibold">
-                  Sblocca il tuo album
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Sblocca ora per garantire che le foto non vengano eliminate dopo 30 giorni
-                </p>
-              </>
+      {/* Current tier info */}
+      {hasUpgraded && (
+        <div className="text-center py-3 bg-primary/5 rounded-lg border border-primary/20">
+          <p className="text-sm font-medium text-primary flex items-center justify-center gap-2">
+            <Unlock size={14} />
+            Piano {TIERS[currentTierIdx]?.label || "attivo"} — {unlockedLimit} foto sbloccate
+            {canUpgrade && lockedCount > 0 && (
+              <span className="text-xs font-normal text-muted-foreground ml-1">
+                ({lockedCount} ancora bloccate)
+              </span>
             )}
-          </div>
-          <Button onClick={handleUnlock} disabled={unlocking} className="gap-2">
-            {unlocking ? (
-              <Loader2 size={16} className="animate-spin" />
-            ) : (
-              <Unlock size={16} />
-            )}
-            Sblocca Album — €15
-          </Button>
-          <p className="text-[11px] text-muted-foreground">
-            Pagamento sicuro con Stripe. Le foto non sbloccate verranno eliminate dopo 30 giorni.
           </p>
         </div>
       )}
 
-      {unlocked && (
+      {/* Tier upgrade CTA */}
+      {canUpgrade && (
+        <div className="space-y-4 py-6">
+          <div className="text-center space-y-1">
+            <h3 className="text-base font-semibold flex items-center justify-center gap-2">
+              <Sparkles size={16} className="text-primary" />
+              {hasUpgraded ? "Vuoi vedere più foto?" : "Sblocca le foto del tuo matrimonio"}
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              {lockedCount > 0
+                ? `Hai ${lockedCount} foto in più da sbloccare. Scegli il pacchetto giusto per te.`
+                : "Scegli un pacchetto per garantire che le foto non vengano eliminate dopo 30 giorni."}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {TIERS.filter((t) => t.photos > unlockedLimit).map((tier) => {
+              const isRecommended = tier.key === suggestedTier.key;
+              return (
+                <Card
+                  key={tier.key}
+                  className={`relative transition-shadow ${
+                    isRecommended ? "border-primary shadow-md ring-1 ring-primary/20" : ""
+                  }`}
+                >
+                  {isRecommended && (
+                    <Badge className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[10px] px-2">
+                      Consigliato
+                    </Badge>
+                  )}
+                  <CardContent className="p-4 text-center space-y-3">
+                    <div>
+                      <p className="text-sm font-semibold">{tier.label}</p>
+                      <p className="text-xs text-muted-foreground">Fino a {tier.photos.toLocaleString("it-IT")} foto</p>
+                    </div>
+                    <p className="text-2xl font-bold">€{tier.price}</p>
+                    <Button
+                      size="sm"
+                      className="w-full gap-1.5"
+                      variant={isRecommended ? "default" : "outline"}
+                      onClick={() => handleUnlock(tier.key)}
+                      disabled={unlocking !== null}
+                    >
+                      {unlocking === tier.key ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <Unlock size={14} />
+                      )}
+                      {hasUpgraded ? "Upgrade" : "Sblocca"}
+                    </Button>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+
+          <p className="text-[11px] text-center text-muted-foreground">
+            Pagamento sicuro con Stripe. Le foto oltre il tuo limite verranno eliminate dopo 30 giorni.
+          </p>
+        </div>
+      )}
+
+      {/* All unlocked */}
+      {!canUpgrade && (
         <div className="text-center py-3 bg-primary/5 rounded-lg border border-primary/20">
           <p className="text-sm font-medium text-primary flex items-center justify-center gap-2">
             <Unlock size={14} />
-            Album sbloccato — tutte le foto sono disponibili
+            Piano Premium — tutte le foto sono disponibili
           </p>
         </div>
       )}
@@ -280,13 +309,11 @@ export default function MemoriesGallery({
       {/* Lightbox */}
       {lightboxIndex !== null && (
         <PhotoLightbox
-          photos={unlockedPhotos}
+          photos={visiblePhotos}
           currentIndex={lightboxIndex}
           supabaseUrl={supabaseUrl}
           open={true}
-          onOpenChange={(open) => {
-            if (!open) setLightboxIndex(null);
-          }}
+          onOpenChange={(open) => { if (!open) setLightboxIndex(null); }}
           onDelete={handleDeleteFromLightbox}
         />
       )}
