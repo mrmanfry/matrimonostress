@@ -1,50 +1,59 @@
 
-# Memories Reel — Piano di Implementazione (COMPLETATO ✅)
 
-## Stato: Fase 1-6 Completate
+# Fix: Layout overlap + shutter non funzionante su mobile
 
-### ✅ Fase 1: Database + Storage
-- 3 tabelle create: `disposable_cameras`, `camera_photos`, `camera_participants`
-- Bucket `camera-photos` (pubblico) creato
-- RLS policies per planner/manager/co_planner
-- Indici e trigger `updated_at`
+## Problema 1 — Sovrapposizione layout
 
-### ✅ Fase 2: Edge Function `upload-camera-photo`
-- Endpoint pubblico (verify_jwt = false)
-- Validazione token, is_active, ending_date
-- Hard storage limit e shots per person
-- Payload limit 2MB
-- Upload WebP + insert atomico + upsert participant
+`CameraViewfinder` ha una propria barra controlli (shutter + contatore) in basso. `CameraPublic` piazza la nav "Scatta/Galleria" come `absolute bottom-0` sopra di essa. Le due barre si sovrappongono.
 
-### ✅ Fase 3: Utilities Client
-- `src/lib/cameraFilters.ts` — Canvas filters (vintage, bw, warm, classic) + compressione WebP
-- `src/lib/offlinePhotoQueue.ts` — IndexedDB queue con flush sequenziale + beforeunload warning
+**Soluzione**: Aggiungere padding-bottom alla barra controlli del viewfinder per fare spazio alla nav bar, e rendere la nav bar con uno z-index superiore. In alternativa (approccio migliore), rimuovere il posizionamento absolute della bottom nav e renderla parte del flusso normale del layout:
 
-### ✅ Fase 4: Pagina Pubblica `/camera/:token`
-- `CameraPublic.tsx` — dark theme, standalone
-- `InAppBrowserGuard` — detector WebView
-- `CameraViewfinder` — getUserMedia + fallback input file + filtri CSS + Vibration API
-- `GuestNameSheet` — bottom sheet post-primo-scatto
-- `OfflineQueueBadge` — indicatore foto in attesa
-- `FilmFrame` — frame estetico vintage
-- Stati limite: film pieno, scatti esauriti, rullino chiuso
-- CTA email notifica reveal
+In `CameraPublic.tsx`:
+- Cambiare la bottom nav da `absolute bottom-0` a un elemento nel flusso del flex container (dopo il `<div className="flex-1 overflow-hidden">`)
+- Rimuovere `pb-24` dalla gallery view (non più necessario)
 
-### ✅ Fase 5: Pagina Admin `/app/memories`
-- `MemoriesReel.tsx` — dashboard con tabs
-- `MemoriesKPIs` — foto, partecipanti, disponibilità, da approvare
-- `MemoriesSettings` — configurazione con pattern View/Edit
-- `MemoriesGallery` — galleria con logica free/locked
-- `ModerationView` — approva/rifiuta rapido
-- `ShareCameraDialog` — QR code + copy link + download PNG
+In `CameraViewfinder.tsx`:
+- Aggiungere `pb-20` (80px) alla barra controlli per lasciare spazio alla nav sottostante, OPPURE meglio: spostare il padding al contenitore `flex-1` nel parent
 
-### ✅ Fase 6: Routing + Navigazione
-- Route `/app/memories` (protetta) e `/camera/:token` (pubblica) in App.tsx
-- Voce "Memories" in sidebar con icona Camera, dopo "Pernotto"
+Approccio scelto — la bottom nav diventa parte del flex layout normale:
 
-### 🔮 Fase 7: Paywall (Futura)
-- Edge Function `create-camera-checkout` con Stripe
-- Sblocco `photos_unlocked = true`
+```
+CameraPublic layout:
+┌──────────────────┐
+│ Hero Header      │
+│ KPI Bar          │
+│ ┌──────────────┐ │
+│ │ Viewfinder   │ │  ← flex-1, min-h-0, overflow-hidden
+│ │ + controls   │ │
+│ └──────────────┘ │
+│ [Scatta][Galleria]│  ← nel flusso, non absolute
+└──────────────────┘
+```
 
-### 🔮 Fase 8: Cron Job Cleanup (Futura)
-- Eliminazione foto non sbloccate dopo 30 giorni
+## Problema 2 — Foto non scattata
+
+`processPhoto` legge `videoWidth`/`videoHeight` dal video. Su mobile il video potrebbe non aver caricato i frame quando l'utente preme il pulsante, risultando in dimensioni 0×0 → canvas vuoto → `toBlob` restituisce `null` → reject silenzioso.
+
+**Soluzione** in `CameraViewfinder.tsx`:
+1. Impostare `cameraReady = true` solo dopo l'evento `loadedmetadata` del video, non subito dopo `getUserMedia`
+2. In `captureFromVideo`, aggiungere un check: se `videoWidth === 0`, non procedere (o attendere con un breve retry)
+3. Aggiungere un `onLoadedMetadata` handler al `<video>` element
+
+### File modificati
+
+1. **`src/pages/CameraPublic.tsx`** — Bottom nav da absolute a flusso flex
+2. **`src/components/memories/CameraViewfinder.tsx`** — Fix video readiness + padding per la nav
+
+### Dettagli tecnici
+
+**CameraPublic.tsx** (linee 332-453):
+- Il `div` wrapper rimane `flex flex-col` con `fixed inset-0`
+- Il contenuto (viewfinder/gallery) è nel `flex-1 overflow-hidden min-h-0`
+- La bottom nav diventa l'ultimo figlio del flex, senza `absolute`, con `shrink-0` e safe-area padding
+
+**CameraViewfinder.tsx**:
+- Rimuovere `setCameraReady(true)` da `startCamera` (linea 42)
+- Aggiungere `onLoadedMetadata={() => setCameraReady(true)}` al `<video>` (linea 192)
+- In `captureFromVideo`: check `videoRef.current.videoWidth > 0` prima di processare
+- La barra controlli non ha bisogno di padding extra perché la nav è ora fuori dal viewfinder
+
