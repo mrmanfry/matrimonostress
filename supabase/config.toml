@@ -65,3 +65,6 @@ verify_jwt = false
 
 [functions.notify-chat-message]
 verify_jwt = false
+
+[functions.upload-camera-photo]
+verify_jwt = false

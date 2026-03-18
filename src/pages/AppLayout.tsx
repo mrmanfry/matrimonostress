@@ -18,7 +18,8 @@ import {
   TrendingUp,
   MessageCircle,
   ChefHat,
-  Hotel
+  Hotel,
+  Camera
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -216,6 +217,7 @@ const AppLayoutInner = ({
       { name: "Tavoli", href: "/app/tables", icon: UtensilsCrossed },
       { name: "Catering", href: "/app/catering", icon: ChefHat },
       { name: "Pernotto", href: "/app/accommodation", icon: Hotel },
+      { name: "Memories", href: "/app/memories", icon: Camera },
       { name: "Timeline", href: "/app/timeline", icon: Calendar },
       { name: "Impostazioni", href: "/app/settings", icon: Settings },
     ];

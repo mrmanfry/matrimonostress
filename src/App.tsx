@@ -33,6 +33,8 @@ import PlannerCalendarPage from "./pages/PlannerCalendarPage";
 import Chat from "./pages/Chat";
 import PlannerInbox from "./pages/PlannerInbox";
 import Accommodation from "./pages/Accommodation";
+import MemoriesReel from "./pages/MemoriesReel";
+import CameraPublic from "./pages/CameraPublic";
 import NotFound from "./pages/NotFound";
 
 const AppIndexRedirect = () => {
@@ -67,6 +69,7 @@ const App = () => (
             <Route path="/sync/:token" element={<ContactSync />} />
             <Route path="/rsvp/:token" element={<RSVPPublic />} />
             <Route path="/save-the-date/:token" element={<RSVPPublic forceStdMode />} />
+            <Route path="/camera/:token" element={<CameraPublic />} />
             {/* Vanity URLs with couple slug */}
             <Route path="/:coupleSlug/rsvp/:token" element={<RSVPPublic />} />
             <Route path="/:coupleSlug/save-the-date/:token" element={<RSVPPublic forceStdMode />} />
@@ -92,6 +95,7 @@ const App = () => (
               <Route path="tables" element={<Tables />} />
               <Route path="catering" element={<Catering />} />
               <Route path="accommodation" element={<Accommodation />} />
+              <Route path="memories" element={<MemoriesReel />} />
               <Route path="timeline" element={<Timeline />} />
               <Route path="settings" element={<Settings />} />
               <Route path="chat" element={<Chat />} />
