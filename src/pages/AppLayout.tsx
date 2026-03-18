@@ -18,7 +18,8 @@ import {
   TrendingUp,
   MessageCircle,
   ChefHat,
-  Hotel
+  Hotel,
+  Camera
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
