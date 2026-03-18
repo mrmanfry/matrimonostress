@@ -414,7 +414,7 @@ export default function CameraPublic() {
         </div>
 
         {/* Bottom Nav — pill style */}
-        <div className="absolute bottom-0 left-0 right-0 pb-[env(safe-area-inset-bottom)] px-4 pb-4">
+        <div className="shrink-0 px-4" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
           <div className="flex gap-2 p-1 rounded-full" style={{ background: "#2A2A2A" }}>
             <button
               onClick={() => setView("camera")}
