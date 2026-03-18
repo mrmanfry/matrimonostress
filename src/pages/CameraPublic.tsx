@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import InAppBrowserGuard from "@/components/memories/InAppBrowserGuard";
-import CameraViewfinder from "@/components/memories/CameraViewfinder";
+import CameraViewfinder, { type CameraViewfinderHandle } from "@/components/memories/CameraViewfinder";
 import GuestNameSheet from "@/components/memories/GuestNameSheet";
 import OfflineQueueBadge from "@/components/memories/OfflineQueueBadge";
 import FilmFrame from "@/components/memories/FilmFrame";

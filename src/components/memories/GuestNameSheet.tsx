@@ -28,7 +28,7 @@ export default function GuestNameSheet({ open, onSubmit, onSkip }: GuestNameShee
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Il tuo nome"
-          autoFocus
+          autoFocus={!/iPhone|iPad|iPod/i.test(navigator.userAgent)}
           className="w-full bg-zinc-800 text-white rounded-lg px-4 py-3 text-sm border border-zinc-700 focus:border-white/30 focus:outline-none mb-4"
           onKeyDown={(e) => {
             if (e.key === "Enter" && name.trim()) onSubmit(name.trim());
