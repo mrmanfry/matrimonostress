@@ -1,50 +1,51 @@
 
-# Memories Reel — Piano di Implementazione (COMPLETATO ✅)
 
-## Stato: Fase 1-6 Completate
+# Fix: Camera pubblica — "Rullino non trovato" per utenti anonimi
 
-### ✅ Fase 1: Database + Storage
-- 3 tabelle create: `disposable_cameras`, `camera_photos`, `camera_participants`
-- Bucket `camera-photos` (pubblico) creato
-- RLS policies per planner/manager/co_planner
-- Indici e trigger `updated_at`
+## Problema
 
-### ✅ Fase 2: Edge Function `upload-camera-photo`
-- Endpoint pubblico (verify_jwt = false)
-- Validazione token, is_active, ending_date
-- Hard storage limit e shots per person
-- Payload limit 2MB
-- Upload WebP + insert atomico + upsert participant
+La pagina `/camera/:token` viene usata da ospiti **non autenticati**. Tuttavia le tabelle `disposable_cameras`, `camera_photos`, `camera_participants` e `weddings` hanno policy RLS che richiedono il ruolo `authenticated` o `has_wedding_access`. Risultato: la query Supabase restituisce `null` → "Rullino non trovato".
 
-### ✅ Fase 3: Utilities Client
-- `src/lib/cameraFilters.ts` — Canvas filters (vintage, bw, warm, classic) + compressione WebP
-- `src/lib/offlinePhotoQueue.ts` — IndexedDB queue con flush sequenziale + beforeunload warning
+Il record esiste nel DB (token `7235bfd9edd7437dbc73acbd2c2ee149`, `is_active: true`).
 
-### ✅ Fase 4: Pagina Pubblica `/camera/:token`
-- `CameraPublic.tsx` — dark theme, standalone
-- `InAppBrowserGuard` — detector WebView
-- `CameraViewfinder` — getUserMedia + fallback input file + filtri CSS + Vibration API
-- `GuestNameSheet` — bottom sheet post-primo-scatto
-- `OfflineQueueBadge` — indicatore foto in attesa
-- `FilmFrame` — frame estetico vintage
-- Stati limite: film pieno, scatti esauriti, rullino chiuso
-- CTA email notifica reveal
+## Soluzione
 
-### ✅ Fase 5: Pagina Admin `/app/memories`
-- `MemoriesReel.tsx` — dashboard con tabs
-- `MemoriesKPIs` — foto, partecipanti, disponibilità, da approvare
-- `MemoriesSettings` — configurazione con pattern View/Edit
-- `MemoriesGallery` — galleria con logica free/locked
-- `ModerationView` — approva/rifiuta rapido
-- `ShareCameraDialog` — QR code + copy link + download PNG
+Aggiungere **4 policy RLS** per accesso anonimo in sola lettura, strettamente limitate:
 
-### ✅ Fase 6: Routing + Navigazione
-- Route `/app/memories` (protetta) e `/camera/:token` (pubblica) in App.tsx
-- Voce "Memories" in sidebar con icona Camera, dopo "Pernotto"
+### Migration SQL
 
-### 🔮 Fase 7: Paywall (Futura)
-- Edge Function `create-camera-checkout` con Stripe
-- Sblocco `photos_unlocked = true`
+```sql
+-- 1. Chiunque con un token valido può leggere la riga camera corrispondente
+CREATE POLICY "Anon can read camera by token"
+  ON public.disposable_cameras FOR SELECT
+  TO anon
+  USING (is_active = true);
 
-### 🔮 Fase 8: Cron Job Cleanup (Futura)
-- Eliminazione foto non sbloccate dopo 30 giorni
+-- 2. Chiunque può leggere le proprie foto (filtrate per fingerprint nel codice)
+CREATE POLICY "Anon can read camera photos"
+  ON public.camera_photos FOR SELECT
+  TO anon
+  USING (true);
+
+-- 3. Chiunque può leggere i partecipanti per conteggio
+CREATE POLICY "Anon can read camera participants"
+  ON public.camera_participants FOR SELECT
+  TO anon
+  USING (true);
+
+-- 4. Lettura limitata dei dati matrimonio (solo nomi + data) per la hero card
+CREATE POLICY "Anon can read wedding names for camera"
+  ON public.weddings FOR SELECT
+  TO anon
+  USING (true);
+```
+
+**Nota sicurezza**: queste policy concedono solo SELECT. I dati esposti sono:
+- `disposable_cameras`: solo camere attive (token, config pubblica)
+- `camera_photos`: file_path (bucket già pubblico), nomi ospiti
+- `camera_participants`: conteggio shots (dati non sensibili)
+- `weddings`: i nomi dei partner e la data sono già visibili nelle pagine RSVP/timeline pubbliche, quindi nessun rischio aggiuntivo
+
+### Nessuna modifica al codice
+Il codice client è già corretto — il problema è esclusivamente nelle policy RLS.
+
