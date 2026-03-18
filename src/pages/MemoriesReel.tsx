@@ -178,6 +178,8 @@ export default function MemoriesReel() {
             photos={photos}
             camera={camera}
             supabaseUrl={supabaseUrl}
+            weddingId={weddingId}
+            onUnlocked={loadData}
           />
         </TabsContent>
 
