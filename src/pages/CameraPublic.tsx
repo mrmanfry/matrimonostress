@@ -14,7 +14,7 @@ import {
   type QueuedPhoto,
 } from "@/lib/offlinePhotoQueue";
 import { Camera, Images, Mail } from "lucide-react";
-import { format, differenceInDays } from "date-fns";
+import { format } from "date-fns";
 import { it } from "date-fns/locale";
 
 type ViewMode = "camera" | "gallery";
