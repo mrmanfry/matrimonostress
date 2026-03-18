@@ -370,7 +370,7 @@ export default function CameraPublic() {
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-hidden min-h-0">
           {view === "camera" ? (
             <CameraViewfinder
               filmType={(camera?.film_type as FilmType) || "vintage"}
