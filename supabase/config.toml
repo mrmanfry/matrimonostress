@@ -68,3 +68,12 @@ verify_jwt = false
 
 [functions.upload-camera-photo]
 verify_jwt = false
+
+[functions.unlock-photos]
+verify_jwt = false
+
+[functions.verify-photo-unlock]
+verify_jwt = false
+
+[functions.cleanup-camera-photos]
+verify_jwt = false

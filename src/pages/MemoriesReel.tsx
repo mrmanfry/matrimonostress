@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import MemoriesKPIs from "@/components/memories/MemoriesKPIs";
@@ -9,6 +10,7 @@ import ShareCameraDialog from "@/components/memories/ShareCameraDialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Share2, Settings, Image, ShieldCheck } from "lucide-react";
+import { toast } from "sonner";
 
 export default function MemoriesReel() {
   const { weddingId } = useAuth();
@@ -17,8 +19,29 @@ export default function MemoriesReel() {
   const [participants, setParticipants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showShare, setShowShare] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+
+  // Check for unlock success redirect
+  useEffect(() => {
+    const unlockParam = searchParams.get("unlock");
+    if (unlockParam === "success" && weddingId) {
+      // Verify and activate unlock
+      supabase.functions
+        .invoke("verify-photo-unlock", { body: { weddingId } })
+        .then(({ data }) => {
+          if (data?.unlocked) {
+            toast.success("Album sbloccato! Tutte le foto sono ora disponibili.");
+            loadData();
+          }
+        });
+      setSearchParams({}, { replace: true });
+    } else if (unlockParam === "canceled") {
+      toast.info("Pagamento annullato");
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, weddingId]);
 
   const loadData = useCallback(async () => {
     if (!weddingId) return;
@@ -155,6 +178,8 @@ export default function MemoriesReel() {
             photos={photos}
             camera={camera}
             supabaseUrl={supabaseUrl}
+            weddingId={weddingId}
+            onUnlocked={loadData}
           />
         </TabsContent>
 
