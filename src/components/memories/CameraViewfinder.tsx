@@ -70,10 +70,15 @@ export default function CameraViewfinder({
 
   const captureFromVideo = async () => {
     if (!videoRef.current || isCapturing || disabled) return;
+    const v = videoRef.current;
+    if (!v.videoWidth || !v.videoHeight) {
+      console.warn("Video not ready yet, skipping capture");
+      return;
+    }
     setIsCapturing(true);
     try {
       if ("vibrate" in navigator) navigator.vibrate(50);
-      const blob = await processPhoto(videoRef.current, filmType);
+      const blob = await processPhoto(v, filmType);
       onPhotoTaken(blob);
     } catch (err) {
       console.error("Capture error:", err);
