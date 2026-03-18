@@ -465,10 +465,7 @@ export default function CameraPublic() {
         <GuestNameSheet
           open={showNameSheet}
           onSubmit={handleNameSubmit}
-          onSkip={() => {
-            setGuestName("Anonimo");
-            setShowNameSheet(false);
-          }}
+          onSkip={handleNameSkip}
         />
       </div>
     </InAppBrowserGuard>
