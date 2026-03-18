@@ -196,6 +196,9 @@ export default function MemoriesReel() {
             supabaseUrl={supabaseUrl}
             weddingId={weddingId}
             onUnlocked={loadData}
+            onDeletePhoto={(photoId) =>
+              setPhotos((prev) => prev.filter((p) => p.id !== photoId))
+            }
           />
         </TabsContent>
 

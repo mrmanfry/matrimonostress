@@ -1,33 +1,50 @@
 
+# Memories Reel — Piano di Implementazione (COMPLETATO ✅)
 
-# Piano: Download foto + Limite 2000
+## Stato: Fase 1-6 Completate
 
-## Cosa si fa
+### ✅ Fase 1: Database + Storage
+- 3 tabelle create: `disposable_cameras`, `camera_photos`, `camera_participants`
+- Bucket `camera-photos` (pubblico) creato
+- RLS policies per planner/manager/co_planner
+- Indici e trigger `updated_at`
 
-### 1. Migration SQL — Alzare limite a 2000
-Aggiornare il default di `hard_storage_limit` da 500 a 2000 nella tabella `disposable_cameras`, e aggiornare i record esistenti.
+### ✅ Fase 2: Edge Function `upload-camera-photo`
+- Endpoint pubblico (verify_jwt = false)
+- Validazione token, is_active, ending_date
+- Hard storage limit e shots per person
+- Payload limit 2MB
+- Upload WebP + insert atomico + upsert participant
 
-### 2. Nuovo componente `PhotoLightbox.tsx`
-Dialog full-screen per visualizzare una foto senza cornice FilmFrame:
-- Navigazione prev/next con frecce
-- Pulsante "Scarica" (fetch → blob → `<a download>` con nome `{guestName}_{dd-MM-yyyy_HH-mm}.webp`)
-- Pulsante "Elimina" con conferma AlertDialog
-- Metadata: nome ospite, data/ora
+### ✅ Fase 3: Utilities Client
+- `src/lib/cameraFilters.ts` — Canvas filters (vintage, bw, warm, classic) + compressione WebP
+- `src/lib/offlinePhotoQueue.ts` — IndexedDB queue con flush sequenziale + beforeunload warning
 
-### 3. Aggiornare `MemoriesGallery.tsx`
-- **Click su foto** → apre PhotoLightbox (se non in modalità selezione)
-- **Toolbar selezione**: toggle "Seleziona", checkbox su ogni foto sbloccata, "Seleziona tutto", pulsante "Scarica selezionate" che genera ZIP con `jszip`
-- **CTA sblocco sempre visibile**: mostrare il banner "Sblocca Album" anche quando foto < 100 (se non sbloccato), con testo "Sblocca per garantire che le foto non vengano eliminate dopo 30 giorni"
-- **Callback onDelete**: per rimuovere foto dalla lista dopo eliminazione dal lightbox
+### ✅ Fase 4: Pagina Pubblica `/camera/:token`
+- `CameraPublic.tsx` — dark theme, standalone
+- `InAppBrowserGuard` — detector WebView
+- `CameraViewfinder` — getUserMedia + fallback input file + filtri CSS + Vibration API
+- `GuestNameSheet` — bottom sheet post-primo-scatto
+- `OfflineQueueBadge` — indicatore foto in attesa
+- `FilmFrame` — frame estetico vintage
+- Stati limite: film pieno, scatti esauriti, rullino chiuso
+- CTA email notifica reveal
 
-### 4. Aggiornare `MemoriesKPIs.tsx`
-- Warning badge arancione quando foto > 90% del limite
-- Warning badge rosso quando foto = limite
+### ✅ Fase 5: Pagina Admin `/app/memories`
+- `MemoriesReel.tsx` — dashboard con tabs
+- `MemoriesKPIs` — foto, partecipanti, disponibilità, da approvare
+- `MemoriesSettings` — configurazione con pattern View/Edit
+- `MemoriesGallery` — galleria con logica free/locked
+- `ModerationView` — approva/rifiuta rapido
+- `ShareCameraDialog` — QR code + copy link + download PNG
 
-### File coinvolti
-1. **Migration SQL** — `ALTER COLUMN hard_storage_limit SET DEFAULT 2000` + UPDATE esistenti
-2. **`src/components/memories/PhotoLightbox.tsx`** — nuovo
-3. **`src/components/memories/MemoriesGallery.tsx`** — selezione, lightbox, CTA, toolbar
-4. **`src/components/memories/MemoriesKPIs.tsx`** — warning badge
-5. **`package.json`** — aggiungere `jszip`
+### ✅ Fase 6: Routing + Navigazione
+- Route `/app/memories` (protetta) e `/camera/:token` (pubblica) in App.tsx
+- Voce "Memories" in sidebar con icona Camera, dopo "Pernotto"
 
+### 🔮 Fase 7: Paywall (Futura)
+- Edge Function `create-camera-checkout` con Stripe
+- Sblocco `photos_unlocked = true`
+
+### 🔮 Fase 8: Cron Job Cleanup (Futura)
+- Eliminazione foto non sbloccate dopo 30 giorni
