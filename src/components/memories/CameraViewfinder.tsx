@@ -268,7 +268,7 @@ const CameraViewfinder = forwardRef<CameraViewfinderHandle, CameraViewfinderProp
     }
 
     return (
-      <div className="relative flex flex-col items-center h-full">
+      <div className="relative flex flex-col items-center" style={{ height: "100%" }}>
         {/* Viewfinder */}
         <div className="relative w-full flex-1 overflow-hidden" style={{ background: "#000" }}>
           <video

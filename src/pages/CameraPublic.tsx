@@ -64,6 +64,16 @@ export default function CameraPublic() {
   const firstShot = useRef(true);
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 
+  // Persist guest name in localStorage per token
+  useEffect(() => {
+    if (!token) return;
+    const saved = localStorage.getItem(`camera_guest_name_${token}`);
+    if (saved !== null) {
+      setGuestName(saved || null);
+      firstShot.current = false;
+    }
+  }, [token]);
+
   // Load camera config + wedding info
   useEffect(() => {
     if (!token) {
@@ -246,24 +256,29 @@ export default function CameraPublic() {
   const handleNameSubmit = useCallback((name: string) => {
     setGuestName(name);
     setShowNameSheet(false);
-    // Restart camera stream after iOS keyboard/sheet disruption
-    viewfinderRef.current?.restartCamera();
+    if (token) localStorage.setItem(`camera_guest_name_${token}`, name);
     if (pendingBlobRef.current) {
       uploadPhoto(pendingBlobRef.current, name);
       pendingBlobRef.current = null;
     }
-  }, [uploadPhoto]);
+    // Delay restart to let viewport recover after keyboard dismissal
+    setTimeout(() => {
+      viewfinderRef.current?.restartCamera();
+    }, 350);
+  }, [uploadPhoto, token]);
 
   const handleNameSkip = useCallback(() => {
     setGuestName("Anonimo");
     setShowNameSheet(false);
-    // Restart camera stream after iOS keyboard/sheet disruption
-    viewfinderRef.current?.restartCamera();
+    if (token) localStorage.setItem(`camera_guest_name_${token}`, "Anonimo");
     if (pendingBlobRef.current) {
       uploadPhoto(pendingBlobRef.current, "Anonimo");
       pendingBlobRef.current = null;
     }
-  }, [uploadPhoto]);
+    setTimeout(() => {
+      viewfinderRef.current?.restartCamera();
+    }, 350);
+  }, [uploadPhoto, token]);
 
   const handleSaveEmail = async () => {
     if (!camera || !notifyEmail.trim()) return;
@@ -359,7 +374,7 @@ export default function CameraPublic() {
 
   return (
     <InAppBrowserGuard cameraUrl={cameraUrl}>
-      <div className="fixed inset-0 flex flex-col" style={{ background: "#1A1A1A" }}>
+      <div className="fixed inset-x-0 top-0 flex flex-col" style={{ background: "#1A1A1A", height: "100dvh" }}>
         <OfflineQueueBadge count={pendingCount} />
 
         {/* Hero Header */}

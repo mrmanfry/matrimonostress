@@ -11,10 +11,21 @@ export default function GuestNameSheet({ open, onSubmit, onSkip }: GuestNameShee
 
   if (!open) return null;
 
+  const handleSubmit = () => {
+    // Force-dismiss mobile keyboard before callback
+    (document.activeElement as HTMLElement)?.blur();
+    onSubmit(name.trim() || "Anonimo");
+  };
+
+  const handleSkip = () => {
+    (document.activeElement as HTMLElement)?.blur();
+    onSkip();
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50" onClick={onSkip} />
+    <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ height: "100dvh" }}>
+      {/* Backdrop — pointer-events auto so it can dismiss */}
+      <div className="absolute inset-0 bg-black/50" onClick={handleSkip} />
 
       {/* Sheet */}
       <div className="relative bg-zinc-900 rounded-t-2xl w-full max-w-md p-6 pb-8 animate-in slide-in-from-bottom duration-300">
@@ -28,21 +39,22 @@ export default function GuestNameSheet({ open, onSubmit, onSkip }: GuestNameShee
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Il tuo nome"
-          autoFocus={!/iPhone|iPad|iPod/i.test(navigator.userAgent)}
+          // Never autoFocus on mobile — keyboard disrupts camera stream
+          autoFocus={false}
           className="w-full bg-zinc-800 text-white rounded-lg px-4 py-3 text-sm border border-zinc-700 focus:border-white/30 focus:outline-none mb-4"
           onKeyDown={(e) => {
-            if (e.key === "Enter" && name.trim()) onSubmit(name.trim());
+            if (e.key === "Enter" && name.trim()) handleSubmit();
           }}
         />
         <div className="flex gap-3">
           <button
-            onClick={onSkip}
+            onClick={handleSkip}
             className="flex-1 text-white/60 text-sm py-3 rounded-lg active:bg-zinc-800"
           >
             Salta
           </button>
           <button
-            onClick={() => onSubmit(name.trim() || "Anonimo")}
+            onClick={handleSubmit}
             className="flex-1 bg-white text-black font-semibold text-sm py-3 rounded-lg active:scale-95 transition-transform"
           >
             Conferma

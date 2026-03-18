@@ -1,44 +1,50 @@
-## Fix: Camera non funziona su mobile (shutter + gallery upload + persistenza nome)
 
-### Problemi identificati
+# Memories Reel — Piano di Implementazione (COMPLETATO ✅)
 
-Analizzando il codice, ci sono **4 problemi** che causano il malfunzionamento su mobile:
+## Stato: Fase 1-6 Completate
 
-1. **Focus non rilasciato** — Dopo il submit del nome, il campo input mantiene il focus. Su mobile la tastiera virtuale non si chiude correttamente, lasciando il viewport in uno stato inconsistente. I tap successivi sul pulsante "scatta" o sull'upload da galleria cadono nel vuoto perché l'hit-box è sfalsata rispetto alla posizione visuale.
-2. **Viewport `100vh` vs `100dvh**` — Il container usa `fixed inset-0` che su mobile equivale a `100vh`. Quando la tastiera si apre/chiude, `100vh` non si aggiorna su iOS/Android, causando un disallineamento tra dove il pulsante appare e dove il browser registra i tap.
-3. **Overlay pointer-events** — Il backdrop del `GuestNameSheet` (`bg-black/50` con `onClick={onSkip}`) viene smontato (`return null`), ma React potrebbe non smontarlo istantaneamente nello stesso ciclo di render, lasciando un overlay invisibile che intercetta i tocchi per un frame.
-4. **Nome non persistente** — Il `guestName` vive solo in `useState`, si perde al refresh/rientro.
+### ✅ Fase 1: Database + Storage
+- 3 tabelle create: `disposable_cameras`, `camera_photos`, `camera_participants`
+- Bucket `camera-photos` (pubblico) creato
+- RLS policies per planner/manager/co_planner
+- Indici e trigger `updated_at`
 
-### Piano di modifiche
+### ✅ Fase 2: Edge Function `upload-camera-photo`
+- Endpoint pubblico (verify_jwt = false)
+- Validazione token, is_active, ending_date
+- Hard storage limit e shots per person
+- Payload limit 2MB
+- Upload WebP + insert atomico + upsert participant
 
-#### 1. `src/components/memories/GuestNameSheet.tsx`
+### ✅ Fase 3: Utilities Client
+- `src/lib/cameraFilters.ts` — Canvas filters (vintage, bw, warm, classic) + compressione WebP
+- `src/lib/offlinePhotoQueue.ts` — IndexedDB queue con flush sequenziale + beforeunload warning
 
-- Aggiungere `(document.activeElement as HTMLElement)?.blur()` sia in `onSubmit` che in `onSkip`, **prima** di chiamare il callback
-- Disabilitare `autoFocus` anche su Android (ora è solo iOS)
-- Aggiungere `pointer-events: none` durante il dismiss per sicurezza
+### ✅ Fase 4: Pagina Pubblica `/camera/:token`
+- `CameraPublic.tsx` — dark theme, standalone
+- `InAppBrowserGuard` — detector WebView
+- `CameraViewfinder` — getUserMedia + fallback input file + filtri CSS + Vibration API
+- `GuestNameSheet` — bottom sheet post-primo-scatto
+- `OfflineQueueBadge` — indicatore foto in attesa
+- `FilmFrame` — frame estetico vintage
+- Stati limite: film pieno, scatti esauriti, rullino chiuso
+- CTA email notifica reveal
 
-#### 2. `src/pages/CameraPublic.tsx`
+### ✅ Fase 5: Pagina Admin `/app/memories`
+- `MemoriesReel.tsx` — dashboard con tabs
+- `MemoriesKPIs` — foto, partecipanti, disponibilità, da approvare
+- `MemoriesSettings` — configurazione con pattern View/Edit
+- `MemoriesGallery` — galleria con logica free/locked
+- `ModerationView` — approva/rifiuta rapido
+- `ShareCameraDialog` — QR code + copy link + download PNG
 
-- Cambiare il container da `className="fixed inset-0"` a usare `style={{ height: '100dvh' }}` con fallback
-- In `handleNameSubmit` e `handleNameSkip`: aggiungere un `setTimeout(300ms)` prima di chiamare `restartCamera()`, per dare tempo al browser di completare il resize del viewport dopo la chiusura della tastiera
-- **Persistenza nome**: leggere/scrivere `guestName` in `localStorage` con chiave `camera_guest_name_{token}`. Se presente, saltare il name sheet (`firstShot.current = false`)
+### ✅ Fase 6: Routing + Navigazione
+- Route `/app/memories` (protetta) e `/camera/:token` (pubblica) in App.tsx
+- Voce "Memories" in sidebar con icona Camera, dopo "Pernotto"
 
-#### 3. `src/components/memories/CameraViewfinder.tsx`
+### 🔮 Fase 7: Paywall (Futura)
+- Edge Function `create-camera-checkout` con Stripe
+- Sblocco `photos_unlocked = true`
 
-- Usare `style={{ height: '100dvh' }}` sul container root per allineamento corretto su mobile
-
-### Dettagli tecnici
-
-```text
-Flusso corretto dopo il fix:
-
-1. Utente apre /camera/{token}
-2. Controlla localStorage → se nome presente, salta name sheet
-3. Primo scatto/upload → mostra name sheet → blur + dismiss → 300ms delay → restartCamera
-4. Secondo scatto/upload → funziona immediatamente (viewport allineato, nessun overlay residuo)
-5. Rientro successivo → nome già in localStorage, nessun name sheet
-```
-
-File da modificare: `GuestNameSheet.tsx`, `CameraPublic.tsx`, `CameraViewfinder.tsx`
-
-Nessuna modifica al backend. Dite a Lovable/Dev che **"il bug blocca anche l'input file della galleria"**. È un dettaglio utile per l'AI o per lo sviluppatore perché gli fa capire immediatamente che deve concentrarsi sul `CSS/Viewport` e sul `DOM globale`, smettendo di cercare errori nel codice specifico di `react-webcam`
+### 🔮 Fase 8: Cron Job Cleanup (Futura)
+- Eliminazione foto non sbloccate dopo 30 giorni
