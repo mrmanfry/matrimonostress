@@ -6,7 +6,8 @@ import CameraViewfinder, { type CameraViewfinderHandle } from "@/components/memo
 import GuestNameSheet from "@/components/memories/GuestNameSheet";
 import OfflineQueueBadge from "@/components/memories/OfflineQueueBadge";
 import FilmFrame from "@/components/memories/FilmFrame";
-import type { FilmType } from "@/lib/cameraFilters";
+import { getOutputFormat, type FilmType } from "@/lib/cameraFilters";
+import { toast } from "sonner";
 import {
   enqueue,
   getPendingCount,
@@ -190,15 +191,15 @@ export default function CameraPublic() {
         return;
       }
 
-      const formData = new FormData();
-      formData.append("token", token);
-      formData.append("fingerprint", fingerprint.current);
-      const { ext } = await import("@/lib/cameraFilters").then(m => ({ ext: m.getOutputFormat().ext }));
-      formData.append("photo", blob, `photo.${ext}`);
-      if (name) formData.append("guest_name", name);
-      if (camera.film_type) formData.append("film_type", camera.film_type);
-
       try {
+        const formData = new FormData();
+        formData.append("token", token);
+        formData.append("fingerprint", fingerprint.current);
+        const ext = getOutputFormat().ext;
+        formData.append("photo", blob, `photo.${ext}`);
+        if (name) formData.append("guest_name", name);
+        if (camera.film_type) formData.append("film_type", camera.film_type);
+
         const res = await fetch(
           `${supabaseUrl}/functions/v1/upload-camera-photo`,
           { method: "POST", body: formData }
@@ -218,7 +219,9 @@ export default function CameraPublic() {
           setShotsRemaining(data.shots_remaining);
           if (data.shots_remaining <= 0) setShotsExhausted(true);
         }
-      } catch {
+      } catch (err: any) {
+        console.error("[Camera] Upload failed, queuing offline:", err);
+        toast.error("Errore di rete — foto salvata in coda", { description: "Verrà caricata automaticamente." });
         const queued: QueuedPhoto = {
           id: crypto.randomUUID(),
           blob,
@@ -240,15 +243,20 @@ export default function CameraPublic() {
     async (blob: Blob) => {
       if (!camera || !token) return;
 
-      // First shot: ask name before uploading
-      if (firstShot.current && !guestName) {
-        firstShot.current = false;
-        pendingBlobRef.current = blob;
-        setShowNameSheet(true);
-        return;
-      }
+      try {
+        // First shot: ask name before uploading
+        if (firstShot.current && !guestName) {
+          firstShot.current = false;
+          pendingBlobRef.current = blob;
+          setShowNameSheet(true);
+          return;
+        }
 
-      await uploadPhoto(blob, guestName);
+        await uploadPhoto(blob, guestName);
+      } catch (err: any) {
+        console.error("[Camera] handlePhotoTaken error:", err);
+        toast.error("Errore durante lo scatto", { description: err?.message || "Riprova" });
+      }
     },
     [camera, token, guestName, uploadPhoto]
   );

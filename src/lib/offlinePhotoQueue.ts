@@ -7,6 +7,8 @@ const DB_NAME = "memories-reel-queue";
 const STORE_NAME = "pending-photos";
 const DB_VERSION = 1;
 
+import { getOutputFormat } from "@/lib/cameraFilters";
+
 export interface QueuedPhoto {
   id: string;
   blob: Blob;
@@ -82,7 +84,6 @@ async function uploadOne(
   const formData = new FormData();
   formData.append("token", photo.token);
   formData.append("fingerprint", photo.fingerprint);
-  const { getOutputFormat } = await import("@/lib/cameraFilters");
   formData.append("photo", photo.blob, `photo.${getOutputFormat().ext}`);
   if (photo.guestName) formData.append("guest_name", photo.guestName);
   if (photo.filmType) formData.append("film_type", photo.filmType);
