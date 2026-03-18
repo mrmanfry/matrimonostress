@@ -8,7 +8,13 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const UNLOCK_PRICE_ID = "price_1TCIgYFsI7It2TixGOvNMn6c";
+const TIERS = {
+  starter: { price_id: "price_1TCNy4FsI7It2TixwhlUeP4J", photo_limit: 500, label: "Starter" },
+  plus: { price_id: "price_1TCNytFsI7It2TixbYrGIhvS", photo_limit: 1500, label: "Plus" },
+  premium: { price_id: "price_1TCNzDFsI7It2Tix8zLhwALu", photo_limit: 2500, label: "Premium" },
+} as const;
+
+type TierKey = keyof typeof TIERS;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -29,13 +35,16 @@ serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const weddingId = body.weddingId;
+    const tier = body.tier as TierKey;
     if (!weddingId) throw new Error("weddingId is required");
+    if (!tier || !TIERS[tier]) throw new Error("Invalid tier. Must be starter, plus, or premium");
+
+    const tierConfig = TIERS[tier];
 
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
       apiVersion: "2025-08-27.basil",
     });
 
-    // Check if Stripe customer exists
     const customers = await stripe.customers.list({ email: user.email, limit: 1 });
     let customerId: string | undefined;
     if (customers.data.length > 0) {
@@ -48,11 +57,16 @@ serve(async (req) => {
       customer: customerId,
       customer_email: customerId ? undefined : user.email,
       client_reference_id: weddingId,
-      line_items: [{ price: UNLOCK_PRICE_ID, quantity: 1 }],
+      line_items: [{ price: tierConfig.price_id, quantity: 1 }],
       mode: "payment",
       success_url: `${origin}/app/memories?unlock=success`,
       cancel_url: `${origin}/app/memories?unlock=canceled`,
-      metadata: { weddingId, type: "memories_unlock" },
+      metadata: {
+        weddingId,
+        type: "memories_unlock",
+        tier,
+        photo_limit: String(tierConfig.photo_limit),
+      },
     });
 
     return new Response(JSON.stringify({ url: session.url }), {

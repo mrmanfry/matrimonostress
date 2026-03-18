@@ -343,13 +343,13 @@ export type Database = {
           hard_storage_limit: number
           id: string
           is_active: boolean
-          photos_unlocked: boolean
           poster_design: Json | null
           require_approval: boolean
           reveal_at: string | null
           reveal_mode: string
           shots_per_person: number
           token: string
+          unlocked_photo_limit: number
           updated_at: string
           wedding_id: string
         }
@@ -361,13 +361,13 @@ export type Database = {
           hard_storage_limit?: number
           id?: string
           is_active?: boolean
-          photos_unlocked?: boolean
           poster_design?: Json | null
           require_approval?: boolean
           reveal_at?: string | null
           reveal_mode?: string
           shots_per_person?: number
           token?: string
+          unlocked_photo_limit?: number
           updated_at?: string
           wedding_id: string
         }
@@ -379,13 +379,13 @@ export type Database = {
           hard_storage_limit?: number
           id?: string
           is_active?: boolean
-          photos_unlocked?: boolean
           poster_design?: Json | null
           require_approval?: boolean
           reveal_at?: string | null
           reveal_mode?: string
           shots_per_person?: number
           token?: string
+          unlocked_photo_limit?: number
           updated_at?: string
           wedding_id?: string
         }

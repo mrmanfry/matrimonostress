@@ -166,9 +166,10 @@ export default function MemoriesReel() {
       <MemoriesKPIs
         totalPhotos={photos.length}
         totalParticipants={participants.length}
-        hardLimit={camera?.hard_storage_limit || 500}
+        hardLimit={camera?.hard_storage_limit || 2500}
         pendingApproval={pendingApproval.length}
         requireApproval={camera?.require_approval || false}
+        unlockedPhotoLimit={camera?.unlocked_photo_limit || 150}
       />
 
       <Tabs defaultValue="gallery">
