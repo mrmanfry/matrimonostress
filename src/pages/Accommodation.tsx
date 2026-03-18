@@ -10,19 +10,41 @@ const Accommodation = () => {
   const { authState } = useAuth();
   const weddingId = authState.status === "authenticated" ? authState.activeWeddingId : null;
 
-  // Fetch vendors marked as accommodation
+  // Fetch vendors marked as accommodation OR that have rooms in the DB
   const { data: hotels = [] } = useQuery({
     queryKey: ["accommodation-vendors", weddingId],
     queryFn: async () => {
       if (!weddingId) return [];
-      const { data, error } = await supabase
+      // Get vendors flagged as accommodation
+      const { data: flagged, error: e1 } = await supabase
         .from("vendors")
         .select("id, name, contact_name")
         .eq("wedding_id", weddingId)
         .eq("is_accommodation", true)
         .order("name");
-      if (error) throw error;
-      return data || [];
+      if (e1) throw e1;
+
+      // Also get vendor IDs that have rooms (safety net)
+      const { data: roomVendors } = await supabase
+        .from("accommodation_rooms")
+        .select("vendor_id")
+        .eq("wedding_id", weddingId);
+      const roomVendorIds = new Set((roomVendors || []).map((r: any) => r.vendor_id));
+
+      // Find vendor IDs with rooms but not flagged
+      const flaggedIds = new Set((flagged || []).map(v => v.id));
+      const missingIds = Array.from(roomVendorIds).filter(id => !flaggedIds.has(id));
+
+      let extra: typeof flagged = [];
+      if (missingIds.length > 0) {
+        const { data: extraData } = await supabase
+          .from("vendors")
+          .select("id, name, contact_name")
+          .in("id", missingIds);
+        extra = extraData || [];
+      }
+
+      return [...(flagged || []), ...extra];
     },
     enabled: !!weddingId,
   });
