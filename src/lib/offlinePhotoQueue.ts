@@ -7,6 +7,8 @@ const DB_NAME = "memories-reel-queue";
 const STORE_NAME = "pending-photos";
 const DB_VERSION = 1;
 
+import { getOutputFormat } from "@/lib/cameraFilters";
+
 export interface QueuedPhoto {
   id: string;
   blob: Blob;

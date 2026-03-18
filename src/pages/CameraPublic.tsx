@@ -6,7 +6,8 @@ import CameraViewfinder, { type CameraViewfinderHandle } from "@/components/memo
 import GuestNameSheet from "@/components/memories/GuestNameSheet";
 import OfflineQueueBadge from "@/components/memories/OfflineQueueBadge";
 import FilmFrame from "@/components/memories/FilmFrame";
-import type { FilmType } from "@/lib/cameraFilters";
+import { getOutputFormat, type FilmType } from "@/lib/cameraFilters";
+import { toast } from "sonner";
 import {
   enqueue,
   getPendingCount,
