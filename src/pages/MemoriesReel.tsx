@@ -8,6 +8,7 @@ import MemoriesGallery from "@/components/memories/MemoriesGallery";
 import ModerationView from "@/components/memories/ModerationView";
 import ShareCameraDialog from "@/components/memories/ShareCameraDialog";
 import QRPosterEditor from "@/components/memories/QRPosterEditor";
+import UpgradePhotosDialog from "@/components/memories/UpgradePhotosDialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Share2, Settings, Image, ShieldCheck } from "lucide-react";
