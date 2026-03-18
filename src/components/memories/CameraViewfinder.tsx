@@ -38,8 +38,10 @@ export default function CameraViewfinder({
         audio: false,
       });
       streamRef.current = stream;
-      if (videoRef.current) videoRef.current.srcObject = stream;
-      setCameraReady(true);
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        // cameraReady will be set by onLoadedMetadata on the <video>
+      }
       setPermissionDenied(false);
     } catch (err: any) {
       console.error("Camera error:", err);
