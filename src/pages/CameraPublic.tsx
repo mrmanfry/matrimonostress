@@ -246,6 +246,8 @@ export default function CameraPublic() {
   const handleNameSubmit = useCallback((name: string) => {
     setGuestName(name);
     setShowNameSheet(false);
+    // Restart camera stream after iOS keyboard/sheet disruption
+    viewfinderRef.current?.restartCamera();
     if (pendingBlobRef.current) {
       uploadPhoto(pendingBlobRef.current, name);
       pendingBlobRef.current = null;
@@ -255,6 +257,8 @@ export default function CameraPublic() {
   const handleNameSkip = useCallback(() => {
     setGuestName("Anonimo");
     setShowNameSheet(false);
+    // Restart camera stream after iOS keyboard/sheet disruption
+    viewfinderRef.current?.restartCamera();
     if (pendingBlobRef.current) {
       uploadPhoto(pendingBlobRef.current, "Anonimo");
       pendingBlobRef.current = null;
