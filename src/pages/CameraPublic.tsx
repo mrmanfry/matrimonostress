@@ -159,14 +159,9 @@ export default function CameraPublic() {
     if (view === "gallery") loadGallery();
   }, [view, loadGallery]);
 
-  const handlePhotoTaken = useCallback(
-    async (blob: Blob) => {
+  const uploadPhoto = useCallback(
+    async (blob: Blob, name: string | null) => {
       if (!camera || !token) return;
-
-      if (firstShot.current && !guestName) {
-        firstShot.current = false;
-        setShowNameSheet(true);
-      }
 
       if (!navigator.onLine) {
         const queued: QueuedPhoto = {
@@ -174,7 +169,7 @@ export default function CameraPublic() {
           blob,
           token,
           fingerprint: fingerprint.current,
-          guestName,
+          guestName: name,
           filmType: camera.film_type || "vintage",
           timestamp: Date.now(),
         };
@@ -188,7 +183,7 @@ export default function CameraPublic() {
       formData.append("token", token);
       formData.append("fingerprint", fingerprint.current);
       formData.append("photo", blob, "photo.webp");
-      if (guestName) formData.append("guest_name", guestName);
+      if (name) formData.append("guest_name", name);
       if (camera.film_type) formData.append("film_type", camera.film_type);
 
       try {
@@ -217,7 +212,7 @@ export default function CameraPublic() {
           blob,
           token,
           fingerprint: fingerprint.current,
-          guestName,
+          guestName: name,
           filmType: camera.film_type || "vintage",
           timestamp: Date.now(),
         };
@@ -226,13 +221,43 @@ export default function CameraPublic() {
         setShotsRemaining((p) => Math.max(0, p - 1));
       }
     },
-    [camera, token, guestName, supabaseUrl]
+    [camera, token, supabaseUrl]
   );
 
-  const handleNameSubmit = (name: string) => {
+  const handlePhotoTaken = useCallback(
+    async (blob: Blob) => {
+      if (!camera || !token) return;
+
+      // First shot: ask name before uploading
+      if (firstShot.current && !guestName) {
+        firstShot.current = false;
+        pendingBlobRef.current = blob;
+        setShowNameSheet(true);
+        return;
+      }
+
+      await uploadPhoto(blob, guestName);
+    },
+    [camera, token, guestName, uploadPhoto]
+  );
+
+  const handleNameSubmit = useCallback((name: string) => {
     setGuestName(name);
     setShowNameSheet(false);
-  };
+    if (pendingBlobRef.current) {
+      uploadPhoto(pendingBlobRef.current, name);
+      pendingBlobRef.current = null;
+    }
+  }, [uploadPhoto]);
+
+  const handleNameSkip = useCallback(() => {
+    setGuestName("Anonimo");
+    setShowNameSheet(false);
+    if (pendingBlobRef.current) {
+      uploadPhoto(pendingBlobRef.current, "Anonimo");
+      pendingBlobRef.current = null;
+    }
+  }, [uploadPhoto]);
 
   const handleSaveEmail = async () => {
     if (!camera || !notifyEmail.trim()) return;
