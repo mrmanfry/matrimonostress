@@ -243,15 +243,20 @@ export default function CameraPublic() {
     async (blob: Blob) => {
       if (!camera || !token) return;
 
-      // First shot: ask name before uploading
-      if (firstShot.current && !guestName) {
-        firstShot.current = false;
-        pendingBlobRef.current = blob;
-        setShowNameSheet(true);
-        return;
-      }
+      try {
+        // First shot: ask name before uploading
+        if (firstShot.current && !guestName) {
+          firstShot.current = false;
+          pendingBlobRef.current = blob;
+          setShowNameSheet(true);
+          return;
+        }
 
-      await uploadPhoto(blob, guestName);
+        await uploadPhoto(blob, guestName);
+      } catch (err: any) {
+        console.error("[Camera] handlePhotoTaken error:", err);
+        toast.error("Errore durante lo scatto", { description: err?.message || "Riprova" });
+      }
     },
     [camera, token, guestName, uploadPhoto]
   );
