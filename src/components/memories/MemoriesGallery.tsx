@@ -288,7 +288,7 @@ export default function MemoriesGallery({
 
       {/* Tier upgrade CTA */}
       {canUpgrade && (
-        <div ref={tierSectionRef} className="space-y-4 py-6">
+        <div id="memories-upgrade" ref={tierSectionRef} className="space-y-4 py-6">
           <div className="text-center space-y-1">
             <h3 className="text-base font-semibold flex items-center justify-center gap-2">
               <Sparkles size={16} className="text-primary" />
