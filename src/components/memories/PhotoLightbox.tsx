@@ -16,6 +16,7 @@ import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { convertToJpeg } from "@/lib/imageConvert";
 
 interface PhotoLightboxProps {
   photos: any[];
@@ -47,17 +48,31 @@ export default function PhotoLightbox({
   const formatFilename = (p: any) => {
     const name = (p.guest_name || "foto").replace(/\s+/g, "-");
     const ts = format(new Date(p.created_at), "dd-MM-yyyy_HH-mm", { locale: it });
-    return `${name}_${ts}.webp`;
+    return `${name}_${ts}.jpg`;
   };
 
   const handleDownload = async () => {
     setDownloading(true);
     try {
       const res = await fetch(photoUrl);
-      const blob = await res.blob();
+      const rawBlob = await res.blob();
+      const jpegBlob = await convertToJpeg(rawBlob);
+      const filename = formatFilename(photo);
+
+      // Try native share on mobile first
+      if (navigator.share && /Mobi|Android/i.test(navigator.userAgent)) {
+        try {
+          const file = new File([jpegBlob], filename, { type: "image/jpeg" });
+          await navigator.share({ files: [file] });
+          return;
+        } catch {
+          // User cancelled or share not supported for files — fall through to download
+        }
+      }
+
       const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = formatFilename(photo);
+      a.href = URL.createObjectURL(jpegBlob);
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

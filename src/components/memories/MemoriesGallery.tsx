@@ -1,16 +1,18 @@
 import FilmFrame from "@/components/memories/FilmFrame";
 import PhotoLightbox from "@/components/memories/PhotoLightbox";
-import { Lock, Unlock, Loader2, CheckSquare, X, Download, Sparkles } from "lucide-react";
+import { Lock, Unlock, Loader2, CheckSquare, X, Download, Sparkles, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { toast } from "sonner";
 import JSZip from "jszip";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { convertToJpeg } from "@/lib/imageConvert";
 
 interface MemoriesGalleryProps {
   photos: any[];
@@ -44,6 +46,8 @@ export default function MemoriesGallery({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [zipping, setZipping] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const tierSectionRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
 
   const visiblePhotos = approvedPhotos.slice(0, unlockedLimit);
   const lockedCount = Math.max(0, approvedPhotos.length - unlockedLimit);
@@ -55,6 +59,10 @@ export default function MemoriesGallery({
 
   // Suggest the best tier based on total photos
   const suggestedTier = TIERS.find((t) => t.photos >= approvedPhotos.length) || TIERS[TIERS.length - 1];
+
+  const scrollToUpgrade = () => {
+    tierSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
 
   const handleUnlock = async (tierKey: string) => {
     if (!weddingId) return;
@@ -90,20 +98,64 @@ export default function MemoriesGallery({
   const formatFilename = (p: any) => {
     const name = (p.guest_name || "foto").replace(/\s+/g, "-");
     const ts = format(new Date(p.created_at), "dd-MM-yyyy_HH-mm", { locale: it });
-    return `${name}_${ts}.webp`;
+    return `${name}_${ts}.jpg`;
+  };
+
+  const fetchAndConvert = async (photo: any): Promise<{ blob: Blob; filename: string }> => {
+    const url = `${supabaseUrl}/storage/v1/object/public/camera-photos/${photo.file_path}`;
+    const res = await fetch(url);
+    const rawBlob = await res.blob();
+    const jpegBlob = await convertToJpeg(rawBlob);
+    return { blob: jpegBlob, filename: formatFilename(photo) };
   };
 
   const downloadSelected = useCallback(async () => {
     if (selected.size === 0) return;
     setZipping(true);
     try {
-      const zip = new JSZip();
       const selectedPhotos = visiblePhotos.filter((p) => selected.has(p.id));
+
+      // Mobile: try Web Share API first
+      if (isMobile && navigator.share) {
+        try {
+          const files: File[] = [];
+          for (const photo of selectedPhotos) {
+            const { blob, filename } = await fetchAndConvert(photo);
+            files.push(new File([blob], filename, { type: "image/jpeg" }));
+          }
+          await navigator.share({ files });
+          toast.success(`${selectedPhotos.length} foto condivise`);
+          return;
+        } catch (e: any) {
+          // User cancelled share or files not supported — fall through
+          if (e?.name === "AbortError") return;
+        }
+      }
+
+      // Mobile fallback: sequential JPEG downloads
+      if (isMobile) {
+        for (let i = 0; i < selectedPhotos.length; i++) {
+          const { blob, filename } = await fetchAndConvert(selectedPhotos[i]);
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(a.href);
+          if (i < selectedPhotos.length - 1) {
+            await new Promise((r) => setTimeout(r, 300));
+          }
+        }
+        toast.success(`${selectedPhotos.length} foto scaricate`);
+        return;
+      }
+
+      // Desktop: ZIP with JPEG files
+      const zip = new JSZip();
       for (const photo of selectedPhotos) {
-        const url = `${supabaseUrl}/storage/v1/object/public/camera-photos/${photo.file_path}`;
-        const res = await fetch(url);
-        const blob = await res.blob();
-        zip.file(formatFilename(photo), blob);
+        const { blob, filename } = await fetchAndConvert(photo);
+        zip.file(filename, blob);
       }
       const content = await zip.generateAsync({ type: "blob" });
       const a = document.createElement("a");
@@ -115,11 +167,11 @@ export default function MemoriesGallery({
       URL.revokeObjectURL(a.href);
       toast.success(`${selectedPhotos.length} foto scaricate`);
     } catch {
-      toast.error("Errore durante la creazione dello ZIP");
+      toast.error("Errore durante il download");
     } finally {
       setZipping(false);
     }
-  }, [selected, visiblePhotos, supabaseUrl]);
+  }, [selected, visiblePhotos, supabaseUrl, isMobile]);
 
   const handlePhotoClick = (idx: number) => {
     const photo = approvedPhotos[idx];
@@ -175,8 +227,8 @@ export default function MemoriesGallery({
           </div>
           {selectMode && selected.size > 0 && (
             <Button size="sm" onClick={downloadSelected} disabled={zipping} className="gap-1.5">
-              {zipping ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-              Scarica ({selected.size})
+              {zipping ? <Loader2 size={14} className="animate-spin" /> : isMobile ? <Share2 size={14} /> : <Download size={14} />}
+              {isMobile ? `Condividi (${selected.size})` : `Scarica (${selected.size})`}
             </Button>
           )}
         </div>
@@ -236,7 +288,7 @@ export default function MemoriesGallery({
 
       {/* Tier upgrade CTA */}
       {canUpgrade && (
-        <div className="space-y-4 py-6">
+        <div id="memories-upgrade" ref={tierSectionRef} className="space-y-4 py-6">
           <div className="text-center space-y-1">
             <h3 className="text-base font-semibold flex items-center justify-center gap-2">
               <Sparkles size={16} className="text-primary" />

@@ -9,6 +9,14 @@ interface MemoriesKPIsProps {
   pendingApproval: number;
   requireApproval: boolean;
   unlockedPhotoLimit: number;
+  onUpgradeClick?: () => void;
+}
+
+function getTierName(limit: number) {
+  if (limit >= 2500) return "Premium";
+  if (limit >= 1500) return "Plus";
+  if (limit >= 500) return "Starter";
+  return "Base";
 }
 
 export default function MemoriesKPIs({
@@ -18,11 +26,11 @@ export default function MemoriesKPIs({
   pendingApproval,
   requireApproval,
   unlockedPhotoLimit,
+  onUpgradeClick,
 }: MemoriesKPIsProps) {
-  const usagePercent = hardLimit > 0 ? totalPhotos / hardLimit : 0;
-  const isNearLimit = usagePercent >= 0.9 && usagePercent < 1;
-  const isAtLimit = usagePercent >= 1;
   const hiddenPhotos = Math.max(0, totalPhotos - unlockedPhotoLimit);
+  const canUpgrade = unlockedPhotoLimit < 2500;
+  const tierName = getTierName(unlockedPhotoLimit);
 
   const kpis = [
     {
@@ -32,11 +40,7 @@ export default function MemoriesKPIs({
       icon: Image,
       badge: hiddenPhotos > 0
         ? { label: `+${hiddenPhotos} da sbloccare`, variant: "secondary" as const, icon: Sparkles }
-        : isAtLimit
-          ? { label: "Rullino pieno", variant: "destructive" as const, icon: AlertTriangle }
-          : isNearLimit
-            ? { label: "Quasi pieno", variant: "secondary" as const, icon: AlertTriangle }
-            : null,
+        : null,
     },
     {
       label: "Partecipanti",
@@ -44,9 +48,13 @@ export default function MemoriesKPIs({
       icon: Users,
     },
     {
-      label: "Scatti disponibili",
-      value: Math.max(0, hardLimit - totalPhotos),
+      label: "Limite foto",
+      value: unlockedPhotoLimit,
+      sub: `Piano ${tierName}`,
       icon: Camera,
+      badge: canUpgrade
+        ? { label: "Upgrade", variant: "secondary" as const, icon: Sparkles, clickable: true }
+        : null,
     },
     ...(requireApproval
       ? [{ label: "Da approvare", value: pendingApproval, icon: ShieldCheck }]
@@ -74,12 +82,11 @@ export default function MemoriesKPIs({
               <Badge
                 variant={kpi.badge.variant}
                 className={`text-[10px] px-1.5 py-0 mt-1 ${
-                  kpi.badge.variant === "destructive"
-                    ? ""
-                    : kpi.badge.icon === Sparkles
-                      ? "bg-primary/10 text-primary border-primary/20"
-                      : "bg-orange-100 text-orange-700 border-orange-200"
-                }`}
+                  kpi.badge.icon === Sparkles
+                    ? "bg-primary/10 text-primary border-primary/20"
+                    : "bg-orange-100 text-orange-700 border-orange-200"
+                } ${"clickable" in kpi.badge && kpi.badge.clickable ? "cursor-pointer hover:bg-primary/20" : ""}`}
+                onClick={"clickable" in kpi.badge && kpi.badge.clickable ? onUpgradeClick : undefined}
               >
                 {kpi.badge.icon && <kpi.badge.icon size={10} className="mr-0.5" />}
                 {kpi.badge.label}
