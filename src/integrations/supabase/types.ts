@@ -110,6 +110,85 @@ export type Database = {
           },
         ]
       }
+      camera_participants: {
+        Row: {
+          camera_id: string
+          created_at: string
+          guest_fingerprint: string
+          guest_name: string | null
+          id: string
+          notify_email: string | null
+          shots_taken: number
+        }
+        Insert: {
+          camera_id: string
+          created_at?: string
+          guest_fingerprint: string
+          guest_name?: string | null
+          id?: string
+          notify_email?: string | null
+          shots_taken?: number
+        }
+        Update: {
+          camera_id?: string
+          created_at?: string
+          guest_fingerprint?: string
+          guest_name?: string | null
+          id?: string
+          notify_email?: string | null
+          shots_taken?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "camera_participants_camera_id_fkey"
+            columns: ["camera_id"]
+            isOneToOne: false
+            referencedRelation: "disposable_cameras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      camera_photos: {
+        Row: {
+          camera_id: string
+          created_at: string
+          file_path: string
+          film_type_applied: string | null
+          guest_fingerprint: string | null
+          guest_name: string | null
+          id: string
+          is_approved: boolean
+        }
+        Insert: {
+          camera_id: string
+          created_at?: string
+          file_path: string
+          film_type_applied?: string | null
+          guest_fingerprint?: string | null
+          guest_name?: string | null
+          id?: string
+          is_approved?: boolean
+        }
+        Update: {
+          camera_id?: string
+          created_at?: string
+          file_path?: string
+          film_type_applied?: string | null
+          guest_fingerprint?: string | null
+          guest_name?: string | null
+          id?: string
+          is_approved?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "camera_photos_camera_id_fkey"
+            columns: ["camera_id"]
+            isOneToOne: false
+            referencedRelation: "disposable_cameras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checklist_tasks: {
         Row: {
           assigned_to: string | null
@@ -251,6 +330,68 @@ export type Database = {
             columns: ["guest_id"]
             isOneToOne: false
             referencedRelation: "guests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      disposable_cameras: {
+        Row: {
+          created_at: string
+          ending_date: string | null
+          film_type: string
+          free_reveal_limit: number
+          hard_storage_limit: number
+          id: string
+          is_active: boolean
+          photos_unlocked: boolean
+          require_approval: boolean
+          reveal_at: string | null
+          reveal_mode: string
+          shots_per_person: number
+          token: string
+          updated_at: string
+          wedding_id: string
+        }
+        Insert: {
+          created_at?: string
+          ending_date?: string | null
+          film_type?: string
+          free_reveal_limit?: number
+          hard_storage_limit?: number
+          id?: string
+          is_active?: boolean
+          photos_unlocked?: boolean
+          require_approval?: boolean
+          reveal_at?: string | null
+          reveal_mode?: string
+          shots_per_person?: number
+          token?: string
+          updated_at?: string
+          wedding_id: string
+        }
+        Update: {
+          created_at?: string
+          ending_date?: string | null
+          film_type?: string
+          free_reveal_limit?: number
+          hard_storage_limit?: number
+          id?: string
+          is_active?: boolean
+          photos_unlocked?: boolean
+          require_approval?: boolean
+          reveal_at?: string | null
+          reveal_mode?: string
+          shots_per_person?: number
+          token?: string
+          updated_at?: string
+          wedding_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "disposable_cameras_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: true
+            referencedRelation: "weddings"
             referencedColumns: ["id"]
           },
         ]
