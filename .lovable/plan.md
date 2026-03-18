@@ -1,63 +1,50 @@
 
+# Memories Reel — Piano di Implementazione (COMPLETATO ✅)
 
-# Notifiche Email per Messaggi Chat (Planner ↔ Sposi)
+## Stato: Fase 1-6 Completate
 
-## Obiettivo
-Quando il planner invia un messaggio, gli sposi ricevono un'email di notifica. Quando gli sposi scrivono, il planner riceve un'email. Bidirezionale.
+### ✅ Fase 1: Database + Storage
+- 3 tabelle create: `disposable_cameras`, `camera_photos`, `camera_participants`
+- Bucket `camera-photos` (pubblico) creato
+- RLS policies per planner/manager/co_planner
+- Indici e trigger `updated_at`
 
-## Approccio
+### ✅ Fase 2: Edge Function `upload-camera-photo`
+- Endpoint pubblico (verify_jwt = false)
+- Validazione token, is_active, ending_date
+- Hard storage limit e shots per person
+- Payload limit 2MB
+- Upload WebP + insert atomico + upsert participant
 
-### 1. Nuova Edge Function `notify-chat-message`
+### ✅ Fase 3: Utilities Client
+- `src/lib/cameraFilters.ts` — Canvas filters (vintage, bw, warm, classic) + compressione WebP
+- `src/lib/offlinePhotoQueue.ts` — IndexedDB queue con flush sequenziale + beforeunload warning
 
-Creazione di `supabase/functions/notify-chat-message/index.ts` che:
+### ✅ Fase 4: Pagina Pubblica `/camera/:token`
+- `CameraPublic.tsx` — dark theme, standalone
+- `InAppBrowserGuard` — detector WebView
+- `CameraViewfinder` — getUserMedia + fallback input file + filtri CSS + Vibration API
+- `GuestNameSheet` — bottom sheet post-primo-scatto
+- `OfflineQueueBadge` — indicatore foto in attesa
+- `FilmFrame` — frame estetico vintage
+- Stati limite: film pieno, scatti esauriti, rullino chiuso
+- CTA email notifica reveal
 
-- Riceve `{ wedding_id, sender_id, content, visibility }` come payload
-- Usa il service role key per determinare chi notificare:
-  - Se il sender è un **planner/manager** → notifica tutti i **co_planner** del matrimonio
-  - Se il sender è un **co_planner** → notifica il **planner** del matrimonio
-- Ignora messaggi con `visibility = "couple"` per il planner (non li vede)
-- Recupera l'email dei destinatari via `auth.admin.getUserById()`
-- Invia email via Resend (già configurato) con template branded
-- Aggiunge un link diretto alla chat (`APP_URL/app/chat`)
-- Rate limiting: non invia se l'ultimo messaggio notificato allo stesso utente per lo stesso wedding è stato < 5 minuti fa (per evitare spam in conversazioni attive)
+### ✅ Fase 5: Pagina Admin `/app/memories`
+- `MemoriesReel.tsx` — dashboard con tabs
+- `MemoriesKPIs` — foto, partecipanti, disponibilità, da approvare
+- `MemoriesSettings` — configurazione con pattern View/Edit
+- `MemoriesGallery` — galleria con logica free/locked
+- `ModerationView` — approva/rifiuta rapido
+- `ShareCameraDialog` — QR code + copy link + download PNG
 
-### 2. Integrazione nel flusso di invio messaggio
+### ✅ Fase 6: Routing + Navigazione
+- Route `/app/memories` (protetta) e `/camera/:token` (pubblica) in App.tsx
+- Voce "Memories" in sidebar con icona Camera, dopo "Pernotto"
 
-In `src/pages/Chat.tsx` e `src/pages/PlannerInbox.tsx`, dopo l'insert del messaggio (quando non c'è errore), invocare la edge function:
+### 🔮 Fase 7: Paywall (Futura)
+- Edge Function `create-camera-checkout` con Stripe
+- Sblocco `photos_unlocked = true`
 
-```typescript
-// Dopo insert riuscito
-supabase.functions.invoke("notify-chat-message", {
-  body: { wedding_id: weddingId, sender_id: userId, content, visibility }
-});
-```
-
-Fire-and-forget (non blocca la UI).
-
-### 3. Tabella di throttling (opzionale ma consigliata)
-
-Per evitare email flood durante conversazioni in tempo reale, usare un approccio semplice nella edge function: controllare l'ultimo messaggio nella tabella `messages` per lo stesso wedding dove il sender è diverso dal destinatario, e inviare solo se non ci sono messaggi recenti (< 5 min) già notificati. Implementato interamente nella edge function senza nuove tabelle — usa un semplice check temporale sui messaggi esistenti.
-
-### 4. Configurazione
-
-- `verify_jwt = false` in config.toml per la function (validazione JWT interna)
-- Usa secrets già disponibili: `RESEND_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `APP_URL`
-
-## File da creare/modificare
-
-| File | Azione |
-|------|--------|
-| `supabase/functions/notify-chat-message/index.ts` | **Nuovo** — Edge function notifica email |
-| `supabase/config.toml` | Aggiungere config per la nuova function |
-| `src/pages/Chat.tsx` | Aggiungere invoke dopo invio messaggio |
-| `src/pages/PlannerInbox.tsx` | Aggiungere invoke dopo invio messaggio |
-
-## Template Email
-
-Email semplice e branda con:
-- Header colorato (gradient indaco come le altre email)
-- "Hai un nuovo messaggio da [Nome Mittente]"
-- Preview del contenuto (troncato a ~200 char)
-- CTA "Vai alla Chat →"
-- Footer WedsApp
-
+### 🔮 Fase 8: Cron Job Cleanup (Futura)
+- Eliminazione foto non sbloccate dopo 30 giorni
