@@ -344,6 +344,7 @@ export type Database = {
           id: string
           is_active: boolean
           photos_unlocked: boolean
+          poster_design: Json | null
           require_approval: boolean
           reveal_at: string | null
           reveal_mode: string
@@ -361,6 +362,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           photos_unlocked?: boolean
+          poster_design?: Json | null
           require_approval?: boolean
           reveal_at?: string | null
           reveal_mode?: string
@@ -378,6 +380,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           photos_unlocked?: boolean
+          poster_design?: Json | null
           require_approval?: boolean
           reveal_at?: string | null
           reveal_mode?: string

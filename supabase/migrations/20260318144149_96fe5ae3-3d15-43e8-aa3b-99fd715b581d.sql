@@ -1,0 +1,1 @@
+ALTER TABLE public.disposable_cameras ADD COLUMN poster_design jsonb DEFAULT NULL;

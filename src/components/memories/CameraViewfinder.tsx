@@ -1,6 +1,8 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import { processPhoto, getCSSFilter, type FilmType } from "@/lib/cameraFilters";
-import { Camera, RotateCcw, X } from "lucide-react";
+import { RotateCcw } from "lucide-react";
+
+const GOLD = "#C9A96E";
 
 interface CameraViewfinderProps {
   filmType: FilmType;
@@ -28,20 +30,15 @@ export default function CameraViewfinder({
 
   const startCamera = useCallback(async (facing: "environment" | "user") => {
     try {
-      // Stop existing stream
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
       }
-
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: facing, width: { ideal: 1920 }, height: { ideal: 1080 } },
         audio: false,
       });
-
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
+      if (videoRef.current) videoRef.current.srcObject = stream;
       setCameraReady(true);
       setPermissionDenied(false);
     } catch (err: any) {
@@ -54,38 +51,26 @@ export default function CameraViewfinder({
   }, []);
 
   useEffect(() => {
-    // Check if getUserMedia is supported
     if (!navigator.mediaDevices?.getUserMedia) {
       setCameraReady(false);
       return;
     }
-
     startCamera(facingMode);
-
-    // Handle tab visibility change
     const handleVisibility = () => {
-      if (document.visibilityState === "visible" && !permissionDenied) {
-        startCamera(facingMode);
-      }
+      if (document.visibilityState === "visible" && !permissionDenied) startCamera(facingMode);
     };
     document.addEventListener("visibilitychange", handleVisibility);
-
     return () => {
       document.removeEventListener("visibilitychange", handleVisibility);
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((t) => t.stop());
-      }
+      if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop());
     };
   }, [facingMode, startCamera, permissionDenied]);
 
   const captureFromVideo = async () => {
     if (!videoRef.current || isCapturing || disabled) return;
     setIsCapturing(true);
-
     try {
-      // Haptic feedback
       if ("vibrate" in navigator) navigator.vibrate(50);
-
       const blob = await processPhoto(videoRef.current, filmType);
       onPhotoTaken(blob);
     } catch (err) {
@@ -99,7 +84,6 @@ export default function CameraViewfinder({
     const file = e.target.files?.[0];
     if (!file || isCapturing || disabled) return;
     setIsCapturing(true);
-
     try {
       const blob = await processPhoto(file, filmType);
       onPhotoTaken(blob);
@@ -115,53 +99,87 @@ export default function CameraViewfinder({
     setFacingMode((prev) => (prev === "environment" ? "user" : "environment"));
   };
 
-  // Permission denied state
+  // Digit boxes for shot counter
+  const ShotCounter = () => {
+    const remaining = String(shotsRemaining).padStart(2, "0");
+    const total = String(shotsTotal).padStart(2, "0");
+    return (
+      <div className="flex items-center gap-1.5">
+        <div className="flex gap-0.5">
+          {remaining.split("").map((d, i) => (
+            <span
+              key={`r${i}`}
+              className="inline-flex items-center justify-center w-7 h-9 rounded text-base font-mono font-bold text-white"
+              style={{ background: "#2A2A2A" }}
+            >
+              {d}
+            </span>
+          ))}
+        </div>
+        <span className="text-xs font-mono" style={{ color: "rgba(255,255,255,0.3)" }}>/</span>
+        <div className="flex gap-0.5">
+          {total.split("").map((d, i) => (
+            <span
+              key={`t${i}`}
+              className="inline-flex items-center justify-center w-7 h-9 rounded text-base font-mono font-bold"
+              style={{ background: "#2A2A2A", color: GOLD }}
+            >
+              {d}
+            </span>
+          ))}
+        </div>
+        <span className="text-[10px] uppercase tracking-wider ml-1" style={{ color: "rgba(255,255,255,0.4)" }}>
+          shots
+        </span>
+      </div>
+    );
+  };
+
+  // Corner brackets for viewfinder
+  const CornerBrackets = () => (
+    <>
+      {/* Top-left */}
+      <div className="absolute top-4 left-4 w-6 h-6 border-l-2 border-t-2" style={{ borderColor: GOLD }} />
+      {/* Top-right */}
+      <div className="absolute top-4 right-4 w-6 h-6 border-r-2 border-t-2" style={{ borderColor: GOLD }} />
+      {/* Bottom-left */}
+      <div className="absolute bottom-4 left-4 w-6 h-6 border-l-2 border-b-2" style={{ borderColor: GOLD }} />
+      {/* Bottom-right */}
+      <div className="absolute bottom-4 right-4 w-6 h-6 border-r-2 border-b-2" style={{ borderColor: GOLD }} />
+    </>
+  );
+
   if (permissionDenied) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-6 text-center">
         <div className="text-5xl mb-4">🔒</div>
-        <h2 className="text-white text-xl font-bold mb-2">
-          Permesso fotocamera negato
-        </h2>
-        <p className="text-white/60 text-sm mb-6 max-w-xs">
-          Per scattare foto, consenti l'accesso alla fotocamera nelle
-          impostazioni del tuo browser.
+        <h2 className="text-xl font-bold mb-2 text-white">Permesso fotocamera negato</h2>
+        <p className="text-sm mb-6 max-w-xs" style={{ color: "rgba(255,255,255,0.5)" }}>
+          Per scattare foto, consenti l'accesso alla fotocamera nelle impostazioni del tuo browser.
         </p>
-        <label className="bg-white text-black font-semibold px-6 py-3 rounded-full text-sm cursor-pointer active:scale-95 transition-transform">
+        <label
+          className="font-semibold px-6 py-3 rounded-full text-sm cursor-pointer active:scale-95 transition-transform"
+          style={{ background: GOLD, color: "#1A1A1A" }}
+        >
           Carica una foto
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-            onChange={handleFileInput}
-          />
+          <input ref={fileInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileInput} />
         </label>
       </div>
     );
   }
 
-  // Fallback for devices without getUserMedia
   if (!navigator.mediaDevices?.getUserMedia) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-6 text-center">
         <div className="text-5xl mb-4">📸</div>
-        <h2 className="text-white text-xl font-bold mb-2">Scatta una foto</h2>
-        <p className="text-white/60 text-sm mb-4">
-          {shotsRemaining} / {shotsTotal} scatti rimanenti
-        </p>
-        <label className="bg-white text-black font-semibold px-6 py-3 rounded-full text-sm cursor-pointer active:scale-95 transition-transform">
+        <h2 className="text-xl font-bold mb-2 text-white">Scatta una foto</h2>
+        <div className="mb-4"><ShotCounter /></div>
+        <label
+          className="font-semibold px-6 py-3 rounded-full text-sm cursor-pointer active:scale-95 transition-transform"
+          style={{ background: GOLD, color: "#1A1A1A" }}
+        >
           {isCapturing ? "Elaborazione..." : "Scatta 📷"}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-            onChange={handleFileInput}
-            disabled={isCapturing || disabled}
-          />
+          <input ref={fileInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileInput} disabled={isCapturing || disabled} />
         </label>
       </div>
     );
@@ -170,7 +188,7 @@ export default function CameraViewfinder({
   return (
     <div className="relative flex flex-col items-center h-full">
       {/* Viewfinder */}
-      <div className="relative w-full flex-1 overflow-hidden bg-black">
+      <div className="relative w-full flex-1 overflow-hidden" style={{ background: "#000" }}>
         <video
           ref={videoRef}
           autoPlay
@@ -180,48 +198,51 @@ export default function CameraViewfinder({
           style={{ filter: getCSSFilter(filmType) }}
         />
 
-        {/* Shot counter */}
-        <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-sm text-white text-xs font-mono px-3 py-1.5 rounded-full">
-          {shotsRemaining} / {shotsTotal}
+        {/* Corner brackets overlay */}
+        <CornerBrackets />
+
+        {/* FILM label */}
+        <div className="absolute bottom-6 right-6 text-[10px] font-mono tracking-wider" style={{ color: "rgba(255,255,255,0.3)" }}>
+          FILM 400
         </div>
 
-        {/* Flip camera button */}
+        {/* Flip camera */}
         <button
           onClick={toggleCamera}
-          className="absolute top-4 left-4 bg-black/60 backdrop-blur-sm text-white p-2 rounded-full active:scale-90 transition-transform"
+          className="absolute top-4 left-1/2 -translate-x-1/2 p-2.5 rounded-full active:scale-90 transition-transform"
+          style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(8px)" }}
         >
-          <RotateCcw size={18} />
+          <RotateCcw size={18} color="white" />
         </button>
       </div>
 
-      {/* Controls */}
-      <div className="flex items-center justify-center gap-6 py-6 bg-black w-full">
-        {/* File upload fallback */}
-        <label className="text-white/50 p-2 cursor-pointer">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleFileInput}
-            disabled={isCapturing || disabled}
-          />
-          <Camera size={24} />
+      {/* Controls bar */}
+      <div className="flex items-center justify-between w-full px-6 py-4" style={{ background: "#1A1A1A" }}>
+        {/* File upload */}
+        <label className="p-2 cursor-pointer" style={{ color: "rgba(255,255,255,0.3)" }}>
+          <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileInput} disabled={isCapturing || disabled} />
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <circle cx="8.5" cy="8.5" r="1.5" />
+            <path d="M21 15l-5-5L5 21" />
+          </svg>
         </label>
 
-        {/* Shutter button */}
+        {/* Shutter */}
         <button
           onClick={captureFromVideo}
           disabled={!cameraReady || isCapturing || disabled}
-          className={`w-16 h-16 rounded-full border-4 border-white flex items-center justify-center active:scale-90 transition-all ${
-            isCapturing ? "bg-red-500" : "bg-white/10"
-          } disabled:opacity-40`}
+          className="w-[68px] h-[68px] rounded-full flex items-center justify-center active:scale-90 transition-all disabled:opacity-40"
+          style={{ border: `3px solid ${GOLD}` }}
         >
-          <div className={`w-12 h-12 rounded-full ${isCapturing ? "bg-red-400" : "bg-white"}`} />
+          <div
+            className="w-[54px] h-[54px] rounded-full transition-colors"
+            style={{ background: isCapturing ? "#E74C3C" : "rgba(255,255,255,0.9)" }}
+          />
         </button>
 
-        {/* Spacer */}
-        <div className="w-10" />
+        {/* Shot counter */}
+        <ShotCounter />
       </div>
 
       <canvas ref={canvasRef} className="hidden" />
