@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
 import { Upload, Download, X, ArrowLeft } from "lucide-react";
 import QRCode from "react-qr-code";
 import { supabase } from "@/integrations/supabase/client";
@@ -39,6 +40,9 @@ interface PosterDesign {
   textColor: string;
   accentColor: string;
   backgroundImageUrl: string | null;
+  qrSize: number;      // QR code size in px (within preview scale)
+  qrX: number;         // QR X position (% from left, 0-100)
+  qrY: number;         // QR Y position (% from top, 0-100)
 }
 
 const DEFAULT_DESIGN: PosterDesign = {
@@ -50,6 +54,9 @@ const DEFAULT_DESIGN: PosterDesign = {
   textColor: "#FFFFFF",
   accentColor: GOLD,
   backgroundImageUrl: null,
+  qrSize: 80,
+  qrX: 50,
+  qrY: 55,
 };
 
 interface QRPosterEditorProps {
@@ -75,12 +82,16 @@ export default function QRPosterEditor({
   });
   const [step, setStep] = useState<1 | 2>(1);
   const [generating, setGenerating] = useState(false);
+  const [dragging, setDragging] = useState(false);
   const posterRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loadedRef = useRef(false);
 
   // Load saved design
   useEffect(() => {
     if (!open || !cameraId) return;
+    loadedRef.current = false;
     supabase
       .from("disposable_cameras" as any)
       .select("poster_design")
@@ -88,14 +99,42 @@ export default function QRPosterEditor({
       .maybeSingle()
       .then(({ data }) => {
         if ((data as any)?.poster_design) {
-          setDesign({ ...DEFAULT_DESIGN, ...(data as any).poster_design });
+          const saved = (data as any).poster_design;
+          setDesign((prev) => ({
+            ...DEFAULT_DESIGN,
+            ...saved,
+            // Keep locally uploaded image if any, don't override with null from DB
+            backgroundImageUrl: prev.backgroundImageUrl || saved.backgroundImageUrl || null,
+            // Ensure new fields have defaults
+            qrSize: saved.qrSize ?? DEFAULT_DESIGN.qrSize,
+            qrX: saved.qrX ?? DEFAULT_DESIGN.qrX,
+            qrY: saved.qrY ?? DEFAULT_DESIGN.qrY,
+          }));
         }
+        loadedRef.current = true;
       });
   }, [open, cameraId]);
 
   const updateDesign = (partial: Partial<PosterDesign>) => {
     setDesign((prev) => ({ ...prev, ...partial }));
   };
+
+  // Debounced auto-save
+  useEffect(() => {
+    if (!loadedRef.current || !cameraId) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      const { backgroundImageUrl, ...saveable } = design;
+      supabase
+        .from("disposable_cameras" as any)
+        .update({ poster_design: saveable as any })
+        .eq("id", cameraId)
+        .then(() => {});
+    }, 800);
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, [design, cameraId]);
 
   const handleBgUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -148,7 +187,44 @@ export default function QRPosterEditor({
     }
   };
 
+  // --- Drag logic for QR code ---
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const poster = posterRef.current;
+      if (!poster) return;
+      setDragging(true);
+
+      const rect = poster.getBoundingClientRect();
+
+      const onMove = (ev: PointerEvent) => {
+        const x = ((ev.clientX - rect.left) / rect.width) * 100;
+        const y = ((ev.clientY - rect.top) / rect.height) * 100;
+        setDesign((prev) => ({
+          ...prev,
+          qrX: Math.max(5, Math.min(95, x)),
+          qrY: Math.max(5, Math.min(95, y)),
+        }));
+      };
+
+      const onUp = () => {
+        setDragging(false);
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+      };
+
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp);
+    },
+    []
+  );
+
   const fontFamily = FONT_MAP[design.font];
+
+  // Calculate actual QR pixel size for the preview (poster preview is 297px wide)
+  const qrPx = design.qrSize;
+  const qrPadding = Math.round(qrPx * 0.12);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -198,7 +274,7 @@ export default function QRPosterEditor({
               )}
 
               {/* Content */}
-              <div className="relative z-10 flex flex-col items-center justify-between h-full py-10 px-6 text-center">
+              <div className="relative z-10 flex flex-col items-center h-full py-10 px-6 text-center">
                 {/* Top — titles */}
                 <div>
                   <p
@@ -222,18 +298,33 @@ export default function QRPosterEditor({
                     </p>
                   )}
                 </div>
+              </div>
 
-                {/* Center — QR */}
-                <div className="bg-white p-4 rounded-lg shadow-lg">
-                  <QRCode value={cameraUrl} size={120} level="M" />
+              {/* Draggable QR code — absolutely positioned */}
+              <div
+                className="absolute z-20"
+                style={{
+                  left: `${design.qrX}%`,
+                  top: `${design.qrY}%`,
+                  transform: "translate(-50%, -50%)",
+                  cursor: dragging ? "grabbing" : "grab",
+                  touchAction: "none",
+                }}
+                onPointerDown={handlePointerDown}
+              >
+                <div
+                  className="bg-white rounded-lg shadow-lg"
+                  style={{ padding: `${qrPadding}px` }}
+                >
+                  <QRCode value={cameraUrl} size={qrPx} level="M" />
                 </div>
+              </div>
 
-                {/* Bottom — instruction */}
-                <div>
-                  <p className="text-[10px]" style={{ color: design.accentColor }}>
-                    {design.instruction}
-                  </p>
-                </div>
+              {/* Bottom — instruction */}
+              <div className="absolute bottom-8 left-0 right-0 z-10 text-center px-6">
+                <p className="text-[10px]" style={{ color: design.accentColor }}>
+                  {design.instruction}
+                </p>
               </div>
             </div>
           </div>
@@ -284,6 +375,25 @@ export default function QRPosterEditor({
                     <SelectItem value="dancing">Dancing Script</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              {/* QR size slider */}
+              <div>
+                <Label className="text-xs">Dimensione QR code</Label>
+                <div className="flex items-center gap-3 mt-1">
+                  <Slider
+                    value={[design.qrSize]}
+                    onValueChange={([v]) => updateDesign({ qrSize: v })}
+                    min={40}
+                    max={160}
+                    step={4}
+                    className="flex-1"
+                  />
+                  <span className="text-xs text-muted-foreground w-10 text-right">{design.qrSize}px</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  Trascina il QR sull'anteprima per posizionarlo
+                </p>
               </div>
 
               <div className="grid grid-cols-3 gap-2">
