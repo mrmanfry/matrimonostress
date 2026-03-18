@@ -201,6 +201,7 @@ export default function CameraViewfinder({
           autoPlay
           playsInline
           muted
+          onLoadedMetadata={() => setCameraReady(true)}
           className="w-full h-full object-cover"
           style={{ filter: getCSSFilter(filmType) }}
         />
