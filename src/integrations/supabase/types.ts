@@ -1876,6 +1876,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      camera_upload_photo: {
+        Args: {
+          p_camera_id: string
+          p_file_path: string
+          p_film_type?: string
+          p_fingerprint: string
+          p_guest_name?: string
+          p_require_approval?: boolean
+        }
+        Returns: Json
+      }
       can_see_couple_messages: {
         Args: { _user_id: string; _wedding_id: string }
         Returns: boolean

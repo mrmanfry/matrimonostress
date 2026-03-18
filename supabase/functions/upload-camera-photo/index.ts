@@ -60,30 +60,7 @@ serve(async (req: Request) => {
       return json({ error: "camera_expired" }, 403);
     }
 
-    // 4. Check hard storage limit
-    const { count: totalPhotos } = await supabaseAdmin
-      .from("camera_photos")
-      .select("id", { count: "exact", head: true })
-      .eq("camera_id", camera.id);
-
-    if ((totalPhotos ?? 0) >= camera.hard_storage_limit) {
-      return json({ error: "film_full", message: "Hard storage limit reached" }, 200);
-    }
-
-    // 5. Check shots per person
-    const { data: participant } = await supabaseAdmin
-      .from("camera_participants")
-      .select("shots_taken")
-      .eq("camera_id", camera.id)
-      .eq("guest_fingerprint", fingerprint)
-      .maybeSingle();
-
-    const currentShots = participant?.shots_taken ?? 0;
-    if (currentShots >= camera.shots_per_person) {
-      return json({ error: "shots_exhausted", shots_remaining: 0 }, 200);
-    }
-
-    // 6. Upload file to storage
+    // 4. Upload file to storage first
     const photoId = crypto.randomUUID();
     const ext = file.type === "image/webp" ? "webp" : "jpg";
     const filePath = `${camera.id}/${photoId}.${ext}`;
@@ -101,51 +78,33 @@ serve(async (req: Request) => {
       return json({ error: "upload_failed" }, 500);
     }
 
-    // 7. Insert photo record
-    const { error: insertErr } = await supabaseAdmin
-      .from("camera_photos")
-      .insert({
-        camera_id: camera.id,
-        file_path: filePath,
-        guest_name: guestName,
-        guest_fingerprint: fingerprint,
-        film_type_applied: filmType,
-        is_approved: !camera.require_approval,
-      });
+    // 5. Atomic DB operation: check limits + insert photo + increment shots
+    const { data: result, error: rpcErr } = await supabaseAdmin.rpc(
+      "camera_upload_photo",
+      {
+        p_camera_id: camera.id,
+        p_fingerprint: fingerprint,
+        p_file_path: filePath,
+        p_guest_name: guestName,
+        p_film_type: filmType,
+        p_require_approval: camera.require_approval,
+      }
+    );
 
-    if (insertErr) {
-      console.error("Insert error:", insertErr);
+    if (rpcErr) {
+      console.error("RPC error:", rpcErr);
       // Cleanup uploaded file
       await supabaseAdmin.storage.from("camera-photos").remove([filePath]);
       return json({ error: "insert_failed" }, 500);
     }
 
-    // 8. Upsert participant and increment shots_taken atomically
-    if (participant) {
-      await supabaseAdmin
-        .from("camera_participants")
-        .update({
-          shots_taken: currentShots + 1,
-          guest_name: guestName || participant.guest_name || null,
-        })
-        .eq("camera_id", camera.id)
-        .eq("guest_fingerprint", fingerprint);
-    } else {
-      await supabaseAdmin.from("camera_participants").insert({
-        camera_id: camera.id,
-        guest_name: guestName,
-        guest_fingerprint: fingerprint,
-        shots_taken: 1,
-      });
+    // If the atomic function returned an error (limit reached), cleanup the uploaded file
+    if (result?.error) {
+      await supabaseAdmin.storage.from("camera-photos").remove([filePath]);
+      return json(result, 200);
     }
 
-    const shotsRemaining = camera.shots_per_person - (currentShots + 1);
-
-    return json({
-      success: true,
-      shots_remaining: shotsRemaining,
-      photo_id: photoId,
-    });
+    return json(result);
   } catch (err) {
     console.error("Unexpected error:", err);
     return json({ error: "internal_error" }, 500);
