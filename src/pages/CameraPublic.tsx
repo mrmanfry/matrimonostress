@@ -275,10 +275,6 @@ export default function CameraPublic() {
 
   const cameraUrl = typeof window !== "undefined" ? window.location.href : "";
 
-  const daysLeft = wedding?.wedding_date
-    ? Math.max(0, differenceInDays(new Date(wedding.wedding_date), new Date()))
-    : null;
-
   const shotsTaken = camera ? camera.shots_per_person - shotsRemaining : 0;
 
   if (loading) {
