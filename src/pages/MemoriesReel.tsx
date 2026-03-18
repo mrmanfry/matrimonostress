@@ -173,7 +173,7 @@ export default function MemoriesReel() {
         onUpgradeClick={() => document.getElementById("memories-upgrade")?.scrollIntoView({ behavior: "smooth", block: "center" })}
       />
 
-      <Tabs defaultValue="gallery">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="gallery" className="gap-1.5">
             <Image size={14} />
