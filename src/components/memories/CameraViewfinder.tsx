@@ -159,8 +159,11 @@ const CameraViewfinder = forwardRef<CameraViewfinderHandle, CameraViewfinderProp
         if ("vibrate" in navigator) navigator.vibrate(50);
         const blob = await processPhoto(v, filmType);
         onPhotoTaken(blob);
-      } catch (err) {
-        console.error("Capture error:", err);
+      } catch (err: any) {
+        console.error("[Camera] Capture error:", err);
+        // Show inline feedback — import toast from sonner
+        const { toast } = await import("sonner");
+        toast.error("Errore nello scatto", { description: err?.message || "Riprova" });
       } finally {
         setIsCapturing(false);
       }
