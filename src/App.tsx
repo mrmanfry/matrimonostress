@@ -33,6 +33,8 @@ import PlannerCalendarPage from "./pages/PlannerCalendarPage";
 import Chat from "./pages/Chat";
 import PlannerInbox from "./pages/PlannerInbox";
 import Accommodation from "./pages/Accommodation";
+import MemoriesReel from "./pages/MemoriesReel";
+import CameraPublic from "./pages/CameraPublic";
 import NotFound from "./pages/NotFound";
 
 const AppIndexRedirect = () => {
