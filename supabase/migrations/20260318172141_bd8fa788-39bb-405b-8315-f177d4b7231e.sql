@@ -1,0 +1,1 @@
+ALTER TABLE public.disposable_cameras ALTER COLUMN hard_storage_limit SET DEFAULT 2000;
