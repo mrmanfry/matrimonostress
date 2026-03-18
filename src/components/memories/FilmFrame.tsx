@@ -1,3 +1,5 @@
+const GOLD = "#C9A96E";
+
 interface FilmFrameProps {
   src: string;
   guestName?: string | null;
@@ -16,8 +18,26 @@ export default function FilmFrame({ src, guestName, timestamp, className = "" }:
     : null;
 
   return (
-    <div className={`bg-zinc-900 rounded-lg overflow-hidden shadow-lg ${className}`}>
-      <div className="aspect-[3/4] overflow-hidden">
+    <div className={`relative rounded overflow-hidden ${className}`} style={{ background: "#111" }}>
+      {/* Sprocket holes top */}
+      <div className="flex justify-between px-2 py-1" style={{ background: "#0A0A0A" }}>
+        <div className="flex gap-1">
+          {[0, 1, 2].map(i => (
+            <div key={i} className="w-1.5 h-1 rounded-full" style={{ background: "#2A2A2A" }} />
+          ))}
+        </div>
+        <span className="text-[7px] font-mono tracking-wider uppercase" style={{ color: "rgba(255,255,255,0.2)" }}>
+          disp. camera
+        </span>
+        <div className="flex gap-1">
+          {[0, 1, 2].map(i => (
+            <div key={i} className="w-1.5 h-1 rounded-full" style={{ background: "#2A2A2A" }} />
+          ))}
+        </div>
+      </div>
+
+      {/* Photo */}
+      <div className="aspect-square overflow-hidden">
         <img
           src={src}
           alt={guestName ? `Foto di ${guestName}` : "Foto dal rullino"}
@@ -25,13 +45,16 @@ export default function FilmFrame({ src, guestName, timestamp, className = "" }:
           loading="lazy"
         />
       </div>
-      {/* Polaroid-style bottom */}
-      <div className="px-3 py-2 bg-zinc-900">
-        <p className="text-white/70 text-xs font-mono truncate">
+
+      {/* Bottom info */}
+      <div className="px-2 py-1.5" style={{ background: "#0A0A0A" }}>
+        <p className="text-[9px] font-mono truncate" style={{ color: GOLD }}>
           {guestName || "Anonimo"}
         </p>
         {formattedTime && (
-          <p className="text-white/40 text-[10px] font-mono">{formattedTime}</p>
+          <p className="text-[8px] font-mono" style={{ color: "rgba(255,255,255,0.25)" }}>
+            {formattedTime}
+          </p>
         )}
       </div>
     </div>

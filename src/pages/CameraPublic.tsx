@@ -10,15 +10,15 @@ import type { FilmType } from "@/lib/cameraFilters";
 import {
   enqueue,
   getPendingCount,
-  flushQueue,
   setupOfflineHandlers,
   type QueuedPhoto,
 } from "@/lib/offlinePhotoQueue";
-import { Camera, Mail } from "lucide-react";
+import { Camera, Images, Mail } from "lucide-react";
+import { format, differenceInDays } from "date-fns";
+import { it } from "date-fns/locale";
 
 type ViewMode = "camera" | "gallery";
 
-// Simple browser fingerprint
 function generateFingerprint(): string {
   const nav = navigator;
   const raw = [
@@ -38,9 +38,12 @@ function generateFingerprint(): string {
   return "fp_" + Math.abs(hash).toString(36);
 }
 
+const GOLD = "#C9A96E";
+
 export default function CameraPublic() {
   const { token } = useParams<{ token: string }>();
   const [camera, setCamera] = useState<any>(null);
+  const [wedding, setWedding] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<ViewMode>("camera");
@@ -49,6 +52,7 @@ export default function CameraPublic() {
   const [guestName, setGuestName] = useState<string | null>(null);
   const [pendingCount, setPendingCount] = useState(0);
   const [photos, setPhotos] = useState<any[]>([]);
+  const [participantCount, setParticipantCount] = useState(0);
   const [notifyEmail, setNotifyEmail] = useState("");
   const [emailSaved, setEmailSaved] = useState(false);
   const [filmFull, setFilmFull] = useState(false);
@@ -58,7 +62,7 @@ export default function CameraPublic() {
   const firstShot = useRef(true);
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 
-  // Load camera config
+  // Load camera config + wedding info
   useEffect(() => {
     if (!token) {
       setError("Token mancante");
@@ -67,8 +71,6 @@ export default function CameraPublic() {
     }
 
     const load = async () => {
-      // We use the edge function approach — but for reading camera config,
-      // we need a public way. Let's just call the supabase REST API with anon key.
       const { data, error: err } = await supabase
         .from("disposable_cameras" as any)
         .select("*")
@@ -97,6 +99,23 @@ export default function CameraPublic() {
 
       setCamera(cam);
       setShotsRemaining(cam.shots_per_person);
+
+      // Load wedding info
+      const { data: wed } = await supabase
+        .from("weddings")
+        .select("partner1_name, partner2_name, wedding_date")
+        .eq("id", cam.wedding_id)
+        .maybeSingle();
+
+      if (wed) setWedding(wed);
+
+      // Load participant count
+      const { count } = await supabase
+        .from("camera_participants" as any)
+        .select("*", { count: "exact", head: true })
+        .eq("camera_id", cam.id);
+
+      setParticipantCount(count || 0);
       setLoading(false);
     };
 
@@ -111,7 +130,6 @@ export default function CameraPublic() {
     return cleanup;
   }, [supabaseUrl]);
 
-  // Check pending count periodically
   useEffect(() => {
     const check = async () => {
       const c = await getPendingCount();
@@ -129,6 +147,7 @@ export default function CameraPublic() {
       .from("camera_photos" as any)
       .select("*")
       .eq("camera_id", camera.id)
+      .eq("guest_fingerprint", fingerprint.current)
       .eq("is_approved", true)
       .order("created_at", { ascending: false });
 
@@ -143,13 +162,11 @@ export default function CameraPublic() {
     async (blob: Blob) => {
       if (!camera || !token) return;
 
-      // Show name sheet after first shot
       if (firstShot.current && !guestName) {
         firstShot.current = false;
         setShowNameSheet(true);
       }
 
-      // If offline, queue it
       if (!navigator.onLine) {
         const queued: QueuedPhoto = {
           id: crypto.randomUUID(),
@@ -166,7 +183,6 @@ export default function CameraPublic() {
         return;
       }
 
-      // Upload directly
       const formData = new FormData();
       formData.append("token", token);
       formData.append("fingerprint", fingerprint.current);
@@ -195,7 +211,6 @@ export default function CameraPublic() {
           if (data.shots_remaining <= 0) setShotsExhausted(true);
         }
       } catch {
-        // Offline fallback
         const queued: QueuedPhoto = {
           id: crypto.randomUUID(),
           blob,
@@ -234,19 +249,28 @@ export default function CameraPublic() {
 
   const cameraUrl = typeof window !== "undefined" ? window.location.href : "";
 
+  const daysLeft = wedding?.wedding_date
+    ? Math.max(0, differenceInDays(new Date(wedding.wedding_date), new Date()))
+    : null;
+
+  const shotsTaken = camera ? camera.shots_per_person - shotsRemaining : 0;
+
   if (loading) {
     return (
-      <div className="fixed inset-0 bg-black flex items-center justify-center">
-        <div className="text-white/60 text-sm animate-pulse">Caricamento rullino...</div>
+      <div className="fixed inset-0 flex items-center justify-center" style={{ background: "#1A1A1A" }}>
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 rounded-full animate-spin" style={{ borderColor: `${GOLD} transparent ${GOLD} transparent` }} />
+          <p className="text-sm font-mono" style={{ color: "rgba(255,255,255,0.5)" }}>Caricamento rullino...</p>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="fixed inset-0 bg-black flex flex-col items-center justify-center p-6 text-center">
+      <div className="fixed inset-0 flex flex-col items-center justify-center p-6 text-center" style={{ background: "#1A1A1A" }}>
         <div className="text-5xl mb-4">🎞️</div>
-        <h1 className="text-white text-xl font-bold mb-2">{error}</h1>
+        <h1 className="text-xl font-bold mb-2 text-white">{error}</h1>
       </div>
     );
   }
@@ -254,13 +278,11 @@ export default function CameraPublic() {
   // Film full state
   if (filmFull) {
     return (
-      <div className="fixed inset-0 bg-black flex flex-col items-center justify-center p-6 text-center">
+      <div className="fixed inset-0 flex flex-col items-center justify-center p-6 text-center" style={{ background: "#1A1A1A" }}>
         <div className="text-6xl mb-4">🎞️</div>
-        <h1 className="text-white text-2xl font-bold mb-3">
-          Avete esaurito tutta la pellicola!
-        </h1>
-        <p className="text-white/60 text-sm max-w-xs">
-          Il rullino è pieno, godetevi la festa e aspettate di vedere lo sviluppo domani!
+        <h1 className="text-2xl font-bold mb-3 text-white">Pellicola esaurita!</h1>
+        <p className="text-sm max-w-xs" style={{ color: "rgba(255,255,255,0.5)" }}>
+          Il rullino è pieno, godetevi la festa!
         </p>
       </div>
     );
@@ -269,12 +291,10 @@ export default function CameraPublic() {
   // Shots exhausted state
   if (shotsExhausted) {
     return (
-      <div className="fixed inset-0 bg-black flex flex-col items-center justify-center p-6 text-center">
+      <div className="fixed inset-0 flex flex-col items-center justify-center p-6 text-center" style={{ background: "#1A1A1A" }}>
         <div className="text-6xl mb-4">📸</div>
-        <h1 className="text-white text-2xl font-bold mb-3">
-          Hai finito il tuo rullino!
-        </h1>
-        <p className="text-white/60 text-sm mb-6 max-w-xs">
+        <h1 className="text-2xl font-bold mb-3 text-white">Hai finito i tuoi scatti!</h1>
+        <p className="text-sm mb-6 max-w-xs" style={{ color: "rgba(255,255,255,0.5)" }}>
           Lascia la tua email per sapere quando le foto saranno sviluppate.
         </p>
         {!emailSaved ? (
@@ -284,23 +304,26 @@ export default function CameraPublic() {
               value={notifyEmail}
               onChange={(e) => setNotifyEmail(e.target.value)}
               placeholder="La tua email"
-              className="flex-1 bg-zinc-800 text-white rounded-lg px-4 py-3 text-sm border border-zinc-700 focus:outline-none"
+              className="flex-1 rounded-lg px-4 py-3 text-sm border focus:outline-none text-white"
+              style={{ background: "#2A2A2A", borderColor: "#3A3A3A" }}
             />
             <button
               onClick={handleSaveEmail}
-              className="bg-white text-black font-semibold px-4 py-3 rounded-lg text-sm"
+              className="font-semibold px-4 py-3 rounded-lg text-sm"
+              style={{ background: GOLD, color: "#1A1A1A" }}
             >
               <Mail size={16} />
             </button>
           </div>
         ) : (
-          <p className="text-green-400 text-sm">✓ Ti avviseremo!</p>
+          <p className="text-sm" style={{ color: GOLD }}>✓ Ti avviseremo!</p>
         )}
         <button
-          onClick={() => setView("gallery")}
-          className="text-white/50 text-sm mt-6 underline"
+          onClick={() => { setShotsExhausted(false); setView("gallery"); }}
+          className="text-sm mt-6 underline"
+          style={{ color: "rgba(255,255,255,0.4)" }}
         >
-          Vedi le foto scattate
+          Vedi le tue foto
         </button>
       </div>
     );
@@ -308,28 +331,42 @@ export default function CameraPublic() {
 
   return (
     <InAppBrowserGuard cameraUrl={cameraUrl}>
-      <div className="fixed inset-0 bg-black flex flex-col">
+      <div className="fixed inset-0 flex flex-col" style={{ background: "#1A1A1A" }}>
         <OfflineQueueBadge count={pendingCount} />
 
-        {/* Tab switcher */}
-        <div className="flex bg-zinc-900 border-b border-zinc-800">
-          <button
-            onClick={() => setView("camera")}
-            className={`flex-1 py-3 text-sm font-medium transition-colors ${
-              view === "camera" ? "text-white border-b-2 border-white" : "text-white/40"
-            }`}
-          >
-            <Camera size={16} className="inline mr-1.5" />
-            Scatta
-          </button>
-          <button
-            onClick={() => setView("gallery")}
-            className={`flex-1 py-3 text-sm font-medium transition-colors ${
-              view === "gallery" ? "text-white border-b-2 border-white" : "text-white/40"
-            }`}
-          >
-            🎞️ Galleria
-          </button>
+        {/* Hero Header */}
+        <div className="px-5 pt-6 pb-4">
+          <p className="text-xs font-mono tracking-[0.3em] uppercase mb-1" style={{ color: GOLD }}>
+            Memories Reel
+          </p>
+          {wedding && (
+            <h1 className="text-xl font-bold text-white tracking-tight">
+              {wedding.partner1_name} & {wedding.partner2_name}
+            </h1>
+          )}
+          {wedding?.wedding_date && (
+            <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>
+              {format(new Date(wedding.wedding_date), "d MMMM yyyy", { locale: it })}
+            </p>
+          )}
+        </div>
+
+        {/* KPI Bar */}
+        <div className="flex items-center gap-1 px-5 pb-4">
+          <div className="flex-1 rounded-lg px-3 py-2 text-center" style={{ background: "#2A2A2A" }}>
+            <p className="text-lg font-bold text-white">{shotsTaken}</p>
+            <p className="text-[10px] uppercase tracking-wider" style={{ color: GOLD }}>Scatti</p>
+          </div>
+          <div className="flex-1 rounded-lg px-3 py-2 text-center" style={{ background: "#2A2A2A" }}>
+            <p className="text-lg font-bold text-white">{participantCount}</p>
+            <p className="text-[10px] uppercase tracking-wider" style={{ color: GOLD }}>Fotografi</p>
+          </div>
+          {daysLeft !== null && (
+            <div className="flex-1 rounded-lg px-3 py-2 text-center" style={{ background: "#2A2A2A" }}>
+              <p className="text-lg font-bold text-white">{daysLeft}</p>
+              <p className="text-[10px] uppercase tracking-wider" style={{ color: GOLD }}>Giorni</p>
+            </div>
+          )}
         </div>
 
         {/* Content */}
@@ -343,13 +380,22 @@ export default function CameraPublic() {
               disabled={filmFull || shotsExhausted}
             />
           ) : (
-            <div className="h-full overflow-y-auto p-3">
+            <div className="h-full overflow-y-auto px-3 pb-24">
+              {/* Gallery header */}
+              <div className="flex items-center justify-between py-3">
+                <p className="text-xs font-mono" style={{ color: "rgba(255,255,255,0.5)" }}>
+                  {photos.length} foto · {shotsRemaining} scatti rimanenti
+                </p>
+              </div>
               {photos.length === 0 ? (
-                <div className="text-center text-white/40 text-sm mt-20">
-                  Nessuna foto ancora
+                <div className="text-center mt-20">
+                  <div className="text-4xl mb-3">🎞️</div>
+                  <p className="text-sm" style={{ color: "rgba(255,255,255,0.4)" }}>
+                    Nessuna foto ancora — scatta la prima!
+                  </p>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-1.5">
                   {photos.map((p: any) => (
                     <FilmFrame
                       key={p.id}
@@ -360,12 +406,39 @@ export default function CameraPublic() {
                   ))}
                 </div>
               )}
-              {/* Branding footer */}
-              <p className="text-center text-white/20 text-[10px] mt-8 pb-4">
+              <p className="text-center text-[10px] mt-8 pb-4" style={{ color: "rgba(255,255,255,0.15)" }}>
                 Rullino offerto da MatrimonoStress
               </p>
             </div>
           )}
+        </div>
+
+        {/* Bottom Nav — pill style */}
+        <div className="absolute bottom-0 left-0 right-0 pb-[env(safe-area-inset-bottom)] px-4 pb-4">
+          <div className="flex gap-2 p-1 rounded-full" style={{ background: "#2A2A2A" }}>
+            <button
+              onClick={() => setView("camera")}
+              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-full text-sm font-medium transition-all"
+              style={{
+                background: view === "camera" ? GOLD : "transparent",
+                color: view === "camera" ? "#1A1A1A" : "rgba(255,255,255,0.5)",
+              }}
+            >
+              <Camera size={16} />
+              Scatta
+            </button>
+            <button
+              onClick={() => setView("gallery")}
+              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-full text-sm font-medium transition-all"
+              style={{
+                background: view === "gallery" ? GOLD : "transparent",
+                color: view === "gallery" ? "#1A1A1A" : "rgba(255,255,255,0.5)",
+              }}
+            >
+              <Images size={16} />
+              Galleria
+            </button>
+          </div>
         </div>
 
         {/* Name sheet */}
