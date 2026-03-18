@@ -8,6 +8,7 @@ import MemoriesGallery from "@/components/memories/MemoriesGallery";
 import ModerationView from "@/components/memories/ModerationView";
 import ShareCameraDialog from "@/components/memories/ShareCameraDialog";
 import QRPosterEditor from "@/components/memories/QRPosterEditor";
+import UpgradePhotosDialog from "@/components/memories/UpgradePhotosDialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Share2, Settings, Image, ShieldCheck } from "lucide-react";
@@ -25,6 +26,7 @@ export default function MemoriesReel() {
   const [showShare, setShowShare] = useState(false);
   const [showPoster, setShowPoster] = useState(false);
   const [activeTab, setActiveTab] = useState("gallery");
+  const [showUpgrade, setShowUpgrade] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
@@ -171,12 +173,7 @@ export default function MemoriesReel() {
         pendingApproval={pendingApproval.length}
         requireApproval={camera?.require_approval || false}
         unlockedPhotoLimit={camera?.unlocked_photo_limit || 150}
-        onUpgradeClick={() => {
-          setActiveTab("gallery");
-          setTimeout(() => {
-            document.getElementById("memories-upgrade")?.scrollIntoView({ behavior: "smooth", block: "center" });
-          }, 100);
-        }}
+        onUpgradeClick={() => setShowUpgrade(true)}
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -246,6 +243,14 @@ export default function MemoriesReel() {
           weddingDate={weddingDateFormatted}
         />
       )}
+
+      <UpgradePhotosDialog
+        open={showUpgrade}
+        onOpenChange={setShowUpgrade}
+        weddingId={weddingId}
+        currentLimit={camera?.unlocked_photo_limit || 150}
+        totalPhotos={photos.length}
+      />
     </div>
   );
 }
