@@ -1,5 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { Camera, Users, Image, ShieldCheck } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Camera, Users, Image, ShieldCheck, AlertTriangle } from "lucide-react";
 
 interface MemoriesKPIsProps {
   totalPhotos: number;
@@ -16,12 +17,21 @@ export default function MemoriesKPIs({
   pendingApproval,
   requireApproval,
 }: MemoriesKPIsProps) {
+  const usagePercent = hardLimit > 0 ? totalPhotos / hardLimit : 0;
+  const isNearLimit = usagePercent >= 0.9 && usagePercent < 1;
+  const isAtLimit = usagePercent >= 1;
+
   const kpis = [
     {
       label: "Foto scattate",
       value: totalPhotos,
       sub: `/ ${hardLimit} max`,
       icon: Image,
+      badge: isAtLimit
+        ? { label: "Rullino pieno", variant: "destructive" as const }
+        : isNearLimit
+          ? { label: "Quasi pieno", variant: "secondary" as const }
+          : null,
     },
     {
       label: "Partecipanti",
@@ -52,6 +62,17 @@ export default function MemoriesKPIs({
             <div className="flex items-center gap-2 text-muted-foreground mb-1">
               <kpi.icon size={14} />
               <span className="text-xs">{kpi.label}</span>
+              {"badge" in kpi && kpi.badge && (
+                <Badge
+                  variant={kpi.badge.variant}
+                  className={`text-[10px] px-1.5 py-0 ${
+                    kpi.badge.variant === "destructive" ? "" : "bg-orange-100 text-orange-700 border-orange-200"
+                  }`}
+                >
+                  <AlertTriangle size={10} className="mr-0.5" />
+                  {kpi.badge.label}
+                </Badge>
+              )}
             </div>
             <p className="text-2xl font-bold">
               {kpi.value}
