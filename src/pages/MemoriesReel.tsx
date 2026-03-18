@@ -171,7 +171,12 @@ export default function MemoriesReel() {
         pendingApproval={pendingApproval.length}
         requireApproval={camera?.require_approval || false}
         unlockedPhotoLimit={camera?.unlocked_photo_limit || 150}
-        onUpgradeClick={() => document.getElementById("memories-upgrade")?.scrollIntoView({ behavior: "smooth", block: "center" })}
+        onUpgradeClick={() => {
+          setActiveTab("gallery");
+          setTimeout(() => {
+            document.getElementById("memories-upgrade")?.scrollIntoView({ behavior: "smooth", block: "center" });
+          }, 100);
+        }}
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
