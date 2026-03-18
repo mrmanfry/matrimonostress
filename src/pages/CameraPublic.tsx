@@ -53,6 +53,7 @@ export default function CameraPublic() {
   const [pendingCount, setPendingCount] = useState(0);
   const [photos, setPhotos] = useState<any[]>([]);
   const pendingBlobRef = useRef<Blob | null>(null);
+  const viewfinderRef = useRef<CameraViewfinderHandle>(null);
   const [participantCount, setParticipantCount] = useState(0);
   const [notifyEmail, setNotifyEmail] = useState("");
   const [emailSaved, setEmailSaved] = useState(false);
