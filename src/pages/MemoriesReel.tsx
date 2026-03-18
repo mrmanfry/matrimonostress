@@ -24,6 +24,7 @@ export default function MemoriesReel() {
   const [loading, setLoading] = useState(true);
   const [showShare, setShowShare] = useState(false);
   const [showPoster, setShowPoster] = useState(false);
+  const [activeTab, setActiveTab] = useState("gallery");
   const [searchParams, setSearchParams] = useSearchParams();
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
