@@ -182,7 +182,8 @@ export default function CameraPublic() {
       const formData = new FormData();
       formData.append("token", token);
       formData.append("fingerprint", fingerprint.current);
-      formData.append("photo", blob, "photo.webp");
+      const { ext } = await import("@/lib/cameraFilters").then(m => ({ ext: m.getOutputFormat().ext }));
+      formData.append("photo", blob, `photo.${ext}`);
       if (name) formData.append("guest_name", name);
       if (camera.film_type) formData.append("film_type", camera.film_type);
 

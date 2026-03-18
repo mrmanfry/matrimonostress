@@ -8,6 +8,31 @@ export type FilmType = "vintage" | "bw" | "warm" | "classic" | "none";
 /** Max dimension for output images */
 const MAX_DIMENSION = 1920;
 const WEBP_QUALITY = 0.75;
+const JPEG_QUALITY = 0.80;
+
+/** Cached WebP support detection */
+let _webpSupported: boolean | null = null;
+
+/** Check if browser supports WebP encoding via canvas */
+export function canEncodeWebP(): boolean {
+  if (_webpSupported !== null) return _webpSupported;
+  try {
+    const c = document.createElement("canvas");
+    c.width = 1;
+    c.height = 1;
+    _webpSupported = c.toDataURL("image/webp").startsWith("data:image/webp");
+  } catch {
+    _webpSupported = false;
+  }
+  return _webpSupported;
+}
+
+/** Returns the output MIME type and file extension based on browser support */
+export function getOutputFormat(): { mime: string; ext: string } {
+  return canEncodeWebP()
+    ? { mime: "image/webp", ext: "webp" }
+    : { mime: "image/jpeg", ext: "jpg" };
+}
 
 /**
  * Takes an image source (HTMLVideoElement, HTMLImageElement, or File/Blob),
@@ -46,15 +71,17 @@ export async function processPhoto(
   // Apply filter
   applyFilter(ctx, w, h, filmType);
 
-  // Export as WebP
+  // Export as WebP (or JPEG fallback for Safari/iOS)
+  const { mime } = getOutputFormat();
+  const quality = mime === "image/webp" ? WEBP_QUALITY : JPEG_QUALITY;
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
       (blob) => {
         if (blob) resolve(blob);
         else reject(new Error("Failed to export canvas to blob"));
       },
-      "image/webp",
-      WEBP_QUALITY
+      mime,
+      quality
     );
   });
 }
