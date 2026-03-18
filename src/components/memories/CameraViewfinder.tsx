@@ -38,8 +38,10 @@ export default function CameraViewfinder({
         audio: false,
       });
       streamRef.current = stream;
-      if (videoRef.current) videoRef.current.srcObject = stream;
-      setCameraReady(true);
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        // cameraReady will be set by onLoadedMetadata on the <video>
+      }
       setPermissionDenied(false);
     } catch (err: any) {
       console.error("Camera error:", err);
@@ -68,10 +70,15 @@ export default function CameraViewfinder({
 
   const captureFromVideo = async () => {
     if (!videoRef.current || isCapturing || disabled) return;
+    const v = videoRef.current;
+    if (!v.videoWidth || !v.videoHeight) {
+      console.warn("Video not ready yet, skipping capture");
+      return;
+    }
     setIsCapturing(true);
     try {
       if ("vibrate" in navigator) navigator.vibrate(50);
-      const blob = await processPhoto(videoRef.current, filmType);
+      const blob = await processPhoto(v, filmType);
       onPhotoTaken(blob);
     } catch (err) {
       console.error("Capture error:", err);
@@ -194,6 +201,7 @@ export default function CameraViewfinder({
           autoPlay
           playsInline
           muted
+          onLoadedMetadata={() => setCameraReady(true)}
           className="w-full h-full object-cover"
           style={{ filter: getCSSFilter(filmType) }}
         />

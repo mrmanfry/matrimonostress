@@ -370,7 +370,7 @@ export default function CameraPublic() {
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-hidden min-h-0">
           {view === "camera" ? (
             <CameraViewfinder
               filmType={(camera?.film_type as FilmType) || "vintage"}
@@ -380,7 +380,7 @@ export default function CameraPublic() {
               disabled={filmFull || shotsExhausted}
             />
           ) : (
-            <div className="h-full overflow-y-auto px-3 pb-24">
+            <div className="h-full overflow-y-auto px-3 pb-4">
               {/* Gallery header */}
               <div className="flex items-center justify-between py-3">
                 <p className="text-xs font-mono" style={{ color: "rgba(255,255,255,0.5)" }}>
@@ -414,7 +414,7 @@ export default function CameraPublic() {
         </div>
 
         {/* Bottom Nav — pill style */}
-        <div className="absolute bottom-0 left-0 right-0 pb-[env(safe-area-inset-bottom)] px-4 pb-4">
+        <div className="shrink-0 px-4" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
           <div className="flex gap-2 p-1 rounded-full" style={{ background: "#2A2A2A" }}>
             <button
               onClick={() => setView("camera")}
