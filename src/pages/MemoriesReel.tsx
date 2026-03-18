@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import MemoriesKPIs from "@/components/memories/MemoriesKPIs";
@@ -9,6 +10,7 @@ import ShareCameraDialog from "@/components/memories/ShareCameraDialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Share2, Settings, Image, ShieldCheck } from "lucide-react";
+import { toast } from "sonner";
 
 export default function MemoriesReel() {
   const { weddingId } = useAuth();
