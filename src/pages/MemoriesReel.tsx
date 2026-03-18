@@ -243,6 +243,14 @@ export default function MemoriesReel() {
           weddingDate={weddingDateFormatted}
         />
       )}
+
+      <UpgradePhotosDialog
+        open={showUpgrade}
+        onOpenChange={setShowUpgrade}
+        weddingId={weddingId}
+        currentLimit={camera?.unlocked_photo_limit || 150}
+        totalPhotos={photos.length}
+      />
     </div>
   );
 }
