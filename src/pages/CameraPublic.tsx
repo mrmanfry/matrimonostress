@@ -374,7 +374,7 @@ export default function CameraPublic() {
 
   return (
     <InAppBrowserGuard cameraUrl={cameraUrl}>
-      <div className="fixed inset-0 flex flex-col" style={{ background: "#1A1A1A" }}>
+      <div className="fixed inset-x-0 top-0 flex flex-col" style={{ background: "#1A1A1A", height: "100dvh" }}>
         <OfflineQueueBadge count={pendingCount} />
 
         {/* Hero Header */}
