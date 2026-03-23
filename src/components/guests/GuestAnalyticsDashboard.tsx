@@ -570,6 +570,7 @@ function CompositionTab({ analytics, onFilterClick, activeFilter }: { analytics:
   const compositionData = [
     { name: "Adulti", value: analytics.adultsCount, color: COLORS.adults, filterValue: 'adults' as const },
     { name: "Bambini", value: analytics.childrenCount, color: COLORS.children, filterValue: 'children' as const },
+    { name: "Sposi", value: analytics.coupleCount, color: COLORS.couple },
     { name: "Staff", value: analytics.staffCount, color: COLORS.staff, filterValue: 'staff' as const },
   ].filter((d) => d.value > 0);
 
