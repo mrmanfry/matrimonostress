@@ -39,6 +39,7 @@ import {
   X,
   Filter,
   MousePointerClick,
+  Heart,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -69,6 +70,7 @@ export type AnalyticsFilterType =
 interface GuestAnalyticsDashboardProps {
   guests: GuestForAnalytics[];
   parties: PartyForAnalytics[];
+  vendorStaffTotal?: number;
   onGroupClick?: (groupName: string) => void;
   onFilterClick?: (filter: AnalyticsFilterType) => void;
   activeFilter?: AnalyticsFilterType | null;
@@ -82,6 +84,7 @@ const COLORS = {
   declined: "hsl(346.8 77.2% 49.8%)", // red
   adults: "hsl(221.2 83.2% 53.3%)", // blue
   children: "hsl(280 65% 60%)", // purple
+  couple: "hsl(340 75% 55%)", // pink
   staff: "hsl(45 93% 47%)", // yellow
   primary: "hsl(var(--primary))",
   muted: "hsl(var(--muted-foreground))",
@@ -220,6 +223,7 @@ function PercentageBar({
 export function GuestAnalyticsDashboard({
   guests,
   parties,
+  vendorStaffTotal = 0,
   onGroupClick,
   onFilterClick,
   activeFilter,
@@ -228,8 +232,8 @@ export function GuestAnalyticsDashboard({
   const metrics = useGuestMetrics();
   
   const analytics = useMemo(
-    () => calculateGuestAnalytics(guests, parties),
-    [guests, parties]
+    () => calculateGuestAnalytics(guests, parties, vendorStaffTotal),
+    [guests, parties, vendorStaffTotal]
   );
 
   // Helper to get filter label
@@ -566,6 +570,7 @@ function CompositionTab({ analytics, onFilterClick, activeFilter }: { analytics:
   const compositionData = [
     { name: "Adulti", value: analytics.adultsCount, color: COLORS.adults, filterValue: 'adults' as const },
     { name: "Bambini", value: analytics.childrenCount, color: COLORS.children, filterValue: 'children' as const },
+    { name: "Sposi", value: analytics.coupleCount, color: COLORS.couple },
     { name: "Staff", value: analytics.staffCount, color: COLORS.staff, filterValue: 'staff' as const },
   ].filter((d) => d.value > 0);
 
@@ -574,7 +579,7 @@ function CompositionTab({ analytics, onFilterClick, activeFilter }: { analytics:
   return (
     <>
       {/* KPI Grid - Clickable */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <ClickableKPI onClick={() => onFilterClick?.({ type: 'composition', value: 'adults' })} isActive={isFilterActive('composition', 'adults')}>
           <KPICard
             title="Adulti"
@@ -595,11 +600,21 @@ function CompositionTab({ analytics, onFilterClick, activeFilter }: { analytics:
             isActive={isFilterActive('composition', 'children')}
           />
         </ClickableKPI>
+        <div>
+          <KPICard
+            title="Sposi"
+            value={analytics.coupleCount}
+            percentage={analytics.couplePercentage}
+            icon={Heart}
+            color={COLORS.couple}
+          />
+        </div>
         <ClickableKPI onClick={() => onFilterClick?.({ type: 'composition', value: 'staff' })} isActive={isFilterActive('composition', 'staff')}>
           <KPICard
             title="Staff"
             value={analytics.staffCount}
             percentage={analytics.staffPercentage}
+            subtitle="pasti fornitori"
             icon={Briefcase}
             color={COLORS.staff}
             isActive={isFilterActive('composition', 'staff')}

@@ -1258,7 +1258,8 @@ const Guests = () => {
                   <div className="mt-4">
                     <GuestAnalyticsDashboard 
                       guests={allGuests} 
-                      parties={parties} 
+                      parties={parties}
+                      vendorStaffTotal={vendorStaffCount}
                       activeFilter={activeAnalyticsFilter}
                       onClearFilter={handleResetFilters}
                       onFilterClick={(filter: AnalyticsFilterType) => {
@@ -1315,7 +1316,8 @@ const Guests = () => {
               <CollapsibleContent className="mt-2">
                 <GuestAnalyticsDashboard 
                   guests={allGuests} 
-                  parties={parties} 
+                  parties={parties}
+                  vendorStaffTotal={vendorStaffCount}
                   activeFilter={activeAnalyticsFilter}
                   onClearFilter={handleResetFilters}
                   onFilterClick={(filter: AnalyticsFilterType) => {
