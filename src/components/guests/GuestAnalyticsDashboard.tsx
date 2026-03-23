@@ -84,6 +84,7 @@ const COLORS = {
   declined: "hsl(346.8 77.2% 49.8%)", // red
   adults: "hsl(221.2 83.2% 53.3%)", // blue
   children: "hsl(280 65% 60%)", // purple
+  couple: "hsl(340 75% 55%)", // pink
   staff: "hsl(45 93% 47%)", // yellow
   primary: "hsl(var(--primary))",
   muted: "hsl(var(--muted-foreground))",
