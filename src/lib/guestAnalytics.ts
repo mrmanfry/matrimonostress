@@ -122,7 +122,8 @@ export interface GuestAnalytics {
 
 export function calculateGuestAnalytics(
   guests: GuestForAnalytics[],
-  parties: PartyForAnalytics[]
+  parties: PartyForAnalytics[],
+  vendorStaffTotal: number = 0
 ): GuestAnalytics {
   // Separate couple members (always confirmed) from regular guests
   const coupleMembers = guests.filter(g => g.is_couple_member);
