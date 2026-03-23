@@ -69,6 +69,7 @@ export type AnalyticsFilterType =
 interface GuestAnalyticsDashboardProps {
   guests: GuestForAnalytics[];
   parties: PartyForAnalytics[];
+  vendorStaffTotal?: number;
   onGroupClick?: (groupName: string) => void;
   onFilterClick?: (filter: AnalyticsFilterType) => void;
   activeFilter?: AnalyticsFilterType | null;
