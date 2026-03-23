@@ -579,7 +579,7 @@ function CompositionTab({ analytics, onFilterClick, activeFilter }: { analytics:
   return (
     <>
       {/* KPI Grid - Clickable */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <ClickableKPI onClick={() => onFilterClick?.({ type: 'composition', value: 'adults' })} isActive={isFilterActive('composition', 'adults')}>
           <KPICard
             title="Adulti"
@@ -600,11 +600,21 @@ function CompositionTab({ analytics, onFilterClick, activeFilter }: { analytics:
             isActive={isFilterActive('composition', 'children')}
           />
         </ClickableKPI>
+        <div>
+          <KPICard
+            title="Sposi"
+            value={analytics.coupleCount}
+            percentage={analytics.couplePercentage}
+            icon={Heart}
+            color={COLORS.couple}
+          />
+        </div>
         <ClickableKPI onClick={() => onFilterClick?.({ type: 'composition', value: 'staff' })} isActive={isFilterActive('composition', 'staff')}>
           <KPICard
             title="Staff"
             value={analytics.staffCount}
             percentage={analytics.staffPercentage}
+            subtitle="pasti fornitori"
             icon={Briefcase}
             color={COLORS.staff}
             isActive={isFilterActive('composition', 'staff')}
