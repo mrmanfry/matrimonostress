@@ -221,6 +221,7 @@ function PercentageBar({
 export function GuestAnalyticsDashboard({
   guests,
   parties,
+  vendorStaffTotal = 0,
   onGroupClick,
   onFilterClick,
   activeFilter,
@@ -229,8 +230,8 @@ export function GuestAnalyticsDashboard({
   const metrics = useGuestMetrics();
   
   const analytics = useMemo(
-    () => calculateGuestAnalytics(guests, parties),
-    [guests, parties]
+    () => calculateGuestAnalytics(guests, parties, vendorStaffTotal),
+    [guests, parties, vendorStaffTotal]
   );
 
   // Helper to get filter label
