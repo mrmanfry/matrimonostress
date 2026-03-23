@@ -141,10 +141,14 @@ export function calculateGuestAnalytics(
   const declinedCount = regularGuests.filter(g => g.rsvp_status === 'declined').length;
   const pendingCount = total - confirmedCount - declinedCount;
 
-  // Composition (includes everyone)
-  const childrenCount = guests.filter(g => g.is_child).length;
-  const staffCount = guests.filter(g => g.is_staff).length;
-  const adultsCount = total - childrenCount - staffCount;
+  // Composition — aligned with useGuestMetrics
+  const coupleCount = coupleMembers.length || 2;
+  const childrenCount = regularGuests.filter(g => g.is_child).length;
+  const staffFromGuests = regularGuests.filter(g => g.is_staff).length;
+  const staffCount = vendorStaffTotal + staffFromGuests;
+  const adultsCount = regularGuests.filter(g => !g.is_child && !g.is_staff).length;
+  // Total covers = adults + children + couple + staff + confirmed +1s (for header badge)
+  const totalCovers = adultsCount + childrenCount + coupleCount + staffCount;
 
   // Plus Ones (regular guests only - couple members don't have plus ones)
   const plusOnesPotential = regularGuests.filter(g => g.allow_plus_one).length;
