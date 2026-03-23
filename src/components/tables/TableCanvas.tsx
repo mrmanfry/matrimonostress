@@ -13,10 +13,20 @@ import {
   Unlock,
   Circle,
   Square,
+  Eraser,
+  Trash2,
+  MoreHorizontal,
 } from "lucide-react";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 type Guest = {
   id: string;
@@ -56,8 +66,11 @@ type TableCanvasProps = {
   weddingId: string | null;
   onUpdate: () => void;
   onUnassign: (assignmentId: string) => void;
+  onClearTable?: (tableId: string) => void;
+  onDeleteTable?: (tableId: string) => void;
   proposedAssignments?: { tableId: string; guestIds: string[] }[];
   isProposalMode?: boolean;
+  isMobile?: boolean;
 };
 
 const DroppableTable = ({
@@ -67,6 +80,8 @@ const DroppableTable = ({
   conflicts,
   onUpdate,
   onUnassign,
+  onClearTable,
+  onDeleteTable,
   proposedGuestIds,
   isProposalMode,
 }: {
@@ -76,6 +91,8 @@ const DroppableTable = ({
   conflicts: Conflict[];
   onUpdate: () => void;
   onUnassign: (assignmentId: string) => void;
+  onClearTable?: (tableId: string) => void;
+  onDeleteTable?: (tableId: string) => void;
   proposedGuestIds?: string[];
   isProposalMode?: boolean;
 }) => {
@@ -90,7 +107,6 @@ const DroppableTable = ({
     .map(a => ({ assignment: a, guest: guests.find(g => g.id === a.guest_id) }))
     .filter(({ guest }) => guest);
 
-  // Add proposed guests for preview
   const proposedGuests = proposedGuestIds
     ?.filter(id => !tableAssignments.some(a => a.guest_id === id))
     .map(id => guests.find(g => g.id === id))
@@ -139,7 +155,7 @@ const DroppableTable = ({
   return (
     <Card
       ref={setNodeRef}
-      className={`p-4 min-h-[200px] transition-all relative ${
+      className={`p-4 min-h-[180px] transition-all relative ${
         isOver ? "ring-2 ring-primary shadow-lg scale-[1.02]" : ""
       } ${hasConflicts ? "border-2 border-destructive" : ""} ${
         isOverCapacity ? "border-2 border-amber-500" : ""
@@ -148,11 +164,38 @@ const DroppableTable = ({
       }`}
     >
       {/* Shape indicator */}
-      <div className="absolute top-2 right-2 text-muted-foreground">
+      <div className="absolute top-2 right-2 flex items-center gap-1">
         {isRound ? (
-          <Circle className="w-4 h-4" />
+          <Circle className="w-4 h-4 text-muted-foreground" />
         ) : (
-          <Square className="w-4 h-4" />
+          <Square className="w-4 h-4 text-muted-foreground" />
+        )}
+        {/* Per-table actions menu */}
+        {(onClearTable || onDeleteTable) && !isProposalMode && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                <MoreHorizontal className="w-3.5 h-3.5 text-muted-foreground" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {onClearTable && tableGuests.length > 0 && (
+                <DropdownMenuItem onClick={() => onClearTable(table.id)} className="gap-2">
+                  <Eraser className="w-4 h-4" />
+                  Svuota Tavolo
+                </DropdownMenuItem>
+              )}
+              {onDeleteTable && (
+                <>
+                  {tableGuests.length > 0 && <DropdownMenuSeparator />}
+                  <DropdownMenuItem onClick={() => onDeleteTable(table.id)} className="gap-2 text-destructive focus:text-destructive">
+                    <Trash2 className="w-4 h-4" />
+                    Elimina Tavolo
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
       </div>
 
@@ -163,7 +206,7 @@ const DroppableTable = ({
         </div>
       )}
 
-      <div className="flex items-center justify-between mb-3 pr-6">
+      <div className="flex items-center justify-between mb-3 pr-12">
         {editing ? (
           <div className="flex items-center gap-2 flex-1">
             <Input
@@ -203,7 +246,6 @@ const DroppableTable = ({
         </Badge>
       </div>
 
-      {/* Fill rate indicator */}
       <Progress 
         value={Math.min(fillRate, 100)} 
         className={`h-1 mb-3 ${fillRate > 100 ? '[&>div]:bg-destructive' : fillRate > 80 ? '[&>div]:bg-primary' : ''}`}
@@ -224,7 +266,6 @@ const DroppableTable = ({
       )}
 
       <div className="space-y-1">
-        {/* Actual assignments */}
         {tableGuests.map(({ assignment, guest }) => (
           <div
             key={assignment.id}
@@ -250,7 +291,6 @@ const DroppableTable = ({
           </div>
         ))}
 
-        {/* Proposed assignments (in preview mode) */}
         {proposedGuests.map(guest => (
           <div
             key={guest.id}
@@ -282,15 +322,17 @@ export const TableCanvas = ({
   weddingId,
   onUpdate,
   onUnassign,
+  onClearTable,
+  onDeleteTable,
   proposedAssignments,
   isProposalMode,
+  isMobile,
 }: TableCanvasProps) => {
-  // Group tables by type for potential future layout
   const standardTables = tables.filter(t => t.table_type !== 'imperial');
   const imperialTables = tables.filter(t => t.table_type === 'imperial');
 
   return (
-    <Card className="p-6 min-h-[calc(100vh-200px)]">
+    <Card className={`p-4 md:p-6 ${isMobile ? 'min-h-[60vh]' : 'min-h-[calc(100vh-200px)]'}`}>
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold">
           Sala ({tables.length} tavoli)
@@ -302,7 +344,6 @@ export const TableCanvas = ({
         )}
       </div>
 
-      {/* Imperial tables (if any) */}
       {imperialTables.length > 0 && (
         <div className="mb-6">
           <p className="text-xs text-muted-foreground mb-2">Tavoli Imperiali</p>
@@ -318,6 +359,8 @@ export const TableCanvas = ({
                   conflicts={conflicts}
                   onUpdate={onUpdate}
                   onUnassign={onUnassign}
+                  onClearTable={onClearTable}
+                  onDeleteTable={onDeleteTable}
                   proposedGuestIds={proposed?.guestIds}
                   isProposalMode={isProposalMode}
                 />
@@ -327,8 +370,7 @@ export const TableCanvas = ({
         </div>
       )}
 
-      {/* Standard tables */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'}`}>
         {standardTables.map(table => {
           const proposed = proposedAssignments?.find(p => p.tableId === table.id);
           return (
@@ -340,6 +382,8 @@ export const TableCanvas = ({
               conflicts={conflicts}
               onUpdate={onUpdate}
               onUnassign={onUnassign}
+              onClearTable={onClearTable}
+              onDeleteTable={onDeleteTable}
               proposedGuestIds={proposed?.guestIds}
               isProposalMode={isProposalMode}
             />

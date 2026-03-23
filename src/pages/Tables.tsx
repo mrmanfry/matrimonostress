@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Download, Heart, Users, Sparkles, ToggleLeft, ToggleRight } from "lucide-react";
+import { Plus, Download, Heart, Users, Sparkles, ToggleLeft, ToggleRight, Trash2, Eraser, MoreVertical } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent } from "@dnd-kit/core";
 import { GuestPool } from "@/components/tables/GuestPool";
@@ -12,6 +12,25 @@ import { ConflictManager } from "@/components/tables/ConflictManager";
 import { SmartGrouperWizard } from "@/components/tables/SmartGrouperWizard";
 import { calculateTotalVendorStaff } from "@/lib/expectedCalculator";
 import { generateTableReport } from "@/utils/pdfHelpers";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useIsMobile } from "@/hooks/use-mobile";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 type Guest = {
   id: string;
@@ -79,7 +98,9 @@ const Tables = () => {
   const [showConfirmedOnly, setShowConfirmedOnly] = useState(true);
   const [weddingTargets, setWeddingTargets] = useState<WeddingTargets | null>(null);
   const [vendorStaffTotal, setVendorStaffTotal] = useState(0);
+  const [bulkAction, setBulkAction] = useState<'clear_all' | 'delete_all' | null>(null);
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     fetchWeddingData();
@@ -200,6 +221,66 @@ const Tables = () => {
     }
   };
 
+  const handleClearAllAssignments = async () => {
+    if (!weddingId) return;
+    const tableIds = tables.map(t => t.id);
+    if (tableIds.length === 0) return;
+
+    const { error } = await supabase
+      .from("table_assignments")
+      .delete()
+      .in("table_id", tableIds);
+
+    if (error) {
+      toast({ title: "Errore", description: "Impossibile svuotare i tavoli", variant: "destructive" });
+    } else {
+      toast({ title: "Tutti i tavoli svuotati", description: "Gli ospiti sono tornati nel pool." });
+      fetchAssignments(weddingId);
+    }
+    setBulkAction(null);
+  };
+
+  const handleDeleteAll = async () => {
+    if (!weddingId) return;
+    const tableIds = tables.map(t => t.id);
+
+    if (tableIds.length > 0) {
+      await supabase.from("table_assignments").delete().in("table_id", tableIds);
+    }
+    const { error } = await supabase.from("tables").delete().eq("wedding_id", weddingId);
+
+    if (error) {
+      toast({ title: "Errore", description: "Impossibile eliminare i tavoli", variant: "destructive" });
+    } else {
+      toast({ title: "Reset completo", description: "Tutti i tavoli e le assegnazioni sono stati eliminati." });
+      await Promise.all([fetchTables(weddingId), fetchAssignments(weddingId)]);
+    }
+    setBulkAction(null);
+  };
+
+  const handleClearTable = async (tableId: string) => {
+    if (!weddingId) return;
+    const { error } = await supabase.from("table_assignments").delete().eq("table_id", tableId);
+    if (error) {
+      toast({ title: "Errore", description: "Impossibile svuotare il tavolo", variant: "destructive" });
+    } else {
+      toast({ title: "Tavolo svuotato" });
+      fetchAssignments(weddingId);
+    }
+  };
+
+  const handleDeleteTable = async (tableId: string) => {
+    if (!weddingId) return;
+    await supabase.from("table_assignments").delete().eq("table_id", tableId);
+    const { error } = await supabase.from("tables").delete().eq("id", tableId);
+    if (error) {
+      toast({ title: "Errore", description: "Impossibile eliminare il tavolo", variant: "destructive" });
+    } else {
+      toast({ title: "Tavolo eliminato" });
+      await Promise.all([fetchTables(weddingId), fetchAssignments(weddingId)]);
+    }
+  };
+
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
   };
@@ -253,7 +334,6 @@ const Tables = () => {
   const handleWizardComplete = async () => {
     if (!weddingId) return;
     
-    // Refetch all data after the wizard completes
     await Promise.all([
       fetchTables(weddingId),
       fetchAssignments(weddingId),
@@ -303,13 +383,88 @@ const Tables = () => {
     );
   }
 
+  const headerActions = (
+    <>
+      <Button
+        variant="outline"
+        onClick={() => setShowConfirmedOnly(!showConfirmedOnly)}
+        className="gap-2"
+      >
+        {showConfirmedOnly ? (
+          <><ToggleRight className="w-4 h-4" /> Confermati</>
+        ) : (
+          <><ToggleLeft className="w-4 h-4" /> Tutti</>
+        )}
+      </Button>
+      
+      <Button onClick={() => setWizardOpen(true)} variant="default" className="gap-2">
+        <Sparkles className="w-4 h-4" />
+        Smart Planner AI
+      </Button>
+    </>
+  );
+
+  const secondaryActions = (
+    <>
+      <Button onClick={() => setConflictDialogOpen(true)} variant="outline" className="gap-2">
+        <Users className="w-4 h-4" />
+        {!isMobile && "Conflitti"}
+      </Button>
+      <Button onClick={createTable} variant="outline" className="gap-2">
+        <Plus className="w-4 h-4" />
+        {!isMobile && "Nuovo Tavolo"}
+      </Button>
+      <Button onClick={exportToPDF} variant="outline" disabled={tables.length === 0} className="gap-2">
+        <Download className="w-4 h-4" />
+        {!isMobile && "PDF"}
+      </Button>
+      {tables.length > 0 && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="icon">
+              <MoreVertical className="w-4 h-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => setBulkAction('clear_all')} className="gap-2">
+              <Eraser className="w-4 h-4" />
+              Svuota Tutti i Tavoli
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => setBulkAction('delete_all')} className="gap-2 text-destructive focus:text-destructive">
+              <Trash2 className="w-4 h-4" />
+              Elimina Tutto (Reset)
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+    </>
+  );
+
+  const tableCanvasProps = {
+    tables,
+    guests,
+    assignments,
+    conflicts,
+    weddingId,
+    onUpdate: () => weddingId && fetchTables(weddingId),
+    onUnassign: (assignmentId: string) => {
+      supabase.from("table_assignments").delete().eq("id", assignmentId).then(() => {
+        weddingId && fetchAssignments(weddingId);
+      });
+    },
+    onClearTable: handleClearTable,
+    onDeleteTable: handleDeleteTable,
+  };
+
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+    <div className="min-h-screen bg-background p-3 md:p-6">
+      <div className="max-w-7xl mx-auto space-y-4 md:space-y-6">
+        {/* Header */}
+        <div className="flex flex-col gap-3">
           <div>
-            <h1 className="text-3xl font-bold">Disposizione Tavoli</h1>
-            <p className="text-muted-foreground mt-1">
+            <h1 className="text-2xl md:text-3xl font-bold">Disposizione Tavoli</h1>
+            <p className="text-muted-foreground mt-1 text-sm">
               {tables.length > 0 ? (
                 <>
                   {tables.length} tavoli • {assignedCount}/{guests.length} ospiti seduti • {totalSeats - assignedCount} posti liberi
@@ -321,42 +476,23 @@ const Tables = () => {
               )}
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {/* Toggle Pianificati/Confermati */}
-            <Button
-              variant="outline"
-              onClick={() => setShowConfirmedOnly(!showConfirmedOnly)}
-              className="gap-2"
-            >
-              {showConfirmedOnly ? (
-                <><ToggleRight className="w-4 h-4" /> Confermati</>
-              ) : (
-                <><ToggleLeft className="w-4 h-4" /> Tutti</>
-              )}
-            </Button>
-            
-            <Button onClick={() => setWizardOpen(true)} variant="default" className="gap-2">
-              <Sparkles className="w-4 h-4" />
-              Smart Planner AI
-            </Button>
-            
-            <Button onClick={() => setConflictDialogOpen(true)} variant="outline">
-              <Users className="w-4 h-4 mr-2" />
-              Conflitti
-            </Button>
-            <Button onClick={createTable} variant="outline">
-              <Plus className="w-4 h-4 mr-2" />
-              Nuovo Tavolo
-            </Button>
-            <Button onClick={exportToPDF} variant="outline" disabled={tables.length === 0}>
-              <Download className="w-4 h-4 mr-2" />
-              PDF
-            </Button>
-          </div>
+
+          {/* Mobile: compact layout */}
+          {isMobile ? (
+            <div className="flex flex-wrap gap-2">
+              {headerActions}
+              {secondaryActions}
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {headerActions}
+              {secondaryActions}
+            </div>
+          )}
         </div>
 
         {tables.length === 0 ? (
-          <Card className="p-12 text-center">
+          <Card className="p-8 md:p-12 text-center">
             <div className="max-w-md mx-auto space-y-4">
               <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
                 <Sparkles className="w-8 h-8 text-primary" />
@@ -374,30 +510,48 @@ const Tables = () => {
           </Card>
         ) : (
           <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-              <div className="lg:col-span-1">
-                <GuestPool 
-                  guests={unassignedGuests} 
-                  allGuests={allGuests}
-                  assignments={assignments.map(a => ({ guest_id: a.guest_id }))}
-                />
+            {isMobile ? (
+              /* Mobile: Tab-based layout */
+              <Tabs defaultValue="sala" className="w-full">
+                <TabsList className="w-full grid grid-cols-2">
+                  <TabsTrigger value="pool" className="gap-2">
+                    <Users className="w-4 h-4" />
+                    Da Assegnare
+                    {unassignedGuests.length > 0 && (
+                      <Badge variant="secondary" className="ml-1 text-xs">{unassignedGuests.length}</Badge>
+                    )}
+                  </TabsTrigger>
+                  <TabsTrigger value="sala">
+                    Sala ({tables.length})
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="pool">
+                  <GuestPool 
+                    guests={unassignedGuests} 
+                    allGuests={allGuests}
+                    assignments={assignments.map(a => ({ guest_id: a.guest_id }))}
+                    isMobile={isMobile}
+                  />
+                </TabsContent>
+                <TabsContent value="sala">
+                  <TableCanvas {...tableCanvasProps} isMobile={isMobile} />
+                </TabsContent>
+              </Tabs>
+            ) : (
+              /* Desktop: Side-by-side layout */
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                <div className="lg:col-span-1">
+                  <GuestPool 
+                    guests={unassignedGuests} 
+                    allGuests={allGuests}
+                    assignments={assignments.map(a => ({ guest_id: a.guest_id }))}
+                  />
+                </div>
+                <div className="lg:col-span-3">
+                  <TableCanvas {...tableCanvasProps} />
+                </div>
               </div>
-              <div className="lg:col-span-3">
-                <TableCanvas
-                  tables={tables}
-                  guests={guests}
-                  assignments={assignments}
-                  conflicts={conflicts}
-                  weddingId={weddingId}
-                  onUpdate={() => weddingId && fetchTables(weddingId)}
-                  onUnassign={(assignmentId) => {
-                    supabase.from("table_assignments").delete().eq("id", assignmentId).then(() => {
-                      weddingId && fetchAssignments(weddingId);
-                    });
-                  }}
-                />
-              </div>
-            </div>
+            )}
 
             <DragOverlay>
               {activeId ? (
@@ -430,6 +584,43 @@ const Tables = () => {
           weddingTargets={weddingTargets}
           vendorStaffTotal={vendorStaffTotal}
         />
+
+        {/* Bulk Action Confirmation Dialogs */}
+        <AlertDialog open={bulkAction === 'clear_all'} onOpenChange={(open) => !open && setBulkAction(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Svuota tutti i tavoli?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tutti gli ospiti verranno rimossi dai tavoli e torneranno nel pool "Da Assegnare". 
+                I tavoli rimarranno intatti.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Annulla</AlertDialogCancel>
+              <AlertDialogAction onClick={handleClearAllAssignments}>
+                Svuota Tutti
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog open={bulkAction === 'delete_all'} onOpenChange={(open) => !open && setBulkAction(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Eliminare tutto?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Questa azione eliminerà <strong>tutti i tavoli</strong> e <strong>tutte le assegnazioni</strong>. 
+                Dovrai ricreare i tavoli da zero. Questa azione non può essere annullata.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Annulla</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteAll} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Elimina Tutto
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );
