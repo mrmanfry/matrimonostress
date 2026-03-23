@@ -37,8 +37,9 @@ type Guest = {
 
 type GuestPoolProps = {
   guests: Guest[];
-  allGuests?: Guest[]; // All guests for partial assignment detection
-  assignments?: { guest_id: string }[]; // Current assignments
+  allGuests?: Guest[];
+  assignments?: { guest_id: string }[];
+  isMobile?: boolean;
 };
 
 const DraggableGuest = ({ guest }: { guest: Guest }) => {
@@ -125,14 +126,12 @@ const PartyGroup = ({
 }) => {
   const [isOpen, setIsOpen] = useState(true);
 
-  // Calculate partial assignment status
   const partyMembers = allGuests?.filter(g => g.party_id === partyId) || guests;
   const assignedCount = partyMembers.filter(g => 
     assignments?.some(a => a.guest_id === g.id)
   ).length;
   const isPartiallyAssigned = assignedCount > 0 && assignedCount < partyMembers.length;
 
-  // Get party name from first guest's last name
   const partyName = `Nucleo ${guests[0]?.last_name || 'Sconosciuto'}`;
 
   return (
@@ -174,11 +173,10 @@ const PartyGroup = ({
   );
 };
 
-export const GuestPool = ({ guests, allGuests, assignments }: GuestPoolProps) => {
+export const GuestPool = ({ guests, allGuests, assignments, isMobile }: GuestPoolProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterMode, setFilterMode] = useState<'all' | 'singles' | 'families'>('all');
 
-  // Group guests by party_id
   const { partyGroups, singles } = useMemo(() => {
     const partyMap = new Map<string, Guest[]>();
     const singleGuests: Guest[] = [];
@@ -199,7 +197,6 @@ export const GuestPool = ({ guests, allGuests, assignments }: GuestPoolProps) =>
     };
   }, [guests]);
 
-  // Filter based on search and filter mode
   const filteredData = useMemo(() => {
     const searchLower = searchQuery.toLowerCase();
 
@@ -228,7 +225,7 @@ export const GuestPool = ({ guests, allGuests, assignments }: GuestPoolProps) =>
   const totalCount = filteredData.parties.reduce((sum, [, g]) => sum + g.length, 0) + filteredData.singles.length;
 
   return (
-    <Card className="p-4 h-[calc(100vh-200px)] flex flex-col">
+    <Card className={`p-4 flex flex-col ${isMobile ? 'max-h-[65vh]' : 'h-[calc(100vh-200px)]'}`}>
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-lg font-semibold flex items-center gap-2">
           <User className="w-5 h-5 text-primary" />
@@ -237,7 +234,6 @@ export const GuestPool = ({ guests, allGuests, assignments }: GuestPoolProps) =>
         <Badge variant="outline">{guests.length}</Badge>
       </div>
 
-      {/* Search and Filter */}
       <div className="flex gap-2 mb-3">
         <div className="relative flex-1">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -277,7 +273,6 @@ export const GuestPool = ({ guests, allGuests, assignments }: GuestPoolProps) =>
         </DropdownMenu>
       </div>
 
-      {/* Stats */}
       <div className="flex gap-2 mb-3 text-xs text-muted-foreground">
         <span>{partyGroups.length} nuclei</span>
         <span>•</span>
@@ -292,7 +287,6 @@ export const GuestPool = ({ guests, allGuests, assignments }: GuestPoolProps) =>
 
       <ScrollArea className="flex-1">
         <div className="space-y-1 pr-4">
-          {/* Party Groups */}
           {filteredData.parties.map(([partyId, partyGuests]) => (
             <PartyGroup
               key={partyId}
@@ -303,7 +297,6 @@ export const GuestPool = ({ guests, allGuests, assignments }: GuestPoolProps) =>
             />
           ))}
 
-          {/* Singles */}
           {filteredData.singles.length > 0 && (
             <div className="mt-2">
               {filteredData.parties.length > 0 && (
@@ -315,7 +308,6 @@ export const GuestPool = ({ guests, allGuests, assignments }: GuestPoolProps) =>
             </div>
           )}
 
-          {/* Empty State */}
           {guests.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-8">
               Tutti gli invitati sono stati assegnati! 🎉
