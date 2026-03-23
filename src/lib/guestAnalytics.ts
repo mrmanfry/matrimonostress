@@ -292,11 +292,13 @@ export function calculateGuestAnalytics(
     declinedPercentage: (declinedCount / total) * 100,
     
     adultsCount,
-    adultsPercentage: (adultsCount / total) * 100,
+    adultsPercentage: (adultsCount / totalCovers) * 100,
     childrenCount,
-    childrenPercentage: (childrenCount / total) * 100,
+    childrenPercentage: (childrenCount / totalCovers) * 100,
+    coupleCount,
+    couplePercentage: (coupleCount / totalCovers) * 100,
     staffCount,
-    staffPercentage: (staffCount / total) * 100,
+    staffPercentage: (staffCount / totalCovers) * 100,
     
     plusOnesConfirmed,
     plusOnesPotential,
