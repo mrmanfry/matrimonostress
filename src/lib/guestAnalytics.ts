@@ -353,6 +353,8 @@ function getEmptyAnalytics(): GuestAnalytics {
     adultsPercentage: 0,
     childrenCount: 0,
     childrenPercentage: 0,
+    coupleCount: 0,
+    couplePercentage: 0,
     staffCount: 0,
     staffPercentage: 0,
     plusOnesConfirmed: 0,
