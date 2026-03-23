@@ -72,6 +72,8 @@ export interface GuestAnalytics {
   adultsPercentage: number;
   childrenCount: number;
   childrenPercentage: number;
+  coupleCount: number;
+  couplePercentage: number;
   staffCount: number;
   staffPercentage: number;
   
