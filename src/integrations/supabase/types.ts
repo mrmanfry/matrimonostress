@@ -108,6 +108,13 @@ export type Database = {
             referencedRelation: "weddings"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "accommodation_rooms_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings_camera_public"
+            referencedColumns: ["id"]
+          },
         ]
       }
       camera_participants: {
@@ -285,6 +292,13 @@ export type Database = {
             referencedRelation: "weddings"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "checklist_tasks_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings_camera_public"
+            referencedColumns: ["id"]
+          },
         ]
       }
       contact_matches_temp: {
@@ -397,6 +411,13 @@ export type Database = {
             referencedRelation: "weddings"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "disposable_cameras_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: true
+            referencedRelation: "weddings_camera_public"
+            referencedColumns: ["id"]
+          },
         ]
       }
       expense_categories: {
@@ -424,6 +445,13 @@ export type Database = {
             columns: ["wedding_id"]
             isOneToOne: false
             referencedRelation: "weddings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_categories_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings_camera_public"
             referencedColumns: ["id"]
           },
         ]
@@ -506,6 +534,13 @@ export type Database = {
             columns: ["wedding_id"]
             isOneToOne: false
             referencedRelation: "weddings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_items_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings_camera_public"
             referencedColumns: ["id"]
           },
         ]
@@ -608,6 +643,13 @@ export type Database = {
             referencedRelation: "weddings"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "financial_contributors_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings_camera_public"
+            referencedColumns: ["id"]
+          },
         ]
       }
       guest_conflicts: {
@@ -674,6 +716,13 @@ export type Database = {
             columns: ["wedding_id"]
             isOneToOne: false
             referencedRelation: "weddings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_groups_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings_camera_public"
             referencedColumns: ["id"]
           },
         ]
@@ -807,6 +856,13 @@ export type Database = {
             referencedRelation: "weddings"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "guests_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings_camera_public"
+            referencedColumns: ["id"]
+          },
         ]
       }
       invite_parties: {
@@ -873,6 +929,13 @@ export type Database = {
             columns: ["wedding_id"]
             isOneToOne: false
             referencedRelation: "weddings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invite_parties_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings_camera_public"
             referencedColumns: ["id"]
           },
         ]
@@ -946,6 +1009,13 @@ export type Database = {
             columns: ["wedding_id"]
             isOneToOne: false
             referencedRelation: "weddings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings_camera_public"
             referencedColumns: ["id"]
           },
         ]
@@ -1147,6 +1217,13 @@ export type Database = {
             referencedRelation: "weddings"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "progress_tokens_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings_camera_public"
+            referencedColumns: ["id"]
+          },
         ]
       }
       rsvp_log: {
@@ -1225,6 +1302,13 @@ export type Database = {
             columns: ["wedding_id"]
             isOneToOne: false
             referencedRelation: "weddings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sync_tokens_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings_camera_public"
             referencedColumns: ["id"]
           },
         ]
@@ -1316,6 +1400,13 @@ export type Database = {
             referencedRelation: "weddings"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "tables_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings_camera_public"
+            referencedColumns: ["id"]
+          },
         ]
       }
       timeline_events: {
@@ -1360,6 +1451,13 @@ export type Database = {
             referencedRelation: "weddings"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "timeline_events_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings_camera_public"
+            referencedColumns: ["id"]
+          },
         ]
       }
       timeline_tokens: {
@@ -1390,6 +1488,13 @@ export type Database = {
             columns: ["wedding_id"]
             isOneToOne: false
             referencedRelation: "weddings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "timeline_tokens_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings_camera_public"
             referencedColumns: ["id"]
           },
         ]
@@ -1428,6 +1533,13 @@ export type Database = {
             columns: ["wedding_id"]
             isOneToOne: false
             referencedRelation: "weddings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_roles_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings_camera_public"
             referencedColumns: ["id"]
           },
         ]
@@ -1506,6 +1618,13 @@ export type Database = {
             referencedRelation: "weddings"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "vendor_appointments_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings_camera_public"
+            referencedColumns: ["id"]
+          },
         ]
       }
       vendor_communications: {
@@ -1567,6 +1686,13 @@ export type Database = {
             referencedRelation: "weddings"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "vendor_communications_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings_camera_public"
+            referencedColumns: ["id"]
+          },
         ]
       }
       vendor_contracts: {
@@ -1619,6 +1745,13 @@ export type Database = {
             columns: ["wedding_id"]
             isOneToOne: false
             referencedRelation: "weddings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_contracts_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings_camera_public"
             referencedColumns: ["id"]
           },
         ]
@@ -1714,6 +1847,13 @@ export type Database = {
             referencedRelation: "weddings"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "vendors_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings_camera_public"
+            referencedColumns: ["id"]
+          },
         ]
       }
       wedding_invitations: {
@@ -1750,6 +1890,13 @@ export type Database = {
             columns: ["wedding_id"]
             isOneToOne: false
             referencedRelation: "weddings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wedding_invitations_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings_camera_public"
             referencedColumns: ["id"]
           },
         ]
@@ -1873,7 +2020,27 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      weddings_camera_public: {
+        Row: {
+          id: string | null
+          partner1_name: string | null
+          partner2_name: string | null
+          wedding_date: string | null
+        }
+        Insert: {
+          id?: string | null
+          partner1_name?: string | null
+          partner2_name?: string | null
+          wedding_date?: string | null
+        }
+        Update: {
+          id?: string | null
+          partner1_name?: string | null
+          partner2_name?: string | null
+          wedding_date?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       camera_upload_photo: {

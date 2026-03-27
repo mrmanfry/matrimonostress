@@ -113,9 +113,9 @@ export default function CameraPublic() {
       setCamera(cam);
       setShotsRemaining(cam.shots_per_person);
 
-      // Load wedding info
+      // Load wedding info via public camera view (no auth needed)
       const { data: wed } = await supabase
-        .from("weddings")
+        .from("weddings_camera_public" as any)
         .select("partner1_name, partner2_name, wedding_date")
         .eq("id", cam.wedding_id)
         .maybeSingle();
