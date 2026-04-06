@@ -203,7 +203,35 @@ const Tables = () => {
       .from("guests")
       .select("*")
       .eq("wedding_id", weddingId);
-    if (data) setAllGuests(data);
+    if (data) {
+      const plusOneVirtuals: Guest[] = data
+        .filter(g => g.allow_plus_one && g.plus_one_name?.trim())
+        .map(g => {
+          const nameParts = g.plus_one_name!.trim().split(/\s+/);
+          return {
+            id: `plusone_${g.id}`,
+            first_name: nameParts[0],
+            last_name: nameParts.slice(1).join(" ") || g.last_name,
+            rsvp_status: g.rsvp_status,
+            dietary_restrictions: null,
+            menu_choice: g.plus_one_menu || null,
+            notes: null,
+            adults_count: 1,
+            children_count: 0,
+            party_id: g.party_id,
+            group_id: g.group_id,
+            category: g.category,
+            is_child: false,
+            is_staff: false,
+            is_couple_member: false,
+            save_the_date_sent_at: null,
+            std_response: null,
+            is_plus_one: true,
+            plus_one_of_guest_id: g.id,
+          } as Guest;
+        });
+      setAllGuests([...data, ...plusOneVirtuals]);
+    }
   };
 
   const fetchVendorStaff = async (weddingId: string) => {
