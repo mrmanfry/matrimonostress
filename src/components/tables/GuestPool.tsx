@@ -11,6 +11,7 @@ import {
   FileText, 
   Users, 
   User, 
+  UserPlus,
   ChevronDown, 
   ChevronRight, 
   Search,
@@ -33,6 +34,7 @@ type Guest = {
   children_count: number;
   party_id?: string | null;
   category?: string | null;
+  is_plus_one?: boolean;
 };
 
 type GuestPoolProps = {
@@ -81,12 +83,17 @@ const DraggableGuest = ({ guest }: { guest: Guest }) => {
       <div className="p-2 hover:bg-accent/10 transition-colors rounded-md border border-transparent hover:border-border">
         <div className="flex items-center justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <p className="font-medium text-sm truncate">
+            <p className="font-medium text-sm truncate flex items-center gap-1">
+              {guest.is_plus_one && (
+                <UserPlus className="w-3 h-3 text-primary shrink-0" />
+              )}
               {guest.first_name} {guest.last_name}
             </p>
             <div className="flex items-center gap-1 mt-0.5">
               <span className="text-xs text-muted-foreground">
-                {guest.adults_count} ad.{guest.children_count > 0 && ` + ${guest.children_count} bimbi`}
+                {guest.is_plus_one ? "Accompagnatore" : (
+                  <>{guest.adults_count} ad.{guest.children_count > 0 && ` + ${guest.children_count} bimbi`}</>
+                )}
               </span>
               {guest.category && (
                 <Badge variant="outline" className={`text-[10px] px-1 py-0 h-4 ${getCategoryColor(guest.category)}`}>
