@@ -53,6 +53,7 @@ type Guest = {
   phone?: string | null;
   allow_plus_one?: boolean;
   plus_one_name?: string | null;
+  plus_one_menu?: string | null;
   is_plus_one?: boolean;
   plus_one_of_guest_id?: string;
 };
