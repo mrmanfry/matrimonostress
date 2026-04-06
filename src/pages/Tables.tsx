@@ -159,7 +159,42 @@ const Tables = () => {
     }
     
     const { data } = await query;
-    if (data) setGuests(data);
+    if (data) {
+      // Generate virtual +1 entries for guests with plus_one_name
+      const realGuests: Guest[] = data;
+      const plusOneVirtuals: Guest[] = data
+        .filter(g => g.allow_plus_one && g.plus_one_name?.trim())
+        .map(g => {
+          const nameParts = g.plus_one_name!.trim().split(/\s+/);
+          const firstName = nameParts[0];
+          const lastName = nameParts.slice(1).join(" ") || g.last_name;
+          return {
+            id: `plusone_${g.id}`,
+            first_name: firstName,
+            last_name: lastName,
+            rsvp_status: g.rsvp_status,
+            dietary_restrictions: null,
+            menu_choice: g.plus_one_menu || null,
+            notes: null,
+            adults_count: 1,
+            children_count: 0,
+            party_id: g.party_id,
+            group_id: g.group_id,
+            category: g.category,
+            is_child: false,
+            is_staff: false,
+            is_couple_member: false,
+            save_the_date_sent_at: null,
+            std_response: null,
+            phone: null,
+            allow_plus_one: false,
+            plus_one_name: null,
+            is_plus_one: true,
+            plus_one_of_guest_id: g.id,
+          } as Guest;
+        });
+      setGuests([...realGuests, ...plusOneVirtuals]);
+    }
   };
 
   const fetchAllGuests = async (weddingId: string) => {
@@ -293,10 +328,53 @@ const Tables = () => {
 
     if (!over || !weddingId) return;
 
-    const guestId = active.id as string;
+    let guestId = active.id as string;
     const tableId = over.id as string;
 
     if (!tables.find(t => t.id === tableId)) return;
+
+    // If it's a virtual +1, create a real guest record first
+    if (guestId.startsWith("plusone_")) {
+      const originalGuestId = guestId.replace("plusone_", "");
+      const virtualGuest = guests.find(g => g.id === guestId);
+      const originalGuest = guests.find(g => g.id === originalGuestId);
+      if (!virtualGuest || !originalGuest) return;
+
+      const { data: newGuest, error: createError } = await supabase
+        .from("guests")
+        .insert({
+          wedding_id: weddingId,
+          first_name: virtualGuest.first_name,
+          last_name: virtualGuest.last_name,
+          rsvp_status: originalGuest.rsvp_status,
+          party_id: originalGuest.party_id,
+          group_id: originalGuest.group_id,
+          category: originalGuest.category,
+          menu_choice: originalGuest.plus_one_menu || null,
+          is_child: false,
+          adults_count: 1,
+          children_count: 0,
+        })
+        .select("id")
+        .single();
+
+      if (createError || !newGuest) {
+        toast({ title: "Errore", description: "Impossibile creare l'ospite +1", variant: "destructive" });
+        return;
+      }
+
+      // Clear plus_one_name from the original guest since they're now a real guest
+      await supabase
+        .from("guests")
+        .update({ plus_one_name: null, allow_plus_one: false })
+        .eq("id", originalGuestId);
+
+      guestId = newGuest.id;
+
+      // Refresh guests to remove the virtual entry
+      await fetchGuests(weddingId);
+      await fetchAllGuests(weddingId);
+    }
 
     const currentAssignments = assignments.filter(a => a.table_id === tableId);
     const assignedGuestIds = currentAssignments.map(a => a.guest_id);
