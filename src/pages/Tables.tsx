@@ -351,7 +351,7 @@ const Tables = () => {
           party_id: originalGuest.party_id,
           group_id: originalGuest.group_id,
           category: originalGuest.category,
-          menu_choice: originalGuest.plus_one_name ? (originalGuest as any).plus_one_menu || null : null,
+          menu_choice: originalGuest.plus_one_menu || null,
           is_child: false,
           adults_count: 1,
           children_count: 0,
