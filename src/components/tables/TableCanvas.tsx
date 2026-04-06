@@ -34,6 +34,10 @@ type Guest = {
   last_name: string;
   dietary_restrictions?: string | null;
   category?: string | null;
+  is_plus_one?: boolean;
+  plus_one_of_guest_id?: string;
+  allow_plus_one?: boolean;
+  plus_one_name?: string | null;
 };
 
 type Table = {
@@ -266,30 +270,68 @@ const DroppableTable = ({
       )}
 
       <div className="space-y-1">
-        {tableGuests.map(({ assignment, guest }) => (
-          <div
-            key={assignment.id}
-            className="flex items-center justify-between p-2 bg-accent/10 rounded text-sm"
-          >
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-              <span className="truncate">
-                {guest!.first_name} {guest!.last_name}
-              </span>
-              {guest!.dietary_restrictions && (
-                <Badge variant="outline" className="text-[10px] shrink-0">🍽️</Badge>
+        {tableGuests.map(({ assignment, guest }) => {
+          // Check if this guest is a +1 (virtual converted to real)
+          const isPlusOne = guest!.is_plus_one;
+          // Check if the original invitee of this +1 is also at this table
+          const plusOneOfName = isPlusOne && guest!.plus_one_of_guest_id
+            ? (() => {
+                const orig = guests.find(g => g.id === guest!.plus_one_of_guest_id);
+                return orig ? `${orig.first_name}` : null;
+              })()
+            : null;
+
+          // Check if this guest has a +1 that's also assigned to this table
+          const assignedPlusOne = !isPlusOne && guest!.allow_plus_one && guest!.plus_one_name?.trim()
+            ? (() => {
+                const plusOneId = `plusone_${guest!.id}`;
+                const plusOneAssigned = tableGuests.find(tg => tg.guest?.id === plusOneId);
+                if (plusOneAssigned) return null; // already shown as separate row (real guest)
+                // Check if a real guest was created from +1 and is at this table
+                const realPlusOne = tableGuests.find(tg => 
+                  tg.guest?.is_plus_one && tg.guest?.plus_one_of_guest_id === guest!.id
+                );
+                return realPlusOne ? null : guest!.plus_one_name;
+              })()
+            : null;
+
+          return (
+            <div key={assignment.id}>
+              <div className="flex items-center justify-between p-2 bg-accent/10 rounded text-sm">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  {isPlusOne && (
+                    <Badge variant="outline" className="text-[10px] shrink-0 px-1">+1</Badge>
+                  )}
+                  <span className="truncate">
+                    {guest!.first_name} {guest!.last_name}
+                  </span>
+                  {isPlusOne && plusOneOfName && (
+                    <span className="text-[10px] text-muted-foreground shrink-0">di {plusOneOfName}</span>
+                  )}
+                  {guest!.dietary_restrictions && (
+                    <Badge variant="outline" className="text-[10px] shrink-0">🍽️</Badge>
+                  )}
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => onUnassign(assignment.id)}
+                  className="h-6 w-6 p-0 shrink-0"
+                  disabled={table.is_locked}
+                >
+                  <X className="w-3 h-3" />
+                </Button>
+              </div>
+              {assignedPlusOne && (
+                <div className="flex items-center gap-2 p-1.5 pl-6 text-xs text-muted-foreground">
+                  <Badge variant="outline" className="text-[10px] px-1">+1</Badge>
+                  <span className="truncate">{assignedPlusOne}</span>
+                  <span className="text-[10px]">(non assegnato)</span>
+                </div>
               )}
             </div>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => onUnassign(assignment.id)}
-              className="h-6 w-6 p-0 shrink-0"
-              disabled={table.is_locked}
-            >
-              <X className="w-3 h-3" />
-            </Button>
-          </div>
-        ))}
+          );
+        })}
 
         {proposedGuests.map(guest => (
           <div
