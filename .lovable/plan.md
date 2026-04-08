@@ -1,59 +1,75 @@
 
 
-## Piano: Campi personalizzati nell'invito
+## Sprint 2: Wizard UI — Generatore Libretto Messa
 
-### Problema
-I testi dell'invito sono fissi (saluto, nomi, annuncio, data, ora, cerimonia, ricevimento). L'utente non può aggiungere righe extra né riordinarle — ad esempio inserire "Dress code: abito lungo" tra il luogo e l'indirizzo del ricevimento.
+### Obiettivo
+Creare la pagina `/app/mass-booklet` con un wizard a 5 step, routing, voce nella sidebar, auto-save a Supabase, e navigazione libera tra gli step.
 
-### Soluzione
-Trasformare `InvitationTexts` da un oggetto a chiavi fisse a un **array ordinato di blocchi**, dove ogni blocco ha un tipo (predefinito o custom) e un valore. L'utente può:
-- Aggiungere campi personalizzati con un bottone "+" tra qualsiasi riga
-- Riordinare i campi tramite drag (icona grip) o frecce su/giù
-- Eliminare i campi custom (quelli predefiniti si svuotano ma restano)
+### File da creare
 
-### Struttura dati
+**1. `src/pages/MassBooklet.tsx`** — Pagina principale
+- Carica/crea il record `mass_booklets` da Supabase (upsert al primo accesso)
+- Stato locale: `content: MassBookletContent`, `currentStep`, `templateStyle`, `status`, `saving`
+- Auto-save debounced (3s) su ogni modifica di `content`
+- Save esplicito al cambio step ("Avanti"/"Indietro")
+- Pulsante "Salva ed esci" sempre visibile nell'header
+- Indicatore "Salvato" stile Google Docs
+- Pre-popola `church_name`, `ceremony_date_text` dai dati del matrimonio se il booklet è nuovo
+- Renderizza il componente dello step corrente
 
-```typescript
-// Ogni riga dell'invito diventa un "blocco"
-interface TextBlock {
-  id: string;           // uuid stabile per key/drag
-  type: 'greeting' | 'names' | 'announcement' | 'dateText' | 'timePrefix_time' 
-      | 'venuePrefix' | 'ceremonyVenue' | 'ceremonyAddress'
-      | 'receptionPrefix' | 'receptionVenue' | 'receptionAddress'
-      | 'custom';
-  label: string;        // etichetta sidebar ("Saluto", "Nomi", o custom)
-  value: string;        // testo mostrato
-  style: 'primary' | 'secondary' | 'tertiary'; // dimensione/colore nell'invito
-}
-```
+**2. `src/components/mass-booklet/BookletStepSetup.tsx`** — Step 1
+- Campi: nome chiesa, nome celebrante, data cerimonia (testo libero)
+- Ruoli: testimoni sposo/sposa (array dinamico +/−), lettori (array), musicisti
+- Layout singola colonna, max-w-2xl centrato
 
-L'ordine dell'array è l'ordine di rendering. I campi predefiniti vengono inizializzati nell'ordine attuale; i custom si inseriscono dove l'utente clicca "+".
+**3. `src/components/mass-booklet/BookletStepRite.tsx`** — Step 2
+- Scelta radio: "Messa con Eucaristia" / "Solo Liturgia della Parola"
+- Descrizione breve per ogni opzione
+- Card selezionabili con icona
 
-### Retrocompatibilità
-Al caricamento, se `print_design.editableTexts` è il vecchio oggetto piatto (`InvitationTexts`), viene convertito automaticamente nell'array di `TextBlock[]`. Nessuna migrazione DB necessaria.
+**4. `src/components/mass-booklet/BookletStepReadings.tsx`** — Step 3
+- 4 sezioni Accordion: Prima Lettura, Salmo, Seconda Lettura, Vangelo
+- Ogni sezione: Select con opzioni da `liturgia.json` + anteprima testo in sola lettura
+- Toggle "Usa testo personalizzato" → mostra Textarea al posto del Select
+- Seconda Lettura opzionale (badge "Opzionale")
 
-### File modificati
+**5. `src/components/mass-booklet/BookletStepCustom.tsx`** — Step 4
+- Sezione Canti: input per ingresso, offertorio, comunione, comunione 2, uscita, gloria, santo, pace, frazione
+- Sezione Preghiere dei Fedeli: campo ritornello + array dinamico di intenzioni (max 6, max 300 char ciascuna, contatore visibile)
+- Sezione Ringraziamenti: textarea (max 2000 char)
 
-**`src/components/print/PrintDesignStep.tsx`**
-- Sostituire `InvitationTexts` con `TextBlock[]` (esportato come tipo)
-- Sidebar: renderizzare i blocchi in ordine con Input per ciascuno, bottone grip per drag, bottone "×" per custom, bottoni "+" tra ogni riga per inserire un campo personalizzato
-- Per i campi custom: input per label + input per valore + select per stile (primario/secondario/terziario)
-- `renderTextContent` legge dall'array ordinato e applica lo stile corretto per tipo/style
-- Funzione `migrateTextsToBlocks(old: InvitationTexts): TextBlock[]` per retrocompatibilità
+**6. `src/components/mass-booklet/BookletStepPreview.tsx`** — Step 5
+- Riepilogo completezza con `validateBookletCompleteness()` — campi mancanti linkabili allo step corretto
+- Anteprima placeholder (messaggio "L'anteprima PDF sarà disponibile nello Sprint 3")
+- Checkbox disclaimer obbligatorio
+- Pulsante "Genera PDF" disabilitato (Sprint 3)
 
-**`src/components/print/PrintInvitationEditor.tsx`**
-- Stato `textBlocks: TextBlock[]` al posto di `editableTexts: InvitationTexts`
-- Pre-popola i blocchi predefiniti dai dati wedding
-- Persiste `textBlocks` nel JSONB `print_design`
-- Al caricamento: se trova il vecchio formato, chiama `migrateTextsToBlocks`
-- Passa `textBlocks` a `PrintDesignStep` e `HiddenPrintNode`
+**7. `src/components/mass-booklet/BookletStepper.tsx`** — Progress bar + navigazione
+- Barra 5 step con icone e label
+- Step cliccabili per navigazione libera
+- Indicazione step completati/corrente
 
-**`src/components/print/HiddenPrintNode.tsx`**
-- Prop `textBlocks: TextBlock[]` al posto di `editableTexts`
-- Il `textBlock` JSX itera sull'array e renderizza ogni blocco con lo stile appropriato (fontSize, fontWeight, color basati su `style`)
+### File da modificare
+
+**`src/App.tsx`**
+- Import `MassBooklet` page
+- Aggiungere route `<Route path="mass-booklet" element={<MassBooklet />} />`
+
+**`src/pages/AppLayout.tsx`**
+- Aggiungere voce "Libretto Messa" nella sidebar con icona `BookOpen` (da lucide-react), posizionata dopo "Memories" e prima di "Timeline"
+
+### Dettagli tecnici
+
+- **Auto-save**: `useCallback` + `setTimeout` da 3s, cancellato ad ogni nuova modifica. Al cambio step si salva immediatamente (abort del debounce pendente).
+- **Supabase interaction**: `supabase.from('mass_booklets').upsert(...)` con `wedding_id` come chiave. Il campo `content` è JSONB, si salva l'intero oggetto `MassBookletContent`.
+- **Liturgia data**: import statico di `liturgia.json`, nessuna chiamata di rete.
+- **Sanitizzazione**: `sanitizeBookletText()` applicata ai campi testo libero prima del salvataggio.
+- **Navigazione libera**: nessuna validazione bloccante sugli step 1-4. Solo lo Step 5 mostra i campi mancanti.
 
 ### Ordine di esecuzione
-1. Definire `TextBlock`, funzione migrazione, aggiornare `PrintDesignStep` (sidebar + preview)
-2. Aggiornare `PrintInvitationEditor` (stato, persistenza, pre-popolamento)
-3. Aggiornare `HiddenPrintNode` (rendering PDF da array)
+1. `BookletStepper` (componente UI riusabile)
+2. Step 1-4 (i 4 form component)
+3. Step 5 (preview/validazione)
+4. `MassBooklet.tsx` (pagina con logica auto-save)
+5. Routing + sidebar
 
