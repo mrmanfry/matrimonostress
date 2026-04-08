@@ -496,17 +496,72 @@ const PrintDesignStep = ({
             <Input value={editableTexts.receptionAddress} onChange={(e) => updateText('receptionAddress', e.target.value)} placeholder="Via..." />
           </div>
         </div>
+
+        {/* Position controls */}
+        <div className="space-y-3 pt-2 border-t border-border">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <GripVertical className="w-4 h-4" />
+            Posizione elementi
+          </h3>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">Posizione testo</Label>
+              <span className="text-[10px] text-muted-foreground">{Math.round(textPosition.y)}%</span>
+            </div>
+            <Slider
+              value={[textPosition.y]}
+              onValueChange={([v]) => onTextPositionChange({ y: v })}
+              min={5}
+              max={85}
+              step={1}
+            />
+            <p className="text-[10px] text-muted-foreground">Trascina il blocco testo nell'anteprima oppure usa lo slider</p>
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs flex items-center gap-1"><QrCode className="w-3 h-3" /> Dimensione QR</Label>
+              <span className="text-[10px] text-muted-foreground">{Math.round(qrPosition.size)}%</span>
+            </div>
+            <Slider
+              value={[qrPosition.size]}
+              onValueChange={([v]) => onQrPositionChange({ ...qrPosition, size: v })}
+              min={6}
+              max={35}
+              step={1}
+            />
+            <p className="text-[10px] text-muted-foreground">Trascina il QR code nell'anteprima per spostarlo</p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full"
+            onClick={() => {
+              onTextPositionChange({ y: hasPhoto ? 55 : 30 });
+              onQrPositionChange({ x: 42, y: 85, size: 15 });
+            }}
+          >
+            <RotateCcw className="w-3 h-3 mr-2" />
+            Ripristina posizioni
+          </Button>
+        </div>
       </div>
 
       {/* Preview Area */}
-      <div className="flex-1 bg-muted/30 flex items-center justify-center p-4 md:p-8 overflow-auto">
+      <div
+        className="flex-1 bg-muted/30 flex items-center justify-center p-4 md:p-8 overflow-auto"
+        onPointerMove={handlePreviewPointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+      >
         <div
-          className="relative bg-white shadow-xl rounded-sm overflow-hidden"
+          ref={previewRef}
+          className="relative bg-white shadow-xl rounded-sm overflow-hidden select-none"
           style={{
             width: '100%',
             maxWidth: '400px',
             aspectRatio: '1 / 1.414',
-            fontFamily
+            fontFamily,
+            touchAction: 'none',
           }}>
           
           {/* Safe zone indicator */}
@@ -520,9 +575,9 @@ const PrintDesignStep = ({
               }} />
           )}
 
-          {hasPhoto ? (
+          {hasPhoto && (
             <>
-              {/* TOP HALF: Photo with drag support */}
+              {/* Photo area with drag support */}
               <div
                 ref={dragContainerRef}
                 className="absolute top-0 left-0 right-0"
@@ -589,28 +644,60 @@ const PrintDesignStep = ({
                     style={{ top: '50%', height: '1px', backgroundColor: 'hsl(0 80% 55%)' }} />
                 )}
               </div>
-
-              {/* Fold line */}
-              <div
-                className="absolute left-[10%] right-[10%] z-10"
-                style={{
-                  top: '50%',
-                  borderTop: '1px dashed hsl(var(--muted-foreground) / 0.2)'
-                }} />
-
-              {/* BOTTOM HALF: Formal text */}
-              <div
-                className="absolute left-0 right-0 bottom-0 flex flex-col items-center justify-center px-6 text-center"
-                style={{ height: '50%' }}>
-                {renderTextContent(editableTexts, fontFamily)}
-              </div>
             </>
-          ) : (
-            /* NO PHOTO: Full-page centered text */
-            <div className="absolute inset-0 flex flex-col items-center justify-center px-8 text-center">
+          )}
+
+          {/* Text block — draggable vertically */}
+          <div
+            className="absolute left-0 right-0 z-10 flex flex-col items-center px-6 text-center"
+            style={{
+              top: `${textPosition.y}%`,
+              cursor: isTextDragging ? 'grabbing' : 'grab',
+              touchAction: 'none',
+            }}
+            onPointerDown={handleTextPointerDown}
+          >
+            <div className="pointer-events-none">
               {renderTextContent(editableTexts, fontFamily)}
             </div>
-          )}
+          </div>
+
+          {/* QR Code overlay — draggable + resizable */}
+          <div
+            className="absolute z-10"
+            style={{
+              left: `${qrPosition.x}%`,
+              top: `${qrPosition.y}%`,
+              width: `${qrPosition.size}%`,
+              aspectRatio: '1 / 1',
+              cursor: isQrDragging ? 'grabbing' : 'grab',
+              touchAction: 'none',
+            }}
+            onPointerDown={handleQrPointerDown}
+          >
+            <div
+              className="w-full h-full flex items-center justify-center rounded-sm"
+              style={{
+                backgroundColor: '#ffffff',
+                padding: '8%',
+                border: '2px dashed hsl(var(--primary))',
+              }}
+            >
+              <QRCodeSVG
+                value="https://example.com/rsvp/preview"
+                size={200}
+                fgColor="#000000"
+                bgColor="transparent"
+                level="M"
+                style={{ width: '100%', height: '100%' }}
+              />
+            </div>
+            {/* Resize handle */}
+            <div
+              className="absolute -right-1.5 -bottom-1.5 w-4 h-4 bg-primary rounded-full cursor-se-resize border-2 border-background shadow-sm z-20"
+              onPointerDown={handleQrResizeDown}
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -677,11 +764,6 @@ function renderTextContent(texts: InvitationTexts, fontFamily: string) {
           )}
         </div>
       )}
-      <div className="mt-3 flex items-center justify-center">
-        <div className="w-[32px] h-[32px] bg-muted/50 rounded flex items-center justify-center">
-          <ImageIcon className="w-3.5 h-3.5 text-muted-foreground/40" />
-        </div>
-      </div>
     </>
   );
 }
