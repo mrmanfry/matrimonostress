@@ -255,6 +255,8 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
       backgroundImagePath: bgPath,
       hasPhoto,
       editableTexts,
+      textPosition,
+      qrPosition,
     };
 
     await supabase
