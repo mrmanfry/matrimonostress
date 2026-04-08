@@ -237,6 +237,8 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
       edgeStyle,
       imageTransform,
       backgroundImagePath: bgPath,
+      hasPhoto,
+      editableTexts,
     };
 
     await supabase
@@ -504,6 +506,10 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
                 onImageTransformChange={setImageTransform}
                 edgeStyle={edgeStyle}
                 onEdgeStyleChange={setEdgeStyle}
+                hasPhoto={hasPhoto}
+                onHasPhotoChange={setHasPhoto}
+                editableTexts={editableTexts}
+                onEditableTextsChange={setEditableTexts}
               />
             )}
 
@@ -573,9 +579,10 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
           syncToken={currentProcessingParty.syncToken}
           fontFamily={fontFamily}
           backgroundImageUrl={bgDataUrlRef.current}
-          weddingData={weddingData}
           imageTransform={imageTransform}
           edgeStyle={edgeStyle}
+          hasPhoto={hasPhoto}
+          editableTexts={editableTexts}
         />
       )}
     </>
