@@ -373,7 +373,20 @@ const Tables = () => {
     if (!over || !weddingId) return;
 
     let guestId = active.id as string;
-    const tableId = over.id as string;
+    const overId = over.id as string;
+
+    // Detect seat-specific drop: "seat_{tableId}_{seatIndex}"
+    let tableId: string;
+    let seatPosition: number | null = null;
+
+    if (overId.startsWith("seat_")) {
+      const parts = overId.split("_");
+      // seat_{tableId}_{seatIndex} — tableId is a UUID so rejoin middle parts
+      seatPosition = parseInt(parts[parts.length - 1]);
+      tableId = parts.slice(1, -1).join("_");
+    } else {
+      tableId = overId;
+    }
 
     if (!tables.find(t => t.id === tableId)) return;
 
@@ -407,15 +420,12 @@ const Tables = () => {
         return;
       }
 
-      // Clear plus_one_name from the original guest since they're now a real guest
       await supabase
         .from("guests")
         .update({ plus_one_name: null, allow_plus_one: false })
         .eq("id", originalGuestId);
 
       guestId = newGuest.id;
-
-      // Refresh guests to remove the virtual entry
       await fetchGuests(weddingId);
       await fetchAllGuests(weddingId);
     }
@@ -438,19 +448,52 @@ const Tables = () => {
       return;
     }
 
+    // If dropping on an occupied seat, swap positions
+    if (seatPosition != null) {
+      const occupyingAssignment = currentAssignments.find(a => a.seat_position === seatPosition && a.guest_id !== guestId);
+      if (occupyingAssignment) {
+        // Move occupying guest to unpositioned
+        await supabase.from("table_assignments").update({ seat_position: null }).eq("id", occupyingAssignment.id);
+      }
+    }
+
     const existingAssignment = assignments.find(a => a.guest_id === guestId);
     if (existingAssignment) {
+      // If already assigned to same table, just update seat_position
+      if (existingAssignment.table_id === tableId && seatPosition != null) {
+        await supabase.from("table_assignments").update({ seat_position: seatPosition }).eq("id", existingAssignment.id);
+        fetchAssignments(weddingId);
+        return;
+      }
       await supabase.from("table_assignments").delete().eq("id", existingAssignment.id);
     }
 
-    const { error } = await supabase.from("table_assignments").insert({
+    const insertData: { table_id: string; guest_id: string; seat_position?: number } = {
       table_id: tableId,
       guest_id: guestId,
-    });
+    };
+    if (seatPosition != null) {
+      insertData.seat_position = seatPosition;
+    }
+
+    const { error } = await supabase.from("table_assignments").insert(insertData);
 
     if (error) {
       toast({ title: "Errore", description: "Impossibile assegnare l'invitato", variant: "destructive" });
     } else {
+      fetchAssignments(weddingId);
+    }
+  };
+
+  const handleUpdateSeatPosition = async (assignmentId: string, seatPosition: number | null) => {
+    const { error } = await supabase
+      .from("table_assignments")
+      .update({ seat_position: seatPosition })
+      .eq("id", assignmentId);
+
+    if (error) {
+      toast({ title: "Errore", description: "Impossibile aggiornare la posizione", variant: "destructive" });
+    } else if (weddingId) {
       fetchAssignments(weddingId);
     }
   };
