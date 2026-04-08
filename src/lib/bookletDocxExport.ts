@@ -1,6 +1,5 @@
 import {
-  Document, Packer, Paragraph, TextRun, AlignmentType, PageBreak,
-  HeadingLevel, BorderStyle,
+  Document, Packer, Paragraph, TextRun, AlignmentType, BorderStyle,
 } from 'docx';
 import type { MassBookletContent, LiturgiaData, LiturgiaReading, LiturgiaPsalm } from './massBookletSchema';
 import liturgiaData from '@/data/liturgia.json';
@@ -355,5 +354,5 @@ export async function generateBookletDocx(
   });
 
   const buffer = await Packer.toBuffer(doc);
-  return new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+  return new Blob([buffer as unknown as ArrayBuffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
 }
