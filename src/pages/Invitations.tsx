@@ -122,7 +122,7 @@ const Invitations = () => {
             {/* Print Card */}
             <Card
               className="p-6 cursor-pointer hover:shadow-lg transition-all duration-200 hover:-translate-y-1 border-blue-200 dark:border-blue-800 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30"
-              onClick={() => setPrintEditorOpen(true)}
+              onClick={() => setPrintChooserOpen(true)}
             >
               <div className="flex items-start gap-4">
                 <div className="p-3 rounded-xl bg-blue-100 dark:bg-blue-900/50">
@@ -135,7 +135,7 @@ const Invitations = () => {
                   </p>
                   <div className="flex items-center gap-2 mt-3">
                     <span className="text-xs bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-full font-medium">
-                      Inviti A5 pieghevoli
+                      Design integrato o personalizzato
                     </span>
                     <ChevronRight className="w-4 h-4 text-muted-foreground" />
                   </div>
@@ -145,6 +145,45 @@ const Invitations = () => {
           </div>
         </>
       )}
+
+      {/* Print Chooser Dialog */}
+      <Dialog open={printChooserOpen} onOpenChange={setPrintChooserOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Come vuoi creare i tuoi inviti?</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-3 mt-2">
+            <Card
+              className="p-4 cursor-pointer hover:shadow-md transition-all hover:-translate-y-0.5 border-border"
+              onClick={() => { setPrintChooserOpen(false); setPrintEditorOpen(true); }}
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-muted">
+                  <Palette className="w-6 h-6 text-foreground" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-sm">Design Integrato</h4>
+                  <p className="text-xs text-muted-foreground">Usa il nostro editor con foto, font e layout A5</p>
+                </div>
+              </div>
+            </Card>
+            <Card
+              className="p-4 cursor-pointer hover:shadow-md transition-all hover:-translate-y-0.5 border-border"
+              onClick={() => { setPrintChooserOpen(false); setPrintStudioOpen(true); }}
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-muted">
+                  <Upload className="w-6 h-6 text-foreground" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-sm">Carica il tuo Design</h4>
+                  <p className="text-xs text-muted-foreground">PDF o immagine da Canva/Designer + QR code automatico</p>
+                </div>
+              </div>
+            </Card>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Dialogs */}
       <RSVPCampaignDialog
@@ -174,6 +213,12 @@ const Invitations = () => {
       <PrintInvitationEditor
         open={printEditorOpen}
         onOpenChange={setPrintEditorOpen}
+        weddingId={weddingId || ""}
+      />
+
+      <PrintStudio
+        open={printStudioOpen}
+        onOpenChange={setPrintStudioOpen}
         weddingId={weddingId || ""}
       />
     </div>
