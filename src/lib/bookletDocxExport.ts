@@ -129,36 +129,40 @@ function spacer(): Paragraph {
 }
 
 // Build reading paragraphs
-function readingBlock(label: string, source: string, reference: string, text: string): Paragraph[] {
-  const paras: Paragraph[] = [subTitle(label)];
-  if (source) paras.push(rubricPara(source));
+function readingBlock(label: string, source: string, reference: string, text: string, style?: MassBookletStyle): Paragraph[] {
+  const { bf } = getDocxFonts(style);
+  const { bodySize } = getDocxSizes(style);
+  const paras: Paragraph[] = [subTitle(label, style)];
+  if (source) paras.push(rubricPara(source, style));
   if (reference) paras.push(new Paragraph({
     spacing: { after: 60 },
-    children: [new TextRun({ text: reference, font: 'Arial', size: 18, color: '6B6B6B' })],
+    children: [new TextRun({ text: reference, font: bf, size: bodySize - 3, color: '6B6B6B' })],
   }));
-  paras.push(bodyPara(text));
+  paras.push(bodyPara(text, style));
   return paras;
 }
 
-function psalmBlock(psalm: LiturgiaPsalm): Paragraph[] {
+function psalmBlock(psalm: LiturgiaPsalm, style?: MassBookletStyle): Paragraph[] {
+  const { bf } = getDocxFonts(style);
+  const { bodySize } = getDocxSizes(style);
   const paras: Paragraph[] = [
-    subTitle('Salmo Responsoriale'),
+    subTitle('Salmo Responsoriale', style),
     new Paragraph({
       spacing: { after: 60 },
-      children: [new TextRun({ text: psalm.reference, font: 'Arial', size: 18, color: '6B6B6B' })],
+      children: [new TextRun({ text: psalm.reference, font: bf, size: bodySize - 3, color: '6B6B6B' })],
     }),
     new Paragraph({
       alignment: AlignmentType.CENTER,
       spacing: { after: 80 },
-      children: [new TextRun({ text: psalm.refrain, italics: true, font: 'Arial', size: 21 })],
+      children: [new TextRun({ text: psalm.refrain, italics: true, font: bf, size: bodySize })],
     }),
   ];
   for (const v of psalm.verses) {
-    paras.push(bodyPara(v));
+    paras.push(bodyPara(v, style));
     paras.push(new Paragraph({
       alignment: AlignmentType.CENTER,
       spacing: { after: 80 },
-      children: [new TextRun({ text: psalm.refrain, italics: true, font: 'Arial', size: 21 })],
+      children: [new TextRun({ text: psalm.refrain, italics: true, font: bf, size: bodySize })],
     }));
   }
   return paras;
