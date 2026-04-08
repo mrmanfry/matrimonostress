@@ -12,10 +12,10 @@ interface Props {
 
 function ReadingBlock({ label, source, reference, text }: { label: string; source: string; reference: string; text: string }) {
   return (
-    <View wrap={false} style={{ marginBottom: 14 }}>
-      <Text style={s.subTitle}>{label}</Text>
-      <Text style={s.rubric}>{source}</Text>
-      <Text style={s.reference}>{reference}</Text>
+    <View style={{ marginBottom: 14 }}>
+      <Text style={s.subTitle} minPresenceAhead={40}>{label}</Text>
+      {source ? <Text style={s.rubric}>{source}</Text> : null}
+      {reference ? <Text style={s.reference}>{reference}</Text> : null}
       <Text style={s.body}>{text}</Text>
     </View>
   );
@@ -24,7 +24,7 @@ function ReadingBlock({ label, source, reference, text }: { label: string; sourc
 function PsalmBlock({ psalm }: { psalm: LiturgiaPsalm }) {
   return (
     <View style={{ marginBottom: 14 }}>
-      <Text style={s.subTitle}>Salmo Responsoriale</Text>
+      <Text style={s.subTitle} minPresenceAhead={40}>Salmo Responsoriale</Text>
       <Text style={s.reference}>{psalm.reference}</Text>
       <Text style={s.prayerRefrain}>{psalm.refrain}</Text>
       {psalm.verses.map((v, i) => (
@@ -40,7 +40,6 @@ function PsalmBlock({ psalm }: { psalm: LiturgiaPsalm }) {
 export default function PdfReadingSection({ content }: Props) {
   const r = content.readings;
 
-  // First reading
   let firstReading: LiturgiaReading | undefined;
   let firstReadingCustom = false;
   if (r.use_custom_first_reading && r.first_reading_custom) {
@@ -49,7 +48,6 @@ export default function PdfReadingSection({ content }: Props) {
     firstReading = lit.readings.first_reading.find(x => x.id === r.first_reading) as LiturgiaReading | undefined;
   }
 
-  // Psalm
   let psalm: LiturgiaPsalm | undefined;
   let psalmCustom = false;
   if (r.use_custom_psalm && r.psalm_custom) {
@@ -58,7 +56,6 @@ export default function PdfReadingSection({ content }: Props) {
     psalm = lit.readings.responsorial_psalm.find(x => x.id === r.psalm) as LiturgiaPsalm | undefined;
   }
 
-  // Second reading (optional)
   let secondReading: LiturgiaReading | undefined;
   let secondReadingCustom = false;
   if (r.use_custom_second_reading && r.second_reading_custom) {
@@ -67,7 +64,6 @@ export default function PdfReadingSection({ content }: Props) {
     secondReading = lit.readings.second_reading.find(x => x.id === r.second_reading) as LiturgiaReading | undefined;
   }
 
-  // Gospel
   let gospel: LiturgiaReading | undefined;
   let gospelCustom = false;
   if (r.use_custom_gospel && r.gospel_custom) {
@@ -78,34 +74,30 @@ export default function PdfReadingSection({ content }: Props) {
 
   return (
     <View>
-      <Text style={s.sectionTitle}>Liturgia della Parola</Text>
+      <Text style={s.sectionTitle} minPresenceAhead={60}>Liturgia della Parola</Text>
       <View style={s.separator} />
 
-      {/* First Reading */}
       {firstReadingCustom ? (
         <ReadingBlock label="Prima Lettura" source="" reference="" text={r.first_reading_custom!} />
       ) : firstReading ? (
         <ReadingBlock label="Prima Lettura" source={firstReading.source} reference={firstReading.reference} text={firstReading.text} />
       ) : null}
 
-      {/* Psalm */}
       {psalmCustom ? (
         <View style={{ marginBottom: 14 }}>
-          <Text style={s.subTitle}>Salmo Responsoriale</Text>
+          <Text style={s.subTitle} minPresenceAhead={40}>Salmo Responsoriale</Text>
           <Text style={s.body}>{r.psalm_custom}</Text>
         </View>
       ) : psalm ? (
         <PsalmBlock psalm={psalm} />
       ) : null}
 
-      {/* Second Reading */}
       {secondReadingCustom ? (
         <ReadingBlock label="Seconda Lettura" source="" reference="" text={r.second_reading_custom!} />
       ) : secondReading ? (
         <ReadingBlock label="Seconda Lettura" source={secondReading.source} reference={secondReading.reference} text={secondReading.text} />
       ) : null}
 
-      {/* Gospel */}
       {gospelCustom ? (
         <ReadingBlock label="Vangelo" source="" reference="" text={r.gospel_custom!} />
       ) : gospel ? (

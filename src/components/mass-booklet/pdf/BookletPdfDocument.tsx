@@ -27,20 +27,24 @@ export default function BookletPdfDocument({ content, partner1, partner2 }: Prop
         churchName={content.church_name}
       />
 
-      {/* Content pages */}
-      <Page size={A5} style={s.page}>
+      {/* Content pages — wrap enables auto-pagination */}
+      <Page size={A5} style={s.page} wrap>
         {/* Rite Intro */}
         <PdfRiteIntro content={content} partner1={partner1} partner2={partner2} />
 
         <View style={s.spacerLg} />
 
-        {/* Readings */}
-        <PdfReadingSection content={content} />
+        {/* Readings — force new page */}
+        <View break>
+          <PdfReadingSection content={content} />
+        </View>
 
         <View style={s.spacerLg} />
 
-        {/* Consent & Rings */}
-        <PdfConsent partner1={partner1} partner2={partner2} />
+        {/* Consent & Rings — force new page */}
+        <View break>
+          <PdfConsent partner1={partner1} partner2={partner2} />
+        </View>
 
         <View style={s.spacerLg} />
 
@@ -49,9 +53,9 @@ export default function BookletPdfDocument({ content, partner1, partner2 }: Prop
 
         <View style={s.spacerLg} />
 
-        {/* Eucharistic Liturgy (conditional) */}
+        {/* Eucharistic Liturgy (conditional) — force new page */}
         {isEucharist && (
-          <View>
+          <View break>
             <Text style={s.sectionTitle}>Liturgia Eucaristica</Text>
             <View style={s.separator} />
 

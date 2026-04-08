@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { validateBookletCompleteness, type MassBookletContent } from "@/lib/massBookletSchema";
 import { pdf } from "@react-pdf/renderer";
 import BookletPdfDocument from "./pdf/BookletPdfDocument";
+import { generateBookletDocx } from "@/lib/bookletDocxExport";
 
 interface Props {
   content: MassBookletContent;
@@ -18,6 +19,7 @@ interface Props {
 export default function BookletStepPreview({ content, onGoToStep, partner1, partner2 }: Props) {
   const [accepted, setAccepted] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [generatingDocx, setGeneratingDocx] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const validation = validateBookletCompleteness(content);
 
@@ -59,6 +61,25 @@ export default function BookletStepPreview({ content, onGoToStep, partner1, part
       toast.error("Impossibile scaricare il PDF. Riprova tra poco.");
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const handleDownloadDocx = async () => {
+    setGeneratingDocx(true);
+    try {
+      const blob = await generateBookletDocx(content, partner1, partner2);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Libretto_Messa_${partner1}_${partner2}.docx`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("File Word scaricato! Puoi modificarlo liberamente.");
+    } catch (e) {
+      console.error("DOCX generation error:", e);
+      toast.error("Impossibile generare il file Word. Riprova tra poco.");
+    } finally {
+      setGeneratingDocx(false);
     }
   };
 
@@ -130,19 +151,39 @@ export default function BookletStepPreview({ content, onGoToStep, partner1, part
         </div>
       </div>
 
-      {/* Download button */}
-      <Button
-        disabled={!validation.isComplete || !accepted || generating}
-        className="w-full gap-2"
-        size="lg"
-        onClick={handleDownload}
-      >
-        {generating ? (
-          <><Loader2 className="w-4 h-4 animate-spin" /> Generazione PDF...</>
-        ) : (
-          <><Download className="w-4 h-4" /> Scarica PDF</>
-        )}
-      </Button>
+      {/* Download buttons */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <Button
+          disabled={!validation.isComplete || !accepted || generating}
+          className="flex-1 gap-2"
+          size="lg"
+          onClick={handleDownload}
+        >
+          {generating ? (
+            <><Loader2 className="w-4 h-4 animate-spin" /> Generazione PDF...</>
+          ) : (
+            <><Download className="w-4 h-4" /> Scarica PDF</>
+          )}
+        </Button>
+
+        <Button
+          variant="outline"
+          disabled={!validation.isComplete || !accepted || generatingDocx}
+          className="flex-1 gap-2"
+          size="lg"
+          onClick={handleDownloadDocx}
+        >
+          {generatingDocx ? (
+            <><Loader2 className="w-4 h-4 animate-spin" /> Generazione Word...</>
+          ) : (
+            <><FileText className="w-4 h-4" /> Scarica Word (.docx)</>
+          )}
+        </Button>
+      </div>
+
+      <p className="text-xs text-center text-muted-foreground">
+        Il file Word è completamente modificabile in Microsoft Word o Google Docs.
+      </p>
     </div>
   );
 }

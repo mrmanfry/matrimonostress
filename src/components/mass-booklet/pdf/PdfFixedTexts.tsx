@@ -22,10 +22,9 @@ export function PdfRiteIntro({ content, partner1, partner2 }: Props) {
   const ft = lit.fixed_texts;
   return (
     <View>
-      <Text style={s.sectionTitle}>Riti di Introduzione</Text>
+      <Text style={s.sectionTitle} minPresenceAhead={60}>Riti di Introduzione</Text>
       <View style={s.separator} />
 
-      {/* Song */}
       {content.songs.entrance ? (
         <View>
           <Text style={s.songTitle}>CANTO D'INGRESSO</Text>
@@ -41,7 +40,7 @@ export function PdfRiteIntro({ content, partner1, partner2 }: Props) {
       <Text style={s.response}>{ft.rite_intro.response_greeting}</Text>
       <View style={s.spacerMd} />
 
-      <Text style={s.subTitle}>Memoria del Battesimo</Text>
+      <Text style={s.subTitle} minPresenceAhead={40}>Memoria del Battesimo</Text>
       <Text style={s.body}>{r(ft.baptism_memory, partner1, partner2)}</Text>
     </View>
   );
@@ -51,10 +50,10 @@ export function PdfConsent({ partner1, partner2 }: { partner1: string; partner2:
   const ft = lit.fixed_texts;
   return (
     <View>
-      <Text style={s.sectionTitle}>Rito del Matrimonio</Text>
+      <Text style={s.sectionTitle} minPresenceAhead={60}>Rito del Matrimonio</Text>
       <View style={s.separator} />
 
-      <Text style={s.subTitle}>Interrogazioni</Text>
+      <Text style={s.subTitle} minPresenceAhead={40}>Interrogazioni</Text>
       <Text style={s.body}>{r(ft.consent_questions.intro, partner1, partner2)}</Text>
       <View style={s.spacerSm} />
       <Text style={s.rubric}>Il celebrante interroga gli sposi:</Text>
@@ -68,7 +67,7 @@ export function PdfConsent({ partner1, partner2 }: { partner1: string; partner2:
       <Text style={s.response}>Sì.</Text>
 
       <View style={s.spacerMd} />
-      <Text style={s.subTitle}>Consenso</Text>
+      <Text style={s.subTitle} minPresenceAhead={40}>Consenso</Text>
       <Text style={s.rubric}>Lo sposo dice:</Text>
       <Text style={s.body}>{r(ft.consent_formula.groom, partner1, partner2)}</Text>
       <View style={s.spacerSm} />
@@ -79,7 +78,7 @@ export function PdfConsent({ partner1, partner2 }: { partner1: string; partner2:
       <Text style={s.body}>{ft.consent_acceptance}</Text>
 
       <View style={s.spacerMd} />
-      <Text style={s.subTitle}>Benedizione e Scambio degli Anelli</Text>
+      <Text style={s.subTitle} minPresenceAhead={40}>Benedizione e Scambio degli Anelli</Text>
       <Text style={s.body}>{ft.rings_blessing}</Text>
       <View style={s.spacerSm} />
       <Text style={s.rubric}>Ciascuno degli sposi dice mettendo l'anello:</Text>
