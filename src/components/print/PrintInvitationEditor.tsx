@@ -141,11 +141,36 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
         if (config.edgeStyle) setEdgeStyle(config.edgeStyle);
         if (config.imageTransform) setImageTransform(config.imageTransform);
         if (config.printed_party_ids) setPrintedPartyIds(config.printed_party_ids);
+        if (config.hasPhoto !== undefined) setHasPhoto(config.hasPhoto);
+        if (config.editableTexts) {
+          setEditableTexts(config.editableTexts);
+          setTextsInitialized(true);
+        }
         if (config.backgroundImagePath) {
           setSavedBgPath(config.backgroundImagePath);
           loadBackgroundFromStorage(config.backgroundImagePath);
         }
         setDesignLoaded(true);
+      }
+
+      // Initialize editable texts from wedding data if not restored from saved config
+      if (!textsInitialized && !(data.print_design as unknown as PrintDesignConfig)?.editableTexts) {
+        const ft = formatTime(data.ceremony_start_time);
+        setEditableTexts({
+          greeting: 'Cari',
+          names: `${data.partner1_name} e ${data.partner2_name}`,
+          announcement: 'sono lieti di annunciare il loro matrimonio',
+          dateText: data.wedding_date ? formatWeddingDate(data.wedding_date) : '',
+          timePrefix: 'alle ore',
+          time: ft,
+          venuePrefix: 'presso',
+          ceremonyVenue: data.ceremony_venue_name || '',
+          ceremonyAddress: data.ceremony_venue_address || '',
+          receptionPrefix: 'A seguire festeggeremo insieme presso',
+          receptionVenue: data.reception_venue_name || '',
+          receptionAddress: data.reception_venue_address || '',
+        });
+        setTextsInitialized(true);
       }
     }
   };
