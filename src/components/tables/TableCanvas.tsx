@@ -11,8 +11,6 @@ import {
   Check, 
   Lock, 
   Unlock,
-  Circle,
-  Square,
   Eraser,
   Trash2,
   MoreHorizontal,
@@ -137,7 +135,7 @@ const DroppableTable = ({
 
   const isOverCapacity = totalGuests > table.capacity;
   const fillRate = (totalGuests / table.capacity) * 100;
-  const isRound = table.shape?.toUpperCase() === 'ROUND' || !table.shape;
+  
 
   const handleSave = async () => {
     const { error } = await supabase
@@ -179,11 +177,6 @@ const DroppableTable = ({
     >
       {/* Shape indicator */}
       <div className="absolute top-2 right-2 flex items-center gap-1">
-        {isRound ? (
-          <Circle className="w-4 h-4 text-muted-foreground" />
-        ) : (
-          <Square className="w-4 h-4 text-muted-foreground" />
-        )}
         {/* Per-table actions menu */}
         {(onClearTable || onDeleteTable) && !isProposalMode && (
           <DropdownMenu>
