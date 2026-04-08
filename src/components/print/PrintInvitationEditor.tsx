@@ -310,17 +310,22 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
             party_name: party.party_name,
             guests: members,
           }),
+          greeting: resolveGreeting({
+            id: party.id,
+            party_name: party.party_name,
+            guests: members,
+          }),
           guestCount: members.length,
           syncToken: resolveSyncToken(members),
           rsvpStatus: rsvpMap[party.rsvp_status] || 'pending',
         });
       }
 
-      const soloGuests = realGuests.filter(g => !g.party_id);
       for (const guest of soloGuests) {
         partyTargets.push({
           partyId: `solo_${guest.id}`,
           displayName: `${guest.first_name} ${guest.last_name}`.trim(),
+          greeting: resolveGreetingSolo(guest),
           guestCount: 1,
           syncToken: guest.unique_rsvp_token || '',
           rsvpStatus: 'pending',
