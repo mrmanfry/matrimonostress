@@ -178,6 +178,10 @@ const PrintDesignStep = ({
   onHasPhotoChange,
   editableTexts,
   onEditableTextsChange,
+  textPosition,
+  onTextPositionChange,
+  qrPosition,
+  onQrPositionChange,
 }: PrintDesignStepProps) => {
   const weddingData = weddingDataProp ?? {
     partner1Name: '', partner2Name: '', weddingDate: '',
@@ -187,8 +191,15 @@ const PrintDesignStep = ({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragContainerRef = useRef<HTMLDivElement>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isTextDragging, setIsTextDragging] = useState(false);
+  const [isQrDragging, setIsQrDragging] = useState(false);
+  const [isQrResizing, setIsQrResizing] = useState(false);
   const dragStartRef = useRef<{startX: number;startY: number;startTx: number;startTy: number;} | null>(null);
+  const textDragRef = useRef<{startY: number; origY: number} | null>(null);
+  const qrDragRef = useRef<{startX: number; startY: number; origX: number; origY: number} | null>(null);
+  const qrResizeRef = useRef<{startX: number; origSize: number} | null>(null);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
