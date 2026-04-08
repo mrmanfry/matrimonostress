@@ -14,7 +14,7 @@ import {
   resolveGreeting,
   resolveGreetingSolo,
 } from "@/lib/printNameResolver";
-import PrintDesignStep, { type FontStyle, FONT_MAP, type WeddingPrintData, type TextBlock, type InvitationTexts, formatWeddingDate, formatTime, migrateTextsToBlocks, buildDefaultBlocks } from "./PrintDesignStep";
+import PrintDesignStep, { type FontStyle, FONT_MAP, type WeddingPrintData, type TextBlock, type InvitationTexts, migrateTextsToBlocks, buildDefaultBlocks } from "./PrintDesignStep";
 import PrintAudienceStep from "./PrintAudienceStep";
 import PrintGenerationStep from "./PrintGenerationStep";
 import HiddenPrintNode from "./HiddenPrintNode";
@@ -526,8 +526,8 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
                 onEdgeStyleChange={setEdgeStyle}
                 hasPhoto={hasPhoto}
                 onHasPhotoChange={setHasPhoto}
-                editableTexts={editableTexts}
-                onEditableTextsChange={setEditableTexts}
+                textBlocks={textBlocks}
+                onTextBlocksChange={setTextBlocks}
                 textPosition={textPosition}
                 onTextPositionChange={setTextPosition}
                 qrPosition={qrPosition}
@@ -606,7 +606,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
           imageTransform={imageTransform}
           edgeStyle={edgeStyle}
           hasPhoto={hasPhoto}
-          editableTexts={editableTexts}
+          textBlocks={textBlocks}
           textPosition={textPosition}
           qrPosition={qrPosition}
           textColor={textColor}
