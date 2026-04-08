@@ -1,59 +1,59 @@
 
 
-## Piano: Testo e QR trascinabili nell'anteprima
+## Piano: Campi personalizzati nell'invito
 
-### Problema attuale
-
-Il layout e rigido: foto = 50% superiore, testo = 50% inferiore, QR fisso in fondo. Se la foto e piccola e spostata in alto, il testo resta ancorato in basso lasciando un vuoto. Il QR non e riposizionabile ne ridimensionabile.
+### Problema
+I testi dell'invito sono fissi (saluto, nomi, annuncio, data, ora, cerimonia, ricevimento). L'utente non può aggiungere righe extra né riordinarle — ad esempio inserire "Dress code: abito lungo" tra il luogo e l'indirizzo del ricevimento.
 
 ### Soluzione
+Trasformare `InvitationTexts` da un oggetto a chiavi fisse a un **array ordinato di blocchi**, dove ogni blocco ha un tipo (predefinito o custom) e un valore. L'utente può:
+- Aggiungere campi personalizzati con un bottone "+" tra qualsiasi riga
+- Riordinare i campi tramite drag (icona grip) o frecce su/giù
+- Eliminare i campi custom (quelli predefiniti si svuotano ma restano)
 
-Aggiungere due nuovi "oggetti trascinabili" nell'anteprima del design integrato:
+### Struttura dati
 
-1. **Blocco testo** — trascinabile verticalmente (su/giu). L'utente afferra il blocco testo e lo sposta per allinearlo sotto la foto o dove preferisce.
-
-2. **QR Code** — trascinabile liberamente (X e Y) + ridimensionabile con handle, come gia avviene nel QRCanvasEditor del Print Studio custom.
-
-### Dettagli tecnici
-
-**Nuovi tipi di stato** (in `PrintInvitationEditor.tsx`):
-
+```typescript
+// Ogni riga dell'invito diventa un "blocco"
+interface TextBlock {
+  id: string;           // uuid stabile per key/drag
+  type: 'greeting' | 'names' | 'announcement' | 'dateText' | 'timePrefix_time' 
+      | 'venuePrefix' | 'ceremonyVenue' | 'ceremonyAddress'
+      | 'receptionPrefix' | 'receptionVenue' | 'receptionAddress'
+      | 'custom';
+  label: string;        // etichetta sidebar ("Saluto", "Nomi", o custom)
+  value: string;        // testo mostrato
+  style: 'primary' | 'secondary' | 'tertiary'; // dimensione/colore nell'invito
+}
 ```
-textPosition: { y: number }         // % dall'alto (default 55 con foto, 30 senza)
-qrPosition: { x: number, y: number, size: number }  // % left, top, size in % della larghezza
-```
 
-Persistiti nel JSONB `print_design` insieme al resto.
+L'ordine dell'array è l'ordine di rendering. I campi predefiniti vengono inizializzati nell'ordine attuale; i custom si inseriscono dove l'utente clicca "+".
 
-**`PrintDesignStep.tsx`** — Modifiche all'anteprima:
-
-- Il blocco testo diventa un `div` con `position: absolute`, `top: {textPosition.y}%`, trascinabile verticalmente via pointer events (stesso pattern della foto). Cursore grab, guide di snap.
-- Il QR placeholder in fondo al `renderTextContent` viene rimosso e sostituito con un overlay QR indipendente posizionato con `left/top` in percentuale, ridimensionabile con handle in basso a destra (stesso pattern di `QRCanvasEditor`).
-- Sidebar: aggiungere slider "Posizione testo" e slider "Dimensione QR" per controllo fine, oltre al drag visuale.
-
-**`HiddenPrintNode.tsx`** — Modifiche al rendering PDF:
-
-- Il blocco testo usa `top: {textPosition.y}%` invece di essere ancorato al 50%.
-- Il QR viene posizionato con `left/top/width` in percentuale invece che inline nel flusso testo.
-
-**Props aggiunte** a `PrintDesignStep` e `HiddenPrintNode`:
-
-```
-textPosition: { y: number }
-onTextPositionChange: (pos) => void
-qrPosition: { x: number, y: number, size: number }
-onQrPositionChange: (pos) => void
-```
+### Retrocompatibilità
+Al caricamento, se `print_design.editableTexts` è il vecchio oggetto piatto (`InvitationTexts`), viene convertito automaticamente nell'array di `TextBlock[]`. Nessuna migrazione DB necessaria.
 
 ### File modificati
 
-1. **`src/components/print/PrintInvitationEditor.tsx`** — Nuovi stati `textPosition` e `qrPosition`, default, persistenza, passaggio props
-2. **`src/components/print/PrintDesignStep.tsx`** — Anteprima con testo e QR trascinabili, slider nella sidebar, props aggiornate
-3. **`src/components/print/HiddenPrintNode.tsx`** — Rendering PDF con posizioni dinamiche di testo e QR
+**`src/components/print/PrintDesignStep.tsx`**
+- Sostituire `InvitationTexts` con `TextBlock[]` (esportato come tipo)
+- Sidebar: renderizzare i blocchi in ordine con Input per ciascuno, bottone grip per drag, bottone "×" per custom, bottoni "+" tra ogni riga per inserire un campo personalizzato
+- Per i campi custom: input per label + input per valore + select per stile (primario/secondario/terziario)
+- `renderTextContent` legge dall'array ordinato e applica lo stile corretto per tipo/style
+- Funzione `migrateTextsToBlocks(old: InvitationTexts): TextBlock[]` per retrocompatibilità
+
+**`src/components/print/PrintInvitationEditor.tsx`**
+- Stato `textBlocks: TextBlock[]` al posto di `editableTexts: InvitationTexts`
+- Pre-popola i blocchi predefiniti dai dati wedding
+- Persiste `textBlocks` nel JSONB `print_design`
+- Al caricamento: se trova il vecchio formato, chiama `migrateTextsToBlocks`
+- Passa `textBlocks` a `PrintDesignStep` e `HiddenPrintNode`
+
+**`src/components/print/HiddenPrintNode.tsx`**
+- Prop `textBlocks: TextBlock[]` al posto di `editableTexts`
+- Il `textBlock` JSX itera sull'array e renderizza ogni blocco con lo stile appropriato (fontSize, fontWeight, color basati su `style`)
 
 ### Ordine di esecuzione
-
-1. Aggiungere stati e persistenza in `PrintInvitationEditor`
-2. Implementare drag testo + drag/resize QR nell'anteprima di `PrintDesignStep`
-3. Aggiornare `HiddenPrintNode` per posizioni dinamiche
+1. Definire `TextBlock`, funzione migrazione, aggiornare `PrintDesignStep` (sidebar + preview)
+2. Aggiornare `PrintInvitationEditor` (stato, persistenza, pre-popolamento)
+3. Aggiornare `HiddenPrintNode` (rendering PDF da array)
 
