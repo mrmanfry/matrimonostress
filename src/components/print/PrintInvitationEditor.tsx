@@ -528,6 +528,10 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
                 onHasPhotoChange={setHasPhoto}
                 editableTexts={editableTexts}
                 onEditableTextsChange={setEditableTexts}
+                textPosition={textPosition}
+                onTextPositionChange={setTextPosition}
+                qrPosition={qrPosition}
+                onQrPositionChange={setQrPosition}
               />
             )}
 
