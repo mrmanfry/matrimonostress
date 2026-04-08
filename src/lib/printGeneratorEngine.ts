@@ -57,7 +57,7 @@ export async function generatePrintPDFs(
     // Small delay to let UI update
     await new Promise((r) => setTimeout(r, 50));
 
-    let pdfDoc: InstanceType<typeof PDFDocument>;
+    let pdfDoc: Awaited<ReturnType<typeof PDFDocument.load>>;
 
     if (templateType === "pdf") {
       // Load original PDF
