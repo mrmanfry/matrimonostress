@@ -12,7 +12,7 @@ import {
   resolveSyncToken,
   type PartyPrintTarget,
 } from "@/lib/printNameResolver";
-import PrintDesignStep, { type FontStyle, FONT_MAP, type WeddingPrintData } from "./PrintDesignStep";
+import PrintDesignStep, { type FontStyle, FONT_MAP, type WeddingPrintData, type InvitationTexts, formatWeddingDate, formatTime } from "./PrintDesignStep";
 import PrintAudienceStep from "./PrintAudienceStep";
 import PrintGenerationStep from "./PrintGenerationStep";
 import HiddenPrintNode from "./HiddenPrintNode";
