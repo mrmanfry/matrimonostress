@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue } from
 "@/components/ui/select";
-import { Upload, ImageIcon, RotateCcw, GripVertical, QrCode } from "lucide-react";
+import { Upload, ImageIcon, RotateCcw, GripVertical, QrCode, Plus, X, ChevronUp, ChevronDown } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
 import { QRCodeSVG } from "qrcode.react";
@@ -39,6 +39,7 @@ export type FontStyle =
 'crimsontext' |
 'italiana';
 
+// Legacy type kept for backward compatibility / migration
 export interface InvitationTexts {
   greeting: string;
   names: string;
@@ -52,6 +53,72 @@ export interface InvitationTexts {
   receptionPrefix: string;
   receptionVenue: string;
   receptionAddress: string;
+}
+
+export type TextBlockType =
+  | 'greeting' | 'names' | 'announcement' | 'dateText'
+  | 'timePrefix_time' | 'venuePrefix' | 'ceremonyVenue' | 'ceremonyAddress'
+  | 'receptionPrefix' | 'receptionVenue' | 'receptionAddress'
+  | 'custom';
+
+export type TextBlockStyle = 'primary' | 'secondary' | 'tertiary';
+
+export interface TextBlock {
+  id: string;
+  type: TextBlockType;
+  label: string;
+  value: string;
+  style: TextBlockStyle;
+}
+
+// --- Migration utility ---
+let _blockIdCounter = 0;
+function makeBlockId() {
+  _blockIdCounter++;
+  return `tb_${Date.now()}_${_blockIdCounter}_${Math.random().toString(36).slice(2, 6)}`;
+}
+
+export function migrateTextsToBlocks(old: InvitationTexts): TextBlock[] {
+  const blocks: TextBlock[] = [];
+  const push = (type: TextBlockType, label: string, value: string, style: TextBlockStyle) => {
+    blocks.push({ id: makeBlockId(), type, label, value, style });
+  };
+  push('greeting', 'Saluto', old.greeting || '', 'secondary');
+  push('names', 'Nomi', old.names || '', 'primary');
+  push('announcement', 'Annuncio', old.announcement || '', 'secondary');
+  push('dateText', 'Data', old.dateText || '', 'primary');
+  if (old.time) {
+    push('timePrefix_time', 'Orario', old.timePrefix && old.time ? `${old.timePrefix} ${old.time}` : old.time, 'secondary');
+  }
+  push('venuePrefix', 'Prefisso cerimonia', old.venuePrefix || '', 'secondary');
+  push('ceremonyVenue', 'Luogo cerimonia', old.ceremonyVenue || '', 'primary');
+  if (old.ceremonyAddress) {
+    push('ceremonyAddress', 'Indirizzo cerimonia', old.ceremonyAddress, 'tertiary');
+  }
+  push('receptionPrefix', 'Prefisso ricevimento', old.receptionPrefix || '', 'secondary');
+  push('receptionVenue', 'Luogo ricevimento', old.receptionVenue || '', 'primary');
+  if (old.receptionAddress) {
+    push('receptionAddress', 'Indirizzo ricevimento', old.receptionAddress, 'tertiary');
+  }
+  return blocks;
+}
+
+export function buildDefaultBlocks(wd: WeddingPrintData): TextBlock[] {
+  const ft = formatTime(wd.ceremonyTime);
+  return migrateTextsToBlocks({
+    greeting: 'Cari',
+    names: `${wd.partner1Name} e ${wd.partner2Name}`,
+    announcement: 'sono lieti di annunciare il loro matrimonio',
+    dateText: wd.weddingDate ? formatWeddingDate(wd.weddingDate) : '',
+    timePrefix: 'alle ore',
+    time: ft,
+    venuePrefix: 'presso',
+    ceremonyVenue: wd.ceremonyVenueName || '',
+    ceremonyAddress: wd.ceremonyVenueAddress || '',
+    receptionPrefix: 'A seguire festeggeremo insieme presso',
+    receptionVenue: wd.receptionVenueName || '',
+    receptionAddress: wd.receptionVenueAddress || '',
+  });
 }
 
 export interface WeddingPrintData {
@@ -80,8 +147,8 @@ interface PrintDesignStepProps {
   onEdgeStyleChange: (s: EdgeStyle) => void;
   hasPhoto: boolean;
   onHasPhotoChange: (v: boolean) => void;
-  editableTexts: InvitationTexts;
-  onEditableTextsChange: (texts: InvitationTexts) => void;
+  textBlocks: TextBlock[];
+  onTextBlocksChange: (blocks: TextBlock[]) => void;
   textPosition: TextPosition;
   onTextPositionChange: (pos: TextPosition) => void;
   qrPosition: QrPosition;
@@ -173,6 +240,12 @@ export function formatTime(timeStr: string | null): string {
   return `${parts[0]}:${parts[1]}`;
 }
 
+const STYLE_LABELS: Record<TextBlockStyle, string> = {
+  primary: 'Grande',
+  secondary: 'Medio',
+  tertiary: 'Piccolo',
+};
+
 const PrintDesignStep = ({
   backgroundImage,
   onBackgroundChange,
@@ -187,8 +260,8 @@ const PrintDesignStep = ({
   onEdgeStyleChange,
   hasPhoto,
   onHasPhotoChange,
-  editableTexts,
-  onEditableTextsChange,
+  textBlocks,
+  onTextBlocksChange,
   textPosition,
   onTextPositionChange,
   qrPosition,
@@ -326,8 +399,44 @@ const PrintDesignStep = ({
 
   const fontFamily = FONT_MAP[fontStyle];
 
-  const updateText = (key: keyof InvitationTexts, value: string) => {
-    onEditableTextsChange({ ...editableTexts, ...{ [key]: value } });
+  // --- Block manipulation ---
+  const updateBlockValue = (id: string, value: string) => {
+    onTextBlocksChange(textBlocks.map(b => b.id === id ? { ...b, value } : b));
+  };
+
+  const updateBlockLabel = (id: string, label: string) => {
+    onTextBlocksChange(textBlocks.map(b => b.id === id ? { ...b, label } : b));
+  };
+
+  const updateBlockStyle = (id: string, style: TextBlockStyle) => {
+    onTextBlocksChange(textBlocks.map(b => b.id === id ? { ...b, style } : b));
+  };
+
+  const removeBlock = (id: string) => {
+    onTextBlocksChange(textBlocks.filter(b => b.id !== id));
+  };
+
+  const moveBlock = (id: string, direction: -1 | 1) => {
+    const idx = textBlocks.findIndex(b => b.id === id);
+    if (idx < 0) return;
+    const newIdx = idx + direction;
+    if (newIdx < 0 || newIdx >= textBlocks.length) return;
+    const arr = [...textBlocks];
+    [arr[idx], arr[newIdx]] = [arr[newIdx], arr[idx]];
+    onTextBlocksChange(arr);
+  };
+
+  const insertBlockAfter = (afterIndex: number) => {
+    const newBlock: TextBlock = {
+      id: makeBlockId(),
+      type: 'custom',
+      label: 'Campo personalizzato',
+      value: '',
+      style: 'secondary',
+    };
+    const arr = [...textBlocks];
+    arr.splice(afterIndex + 1, 0, newBlock);
+    onTextBlocksChange(arr);
   };
 
   return (
@@ -478,64 +587,108 @@ const PrintDesignStep = ({
             onCheckedChange={onShowSafeZoneChange} />
         </div>
 
-        {/* Editable texts section */}
-        <div className="space-y-3 pt-2 border-t border-border">
-          <h3 className="text-sm font-semibold text-foreground">Testi dell'invito</h3>
-          <div className="space-y-2">
-            <Label className="text-xs">Saluto</Label>
-            <Input value={editableTexts.greeting} onChange={(e) => updateText('greeting', e.target.value)} placeholder="Cari" />
-            <p className="text-[10px] text-muted-foreground">
-              💡 Nel PDF il saluto si adatta automaticamente: "Caro Marco", "Cara Lavinia", "Cara Famiglia Rossi" in base al nucleo.
-            </p>
+        {/* Editable text blocks */}
+        <div className="space-y-2 pt-2 border-t border-border">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-foreground">Testi dell'invito</h3>
           </div>
-          <div className="space-y-2">
-            <Label className="text-xs">Nomi</Label>
-            <Input value={editableTexts.names} onChange={(e) => updateText('names', e.target.value)} placeholder="Anna e Marco" />
+
+          {/* Insert before first */}
+          <div className="flex justify-center">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0 rounded-full text-muted-foreground hover:text-primary"
+              onClick={() => insertBlockAfter(-1)}
+              title="Aggiungi campo all'inizio"
+            >
+              <Plus className="w-3.5 h-3.5" />
+            </Button>
           </div>
-          <div className="space-y-2">
-            <Label className="text-xs">Annuncio</Label>
-            <Input value={editableTexts.announcement} onChange={(e) => updateText('announcement', e.target.value)} placeholder="sono lieti di annunciare il loro matrimonio" />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-xs">Data</Label>
-            <Input value={editableTexts.dateText} onChange={(e) => updateText('dateText', e.target.value)} placeholder="Sabato 15 giugno 2026" />
-          </div>
-          {editableTexts.time && (
-            <>
-              <div className="space-y-2">
-                <Label className="text-xs">Prefisso orario</Label>
-                <Input value={editableTexts.timePrefix} onChange={(e) => updateText('timePrefix', e.target.value)} placeholder="alle ore" />
+
+          {textBlocks.map((block, idx) => (
+            <div key={block.id}>
+              <div className="group relative rounded-lg border border-border p-2 space-y-1.5 bg-background">
+                {/* Header row: label + controls */}
+                <div className="flex items-center gap-1">
+                  <GripVertical className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                  {block.type === 'custom' ? (
+                    <Input
+                      value={block.label}
+                      onChange={(e) => updateBlockLabel(block.id, e.target.value)}
+                      className="h-6 text-xs px-1 flex-1 border-0 shadow-none focus-visible:ring-0 bg-transparent font-medium"
+                      placeholder="Etichetta campo"
+                    />
+                  ) : (
+                    <span className="text-xs font-medium text-muted-foreground flex-1 truncate">{block.label}</span>
+                  )}
+                  {/* Move up/down */}
+                  <Button
+                    variant="ghost" size="icon"
+                    className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => moveBlock(block.id, -1)}
+                    disabled={idx === 0}
+                  >
+                    <ChevronUp className="w-3 h-3" />
+                  </Button>
+                  <Button
+                    variant="ghost" size="icon"
+                    className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => moveBlock(block.id, 1)}
+                    disabled={idx === textBlocks.length - 1}
+                  >
+                    <ChevronDown className="w-3 h-3" />
+                  </Button>
+                  {block.type === 'custom' && (
+                    <Button
+                      variant="ghost" size="icon"
+                      className="h-5 w-5 text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => removeBlock(block.id)}
+                    >
+                      <X className="w-3 h-3" />
+                    </Button>
+                  )}
+                </div>
+                {/* Value input */}
+                <Input
+                  value={block.value}
+                  onChange={(e) => updateBlockValue(block.id, e.target.value)}
+                  className="h-7 text-xs"
+                  placeholder={block.type === 'greeting' ? 'Cari' : 'Testo...'}
+                />
+                {/* Style select for custom blocks */}
+                {block.type === 'custom' && (
+                  <Select value={block.style} onValueChange={(v) => updateBlockStyle(block.id, v as TextBlockStyle)}>
+                    <SelectTrigger className="h-6 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(Object.keys(STYLE_LABELS) as TextBlockStyle[]).map(s => (
+                        <SelectItem key={s} value={s}>{STYLE_LABELS[s]}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {block.type === 'greeting' && (
+                  <p className="text-[10px] text-muted-foreground">
+                    💡 Nel PDF il saluto si adatta automaticamente al nucleo.
+                  </p>
+                )}
               </div>
-              <div className="space-y-2">
-                <Label className="text-xs">Orario</Label>
-                <Input value={editableTexts.time} onChange={(e) => updateText('time', e.target.value)} placeholder="16:00" />
+              {/* Insert after this block */}
+              <div className="flex justify-center py-0.5">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-5 w-5 p-0 rounded-full text-muted-foreground hover:text-primary opacity-0 hover:opacity-100 focus:opacity-100 transition-opacity"
+                  onClick={() => insertBlockAfter(idx)}
+                  title="Aggiungi campo qui"
+                >
+                  <Plus className="w-3 h-3" />
+                </Button>
               </div>
-            </>
-          )}
-          <div className="space-y-2">
-            <Label className="text-xs">Prefisso cerimonia</Label>
-            <Input value={editableTexts.venuePrefix} onChange={(e) => updateText('venuePrefix', e.target.value)} placeholder="presso" />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-xs">Luogo cerimonia</Label>
-            <Input value={editableTexts.ceremonyVenue} onChange={(e) => updateText('ceremonyVenue', e.target.value)} placeholder="Nome della chiesa o location" />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-xs">Indirizzo cerimonia</Label>
-            <Input value={editableTexts.ceremonyAddress} onChange={(e) => updateText('ceremonyAddress', e.target.value)} placeholder="Via..." />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-xs">Prefisso ricevimento</Label>
-            <Input value={editableTexts.receptionPrefix} onChange={(e) => updateText('receptionPrefix', e.target.value)} placeholder="A seguire festeggeremo insieme presso" />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-xs">Luogo ricevimento</Label>
-            <Input value={editableTexts.receptionVenue} onChange={(e) => updateText('receptionVenue', e.target.value)} placeholder="Nome della location" />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-xs">Indirizzo ricevimento</Label>
-            <Input value={editableTexts.receptionAddress} onChange={(e) => updateText('receptionAddress', e.target.value)} placeholder="Via..." />
-          </div>
+            </div>
+          ))}
         </div>
 
         {/* Position controls */}
@@ -699,7 +852,7 @@ const PrintDesignStep = ({
             onPointerDown={handleTextPointerDown}
           >
             <div className="pointer-events-none">
-              {renderTextContent(editableTexts, fontFamily, textColor)}
+              {renderBlocksPreview(textBlocks, fontFamily, textColor)}
             </div>
           </div>
 
@@ -745,69 +898,103 @@ const PrintDesignStep = ({
   );
 };
 
-function renderTextContent(texts: InvitationTexts, fontFamily: string, textColor: string) {
+function renderBlocksPreview(blocks: TextBlock[], fontFamily: string, textColor: string) {
   const mainColor = textColor || '#1a1a1a';
   const secondaryColor = textColor === '#FFFFFF' ? 'rgba(255,255,255,0.7)' : textColor === '#1a1a1a' ? undefined : `${textColor}99`;
-  
+  const tertiaryColor = textColor === '#FFFFFF' ? 'rgba(255,255,255,0.5)' : textColor === '#1a1a1a' ? undefined : `${textColor}77`;
+
+  const getStyleProps = (block: TextBlock): { className: string; style: React.CSSProperties } => {
+    // Use type-based styling for predefined blocks, style-based for custom
+    if (block.type !== 'custom') {
+      switch (block.type) {
+        case 'greeting':
+          return {
+            className: `text-xs tracking-wide mb-3 ${!secondaryColor ? 'text-muted-foreground' : ''}`,
+            style: { fontFamily, color: secondaryColor },
+          };
+        case 'names':
+          return {
+            className: 'text-base md:text-lg font-semibold leading-tight',
+            style: { fontFamily, color: mainColor },
+          };
+        case 'announcement':
+          return {
+            className: `text-xs mt-1 mb-3 ${!secondaryColor ? 'text-muted-foreground' : ''}`,
+            style: { fontFamily, color: secondaryColor },
+          };
+        case 'dateText':
+          return {
+            className: 'text-sm font-medium capitalize',
+            style: { fontFamily, color: mainColor },
+          };
+        case 'timePrefix_time':
+          return {
+            className: `text-xs ${!secondaryColor ? 'text-muted-foreground' : ''}`,
+            style: { fontFamily, color: secondaryColor },
+          };
+        case 'venuePrefix':
+        case 'receptionPrefix':
+          return {
+            className: `text-xs mt-2 ${!secondaryColor ? 'text-muted-foreground' : ''}`,
+            style: { fontFamily, color: secondaryColor },
+          };
+        case 'ceremonyVenue':
+        case 'receptionVenue':
+          return {
+            className: 'text-sm font-medium',
+            style: { fontFamily, color: mainColor },
+          };
+        case 'ceremonyAddress':
+        case 'receptionAddress':
+          return {
+            className: `text-[10px] ${!tertiaryColor ? 'text-muted-foreground' : ''}`,
+            style: { fontFamily, color: tertiaryColor },
+          };
+        default:
+          break;
+      }
+    }
+
+    // Custom blocks use the style property
+    switch (block.style) {
+      case 'primary':
+        return {
+          className: 'text-sm font-medium',
+          style: { fontFamily, color: mainColor },
+        };
+      case 'tertiary':
+        return {
+          className: `text-[10px] ${!tertiaryColor ? 'text-muted-foreground' : ''}`,
+          style: { fontFamily, color: tertiaryColor },
+        };
+      case 'secondary':
+      default:
+        return {
+          className: `text-xs ${!secondaryColor ? 'text-muted-foreground' : ''}`,
+          style: { fontFamily, color: secondaryColor },
+        };
+    }
+  };
+
   return (
     <>
-      {texts.greeting && (
-        <p className={`text-xs tracking-wide mb-3 ${!secondaryColor ? 'text-muted-foreground' : ''}`} style={{ fontFamily, color: secondaryColor }}>
-          {texts.greeting} <span className="font-semibold">Famiglia Rossi</span>
-        </p>
-      )}
-      {texts.names && (
-        <p className="text-base md:text-lg font-semibold leading-tight" style={{ fontFamily, color: mainColor }}>
-          {texts.names}
-        </p>
-      )}
-      {texts.announcement && (
-        <p className={`text-xs mt-1 mb-3 ${!secondaryColor ? 'text-muted-foreground' : ''}`} style={{ fontFamily, color: secondaryColor }}>
-          {texts.announcement}
-        </p>
-      )}
-      {texts.dateText && (
-        <p className="text-sm font-medium capitalize" style={{ fontFamily, color: mainColor }}>
-          {texts.dateText}
-        </p>
-      )}
-      {texts.time && texts.timePrefix && (
-        <p className={`text-xs ${!secondaryColor ? 'text-muted-foreground' : ''}`} style={{ fontFamily, color: secondaryColor }}>
-          {texts.timePrefix} {texts.time}
-        </p>
-      )}
-      {texts.ceremonyVenue && (
-        <div className="mt-2">
-          {texts.venuePrefix && (
-            <p className={`text-xs ${!secondaryColor ? 'text-muted-foreground' : ''}`} style={{ fontFamily, color: secondaryColor }}>{texts.venuePrefix}</p>
-          )}
-          <p className="text-sm font-medium" style={{ fontFamily, color: mainColor }}>
-            {texts.ceremonyVenue}
+      {blocks.map((block) => {
+        if (!block.value) return null;
+        const { className, style } = getStyleProps(block);
+        // For greeting, show preview with "Famiglia Rossi"
+        if (block.type === 'greeting') {
+          return (
+            <p key={block.id} className={className} style={style}>
+              {block.value} <span className="font-semibold">Famiglia Rossi</span>
+            </p>
+          );
+        }
+        return (
+          <p key={block.id} className={className} style={style}>
+            {block.value}
           </p>
-          {texts.ceremonyAddress && (
-            <p className={`text-[10px] ${!secondaryColor ? 'text-muted-foreground' : ''}`} style={{ fontFamily, color: secondaryColor }}>
-              {texts.ceremonyAddress}
-            </p>
-          )}
-        </div>
-      )}
-      {texts.receptionVenue && (
-        <div className="mt-2">
-          {texts.receptionPrefix && (
-            <p className={`text-xs ${!secondaryColor ? 'text-muted-foreground' : ''}`} style={{ fontFamily, color: secondaryColor }}>
-              {texts.receptionPrefix}
-            </p>
-          )}
-          <p className="text-sm font-medium" style={{ fontFamily, color: mainColor }}>
-            {texts.receptionVenue}
-          </p>
-          {texts.receptionAddress && (
-            <p className={`text-[10px] ${!secondaryColor ? 'text-muted-foreground' : ''}`} style={{ fontFamily, color: secondaryColor }}>
-              {texts.receptionAddress}
-            </p>
-          )}
-        </div>
-      )}
+        );
+      })}
     </>
   );
 }

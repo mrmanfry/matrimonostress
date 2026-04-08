@@ -1,6 +1,6 @@
 import { QRCodeSVG } from "qrcode.react";
 import type { ImageTransform, EdgeStyle, TextPosition, QrPosition } from "./PrintInvitationEditor";
-import type { InvitationTexts } from "./PrintDesignStep";
+import type { TextBlock } from "./PrintDesignStep";
 
 interface HiddenPrintNodeProps {
   displayName: string;
@@ -10,7 +10,7 @@ interface HiddenPrintNodeProps {
   imageTransform: ImageTransform;
   edgeStyle: EdgeStyle;
   hasPhoto: boolean;
-  editableTexts: InvitationTexts;
+  textBlocks: TextBlock[];
   textPosition: TextPosition;
   qrPosition: QrPosition;
   textColor: string;
@@ -28,7 +28,7 @@ const HiddenPrintNode = ({
   imageTransform,
   edgeStyle,
   hasPhoto,
-  editableTexts,
+  textBlocks,
   textPosition,
   qrPosition,
   textColor,
@@ -39,63 +39,41 @@ const HiddenPrintNode = ({
   const secondaryColor = textColor === '#FFFFFF' ? 'rgba(255,255,255,0.7)' : textColor === '#1a1a1a' ? '#888' : `${textColor}99`;
   const tertiaryColor = textColor === '#FFFFFF' ? 'rgba(255,255,255,0.5)' : textColor === '#1a1a1a' ? '#999' : `${textColor}77`;
 
-  const textBlock = (
-    <>
-      {greeting && (
-        <p style={{ fontSize: '48px', letterSpacing: '0.05em', color: secondaryColor, marginBottom: '44px' }}>
-          {greeting}
-        </p>
-      )}
-      {editableTexts.names && (
-        <p style={{ fontSize: '79px', fontWeight: 600, color: mainColor, lineHeight: 1.3 }}>
-          {editableTexts.names}
-        </p>
-      )}
-      {editableTexts.announcement && (
-        <p style={{ fontSize: '48px', color: secondaryColor, marginTop: '17px', marginBottom: '44px' }}>
-          {editableTexts.announcement}
-        </p>
-      )}
-      {editableTexts.dateText && (
-        <p style={{ fontSize: '57px', fontWeight: 500, color: mainColor, textTransform: 'capitalize' }}>
-          {editableTexts.dateText}
-        </p>
-      )}
-      {editableTexts.time && editableTexts.timePrefix && (
-        <p style={{ fontSize: '48px', color: secondaryColor }}>
-          {editableTexts.timePrefix} {editableTexts.time}
-        </p>
-      )}
-      {editableTexts.ceremonyVenue && (
-        <div style={{ marginTop: '35px' }}>
-          {editableTexts.venuePrefix && (
-            <p style={{ fontSize: '44px', color: secondaryColor }}>{editableTexts.venuePrefix}</p>
-          )}
-          <p style={{ fontSize: '57px', fontWeight: 500, color: mainColor }}>
-            {editableTexts.ceremonyVenue}
-          </p>
-          {editableTexts.ceremonyAddress && (
-            <p style={{ fontSize: '39px', color: tertiaryColor }}>{editableTexts.ceremonyAddress}</p>
-          )}
-        </div>
-      )}
-      {editableTexts.receptionVenue && (
-        <div style={{ marginTop: '35px' }}>
-          {editableTexts.receptionPrefix && (
-            <p style={{ fontSize: '44px', color: secondaryColor }}>
-              {editableTexts.receptionPrefix}
-            </p>
-          )}
-          <p style={{ fontSize: '57px', fontWeight: 500, color: mainColor }}>
-            {editableTexts.receptionVenue}
-          </p>
-          {editableTexts.receptionAddress && (
-            <p style={{ fontSize: '39px', color: tertiaryColor }}>{editableTexts.receptionAddress}</p>
-          )}
-        </div>
-      )}
-    </>
-  );
+  const getBlockStyle = (block: TextBlock): React.CSSProperties => {
+    if (block.type !== 'custom') {
+      switch (block.type) {
+        case 'greeting':
+          return { fontSize: '48px', letterSpacing: '0.05em', color: secondaryColor, marginBottom: '44px' };
+        case 'names':
+          return { fontSize: '79px', fontWeight: 600, color: mainColor, lineHeight: 1.3 };
+        case 'announcement':
+          return { fontSize: '48px', color: secondaryColor, marginTop: '17px', marginBottom: '44px' };
+        case 'dateText':
+          return { fontSize: '57px', fontWeight: 500, color: mainColor, textTransform: 'capitalize' };
+        case 'timePrefix_time':
+          return { fontSize: '48px', color: secondaryColor };
+        case 'venuePrefix':
+        case 'receptionPrefix':
+          return { fontSize: '44px', color: secondaryColor, marginTop: '35px' };
+        case 'ceremonyVenue':
+        case 'receptionVenue':
+          return { fontSize: '57px', fontWeight: 500, color: mainColor };
+        case 'ceremonyAddress':
+        case 'receptionAddress':
+          return { fontSize: '39px', color: tertiaryColor };
+      }
+    }
+    // Custom blocks
+    switch (block.style) {
+      case 'primary':
+        return { fontSize: '57px', fontWeight: 500, color: mainColor };
+      case 'tertiary':
+        return { fontSize: '39px', color: tertiaryColor };
+      case 'secondary':
+      default:
+        return { fontSize: '48px', color: secondaryColor };
+    }
+  };
 
   const qrSizePx = Math.round((qrPosition.size / 100) * W);
 
@@ -168,7 +146,23 @@ const HiddenPrintNode = ({
           textAlign: 'center',
         }}
       >
-        {textBlock}
+        {textBlocks.map((block) => {
+          if (!block.value && block.type !== 'greeting') return null;
+          const style = getBlockStyle(block);
+          // Greeting: use the resolved per-party greeting
+          if (block.type === 'greeting') {
+            return (
+              <p key={block.id} style={style}>
+                {greeting}
+              </p>
+            );
+          }
+          return (
+            <p key={block.id} style={style}>
+              {block.value}
+            </p>
+          );
+        })}
       </div>
 
       {syncToken ? (
