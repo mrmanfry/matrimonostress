@@ -102,6 +102,7 @@ const Tables = () => {
   const [weddingTargets, setWeddingTargets] = useState<WeddingTargets | null>(null);
   const [vendorStaffTotal, setVendorStaffTotal] = useState(0);
   const [bulkAction, setBulkAction] = useState<'clear_all' | 'delete_all' | null>(null);
+  const [partyNames, setPartyNames] = useState<Record<string, string>>({});
   const { toast } = useToast();
   const isMobile = useIsMobile();
 
@@ -140,6 +141,7 @@ const Tables = () => {
           fetchAssignments(weddingData.id),
           fetchConflicts(weddingData.id),
           fetchVendorStaff(weddingData.id),
+          fetchPartyNames(weddingData.id),
         ]);
       }
     } catch (error) {
@@ -265,6 +267,18 @@ const Tables = () => {
       .select("*")
       .eq("wedding_id", weddingId);
     if (data) setConflicts(data);
+  };
+
+  const fetchPartyNames = async (weddingId: string) => {
+    const { data } = await supabase
+      .from("invite_parties")
+      .select("id, party_name")
+      .eq("wedding_id", weddingId);
+    if (data) {
+      const map: Record<string, string> = {};
+      data.forEach(p => { map[p.id] = p.party_name; });
+      setPartyNames(map);
+    }
   };
 
   const createTable = async () => {
@@ -641,6 +655,7 @@ const Tables = () => {
                     allGuests={allGuests}
                     assignments={assignments.map(a => ({ guest_id: a.guest_id }))}
                     isMobile={isMobile}
+                    partyNames={partyNames}
                   />
                 </TabsContent>
                 <TabsContent value="sala">
@@ -655,6 +670,7 @@ const Tables = () => {
                     guests={unassignedGuests} 
                     allGuests={allGuests}
                     assignments={assignments.map(a => ({ guest_id: a.guest_id }))}
+                    partyNames={partyNames}
                   />
                 </div>
                 <div className="lg:col-span-3">
