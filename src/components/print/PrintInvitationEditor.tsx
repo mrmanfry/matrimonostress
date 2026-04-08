@@ -14,7 +14,7 @@ import {
   resolveGreeting,
   resolveGreetingSolo,
 } from "@/lib/printNameResolver";
-import PrintDesignStep, { type FontStyle, FONT_MAP, type WeddingPrintData, type InvitationTexts, formatWeddingDate, formatTime } from "./PrintDesignStep";
+import PrintDesignStep, { type FontStyle, FONT_MAP, type WeddingPrintData, type InvitationTexts, type TextBlock, formatWeddingDate, formatTime, migrateTextsToBlocks, buildDefaultBlocks } from "./PrintDesignStep";
 import PrintAudienceStep from "./PrintAudienceStep";
 import PrintGenerationStep from "./PrintGenerationStep";
 import HiddenPrintNode from "./HiddenPrintNode";
