@@ -292,6 +292,7 @@ const DroppableTable = ({
           isLocked={table.is_locked}
           onUnassign={onUnassign}
           onUpdateSeatPosition={onUpdateSeatPosition}
+          onAssignToSeat={onAssignToSeat ? (guestId, seatPos) => onAssignToSeat(table.id, guestId, seatPos) : undefined}
         />
       ) : (
         <div className="space-y-1">
