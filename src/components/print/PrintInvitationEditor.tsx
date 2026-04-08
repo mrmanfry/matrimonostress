@@ -58,6 +58,22 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
   const [showSafeZone, setShowSafeZone] = useState(false);
   const [imageTransform, setImageTransform] = useState<ImageTransform>({ x: 0, y: 0, scale: 1 });
   const [edgeStyle, setEdgeStyle] = useState<EdgeStyle>('none');
+  const [hasPhoto, setHasPhoto] = useState(true);
+  const [editableTexts, setEditableTexts] = useState<InvitationTexts>({
+    greeting: 'Cari',
+    names: '',
+    announcement: 'sono lieti di annunciare il loro matrimonio',
+    dateText: '',
+    timePrefix: 'alle ore',
+    time: '',
+    venuePrefix: 'presso',
+    ceremonyVenue: '',
+    ceremonyAddress: '',
+    receptionPrefix: 'A seguire festeggeremo insieme presso',
+    receptionVenue: '',
+    receptionAddress: '',
+  });
+  const [textsInitialized, setTextsInitialized] = useState(false);
 
   // Persistence tracking
   const [bgDirty, setBgDirty] = useState(false);
