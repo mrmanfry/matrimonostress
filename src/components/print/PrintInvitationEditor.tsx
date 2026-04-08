@@ -11,6 +11,8 @@ import {
   resolveDisplayName,
   resolveSyncToken,
   type PartyPrintTarget,
+  resolveGreeting,
+  resolveGreetingSolo,
 } from "@/lib/printNameResolver";
 import PrintDesignStep, { type FontStyle, FONT_MAP, type WeddingPrintData, type InvitationTexts, formatWeddingDate, formatTime } from "./PrintDesignStep";
 import PrintAudienceStep from "./PrintAudienceStep";
@@ -45,6 +47,7 @@ interface PrintDesignConfig {
   editableTexts?: InvitationTexts;
   textPosition?: TextPosition;
   qrPosition?: QrPosition;
+  textColor?: string;
 }
 
 interface PrintInvitationEditorProps {
@@ -73,6 +76,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
   const [hasPhoto, setHasPhoto] = useState(true);
   const [textPosition, setTextPosition] = useState<TextPosition>({ y: 55 });
   const [qrPosition, setQrPosition] = useState<QrPosition>({ x: 42, y: 85, size: 15 });
+  const [textColor, setTextColor] = useState('#1a1a1a');
   const [editableTexts, setEditableTexts] = useState<InvitationTexts>({
     greeting: 'Cari',
     names: '',
@@ -158,6 +162,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
         if (config.hasPhoto !== undefined) setHasPhoto(config.hasPhoto);
         if (config.textPosition) setTextPosition(config.textPosition);
         if (config.qrPosition) setQrPosition(config.qrPosition);
+        if (config.textColor) setTextColor(config.textColor);
         if (config.editableTexts) {
           setEditableTexts(config.editableTexts);
           setTextsInitialized(true);
@@ -257,6 +262,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
       editableTexts,
       textPosition,
       qrPosition,
+      textColor,
     };
 
     await supabase
@@ -265,7 +271,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
       .eq('id', weddingId);
 
     setBgDirty(false);
-  }, [backgroundImage, bgDirty, savedBgPath, fontStyle, edgeStyle, imageTransform, weddingId, hasPhoto, editableTexts, textPosition, qrPosition]);
+  }, [backgroundImage, bgDirty, savedBgPath, fontStyle, edgeStyle, imageTransform, weddingId, hasPhoto, editableTexts, textPosition, qrPosition, textColor]);
 
   // Load parties when entering step 2
   useEffect(() => {
@@ -310,6 +316,11 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
             party_name: party.party_name,
             guests: members,
           }),
+          greeting: resolveGreeting({
+            id: party.id,
+            party_name: party.party_name,
+            guests: members,
+          }),
           guestCount: members.length,
           syncToken: resolveSyncToken(members),
           rsvpStatus: rsvpMap[party.rsvp_status] || 'pending',
@@ -321,6 +332,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
         partyTargets.push({
           partyId: `solo_${guest.id}`,
           displayName: `${guest.first_name} ${guest.last_name}`.trim(),
+          greeting: resolveGreetingSolo(guest),
           guestCount: 1,
           syncToken: guest.unique_rsvp_token || '',
           rsvpStatus: 'pending',
@@ -532,6 +544,8 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
                 onTextPositionChange={setTextPosition}
                 qrPosition={qrPosition}
                 onQrPositionChange={setQrPosition}
+                textColor={textColor}
+                onTextColorChange={setTextColor}
               />
             )}
 
@@ -607,6 +621,8 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
           editableTexts={editableTexts}
           textPosition={textPosition}
           qrPosition={qrPosition}
+          textColor={textColor}
+          greeting={currentProcessingParty.greeting}
         />
       )}
     </>

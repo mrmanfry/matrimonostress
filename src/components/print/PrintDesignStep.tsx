@@ -86,7 +86,18 @@ interface PrintDesignStepProps {
   onTextPositionChange: (pos: TextPosition) => void;
   qrPosition: QrPosition;
   onQrPositionChange: (pos: QrPosition) => void;
+  textColor: string;
+  onTextColorChange: (color: string) => void;
 }
+
+const TEXT_COLOR_PRESETS = [
+  { label: 'Nero', value: '#1a1a1a' },
+  { label: 'Grigio scuro', value: '#4a4a4a' },
+  { label: 'Oro', value: '#C9A84C' },
+  { label: 'Bordeaux', value: '#722F37' },
+  { label: 'Blu notte', value: '#1B2A4A' },
+  { label: 'Bianco', value: '#FFFFFF' },
+];
 
 export const FONT_MAP: Record<FontStyle, string> = {
   garamond: "'EB Garamond', Georgia, serif",
@@ -182,6 +193,8 @@ const PrintDesignStep = ({
   onTextPositionChange,
   qrPosition,
   onQrPositionChange,
+  textColor,
+  onTextColorChange,
 }: PrintDesignStepProps) => {
   const weddingData = weddingDataProp ?? {
     partner1Name: '', partner2Name: '', weddingDate: '',
@@ -432,6 +445,31 @@ const PrintDesignStep = ({
           </Select>
         </div>
 
+        {/* Text color */}
+        <div className="space-y-2">
+          <Label>Colore testo</Label>
+          <div className="flex gap-2 flex-wrap">
+            {TEXT_COLOR_PRESETS.map((preset) => (
+              <button
+                key={preset.value}
+                onClick={() => onTextColorChange(preset.value)}
+                className={`w-8 h-8 rounded-lg border-2 transition-all ${
+                  textColor === preset.value ? "border-primary ring-2 ring-primary/30" : "border-border"
+                }`}
+                style={{ backgroundColor: preset.value }}
+                title={preset.label}
+              />
+            ))}
+            <Input
+              type="color"
+              value={!TEXT_COLOR_PRESETS.some(p => p.value === textColor) ? textColor : '#1a1a1a'}
+              onChange={(e) => onTextColorChange(e.target.value)}
+              className="w-8 h-8 p-0.5 cursor-pointer rounded-lg"
+              title="Colore personalizzato"
+            />
+          </div>
+        </div>
+
         <div className="flex items-center justify-between">
           <Label htmlFor="safe-zone">Mostra margini di sicurezza</Label>
           <Switch
@@ -446,6 +484,9 @@ const PrintDesignStep = ({
           <div className="space-y-2">
             <Label className="text-xs">Saluto</Label>
             <Input value={editableTexts.greeting} onChange={(e) => updateText('greeting', e.target.value)} placeholder="Cari" />
+            <p className="text-[10px] text-muted-foreground">
+              💡 Nel PDF il saluto si adatta automaticamente: "Caro Marco", "Cara Lavinia", "Cara Famiglia Rossi" in base al nucleo.
+            </p>
           </div>
           <div className="space-y-2">
             <Label className="text-xs">Nomi</Label>
@@ -658,7 +699,7 @@ const PrintDesignStep = ({
             onPointerDown={handleTextPointerDown}
           >
             <div className="pointer-events-none">
-              {renderTextContent(editableTexts, fontFamily)}
+              {renderTextContent(editableTexts, fontFamily, textColor)}
             </div>
           </div>
 
@@ -704,44 +745,47 @@ const PrintDesignStep = ({
   );
 };
 
-function renderTextContent(texts: InvitationTexts, fontFamily: string) {
+function renderTextContent(texts: InvitationTexts, fontFamily: string, textColor: string) {
+  const mainColor = textColor || '#1a1a1a';
+  const secondaryColor = textColor === '#FFFFFF' ? 'rgba(255,255,255,0.7)' : textColor === '#1a1a1a' ? undefined : `${textColor}99`;
+  
   return (
     <>
       {texts.greeting && (
-        <p className="text-xs tracking-wide text-muted-foreground mb-3" style={{ fontFamily }}>
+        <p className={`text-xs tracking-wide mb-3 ${!secondaryColor ? 'text-muted-foreground' : ''}`} style={{ fontFamily, color: secondaryColor }}>
           {texts.greeting} <span className="font-semibold">Famiglia Rossi</span>
         </p>
       )}
       {texts.names && (
-        <p className="text-base md:text-lg font-semibold text-foreground leading-tight" style={{ fontFamily }}>
+        <p className="text-base md:text-lg font-semibold leading-tight" style={{ fontFamily, color: mainColor }}>
           {texts.names}
         </p>
       )}
       {texts.announcement && (
-        <p className="text-xs text-muted-foreground mt-1 mb-3" style={{ fontFamily }}>
+        <p className={`text-xs mt-1 mb-3 ${!secondaryColor ? 'text-muted-foreground' : ''}`} style={{ fontFamily, color: secondaryColor }}>
           {texts.announcement}
         </p>
       )}
       {texts.dateText && (
-        <p className="text-sm font-medium text-foreground capitalize" style={{ fontFamily }}>
+        <p className="text-sm font-medium capitalize" style={{ fontFamily, color: mainColor }}>
           {texts.dateText}
         </p>
       )}
       {texts.time && texts.timePrefix && (
-        <p className="text-xs text-muted-foreground" style={{ fontFamily }}>
+        <p className={`text-xs ${!secondaryColor ? 'text-muted-foreground' : ''}`} style={{ fontFamily, color: secondaryColor }}>
           {texts.timePrefix} {texts.time}
         </p>
       )}
       {texts.ceremonyVenue && (
         <div className="mt-2">
           {texts.venuePrefix && (
-            <p className="text-xs text-muted-foreground" style={{ fontFamily }}>{texts.venuePrefix}</p>
+            <p className={`text-xs ${!secondaryColor ? 'text-muted-foreground' : ''}`} style={{ fontFamily, color: secondaryColor }}>{texts.venuePrefix}</p>
           )}
-          <p className="text-sm font-medium text-foreground" style={{ fontFamily }}>
+          <p className="text-sm font-medium" style={{ fontFamily, color: mainColor }}>
             {texts.ceremonyVenue}
           </p>
           {texts.ceremonyAddress && (
-            <p className="text-[10px] text-muted-foreground" style={{ fontFamily }}>
+            <p className={`text-[10px] ${!secondaryColor ? 'text-muted-foreground' : ''}`} style={{ fontFamily, color: secondaryColor }}>
               {texts.ceremonyAddress}
             </p>
           )}
@@ -750,15 +794,15 @@ function renderTextContent(texts: InvitationTexts, fontFamily: string) {
       {texts.receptionVenue && (
         <div className="mt-2">
           {texts.receptionPrefix && (
-            <p className="text-xs text-muted-foreground" style={{ fontFamily }}>
+            <p className={`text-xs ${!secondaryColor ? 'text-muted-foreground' : ''}`} style={{ fontFamily, color: secondaryColor }}>
               {texts.receptionPrefix}
             </p>
           )}
-          <p className="text-sm font-medium text-foreground" style={{ fontFamily }}>
+          <p className="text-sm font-medium" style={{ fontFamily, color: mainColor }}>
             {texts.receptionVenue}
           </p>
           {texts.receptionAddress && (
-            <p className="text-[10px] text-muted-foreground" style={{ fontFamily }}>
+            <p className={`text-[10px] ${!secondaryColor ? 'text-muted-foreground' : ''}`} style={{ fontFamily, color: secondaryColor }}>
               {texts.receptionAddress}
             </p>
           )}

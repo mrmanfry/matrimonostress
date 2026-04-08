@@ -13,6 +13,8 @@ interface HiddenPrintNodeProps {
   editableTexts: InvitationTexts;
   textPosition: TextPosition;
   qrPosition: QrPosition;
+  textColor: string;
+  greeting: string;
 }
 
 const W = 1748;
@@ -29,68 +31,72 @@ const HiddenPrintNode = ({
   editableTexts,
   textPosition,
   qrPosition,
+  textColor,
+  greeting,
 }: HiddenPrintNodeProps) => {
   const rsvpUrl = syncToken ? `https://wedsapp.it/rsvp/${syncToken}` : '';
+  const mainColor = textColor || '#1a1a1a';
+  const secondaryColor = textColor === '#FFFFFF' ? 'rgba(255,255,255,0.7)' : textColor === '#1a1a1a' ? '#888' : `${textColor}99`;
+  const tertiaryColor = textColor === '#FFFFFF' ? 'rgba(255,255,255,0.5)' : textColor === '#1a1a1a' ? '#999' : `${textColor}77`;
 
   const textBlock = (
     <>
-      {editableTexts.greeting && (
-        <p style={{ fontSize: '48px', letterSpacing: '0.05em', color: '#888', marginBottom: '44px' }}>
-          {editableTexts.greeting} <span style={{ fontWeight: 600 }}>{displayName}</span>
+      {greeting && (
+        <p style={{ fontSize: '48px', letterSpacing: '0.05em', color: secondaryColor, marginBottom: '44px' }}>
+          {greeting}
         </p>
       )}
       {editableTexts.names && (
-        <p style={{ fontSize: '79px', fontWeight: 600, color: '#1a1a1a', lineHeight: 1.3 }}>
+        <p style={{ fontSize: '79px', fontWeight: 600, color: mainColor, lineHeight: 1.3 }}>
           {editableTexts.names}
         </p>
       )}
       {editableTexts.announcement && (
-        <p style={{ fontSize: '48px', color: '#888', marginTop: '17px', marginBottom: '44px' }}>
+        <p style={{ fontSize: '48px', color: secondaryColor, marginTop: '17px', marginBottom: '44px' }}>
           {editableTexts.announcement}
         </p>
       )}
       {editableTexts.dateText && (
-        <p style={{ fontSize: '57px', fontWeight: 500, color: '#1a1a1a', textTransform: 'capitalize' }}>
+        <p style={{ fontSize: '57px', fontWeight: 500, color: mainColor, textTransform: 'capitalize' }}>
           {editableTexts.dateText}
         </p>
       )}
       {editableTexts.time && editableTexts.timePrefix && (
-        <p style={{ fontSize: '48px', color: '#888' }}>
+        <p style={{ fontSize: '48px', color: secondaryColor }}>
           {editableTexts.timePrefix} {editableTexts.time}
         </p>
       )}
       {editableTexts.ceremonyVenue && (
         <div style={{ marginTop: '35px' }}>
           {editableTexts.venuePrefix && (
-            <p style={{ fontSize: '44px', color: '#888' }}>{editableTexts.venuePrefix}</p>
+            <p style={{ fontSize: '44px', color: secondaryColor }}>{editableTexts.venuePrefix}</p>
           )}
-          <p style={{ fontSize: '57px', fontWeight: 500, color: '#1a1a1a' }}>
+          <p style={{ fontSize: '57px', fontWeight: 500, color: mainColor }}>
             {editableTexts.ceremonyVenue}
           </p>
           {editableTexts.ceremonyAddress && (
-            <p style={{ fontSize: '39px', color: '#999' }}>{editableTexts.ceremonyAddress}</p>
+            <p style={{ fontSize: '39px', color: tertiaryColor }}>{editableTexts.ceremonyAddress}</p>
           )}
         </div>
       )}
       {editableTexts.receptionVenue && (
         <div style={{ marginTop: '35px' }}>
           {editableTexts.receptionPrefix && (
-            <p style={{ fontSize: '44px', color: '#888' }}>
+            <p style={{ fontSize: '44px', color: secondaryColor }}>
               {editableTexts.receptionPrefix}
             </p>
           )}
-          <p style={{ fontSize: '57px', fontWeight: 500, color: '#1a1a1a' }}>
+          <p style={{ fontSize: '57px', fontWeight: 500, color: mainColor }}>
             {editableTexts.receptionVenue}
           </p>
           {editableTexts.receptionAddress && (
-            <p style={{ fontSize: '39px', color: '#999' }}>{editableTexts.receptionAddress}</p>
+            <p style={{ fontSize: '39px', color: tertiaryColor }}>{editableTexts.receptionAddress}</p>
           )}
         </div>
       )}
     </>
   );
 
-  // QR size in pixels based on percentage
   const qrSizePx = Math.round((qrPosition.size / 100) * W);
 
   return (
@@ -108,7 +114,6 @@ const HiddenPrintNode = ({
       }}
     >
       {hasPhoto && (
-        /* Photo area — top half */
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '50%', overflow: 'hidden', backgroundColor: '#ffffff' }}>
           {backgroundImageUrl ? (
             <div
@@ -150,7 +155,6 @@ const HiddenPrintNode = ({
         </div>
       )}
 
-      {/* Text block — positioned dynamically */}
       <div
         style={{
           position: 'absolute',
@@ -167,7 +171,6 @@ const HiddenPrintNode = ({
         {textBlock}
       </div>
 
-      {/* QR Code — positioned dynamically */}
       {syncToken ? (
         <div
           style={{

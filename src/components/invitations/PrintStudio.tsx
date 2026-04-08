@@ -257,6 +257,7 @@ const PrintStudio = ({ open, onOpenChange, weddingId }: PrintStudioProps) => {
         targets.push({
           partyId: party.id,
           displayName: resolveDisplayName({ id: party.id, party_name: party.party_name, guests: members }),
+          greeting: '',
           guestCount: members.length,
           syncToken: resolveSyncToken(members),
           rsvpStatus: rsvpMap[party.rsvp_status] || "pending",
