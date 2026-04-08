@@ -73,6 +73,7 @@ type TableCanvasProps = {
   onClearTable?: (tableId: string) => void;
   onDeleteTable?: (tableId: string) => void;
   onUpdateSeatPosition?: (assignmentId: string, seatPosition: number | null) => void;
+  onAssignToSeat?: (tableId: string, guestId: string, seatPosition: number) => void;
   proposedAssignments?: { tableId: string; guestIds: string[] }[];
   isProposalMode?: boolean;
   isMobile?: boolean;
@@ -89,6 +90,7 @@ const DroppableTable = ({
   onClearTable,
   onDeleteTable,
   onUpdateSeatPosition,
+  onAssignToSeat,
   proposedGuestIds,
   isProposalMode,
   showConfirmedOnly,
@@ -102,6 +104,7 @@ const DroppableTable = ({
   onClearTable?: (tableId: string) => void;
   onDeleteTable?: (tableId: string) => void;
   onUpdateSeatPosition?: (assignmentId: string, seatPosition: number | null) => void;
+  onAssignToSeat?: (tableId: string, guestId: string, seatPosition: number) => void;
   proposedGuestIds?: string[];
   isProposalMode?: boolean;
   showConfirmedOnly?: boolean;
@@ -289,6 +292,7 @@ const DroppableTable = ({
           isLocked={table.is_locked}
           onUnassign={onUnassign}
           onUpdateSeatPosition={onUpdateSeatPosition}
+          onAssignToSeat={onAssignToSeat ? (guestId, seatPos) => onAssignToSeat(table.id, guestId, seatPos) : undefined}
         />
       ) : (
         <div className="space-y-1">
@@ -403,6 +407,7 @@ export const TableCanvas = ({
   onClearTable,
   onDeleteTable,
   onUpdateSeatPosition,
+  onAssignToSeat,
   proposedAssignments,
   isProposalMode,
   isMobile,
@@ -442,6 +447,7 @@ export const TableCanvas = ({
                   onClearTable={onClearTable}
                   onDeleteTable={onDeleteTable}
                   onUpdateSeatPosition={onUpdateSeatPosition}
+                  onAssignToSeat={onAssignToSeat}
                   proposedGuestIds={proposed?.guestIds}
                   isProposalMode={isProposalMode}
                   showConfirmedOnly={showConfirmedOnly}
