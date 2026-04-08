@@ -10,8 +10,6 @@ import {
   AlertTriangle, 
   Edit2, 
   Check, 
-  Lock, 
-  Unlock,
   Eraser,
   Trash2,
   MoreHorizontal,
@@ -159,18 +157,6 @@ const DroppableTable = ({
     }
   };
 
-  const handleToggleLock = async () => {
-    const { error } = await supabase
-      .from("tables")
-      .update({ is_locked: !table.is_locked })
-      .eq("id", table.id);
-
-    if (error) {
-      toast({ title: "Errore", description: "Impossibile cambiare lo stato", variant: "destructive" });
-    } else {
-      onUpdate();
-    }
-  };
 
   return (
     <Card
@@ -214,12 +200,6 @@ const DroppableTable = ({
         )}
       </div>
 
-      {/* Lock indicator */}
-      {table.is_locked && (
-        <div className="absolute top-2 left-2">
-          <Lock className="w-4 h-4 text-muted-foreground" />
-        </div>
-      )}
 
       <div className="flex items-center justify-between mb-3 pr-12">
         {editing ? (
@@ -245,13 +225,6 @@ const DroppableTable = ({
             <div className="flex gap-1">
               <Button size="sm" variant="ghost" onClick={() => setEditing(true)} className="h-6 w-6 p-0">
                 <Edit2 className="w-3 h-3" />
-              </Button>
-              <Button size="sm" variant="ghost" onClick={handleToggleLock} className="h-6 w-6 p-0">
-                {table.is_locked ? (
-                  <Unlock className="w-3 h-3" />
-                ) : (
-                  <Lock className="w-3 h-3" />
-                )}
               </Button>
             </div>
           </div>
