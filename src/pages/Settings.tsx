@@ -56,32 +56,6 @@ interface ProgressToken {
   show_countdown: boolean;
 }
 
-const getDefaultCampaignsConfig = (): CampaignsConfig => ({
-  save_the_date: {
-    status: "draft",
-    enabled: true,
-    hero_image_url: null,
-    welcome_title: "Save The Date!",
-    welcome_text: "Segnati questa data sul calendario!",
-    deadline_date: null,
-  },
-  rsvp: {
-    status: "draft",
-    enabled: true,
-    hero_image_url: null,
-    welcome_title: "Conferma la tua Presenza",
-    welcome_text: "Non vediamo l'ora di festeggiare con voi!",
-    deadline_date: null,
-  },
-  theme: {
-    layout_mode: "immersive_scroll",
-    font_family: "serif",
-    primary_color: "#D4AF37",
-    show_countdown: true,
-    show_powered_by: true,
-  },
-});
-
 const Settings = () => {
   const { authState } = useAuth();
   const currentUserRole = authState.status === 'authenticated' ? authState.activeRole : '';
@@ -101,11 +75,6 @@ const Settings = () => {
   const [roleToDelete, setRoleToDelete] = useState<string | null>(null);
   const [progressToken, setProgressToken] = useState<ProgressToken | null>(null);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
-  const [rsvpConfigDialogOpen, setRsvpConfigDialogOpen] = useState(false);
-  
-  // Campaign dialogs
-  const [stdConfigDialogOpen, setStdConfigDialogOpen] = useState(false);
-  const [rsvpCampaignDialogOpen, setRsvpCampaignDialogOpen] = useState(false);
   
   // Wedding data edit states
   const [editMode, setEditMode] = useState(false);
@@ -121,8 +90,6 @@ const Settings = () => {
   
   const { toast } = useToast();
 
-  // Get campaigns config with fallback
-  const campaignsConfig: CampaignsConfig = wedding?.campaigns_config || getDefaultCampaignsConfig();
 
   useEffect(() => {
     loadData();
