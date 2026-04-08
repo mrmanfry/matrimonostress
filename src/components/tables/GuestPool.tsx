@@ -42,6 +42,7 @@ type GuestPoolProps = {
   allGuests?: Guest[];
   assignments?: { guest_id: string }[];
   isMobile?: boolean;
+  partyNames?: Record<string, string>;
 };
 
 const DraggableGuest = ({ guest }: { guest: Guest }) => {
@@ -125,11 +126,13 @@ const PartyGroup = ({
   guests, 
   allGuests,
   assignments,
+  partyNames,
 }: { 
   partyId: string; 
   guests: Guest[];
   allGuests?: Guest[];
   assignments?: { guest_id: string }[];
+  partyNames?: Record<string, string>;
 }) => {
   const [isOpen, setIsOpen] = useState(true);
 
@@ -139,7 +142,7 @@ const PartyGroup = ({
   ).length;
   const isPartiallyAssigned = assignedCount > 0 && assignedCount < partyMembers.length;
 
-  const partyName = `Nucleo ${guests[0]?.last_name || 'Sconosciuto'}`;
+  const partyName = partyNames?.[partyId] || `Nucleo ${guests[0]?.last_name || 'Sconosciuto'}`;
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>

@@ -102,6 +102,7 @@ const Tables = () => {
   const [weddingTargets, setWeddingTargets] = useState<WeddingTargets | null>(null);
   const [vendorStaffTotal, setVendorStaffTotal] = useState(0);
   const [bulkAction, setBulkAction] = useState<'clear_all' | 'delete_all' | null>(null);
+  const [partyNames, setPartyNames] = useState<Record<string, string>>({});
   const { toast } = useToast();
   const isMobile = useIsMobile();
 
@@ -140,6 +141,7 @@ const Tables = () => {
           fetchAssignments(weddingData.id),
           fetchConflicts(weddingData.id),
           fetchVendorStaff(weddingData.id),
+          fetchPartyNames(weddingData.id),
         ]);
       }
     } catch (error) {
