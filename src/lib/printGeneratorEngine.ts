@@ -134,7 +134,7 @@ export async function generatePrintPDFs(
 
     const pdfBytes = await pdfDoc.save();
     const fileName = `Invito_${sanitizeFileName(party.displayName)}.pdf`;
-    pdfBlobs.push({ name: fileName, blob: new Blob([pdfBytes], { type: "application/pdf" }) });
+    pdfBlobs.push({ name: fileName, blob: new Blob([pdfBytes as BlobPart], { type: "application/pdf" }) });
   }
 
   if (pdfBlobs.length === 1) {
