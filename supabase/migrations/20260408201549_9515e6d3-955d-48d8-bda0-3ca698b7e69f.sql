@@ -1,0 +1,1 @@
+ALTER TABLE public.table_assignments ADD COLUMN seat_position integer;

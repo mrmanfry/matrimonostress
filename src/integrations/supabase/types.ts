@@ -1318,18 +1318,21 @@ export type Database = {
           created_at: string
           guest_id: string
           id: string
+          seat_position: number | null
           table_id: string
         }
         Insert: {
           created_at?: string
           guest_id: string
           id?: string
+          seat_position?: number | null
           table_id: string
         }
         Update: {
           created_at?: string
           guest_id?: string
           id?: string
+          seat_position?: number | null
           table_id?: string
         }
         Relationships: [
