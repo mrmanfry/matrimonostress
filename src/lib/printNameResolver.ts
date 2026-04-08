@@ -21,8 +21,7 @@ export interface PartyPrintTarget {
   rsvpStatus: 'pending' | 'confirmed' | 'declined';
 }
 
-// Common Italian female name endings heuristic
-const FEMALE_NAME_ENDINGS = ['a', 'ella', 'etta', 'ina', 'ilde', 'ice'];
+// Common Italian male names that end in 'a' (exception to the heuristic)
 const MALE_EXCEPTIONS = ['andrea', 'luca', 'nicola', 'mattia', 'elia', 'isaia', 'giosuè'];
 
 function guessGender(firstName: string): 'M' | 'F' {
