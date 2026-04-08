@@ -407,6 +407,7 @@ export const TableCanvas = ({
   onClearTable,
   onDeleteTable,
   onUpdateSeatPosition,
+  onAssignToSeat,
   proposedAssignments,
   isProposalMode,
   isMobile,
@@ -446,6 +447,7 @@ export const TableCanvas = ({
                   onClearTable={onClearTable}
                   onDeleteTable={onDeleteTable}
                   onUpdateSeatPosition={onUpdateSeatPosition}
+                  onAssignToSeat={onAssignToSeat}
                   proposedGuestIds={proposed?.guestIds}
                   isProposalMode={isProposalMode}
                   showConfirmedOnly={showConfirmedOnly}
