@@ -1,75 +1,82 @@
 
 
-## Sprint 2: Wizard UI — Generatore Libretto Messa
+## Sprint 3: Motore PDF — Generatore Libretto Messa
 
 ### Obiettivo
-Creare la pagina `/app/mass-booklet` con un wizard a 5 step, routing, voce nella sidebar, auto-save a Supabase, e navigazione libera tra gli step.
+Sostituire il placeholder nello Step 5 con un motore di rendering PDF completo basato su `@react-pdf/renderer`. L'utente potrà visualizzare un'anteprima live del libretto e scaricarlo come PDF pronto per la stampa.
+
+### Architettura
+
+Il PDF viene generato interamente client-side (zero costi server). Il componente `@react-pdf/renderer` riceve l'oggetto `MassBookletContent` e i dati da `liturgia.json`, e produce un documento A5 impaginato con:
+- Copertina (nomi sposi, data, chiesa)
+- Riti di introduzione (testi fissi)
+- Liturgia della Parola (letture scelte o custom)
+- Rito del Matrimonio (consenso, anelli — testi fissi con placeholder nomi)
+- Liturgia Eucaristica (se selezionata)
+- Preghiere dei Fedeli
+- Ringraziamenti
+- Pagine bianche di padding (multiplo di 4)
 
 ### File da creare
 
-**1. `src/pages/MassBooklet.tsx`** — Pagina principale
-- Carica/crea il record `mass_booklets` da Supabase (upsert al primo accesso)
-- Stato locale: `content: MassBookletContent`, `currentStep`, `templateStyle`, `status`, `saving`
-- Auto-save debounced (3s) su ogni modifica di `content`
-- Save esplicito al cambio step ("Avanti"/"Indietro")
-- Pulsante "Salva ed esci" sempre visibile nell'header
-- Indicatore "Salvato" stile Google Docs
-- Pre-popola `church_name`, `ceremony_date_text` dai dati del matrimonio se il booklet è nuovo
-- Renderizza il componente dello step corrente
+**1. `src/components/mass-booklet/pdf/BookletPdfDocument.tsx`**
+- Componente `@react-pdf/renderer` principale (`<Document>`)
+- Registra font Google (es. Lora per titoli, Source Sans per corpo)
+- Riceve `content: MassBookletContent` + partner names
+- Compone le sezioni nell'ordine liturgico corretto
+- Logica padding pagine bianche (multiplo di 4)
+- Stili A5 (148mm x 210mm), margini 1.5cm interni / 1cm esterni
 
-**2. `src/components/mass-booklet/BookletStepSetup.tsx`** — Step 1
-- Campi: nome chiesa, nome celebrante, data cerimonia (testo libero)
-- Ruoli: testimoni sposo/sposa (array dinamico +/−), lettori (array), musicisti
-- Layout singola colonna, max-w-2xl centrato
+**2. `src/components/mass-booklet/pdf/PdfCoverPage.tsx`**
+- Pagina di copertina: nomi sposi, data cerimonia, nome chiesa
+- Layout tipografico centrato, elegante
 
-**3. `src/components/mass-booklet/BookletStepRite.tsx`** — Step 2
-- Scelta radio: "Messa con Eucaristia" / "Solo Liturgia della Parola"
-- Descrizione breve per ogni opzione
-- Card selezionabili con icona
+**3. `src/components/mass-booklet/pdf/PdfReadingSection.tsx`**
+- Sezione riutilizzabile per letture: titolo, riferimento, testo
+- Gestisce sia letture da `liturgia.json` che testi custom
+- Logica `break` per evitare titoli orfani a fine pagina
 
-**4. `src/components/mass-booklet/BookletStepReadings.tsx`** — Step 3
-- 4 sezioni Accordion: Prima Lettura, Salmo, Seconda Lettura, Vangelo
-- Ogni sezione: Select con opzioni da `liturgia.json` + anteprima testo in sola lettura
-- Toggle "Usa testo personalizzato" → mostra Textarea al posto del Select
-- Seconda Lettura opzionale (badge "Opzionale")
+**4. `src/components/mass-booklet/pdf/PdfFixedTexts.tsx`**
+- Riti introduttivi, consenso, scambio anelli, Padre Nostro
+- Sostituisce i placeholder `{{partner1}}`, `{{partner2}}`, `{{name}}`
 
-**5. `src/components/mass-booklet/BookletStepCustom.tsx`** — Step 4
-- Sezione Canti: input per ingresso, offertorio, comunione, comunione 2, uscita, gloria, santo, pace, frazione
-- Sezione Preghiere dei Fedeli: campo ritornello + array dinamico di intenzioni (max 6, max 300 char ciascuna, contatore visibile)
-- Sezione Ringraziamenti: textarea (max 2000 char)
+**5. `src/components/mass-booklet/pdf/PdfPrayersSection.tsx`**
+- Preghiere dei Fedeli con ritornello tra ogni intenzione
+- Sezione ringraziamenti
 
-**6. `src/components/mass-booklet/BookletStepPreview.tsx`** — Step 5
-- Riepilogo completezza con `validateBookletCompleteness()` — campi mancanti linkabili allo step corretto
-- Anteprima placeholder (messaggio "L'anteprima PDF sarà disponibile nello Sprint 3")
-- Checkbox disclaimer obbligatorio
-- Pulsante "Genera PDF" disabilitato (Sprint 3)
-
-**7. `src/components/mass-booklet/BookletStepper.tsx`** — Progress bar + navigazione
-- Barra 5 step con icone e label
-- Step cliccabili per navigazione libera
-- Indicazione step completati/corrente
+**6. `src/components/mass-booklet/pdf/pdfStyles.ts`**
+- `StyleSheet.create()` centralizzato
+- Font sizes: titoli 14pt, sottotitoli 12pt, corpo 10.5pt, didascalie 9pt
 
 ### File da modificare
 
-**`src/App.tsx`**
-- Import `MassBooklet` page
-- Aggiungere route `<Route path="mass-booklet" element={<MassBooklet />} />`
+**`src/components/mass-booklet/BookletStepPreview.tsx`**
+- Rimuovere placeholder "Sprint 3"
+- Aggiungere `<PDFViewer>` per anteprima live inline (con fallback loading)
+- Aggiungere pulsante "Scarica PDF" con `<BlobProvider>` per download diretto
+- Mostrare contatore pagine generato
 
-**`src/pages/AppLayout.tsx`**
-- Aggiungere voce "Libretto Messa" nella sidebar con icona `BookOpen` (da lucide-react), posizionata dopo "Memories" e prima di "Timeline"
+**`src/pages/MassBooklet.tsx`**
+- Passare `partnerNames` (da `authState.weddings`) al componente Preview
+- Nessun altro cambiamento strutturale
+
+**`package.json`**
+- Aggiungere dipendenza `@react-pdf/renderer`
 
 ### Dettagli tecnici
 
-- **Auto-save**: `useCallback` + `setTimeout` da 3s, cancellato ad ogni nuova modifica. Al cambio step si salva immediatamente (abort del debounce pendente).
-- **Supabase interaction**: `supabase.from('mass_booklets').upsert(...)` con `wedding_id` come chiave. Il campo `content` è JSONB, si salva l'intero oggetto `MassBookletContent`.
-- **Liturgia data**: import statico di `liturgia.json`, nessuna chiamata di rete.
-- **Sanitizzazione**: `sanitizeBookletText()` applicata ai campi testo libero prima del salvataggio.
-- **Navigazione libera**: nessuna validazione bloccante sugli step 1-4. Solo lo Step 5 mostra i campi mancanti.
+- **Font**: Registrati via `Font.register()` con URL Google Fonts (Lora + Source Sans 3). Supporto completo caratteri accentati italiani.
+- **Formato**: A5 (148.5mm x 210mm) — standard libretti messa
+- **Padding multiplo di 4**: Dopo il rendering, il componente calcola il numero di pagine e aggiunge `<Page />` vuote fino al prossimo multiplo di 4.
+- **Sezioni condizionali**: La Liturgia Eucaristica appare solo se `rite_type === 'messa_eucaristia'`; i canti di comunione vengono nascosti per "Solo Liturgia della Parola".
+- **Placeholder nomi**: I testi fissi di `liturgia.json` contengono `{{partner1}}`, `{{partner2}}`, `{{name}}` — sostituiti a runtime con i nomi reali degli sposi.
+- **Performance**: `<PDFViewer>` renderizza in un iframe. Nessun Web Worker necessario per A5 con ~12-20 pagine.
 
 ### Ordine di esecuzione
-1. `BookletStepper` (componente UI riusabile)
-2. Step 1-4 (i 4 form component)
-3. Step 5 (preview/validazione)
-4. `MassBooklet.tsx` (pagina con logica auto-save)
-5. Routing + sidebar
+1. Installare `@react-pdf/renderer`
+2. `pdfStyles.ts` (stili condivisi)
+3. Sotto-componenti PDF (Cover, Readings, FixedTexts, Prayers)
+4. `BookletPdfDocument.tsx` (composizione)
+5. Aggiornare `BookletStepPreview.tsx` con viewer e download
+6. Aggiornare `MassBooklet.tsx` per passare i nomi sposi
 
