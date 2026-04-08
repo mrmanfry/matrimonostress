@@ -655,6 +655,7 @@ const Tables = () => {
                     allGuests={allGuests}
                     assignments={assignments.map(a => ({ guest_id: a.guest_id }))}
                     isMobile={isMobile}
+                    partyNames={partyNames}
                   />
                 </TabsContent>
                 <TabsContent value="sala">
@@ -669,6 +670,7 @@ const Tables = () => {
                     guests={unassignedGuests} 
                     allGuests={allGuests}
                     assignments={assignments.map(a => ({ guest_id: a.guest_id }))}
+                    partyNames={partyNames}
                   />
                 </div>
                 <div className="lg:col-span-3">
