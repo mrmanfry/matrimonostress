@@ -31,6 +31,8 @@ interface PrintDesignConfig {
   imageTransform: ImageTransform;
   backgroundImagePath: string | null;
   printed_party_ids?: string[];
+  hasPhoto?: boolean;
+  editableTexts?: InvitationTexts;
 }
 
 interface PrintInvitationEditorProps {
