@@ -1,5 +1,6 @@
 import { useDroppable } from "@dnd-kit/core";
 import { Card } from "@/components/ui/card";
+import { ImperialTableLayout } from "./ImperialTableLayout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -87,6 +88,7 @@ const DroppableTable = ({
   onUnassign,
   onClearTable,
   onDeleteTable,
+  onUpdateSeatPosition,
   proposedGuestIds,
   isProposalMode,
   showConfirmedOnly,
@@ -99,6 +101,7 @@ const DroppableTable = ({
   onUnassign: (assignmentId: string) => void;
   onClearTable?: (tableId: string) => void;
   onDeleteTable?: (tableId: string) => void;
+  onUpdateSeatPosition?: (assignmentId: string, seatPosition: number | null) => void;
   proposedGuestIds?: string[];
   isProposalMode?: boolean;
   showConfirmedOnly?: boolean;
