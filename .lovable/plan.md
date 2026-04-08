@@ -1,60 +1,59 @@
 
 
-## Piano: Riprogettazione "Progetta il tuo Invito"
+## Piano: Testo e QR trascinabili nell'anteprima
 
-### Cosa cambia
+### Problema attuale
 
-Quattro miglioramenti al design integrato degli inviti:
+Il layout e rigido: foto = 50% superiore, testo = 50% inferiore, QR fisso in fondo. Se la foto e piccola e spostata in alto, il testo resta ancorato in basso lasciando un vuoto. Il QR non e riposizionabile ne ridimensionabile.
 
-1. **Foto opzionale** — Switch "Inserisci una foto". Se disattivato, il foglio e bianco e il testo occupa tutta la pagina centrato.
+### Soluzione
 
-2. **Piu font** — Aggiunta di 8 nuovi Google Fonts (Cinzel, Philosopher, Libre Baskerville, Raleway, Poppins, Merriweather, Crimson Text, Italiana), raggruppati per stile.
+Aggiungere due nuovi "oggetti trascinabili" nell'anteprima del design integrato:
 
-3. **Tutti i testi modificabili** — Ogni riga dell'invito (saluto, annuncio, prefissi "alle ore"/"presso"/"A seguire...", nomi, data, venue, indirizzi) diventa un campo editabile nella sidebar, pre-popolato dai dati del matrimonio.
+1. **Blocco testo** — trascinabile verticalmente (su/giu). L'utente afferra il blocco testo e lo sposta per allinearlo sotto la foto o dove preferisce.
 
-4. **Indirizzo ricevimento visibile e modificabile** — L'indirizzo del ricevimento (`receptionVenueAddress`) oggi non viene mostrato ne nell'anteprima ne nel PDF. Verra aggiunto sotto il nome del ricevimento, come gia avviene per la cerimonia. Sara editabile e cancellabile come tutti gli altri testi.
+2. **QR Code** — trascinabile liberamente (X e Y) + ridimensionabile con handle, come gia avviene nel QRCanvasEditor del Print Studio custom.
 
-### Struttura delle modifiche
+### Dettagli tecnici
 
-**`index.html`**
-- Aggiungere i nuovi Google Fonts al link esistente (Cinzel, Philosopher, Libre Baskerville, Raleway, Poppins, Merriweather, Crimson Text, Italiana).
+**Nuovi tipi di stato** (in `PrintInvitationEditor.tsx`):
 
-**`src/components/print/PrintDesignStep.tsx`**
+```
+textPosition: { y: number }         // % dall'alto (default 55 con foto, 30 senza)
+qrPosition: { x: number, y: number, size: number }  // % left, top, size in % della larghezza
+```
 
-- Aggiungere i nuovi font a `FontStyle`, `FONT_MAP` e `FONT_LABELS`
-- Nuova interfaccia `InvitationTexts`:
-  ```
-  { greeting, names, announcement, dateText, timePrefix, time,
-    venuePrefix, ceremonyVenue, ceremonyAddress,
-    receptionPrefix, receptionVenue, receptionAddress }
-  ```
-- Nuove prop: `hasPhoto`, `onHasPhotoChange`, `editableTexts`, `onEditableTextsChange`
-- Sidebar: Switch "Inserisci una foto" + sezione "Testi dell'invito" con Input per ogni riga
-- Anteprima: se `hasPhoto=false`, niente sezione foto, testo centrato su tutto il foglio
-- Anteprima: mostrare `receptionAddress` sotto il nome del ricevimento (come gia fa `ceremonyAddress`)
-- L'anteprima usa `editableTexts` invece di stringhe hardcoded
+Persistiti nel JSONB `print_design` insieme al resto.
 
-**`src/components/print/PrintInvitationEditor.tsx`**
+**`PrintDesignStep.tsx`** — Modifiche all'anteprima:
 
-- Nuovo stato `hasPhoto` (default `true`) e `editableTexts`
-- Pre-popolare `editableTexts` dai dati wedding al caricamento (nomi, data formattata, venue, indirizzi, frasi standard)
-- Persistere `hasPhoto` e `editableTexts` nel JSONB `print_design`
-- Ripristinare al reload
-- Passare le nuove prop a `PrintDesignStep` e `HiddenPrintNode`
+- Il blocco testo diventa un `div` con `position: absolute`, `top: {textPosition.y}%`, trascinabile verticalmente via pointer events (stesso pattern della foto). Cursore grab, guide di snap.
+- Il QR placeholder in fondo al `renderTextContent` viene rimosso e sostituito con un overlay QR indipendente posizionato con `left/top` in percentuale, ridimensionabile con handle in basso a destra (stesso pattern di `QRCanvasEditor`).
+- Sidebar: aggiungere slider "Posizione testo" e slider "Dimensione QR" per controllo fine, oltre al drag visuale.
 
-**`src/components/print/HiddenPrintNode.tsx`**
+**`HiddenPrintNode.tsx`** — Modifiche al rendering PDF:
 
-- Nuove prop: `hasPhoto`, `editableTexts`
-- Se `hasPhoto=false`: layout full-page centrato (niente sezione foto)
-- Usare `editableTexts` per tutte le righe
-- Aggiungere `receptionAddress` sotto il nome del ricevimento
-- Se un testo e vuoto/cancellato, la riga non viene renderizzata
+- Il blocco testo usa `top: {textPosition.y}%` invece di essere ancorato al 50%.
+- Il QR viene posizionato con `left/top/width` in percentuale invece che inline nel flusso testo.
+
+**Props aggiunte** a `PrintDesignStep` e `HiddenPrintNode`:
+
+```
+textPosition: { y: number }
+onTextPositionChange: (pos) => void
+qrPosition: { x: number, y: number, size: number }
+onQrPositionChange: (pos) => void
+```
+
+### File modificati
+
+1. **`src/components/print/PrintInvitationEditor.tsx`** — Nuovi stati `textPosition` e `qrPosition`, default, persistenza, passaggio props
+2. **`src/components/print/PrintDesignStep.tsx`** — Anteprima con testo e QR trascinabili, slider nella sidebar, props aggiornate
+3. **`src/components/print/HiddenPrintNode.tsx`** — Rendering PDF con posizioni dinamiche di testo e QR
 
 ### Ordine di esecuzione
 
-1. Font in `index.html` + aggiornare `FONT_MAP`/`FONT_LABELS`
-2. Interfaccia `InvitationTexts`, prop toggle foto, campi editabili nella sidebar di `PrintDesignStep`
-3. Aggiornare anteprima (layout foto/no-foto, testi dinamici, indirizzo ricevimento)
-4. Aggiornare `PrintInvitationEditor` con stato e persistenza
-5. Aggiornare `HiddenPrintNode` per rendering PDF con testi editabili e indirizzo ricevimento
+1. Aggiungere stati e persistenza in `PrintInvitationEditor`
+2. Implementare drag testo + drag/resize QR nell'anteprima di `PrintDesignStep`
+3. Aggiornare `HiddenPrintNode` per posizioni dinamiche
 
