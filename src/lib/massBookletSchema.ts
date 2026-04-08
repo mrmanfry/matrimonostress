@@ -93,7 +93,7 @@ export const massBookletSchema = z.object({
   template_style: z.enum(['minimal', 'classic', 'modern']).default('minimal'),
   schema_version: z.number().int().default(1),
   content: massBookletContentSchema.default({}),
-  current_step: z.number().int().min(1).max(5).default(1),
+  current_step: z.number().int().min(1).max(6).default(1),
   created_at: z.string(),
   updated_at: z.string(),
 });
