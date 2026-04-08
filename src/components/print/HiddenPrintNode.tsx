@@ -1,5 +1,5 @@
 import { QRCodeSVG } from "qrcode.react";
-import type { ImageTransform, EdgeStyle } from "./PrintInvitationEditor";
+import type { ImageTransform, EdgeStyle, TextPosition, QrPosition } from "./PrintInvitationEditor";
 import type { InvitationTexts } from "./PrintDesignStep";
 
 interface HiddenPrintNodeProps {
@@ -11,6 +11,8 @@ interface HiddenPrintNodeProps {
   edgeStyle: EdgeStyle;
   hasPhoto: boolean;
   editableTexts: InvitationTexts;
+  textPosition: TextPosition;
+  qrPosition: QrPosition;
 }
 
 const W = 1748;
@@ -25,6 +27,8 @@ const HiddenPrintNode = ({
   edgeStyle,
   hasPhoto,
   editableTexts,
+  textPosition,
+  qrPosition,
 }: HiddenPrintNodeProps) => {
   const rsvpUrl = syncToken ? `https://wedsapp.it/rsvp/${syncToken}` : '';
 
@@ -83,15 +87,11 @@ const HiddenPrintNode = ({
           )}
         </div>
       )}
-      {syncToken ? (
-        <div style={{ marginTop: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ padding: '13px', backgroundColor: '#ffffff', borderRadius: '13px', border: '3px solid #eee' }}>
-            <QRCodeSVG value={rsvpUrl} size={120} />
-          </div>
-        </div>
-      ) : null}
     </>
   );
+
+  // QR size in pixels based on percentage
+  const qrSizePx = Math.round((qrPosition.size / 100) * W);
 
   return (
     <div
@@ -107,85 +107,81 @@ const HiddenPrintNode = ({
         fontFamily,
       }}
     >
-      {hasPhoto ? (
-        <>
-          {/* TOP HALF: Photo */}
-          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '50%', overflow: 'hidden', backgroundColor: '#ffffff' }}>
-            {backgroundImageUrl ? (
-              <div
+      {hasPhoto && (
+        /* Photo area — top half */
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '50%', overflow: 'hidden', backgroundColor: '#ffffff' }}>
+          {backgroundImageUrl ? (
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                ...(edgeStyle === 'watercolor' ? {
+                  WebkitMaskImage: 'url(/images/watercolor-mask.png)',
+                  maskImage: 'url(/images/watercolor-mask.png)',
+                  WebkitMaskSize: 'cover',
+                  maskSize: 'cover' as any,
+                  WebkitMaskPosition: 'center',
+                  maskPosition: 'center' as any,
+                  WebkitMaskRepeat: 'no-repeat',
+                  maskRepeat: 'no-repeat' as any,
+                } : edgeStyle === 'soft' ? {
+                  WebkitMaskImage: 'radial-gradient(ellipse 85% 80% at 50% 45%, black 50%, transparent 95%)',
+                  maskImage: 'radial-gradient(ellipse 85% 80% at 50% 45%, black 50%, transparent 95%)',
+                } : {}),
+              }}
+            >
+              <img
+                src={backgroundImageUrl}
+                alt=""
                 style={{
                   position: 'absolute',
-                  inset: 0,
-                  ...(edgeStyle === 'watercolor' ? {
-                    WebkitMaskImage: 'url(/images/watercolor-mask.png)',
-                    maskImage: 'url(/images/watercolor-mask.png)',
-                    WebkitMaskSize: 'cover',
-                    maskSize: 'cover' as any,
-                    WebkitMaskPosition: 'center',
-                    maskPosition: 'center' as any,
-                    WebkitMaskRepeat: 'no-repeat',
-                    maskRepeat: 'no-repeat' as any,
-                  } : edgeStyle === 'soft' ? {
-                    WebkitMaskImage: 'radial-gradient(ellipse 85% 80% at 50% 45%, black 50%, transparent 95%)',
-                    maskImage: 'radial-gradient(ellipse 85% 80% at 50% 45%, black 50%, transparent 95%)',
-                  } : {}),
+                  left: '50%',
+                  top: '50%',
+                  transform: `translate(calc(-50% + ${imageTransform.x}%), calc(-50% + ${imageTransform.y}%)) scale(${imageTransform.scale})`,
+                  minWidth: '100%',
+                  minHeight: '100%',
+                  objectFit: 'cover',
                 }}
-              >
-                <img
-                  src={backgroundImageUrl}
-                  alt=""
-                  style={{
-                    position: 'absolute',
-                    left: '50%',
-                    top: '50%',
-                    transform: `translate(calc(-50% + ${imageTransform.x}%), calc(-50% + ${imageTransform.y}%)) scale(${imageTransform.scale})`,
-                    minWidth: '100%',
-                    minHeight: '100%',
-                    objectFit: 'cover',
-                  }}
-                />
-              </div>
-            ) : (
-              <div style={{ width: '100%', height: '100%', backgroundColor: '#f5f5f5' }} />
-            )}
-          </div>
+              />
+            </div>
+          ) : (
+            <div style={{ width: '100%', height: '100%', backgroundColor: '#f5f5f5' }} />
+          )}
+        </div>
+      )}
 
-          {/* BOTTOM HALF */}
-          <div
-            style={{
-              position: 'absolute',
-              left: 0,
-              right: 0,
-              bottom: 0,
-              height: '50%',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '52px 105px',
-              textAlign: 'center',
-            }}
-          >
-            {textBlock}
-          </div>
-        </>
-      ) : (
-        /* NO PHOTO: Full-page centered text */
+      {/* Text block — positioned dynamically */}
+      <div
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          top: `${textPosition.y}%`,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          padding: '0 105px',
+          textAlign: 'center',
+        }}
+      >
+        {textBlock}
+      </div>
+
+      {/* QR Code — positioned dynamically */}
+      {syncToken ? (
         <div
           style={{
             position: 'absolute',
-            inset: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '105px',
-            textAlign: 'center',
+            left: `${qrPosition.x}%`,
+            top: `${qrPosition.y}%`,
+            width: `${qrPosition.size}%`,
           }}
         >
-          {textBlock}
+          <div style={{ padding: '13px', backgroundColor: '#ffffff', borderRadius: '13px', border: '3px solid #eee', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <QRCodeSVG value={rsvpUrl} size={qrSizePx} />
+          </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 };

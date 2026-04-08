@@ -265,7 +265,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
       .eq('id', weddingId);
 
     setBgDirty(false);
-  }, [backgroundImage, bgDirty, savedBgPath, fontStyle, edgeStyle, imageTransform, weddingId]);
+  }, [backgroundImage, bgDirty, savedBgPath, fontStyle, edgeStyle, imageTransform, weddingId, hasPhoto, editableTexts, textPosition, qrPosition]);
 
   // Load parties when entering step 2
   useEffect(() => {
