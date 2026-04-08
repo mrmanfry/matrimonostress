@@ -11,8 +11,6 @@ import {
   Check, 
   Lock, 
   Unlock,
-  Circle,
-  Square,
   Eraser,
   Trash2,
   MoreHorizontal,
