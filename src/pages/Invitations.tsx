@@ -223,11 +223,7 @@ const Invitations = () => {
               {/* Print Card - redirect to Print Studio tab */}
               <Card
                 className="p-6 cursor-pointer hover:shadow-lg transition-all duration-200 hover:-translate-y-1 border-blue-200 dark:border-blue-800 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30"
-                onClick={() => {
-                  // Switch to print tab
-                  const trigger = document.querySelector('[data-state][value="print"]') as HTMLElement;
-                  trigger?.click();
-                }}
+                onClick={() => setActiveTab("print")}
               >
                 <div className="flex items-start gap-4">
                   <div className="p-3 rounded-xl bg-blue-100 dark:bg-blue-900/50">
