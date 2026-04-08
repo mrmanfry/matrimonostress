@@ -1,99 +1,79 @@
 
 
-## Piano di Implementazione: Separazione Modulo Invitati → CRM + Hub Campagne
+## Epic 3: Print Studio — Upload Custom PDF + QR Overlay
 
-### Situazione Attuale
+### Cosa c'e oggi
 
-`Guests.tsx` (1610 righe) gestisce tutto: data entry, filtri, analytics, campagne RSVP WhatsApp, inviti cartacei. Il refactoring lo separa in due moduli distinti.
+Il Print Studio attuale (`PrintInvitationEditor.tsx`) genera inviti A5 con un design built-in (foto + testo + QR). Funziona bene, ma non permette di usare un design proprio da Canva/InDesign.
 
-### EPIC 1: Decoupling Architetturale
+### Cosa costruiremo
 
-**1.1 Nuova route `/app/invitations` + sidebar**
-- Creare `src/pages/Invitations.tsx` come dashboard hub
-- Aggiungere la route in `App.tsx` sotto `/app`
-- Aggiungere voce "Campagne" nella sidebar in `AppLayout.tsx` (icona `Send`)
-- Lazy load della route per code splitting
+Un secondo flusso nel Print Studio: "Porta il tuo design". L'utente carica un PDF o immagine, posiziona un QR code trascinandolo, e genera uno ZIP con un PDF per nucleo.
 
-**1.2 Dashboard KPI Campagne**
-- Creare `src/components/invitations/InvitationsKPIs.tsx` con funnel visuale (Da Invitare → Inviati → Confermati → Rifiutati)
-- Hook dedicato `useInvitationsData.ts` che fetcha solo i campi necessari (nome, telefono, token, rsvp_status, campaign timestamps)
-- Due card grandi centrali: "Invia su WhatsApp" e "Prepara per la Stampa"
+### Struttura dei cambiamenti
 
-**1.3 Pulizia di `Guests.tsx`**
-- Rimuovere il bottone "💬 Campagna RSVP" dalla barra filtri
-- Rimuovere il bottone "Inviti Cartacei" dall'header
-- Rimuovere `RSVPCampaignDialog` e `PrintInvitationEditor` da Guests.tsx
-- Rimuovere `FunnelKPICards` (migrato nella dashboard Campagne)
-- Aggiungere banner di navigazione: "Hai N nuclei pronti — Vai alle Campagne →"
-- Mantenere: data entry, filtri anagrafici, analytics composizione, selezione/raggruppamento
+**1. Database + Storage**
+- Migrazione: aggiungere a `weddings` le colonne `custom_pdf_template_url` (text, nullable) e `qr_overlay_config` (jsonb, nullable — `{x, y, width, color, quietZone}`)
+- Creare bucket `invitation-designs` (privato) con RLS: upload/download solo per utenti autenticati con accesso al wedding
+- Indice su `guests(party_id, rsvp_status)` per velocizzare il funnel
 
-### EPIC 2: Hub WhatsApp (parità feature)
+**2. UI: Scelta modalita in Invitations.tsx**
+- La card "Prepara per la Stampa" apre un dialog con 2 opzioni:
+  - **Design Integrato** (il wizard attuale `PrintInvitationEditor`)
+  - **Carica il tuo Design** (nuovo flusso `PrintStudio`)
 
-**2.1 Migrazione RSVPCampaignDialog**
-- Spostare `RSVPCampaignDialog` come vista full-page in `/app/invitations/whatsapp` (o sub-route)
-- Mantenere tutta la logica esistente (AI generation, share API, recovery)
-- Aggiungere breadcrumb "Campagne → WhatsApp" per navigazione
+**3. Nuovo componente `PrintStudio.tsx`** — Dialog full-screen, 3 step:
 
-**2.2 Sync e invalidazione cache**
-- Usare React Query con `queryKey` condivisi tra moduli
-- Quando si modifica un guest in `/guests`, invalidare le query usate da `/invitations`
+- **Step 1 — Upload**: drag-and-drop area per PDF (max 2 pagine, 25MB), PNG, JPG. Validazione formato/dimensione con messaggi in italiano. Per PDF, rasterizza la prima pagina con `pdfjs-dist` per la preview. Warning su mobile: "Usa un computer per la massima precisione".
 
-### EPIC 3: Print Studio con Upload Custom PDF
+- **Step 2 — Posiziona QR**: Canvas split-screen (solo desktop).
+  - Preview del design caricato a sinistra
+  - Placeholder QR trascinabile e ridimensionabile (min 60x60px)
+  - Selettore colore QR: Nero, Oro (#C9A84C), Bianco, Custom
+  - Toggle quiet zone bianca (default ON)
+  - Salva coordinate in `weddings.qr_overlay_config`
 
-**3.1 Storage e DB**
-- Creare bucket `invitation-designs` con RLS (auth + wedding ownership)
-- Aggiungere colonne a `weddings`: `custom_pdf_template_url` (text), `qr_overlay_config` (jsonb: `{x, y, width, color, quietZone}`)
-- Indice su `guests(party_id, rsvp_status)` per performance dashboard
+- **Step 3 — Genera**: 
+  - Selettore nuclei (riusa `PrintAudienceStep` esistente)
+  - Genera token mancanti automaticamente
+  - `pdf-lib` per iniettare QR SVG nelle coordinate
+  - Progress bar durante generazione
+  - Output: ZIP via `jszip`, un PDF per nucleo
 
-**3.2 Upload e Preview**
-- Accettare PDF (max 2 pagine, max 25MB), PNG, JPG
-- Rasterizzare la prima pagina del PDF con `pdfjs-dist` per preview nel canvas
-- Validazione formato + dimensioni con errori chiari in italiano
+**4. Nuovo componente `QRCanvasEditor.tsx`**
+- Canvas con immagine di sfondo (il design caricato)
+- QR placeholder trascinabile (pointer events, come gia fatto in `PrintDesignStep`)
+- Resize dai bordi con vincolo minimo 60px
+- Anteprima QR reale con `qrcode.react`
 
-**3.3 Canvas Drag & Drop per QR**
-- Canvas split-screen (desktop only, warning su mobile)
-- Placeholder QR trascinabile con resize (min 60x60px = ~1.5cm)
-- Selettore colore QR (Nero, Oro, Bianco, Custom)
-- Toggle quiet zone bianca (default ON)
-- Salvataggio coordinate in `weddings.qr_overlay_config`
+**5. Engine di rendering `PrintGeneratorEngine.ts`**
+- Funzione pura: riceve template (PDF bytes o immagine), coordinate QR, lista nuclei con token
+- Usa `pdf-lib` per: caricare il PDF originale, generare QR SVG, iniettarlo nelle coordinate
+- Per immagini: crea un PDF A5 con l'immagine e ci sovrappone il QR
+- Genera ZIP con `jszip`, segmenta se >500MB
 
-**3.4 Motore di Rendering Client-Side**
-- `pdf-lib` per iniettare QR SVG nelle coordinate salvate
-- Iterazione su tutti i nuclei con `unique_rsvp_token`
-- Generazione automatica token mancanti prima del rendering
-- Progress bar visibile durante generazione
-- Output: ZIP (via `jszip`) con un PDF per nucleo, nominato per party_name
-- Segmentazione ZIP se supera 500MB
+### Librerie nuove
+- `pdf-lib` — manipolazione PDF client-side
+- `pdfjs-dist` — rasterizzazione preview PDF
+- Gia presenti: `jszip`, `qrcode.react` (o `qrcode` puro)
 
-### Struttura File Risultante
+### Code splitting
+- Lazy import di `pdf-lib` e `pdfjs-dist` solo quando l'utente entra nel Print Studio custom
+
+### File da creare/modificare
 
 ```text
-src/pages/
-  Guests.tsx          (CRM puro, ~900 righe)
-  Invitations.tsx     (dashboard hub)
-
-src/components/invitations/
-  InvitationsKPIs.tsx
-  PrintStudio.tsx
-  QRCanvasEditor.tsx
-  PrintGeneratorEngine.tsx
-
-src/hooks/
-  useInvitationsData.ts
+src/components/invitations/PrintStudio.tsx        (nuovo — dialog 3-step)
+src/components/invitations/QRCanvasEditor.tsx      (nuovo — drag-drop QR)
+src/lib/printGeneratorEngine.ts                    (nuovo — pdf-lib rendering)
+src/pages/Invitations.tsx                          (modifica — scelta tra i 2 flussi)
+supabase/migrations/XXXX_print_studio.sql          (nuovo — colonne + bucket + indice)
 ```
 
-### Ordine di Implementazione
-
-1. Epic 1.1 + 1.2 → Creare la nuova pagina e sidebar
-2. Epic 1.3 → Pulire Guests.tsx
-3. Epic 2.1 + 2.2 → Migrare WhatsApp
-4. Epic 3.1 → DB + Storage
-5. Epic 3.2-3.4 → Print Studio
-
-### Note Tecniche
-
-- **Code splitting**: `React.lazy()` per `/invitations` e sub-routes print
-- **Librerie nuove**: `pdf-lib`, `pdfjs-dist` (solo nel chunk print)
-- **Nessuna migrazione distruttiva**: solo colonne nullable aggiunte a `weddings`
-- **Mobile**: Print Studio bloccato con warning, tutto il resto mobile-first
+### Ordine di esecuzione
+1. Migrazione DB (colonne + bucket + RLS + indice)
+2. `QRCanvasEditor.tsx` — il canvas drag-drop
+3. `printGeneratorEngine.ts` — il motore pdf-lib
+4. `PrintStudio.tsx` — il wizard 3-step
+5. Integrazione in `Invitations.tsx` — chooser tra i due flussi
 
