@@ -1,9 +1,8 @@
-import { useState, lazy, Suspense } from "react";
+import { useState } from "react";
 import { Send, Smartphone, Printer, Users, ChevronRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { InvitationsKPIs } from "@/components/invitations/InvitationsKPIs";
 import { useInvitationsData } from "@/hooks/useInvitationsData";
 import { RSVPCampaignDialog } from "@/components/guests/RSVPCampaignDialog";
@@ -11,7 +10,6 @@ import PrintInvitationEditor from "@/components/print/PrintInvitationEditor";
 
 const Invitations = () => {
   const navigate = useNavigate();
-  const isMobile = useIsMobile();
   const { guests, parties, wedding, funnelStats, partiesReadyToSend, isLoading, refetch, weddingId } = useInvitationsData();
 
   const [funnelFilter, setFunnelFilter] = useState<string | null>(null);

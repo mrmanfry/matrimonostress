@@ -35,6 +35,7 @@ import PlannerInbox from "./pages/PlannerInbox";
 import Accommodation from "./pages/Accommodation";
 import MemoriesReel from "./pages/MemoriesReel";
 import CameraPublic from "./pages/CameraPublic";
+import Invitations from "./pages/Invitations";
 import NotFound from "./pages/NotFound";
 
 const AppIndexRedirect = () => {
@@ -95,6 +96,7 @@ const App = () => (
               <Route path="tables" element={<Tables />} />
               <Route path="catering" element={<Catering />} />
               <Route path="accommodation" element={<Accommodation />} />
+              <Route path="invitations" element={<Invitations />} />
               <Route path="memories" element={<MemoriesReel />} />
               <Route path="timeline" element={<Timeline />} />
               <Route path="settings" element={<Settings />} />
