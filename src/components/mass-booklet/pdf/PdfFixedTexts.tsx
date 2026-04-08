@@ -1,7 +1,7 @@
 import { View, Text } from '@react-pdf/renderer';
-import s from './pdfStyles';
+import { createStyles } from './pdfStyles';
 import liturgiaData from '@/data/liturgia.json';
-import type { LiturgiaData, MassBookletContent } from '@/lib/massBookletSchema';
+import type { LiturgiaData, MassBookletContent, MassBookletStyle } from '@/lib/massBookletSchema';
 
 const lit = liturgiaData as unknown as LiturgiaData;
 
@@ -16,9 +16,11 @@ interface Props {
   content: MassBookletContent;
   partner1: string;
   partner2: string;
+  style?: MassBookletStyle;
 }
 
-export function PdfRiteIntro({ content, partner1, partner2 }: Props) {
+export function PdfRiteIntro({ content, partner1, partner2, style }: Props) {
+  const s = createStyles(style);
   const ft = lit.fixed_texts;
   return (
     <View>
@@ -46,7 +48,8 @@ export function PdfRiteIntro({ content, partner1, partner2 }: Props) {
   );
 }
 
-export function PdfConsent({ partner1, partner2 }: { partner1: string; partner2: string }) {
+export function PdfConsent({ partner1, partner2, style }: { partner1: string; partner2: string; style?: MassBookletStyle }) {
+  const s = createStyles(style);
   const ft = lit.fixed_texts;
   return (
     <View>
@@ -88,6 +91,7 @@ export function PdfConsent({ partner1, partner2 }: { partner1: string; partner2:
 }
 
 export function PdfOurFather() {
+  const s = createStyles();
   const ft = lit.fixed_texts;
   return (
     <View wrap={false}>

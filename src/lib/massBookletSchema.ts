@@ -49,6 +49,19 @@ export const massBookletThanksSchema = z.object({
   text: z.string().max(2000, 'Massimo 2000 caratteri').default(''),
 });
 
+export const massBookletStyleSchema = z.object({
+  heading_font: z.enum(['Times-Roman', 'Times-Bold']).default('Times-Bold'),
+  body_font: z.enum(['Helvetica', 'Courier']).default('Helvetica'),
+  heading_color: z.string().default('#1a1a1a'),
+  subtitle_color: z.string().default('#8b7355'),
+  rubric_color: z.string().default('#8b4513'),
+  body_size: z.number().min(9).max(13).default(10.5),
+  heading_size: z.number().min(12).max(20).default(14),
+  cover_image_url: z.string().nullable().default(null),
+  cover_image_height: z.number().min(50).max(500).default(200),
+  cover_layout: z.enum(['text_only', 'image_top', 'image_bottom', 'image_background']).default('text_only'),
+});
+
 export const massBookletContentSchema = z.object({
   // Step 1 - Setup
   church_name: z.string().default(''),
@@ -66,6 +79,9 @@ export const massBookletContentSchema = z.object({
   songs: massBookletSongsSchema.default({}),
   prayers: massBookletPrayersSchema.default({}),
   thanks: massBookletThanksSchema.default({}),
+
+  // Step 5 - Style
+  style: massBookletStyleSchema.default({}),
 });
 
 // ─── Full booklet record schema (what's in the DB row) ───
@@ -77,7 +93,7 @@ export const massBookletSchema = z.object({
   template_style: z.enum(['minimal', 'classic', 'modern']).default('minimal'),
   schema_version: z.number().int().default(1),
   content: massBookletContentSchema.default({}),
-  current_step: z.number().int().min(1).max(5).default(1),
+  current_step: z.number().int().min(1).max(6).default(1),
   created_at: z.string(),
   updated_at: z.string(),
 });
@@ -89,6 +105,7 @@ export type MassBookletReadings = z.infer<typeof massBookletReadingsSchema>;
 export type MassBookletSongs = z.infer<typeof massBookletSongsSchema>;
 export type MassBookletPrayers = z.infer<typeof massBookletPrayersSchema>;
 export type MassBookletThanks = z.infer<typeof massBookletThanksSchema>;
+export type MassBookletStyle = z.infer<typeof massBookletStyleSchema>;
 export type MassBookletContent = z.infer<typeof massBookletContentSchema>;
 export type MassBooklet = z.infer<typeof massBookletSchema>;
 
