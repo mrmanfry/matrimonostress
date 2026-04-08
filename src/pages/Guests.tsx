@@ -19,7 +19,8 @@ import {
   ChevronDown,
   BarChart3,
   ChevronRight,
-  Printer,
+  
+  Send,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -36,19 +37,19 @@ import { RSVPCampaignDialog } from "@/components/guests/RSVPCampaignDialog";
 import { GuestAnalyticsDashboard, AnalyticsFilterType } from "@/components/guests/GuestAnalyticsDashboard";
 import { ImportDropdown } from "@/components/guests/ImportDropdown";
 import { GuestDiffDialog } from "@/components/guests/GuestDiffDialog";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+
 import { GuestSingleCard } from "@/components/guests/GuestSingleCard";
 import { GuestNucleoCard } from "@/components/guests/GuestNucleoCard";
 import { SelectionToolbar } from "@/components/guests/SelectionToolbar";
-import { FunnelKPICards } from "@/components/guests/FunnelKPICards";
+
 import { GuestDialog } from "@/components/guests/GuestDialog";
-import { GuestCampaignBadges } from "@/components/guests/GuestCampaignBadges";
+
 import { cn } from "@/lib/utils";
 import { generateCateringReport } from "@/utils/pdfHelpers";
 import { CSVImportDialog } from "@/components/guests/CSVImportDialog";
 import { generateCSVTemplate, downloadCSV, exportGuestsToCSV } from "@/utils/csvHelpers";
 import { matchesFunnelFilter } from "@/lib/nucleusStatusHelper";
-import PrintInvitationEditor from "@/components/print/PrintInvitationEditor";
+
 
 interface Guest {
   id: string;
@@ -140,7 +141,7 @@ const Guests = () => {
   const [selectedPartiesForRSVP, setSelectedPartiesForRSVP] = useState<InviteParty[]>([]);
   const [analyticsSheetOpen, setAnalyticsSheetOpen] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
-  const [printEditorOpen, setPrintEditorOpen] = useState(false);
+  
   
   // Selection state for multi-select
   const [selectedGuestIds, setSelectedGuestIds] = useState<Set<string>>(new Set());
@@ -1109,18 +1110,11 @@ const Guests = () => {
               hasConfirmedGuests={confirmedGuests.length > 0}
             />
             <Button
-              onClick={() => setContactSyncOpen(true)}
+              onClick={() => window.location.href = '/app/invitations'}
               variant="outline"
             >
-              <Smartphone className="w-4 h-4 mr-2" />
-              Sincronizza Contatti
-            </Button>
-            <Button
-              onClick={() => setPrintEditorOpen(true)}
-              variant="outline"
-            >
-              <Printer className="w-4 h-4 mr-2" />
-              Inviti Cartacei
+              <Send className="w-4 h-4 mr-2" />
+              Campagne
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -1195,12 +1189,26 @@ const Guests = () => {
         </Card>
       ) : (
         <>
-          {/* Funnel KPI Cards - Wedding CRM */}
-          <FunnelKPICards 
-            guests={allGuests}
-            activeFilter={funnelFilter}
-            onFilterChange={setFunnelFilter}
-          />
+          {/* Navigation Banner to Campaigns */}
+          {parties.length > 0 && !maskGuestData && (
+            <Card 
+              className="p-3 cursor-pointer hover:shadow-md transition-all border-primary/20 bg-primary/5"
+              onClick={() => window.location.href = '/app/invitations'}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm">
+                  <Send className="w-4 h-4 text-primary" />
+                  <span>
+                    Hai <strong>{parties.length}</strong> nuclei pronti per ricevere l'invito
+                  </span>
+                </div>
+                <Button variant="ghost" size="sm" className="gap-1 text-primary">
+                  Vai alle Campagne
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
+            </Card>
+          )}
           
           {/* Compact Warnings */}
           {(guestsWithoutPhone > 0 || ungroupedGuests.length > 0) && (
@@ -1374,15 +1382,15 @@ const Guests = () => {
                 />
               </div>
 
-              {!maskGuestData && (
+              {!maskGuestData && parties.length > 0 && (
                 <Button
-                  onClick={handleBulkSendRSVP}
-                  disabled={parties.length === 0}
-                  variant="default"
+                  onClick={() => window.location.href = '/app/invitations'}
+                  variant="outline"
                   className="gap-2 w-full sm:w-auto sm:whitespace-nowrap"
                 >
-                  <span className="sm:hidden">💬 Campagna</span>
-                  <span className="hidden sm:inline">💬 Campagna RSVP</span>
+                  <Send className="w-4 h-4" />
+                  <span className="sm:hidden">Campagne</span>
+                  <span className="hidden sm:inline">Vai alle Campagne</span>
                 </Button>
               )}
             </div>
@@ -1598,11 +1606,6 @@ const Guests = () => {
         }}
       />
 
-      <PrintInvitationEditor
-        open={printEditorOpen}
-        onOpenChange={setPrintEditorOpen}
-        weddingId={wedding?.id || ""}
-      />
     </div>
   );
 };
