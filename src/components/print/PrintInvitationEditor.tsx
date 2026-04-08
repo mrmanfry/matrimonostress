@@ -47,6 +47,7 @@ interface PrintDesignConfig {
   editableTexts?: InvitationTexts;
   textPosition?: TextPosition;
   qrPosition?: QrPosition;
+  textColor?: string;
 }
 
 interface PrintInvitationEditorProps {
@@ -75,6 +76,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
   const [hasPhoto, setHasPhoto] = useState(true);
   const [textPosition, setTextPosition] = useState<TextPosition>({ y: 55 });
   const [qrPosition, setQrPosition] = useState<QrPosition>({ x: 42, y: 85, size: 15 });
+  const [textColor, setTextColor] = useState('#1a1a1a');
   const [editableTexts, setEditableTexts] = useState<InvitationTexts>({
     greeting: 'Cari',
     names: '',
