@@ -193,6 +193,8 @@ const PrintDesignStep = ({
   onTextPositionChange,
   qrPosition,
   onQrPositionChange,
+  textColor,
+  onTextColorChange,
 }: PrintDesignStepProps) => {
   const weddingData = weddingDataProp ?? {
     partner1Name: '', partner2Name: '', weddingDate: '',
