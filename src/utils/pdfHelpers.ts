@@ -18,12 +18,14 @@ interface TableGuest {
   menu_choice: string | null;
   dietary_restrictions: string | null;
   notes: string | null;
+  seat_position?: number | null;
 }
 
 interface Table {
   name: string;
   capacity: number;
   guests: TableGuest[];
+  table_type?: string;
 }
 
 /**
