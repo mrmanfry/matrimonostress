@@ -100,6 +100,7 @@ const DroppableTable = ({
   onDeleteTable?: (tableId: string) => void;
   proposedGuestIds?: string[];
   isProposalMode?: boolean;
+  showConfirmedOnly?: boolean;
 }) => {
   const { setNodeRef, isOver } = useDroppable({ id: table.id });
   const [editing, setEditing] = useState(false);
