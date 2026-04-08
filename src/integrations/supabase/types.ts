@@ -940,6 +940,57 @@ export type Database = {
           },
         ]
       }
+      mass_booklets: {
+        Row: {
+          content: Json
+          created_at: string
+          current_step: number
+          id: string
+          schema_version: number
+          status: string
+          template_style: string
+          updated_at: string
+          wedding_id: string
+        }
+        Insert: {
+          content?: Json
+          created_at?: string
+          current_step?: number
+          id?: string
+          schema_version?: number
+          status?: string
+          template_style?: string
+          updated_at?: string
+          wedding_id: string
+        }
+        Update: {
+          content?: Json
+          created_at?: string
+          current_step?: number
+          id?: string
+          schema_version?: number
+          status?: string
+          template_style?: string
+          updated_at?: string
+          wedding_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mass_booklets_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: true
+            referencedRelation: "weddings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mass_booklets_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: true
+            referencedRelation: "weddings_camera_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       message_reads: {
         Row: {
           id: string

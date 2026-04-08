@@ -1,0 +1,251 @@
+{
+  "schema_version": 1,
+  "rite_types": [
+    { "id": "messa_eucaristia", "label": "Messa con Eucaristia" },
+    { "id": "liturgia_parola", "label": "Solo Liturgia della Parola" }
+  ],
+  "readings": {
+    "first_reading": [
+      {
+        "id": "osea_2_16",
+        "reference": "Os 2, 16.17b-22",
+        "title": "Ti farò mia sposa per sempre",
+        "source": "Dal libro del profeta Osea",
+        "text": "Così dice il Signore:\n«Ecco, la attirerò a me,\nla condurrò nel deserto\ne parlerò al suo cuore;\nlà canterà come nei giorni della sua giovinezza,\ncome quando uscì dal paese d'Egitto.\nE avverrà in quel giorno\n– oracolo del Signore –\nmi chiamerai: Marito mio,\ne non mi chiamerai più: Mio padrone.\nLe toglierò dalla bocca\ni nomi dei Baal,\nche non saranno più ricordati.\nIn quel tempo farò per loro un'alleanza\ncon le bestie della terra\ne gli uccelli del cielo\ne con i rettili del suolo;\narco e spada e guerra\neliminerò dal paese;\ne li farò riposare tranquilli.\nTi farò mia sposa per sempre,\nti farò mia sposa\nnella giustizia e nel diritto,\nnella benevolenza e nell'amore,\nti fidanzerò con me nella fedeltà\ne tu conoscerai il Signore».\n\nParola di Dio."
+      },
+      {
+        "id": "genesi_1_26",
+        "reference": "Gn 1, 26-28.31a",
+        "title": "Maschio e femmina li creò",
+        "source": "Dal libro della Genesi",
+        "text": "Dio disse: «Facciamo l'uomo a nostra immagine, secondo la nostra somiglianza: dòmini sui pesci del mare e sugli uccelli del cielo, sul bestiame, su tutti gli animali selvatici e su tutti i rettili che strisciano sulla terra».\nE Dio creò l'uomo a sua immagine;\na immagine di Dio lo creò:\nmaschio e femmina li creò.\nDio li benedisse e Dio disse loro:\n«Siate fecondi e moltiplicatevi,\nriempite la terra e soggiogatela,\ndominate sui pesci del mare e sugli uccelli del cielo\ne su ogni essere vivente che striscia sulla terra».\nDio vide quanto aveva fatto, ed ecco, era cosa molto buona.\n\nParola di Dio."
+      },
+      {
+        "id": "genesi_2_18",
+        "reference": "Gn 2, 18-24",
+        "title": "I due saranno un'unica carne",
+        "source": "Dal libro della Genesi",
+        "text": "Il Signore Dio disse: «Non è bene che l'uomo sia solo: voglio fargli un aiuto che gli corrisponda».\nAllora il Signore Dio plasmò dal suolo ogni sorta di animali selvatici e tutti gli uccelli del cielo e li condusse all'uomo, per vedere come li avrebbe chiamati: in qualunque modo l'uomo avesse chiamato ognuno degli esseri viventi, quello doveva essere il suo nome.\nCosì l'uomo impose nomi a tutto il bestiame, a tutti gli uccelli del cielo e a tutti gli animali selvatici, ma per l'uomo non trovò un aiuto che gli corrispondesse.\nAllora il Signore Dio fece scendere un torpore sull'uomo, che si addormentò; gli tolse una delle costole e richiuse la carne al suo posto.\nIl Signore Dio formò con la costola, che aveva tolta all'uomo, una donna e la condusse all'uomo.\nAllora l'uomo disse:\n«Questa volta è osso dalle mie ossa,\ncarne dalla mia carne.\nLa si chiamerà donna,\nperché dall'uomo è stata tolta».\nPer questo l'uomo lascerà suo padre e sua madre e si unirà a sua moglie, e i due saranno un'unica carne.\n\nParola di Dio."
+      },
+      {
+        "id": "tobia_8_4",
+        "reference": "Tb 8, 4b-8",
+        "title": "Il Signore del cielo ci assista",
+        "source": "Dal libro di Tobìa",
+        "text": "La notte delle nozze Tobia si alzò dal letto e disse a Sara: «Sorella, àlzati! Preghiamo e domandiamo al Signore nostro che ci dia grazia e salvezza».\nSara si alzò e si misero a pregare e a chiedere che venisse su di loro la salvezza, dicendo:\n«Benedetto sei tu, Dio dei nostri padri,\ne benedetto per tutte le generazioni è il tuo nome!\nTi benedicano i cieli e tutte le creature\nper tutti i secoli!\nTu hai creato Adamo e gli hai creato un aiuto e sostegno: Eva sua moglie.\nDa loro due nacque tutto il genere umano.\nTu hai detto: non è cosa buona che l'uomo sia solo;\nfacciamogli un aiuto simile a lui.\nOra non per lussuria io prendo questa mia parente,\nma con rettitudine d'intenzione.\nDègnati di avere misericordia di me e di lei\ne di farci giungere insieme alla vecchiaia».\nE dissero insieme: «Amen, amen!».\n\nParola di Dio."
+      },
+      {
+        "id": "cantico_2_8",
+        "reference": "Ct 2, 8-10.14.16a; 8, 6-7a",
+        "title": "Forte come la morte è l'amore",
+        "source": "Dal Cantico dei Cantici",
+        "text": "Una voce! L'amato mio!\nEccolo, viene saltando per i monti,\nbalzando per le colline.\nL'amato mio è come una gazzella\no un cerbiatto.\nEccolo, è fermo dietro il nostro muro;\nguarda dalla finestra,\nspia dalle inferriate.\nOra l'amato mio prende a dirmi:\n«Àlzati, amica mia,\nmia bella, e vieni, presto!\nMia colomba, che stai nelle fenditure della roccia,\nnei nascondigli dei dirupi,\nmostrami il tuo viso,\nfammi sentire la tua voce,\nperché la tua voce è soave,\nil tuo viso è incantevole».\nIl mio amato è mio e io sono sua.\n«Mettimi come sigillo sul tuo cuore,\ncome sigillo sul tuo braccio;\nperché forte come la morte è l'amore,\ntenace come il regno dei morti è la passione:\nle sue vampe sono vampe di fuoco,\nuna fiamma divina!\nLe grandi acque non possono spegnere l'amore\nné i fiumi travolgerlo».\n\nParola di Dio."
+      },
+      {
+        "id": "siracide_26_1",
+        "reference": "Sir 26, 1-4.13-16",
+        "title": "Come il sole che sorge, così la bellezza della sposa",
+        "source": "Dal libro del Siracide",
+        "text": "Beato il marito di una donna virtuosa;\nil numero dei suoi giorni sarà doppio.\nLa donna forte è la gioia del marito,\negli trascorrerà gli anni in pace.\nDonna virtuosa, sorte felice:\nella viene assegnata a chi teme il Signore.\nRicco o povero, il suo cuore è contento\ne il suo volto è sempre sereno.\nGrazia su grazia è una donna pudica,\nnessun prezzo è degno di un'anima sobria.\nCome il sole che sorge sulle alture del Signore,\ncosì la bellezza di una donna virtuosa\nè ornamento della sua casa.\nCome lampada che brilla sul candelabro santo,\ncosì è un bel volto su un corpo ben fatto.\n\nParola di Dio."
+      },
+      {
+        "id": "ezechiele_36_24",
+        "reference": "Ez 36, 24-28",
+        "title": "Vi darò un cuore nuovo",
+        "source": "Dal libro del profeta Ezechiele",
+        "text": "Vi prenderò dalle genti, vi radunerò da ogni terra e vi condurrò sul vostro suolo. Vi aspergerò con acqua e sarete purificati; io vi purificherò da tutte le vostre sozzure e da tutti i vostri idoli; vi darò un cuore nuovo, metterò dentro di voi uno spirito nuovo, toglierò da voi il cuore di pietra e vi darò un cuore di carne.\nPorrò il mio spirito dentro di voi e vi farò vivere secondo i miei statuti e vi farò osservare e mettere in pratica le mie leggi. Abiterete nella terra che io diedi ai vostri padri; voi sarete il mio popolo e io sarò il vostro Dio.\n\nParola di Dio."
+      },
+      {
+        "id": "deuteronomio_6_4",
+        "reference": "Dt 6, 4-9",
+        "title": "Amerai il Signore tuo Dio con tutto il cuore",
+        "source": "Dal libro del Deuteronomio",
+        "text": "Ascolta, Israele: il Signore è il nostro Dio, il Signore è uno solo. Tu amerai il Signore tuo Dio con tutto il cuore, con tutta l'anima e con tutte le forze. Questi precetti che oggi ti do, ti stiano fissi nel cuore; li ripeterai ai tuoi figli, ne parlerai quando sarai seduto in casa tua, quando camminerai per via, quando ti coricherai e quando ti alzerai. Te li legherai alla mano come un segno, ti saranno come un pendaglio tra gli occhi e li scriverai sugli stipiti della tua casa e sulle tue porte.\n\nParola di Dio."
+      }
+    ],
+    "responsorial_psalm": [
+      {
+        "id": "salmo_39",
+        "reference": "Sal 39",
+        "title": "Siamo pronti, Signore, a fare la tua volontà",
+        "refrain": "Siamo pronti, Signore, a fare la tua volontà.",
+        "verses": [
+          "Ho sperato: ho sperato nel Signore\ned egli su di me si è chinato,\nha dato ascolto al mio grido.\nMi ha messo sulla bocca un canto nuovo,\nlode al nostro Dio.",
+          "Quanti prodigi tu hai fatto, Signore Dio mio,\nquali disegni in nostro favore:\nnessuno a te si può paragonare.\nSe li voglio annunziare e proclamare\nsono troppi per essere contati.",
+          "Sacrificio e offerta non gradisci,\ngli orecchi mi hai aperto.\nNon hai chiesto olocausto e vittima per la colpa.\nAllora ho detto: «Ecco, io vengo».",
+          "«Sul rotolo del libro, di me è scritto\ndi compiere il tuo volere.\nMio Dio, questo io desidero,\nla tua legge è nel profondo del mio cuore».",
+          "Ho annunziato la tua giustizia nella grande assemblea;\nvedi, non tengo chiuse le labbra, Signore, tu lo sai.\nNon ho nascosto la tua giustizia in fondo al cuore,\nla tua fedeltà e la tua salvezza ho proclamato."
+        ]
+      },
+      {
+        "id": "salmo_32",
+        "reference": "Sal 31 (32)",
+        "title": "Togli, Signore, la mia colpa e il mio peccato",
+        "refrain": "Togli, Signore, la mia colpa e il mio peccato.",
+        "verses": [
+          "Beato l'uomo a cui è tolta la colpa\ne coperto il peccato.\nBeato l'uomo a cui Dio non imputa il delitto\ne nel cui spirito non è inganno.",
+          "Ti ho fatto conoscere il mio peccato,\nnon ho coperto la mia colpa.\nHo detto: «Confesserò al Signore le mie iniquità»\ne tu hai tolto la mia colpa e il mio peccato.",
+          "Tu sei il mio rifugio, mi liberi dall'angoscia,\nmi circondi di canti di liberazione.",
+          "Rallegratevi nel Signore ed esultate, o giusti!\nVoi tutti, retti di cuore, gridate di gioia!"
+        ]
+      },
+      {
+        "id": "salmo_33",
+        "reference": "Sal 33 (34)",
+        "title": "Gustate e vedete com'è buono il Signore",
+        "refrain": "Gustate e vedete com'è buono il Signore.",
+        "verses": [
+          "Benedirò il Signore in ogni tempo,\nsulla mia bocca sempre la sua lode.\nIo mi glorio nel Signore:\ni poveri ascoltino e si rallegrino.",
+          "Magnificate con me il Signore,\nesaltiamo insieme il suo nome.\nHo cercato il Signore: mi ha risposto\ne da ogni mia paura mi ha liberato.",
+          "Guardate a lui e sarete raggianti,\ni vostri volti non dovranno arrossire.\nQuesto povero grida e il Signore lo ascolta,\nlo salva da tutte le sue angosce."
+        ]
+      },
+      {
+        "id": "salmo_85",
+        "reference": "Sal 85 (86)",
+        "title": "Mostraci, Signore, la tua via",
+        "refrain": "Mostraci, Signore, la tua via.",
+        "verses": [
+          "Mostrami, Signore, la tua via,\nperché nella tua verità io cammini;\ndonami un cuore semplice\nche tema il tuo nome.",
+          "Ti loderò, Signore, Dio mio, con tutto il cuore\ne darò gloria al tuo nome sempre,\nperché grande con me è la tua misericordia.",
+          "Ma tu, Signore, Dio di pietà, compassionevole,\nlento all'ira e pieno di amore, Dio fedele,\nvolgiti a me e abbi misericordia:\ndona al tuo servo la tua forza."
+        ]
+      },
+      {
+        "id": "salmo_127",
+        "reference": "Sal 127 (128)",
+        "title": "Beato chi teme il Signore",
+        "refrain": "Beato chi teme il Signore e cammina nelle sue vie.",
+        "verses": [
+          "Beato chi teme il Signore\ne cammina nelle sue vie.\nDella fatica delle tue mani ti nutrirai,\nsarai felice e avrai ogni bene.",
+          "La tua sposa come vite feconda\nnell'intimità della tua casa;\ni tuoi figli come virgulti d'ulivo\nintorno alla tua mensa.",
+          "Ecco, com'è benedetto\nl'uomo che teme il Signore.\nTi benedica il Signore da Sion.\nPossa tu vedere il bene di Gerusalemme\ntutti i giorni della tua vita!"
+        ]
+      },
+      {
+        "id": "salmo_144",
+        "reference": "Sal 144 (145)",
+        "title": "Il Signore è buono verso tutti",
+        "refrain": "Il Signore è vicino a chi lo invoca.",
+        "verses": [
+          "Ti voglio benedire ogni giorno,\nrodare il tuo nome in eterno e per sempre.\nGrande è il Signore e degno di ogni lode;\nsenza fine è la sua grandezza.",
+          "Misericordioso e pietoso è il Signore,\nlento all'ira e grande nell'amore.\nBuono è il Signore verso tutti,\nla sua tenerezza si espande su tutte le creature.",
+          "Fedele è il Signore in tutte le sue parole\ne buono in tutte le sue opere.\nIl Signore sostiene quelli che vacillano\ne rialza chiunque è caduto."
+        ]
+      }
+    ],
+    "second_reading": [
+      {
+        "id": "romani_12_1",
+        "reference": "Rm 12, 1-2.9-18",
+        "title": "La carità non abbia finzioni",
+        "source": "Dalla lettera di san Paolo apostolo ai Romani",
+        "text": "Vi esorto dunque, fratelli, per la misericordia di Dio, ad offrire i vostri corpi come sacrificio vivente, santo e gradito a Dio; è questo il vostro culto spirituale. Non conformatevi alla mentalità di questo secolo, ma trasformatevi rinnovando la vostra mente, per poter discernere la volontà di Dio, ciò che è buono, a lui gradito e perfetto.\nLa carità non abbia finzioni: fuggite il male con orrore, attaccatevi al bene; amatevi gli uni gli altri con affetto fraterno, gareggiate nello stimarvi a vicenda. Non siate pigri nello zelo; siate invece ferventi nello spirito, servite il Signore. Siate lieti nella speranza, forti nella tribolazione, perseveranti nella preghiera, solleciti per le necessità dei fratelli, premurosi nell'ospitalità.\nBenedite coloro che vi perseguitano, benedite e non maledite. Rallegratevi con quelli che sono nella gioia, piangete con quelli che sono nel pianto. Abbiate i medesimi sentimenti gli uni verso gli altri; non aspirate a cose troppo alte, piegatevi invece a quelle umili. Non fatevi un'idea troppo alta di voi stessi.\nNon rendete a nessuno male per male. Cercate di compiere il bene davanti a tutti gli uomini. Se possibile, per quanto questo dipende da voi, vivete in pace con tutti.\n\nParola di Dio."
+      },
+      {
+        "id": "1corinzi_13_1",
+        "reference": "1 Cor 13, 1-13",
+        "title": "Inno all'Amore",
+        "source": "Dalla prima lettera di san Paolo apostolo ai Corinzi",
+        "text": "Se anche parlassi le lingue degli uomini e degli angeli, ma non avessi la carità, sono come un bronzo che risuona o un cembalo che tintinna.\nE se avessi il dono della profezia e conoscessi tutti i misteri e tutta la scienza, e possedessi la pienezza della fede così da trasportare le montagne, ma non avessi la carità, non sono nulla.\nE se anche distribuissi tutte le mie sostanze e dessi il mio corpo per esser bruciato, ma non avessi la carità, niente mi giova.\nLa carità è paziente, è benigna la carità;\nnon è invidiosa la carità,\nnon si vanta, non si gonfia,\nnon manca di rispetto,\nnon cerca il suo interesse,\nnon si adira, non tiene conto del male ricevuto,\nnon gode dell'ingiustizia, ma si compiace della verità.\nTutto copre, tutto crede,\ntutto spera, tutto sopporta.\nLa carità non avrà mai fine.\nLe profezie scompariranno; il dono delle lingue cesserà e la scienza svanirà. La nostra conoscenza è imperfetta e imperfetta la nostra profezia.\nMa quando verrà ciò che è perfetto, quello che è imperfetto scomparirà.\nQuand'ero bambino, parlavo da bambino, pensavo da bambino, ragionavo da bambino. Ma, divenuto uomo, ciò che era da bambino l'ho abbandonato.\nOra vediamo come in uno specchio, in maniera confusa; ma allora vedremo a faccia a faccia. Ora conosco in modo imperfetto, ma allora conoscerò perfettamente, come anch'io sono conosciuto.\nQueste dunque le tre cose che rimangono:\nla fede, la speranza e la carità;\nma di tutte più grande è la carità!\n\nParola di Dio."
+      },
+      {
+        "id": "efesini_4_1",
+        "reference": "Ef 4, 1-6",
+        "title": "Un solo corpo, un solo spirito",
+        "source": "Dalla lettera di san Paolo apostolo agli Efesini",
+        "text": "Vi esorto, fratelli, io, il prigioniero nel Signore, a comportarvi in maniera degna della vocazione che avete ricevuto, con ogni umiltà, mansuetudine e pazienza, sopportandovi a vicenda con amore, cercando di conservare l'unità dello spirito per mezzo del vincolo della pace. Un solo corpo, un solo spirito, come una sola è la speranza alla quale siete stati chiamati, quella della vostra vocazione; un solo Signore, una sola fede, un solo battesimo. Un solo Dio Padre di tutti, che è al di sopra di tutti, agisce per mezzo di tutti ed è presente in tutti.\n\nParola di Dio."
+      },
+      {
+        "id": "efesini_5_2",
+        "reference": "Ef 5, 2a.25-32",
+        "title": "Questo mistero è grande: io lo dico in riferimento a Cristo e alla Chiesa",
+        "source": "Dalla lettera di san Paolo apostolo agli Efesini",
+        "text": "Fratelli, camminate nella carità, nel modo in cui anche Cristo ci ha amato.\nE voi, mariti, amate le vostre mogli, come anche Cristo ha amato la Chiesa e ha dato se stesso per lei, per renderla santa, purificandola con il lavacro dell'acqua mediante la parola, e per presentare a se stesso la Chiesa tutta gloriosa, senza macchia né ruga o alcunché di simile, ma santa e immacolata.\nCosì anche i mariti hanno il dovere di amare le mogli come il proprio corpo: chi ama la propria moglie, ama se stesso. Nessuno infatti ha mai odiato la propria carne, anzi la nutre e la cura, come anche Cristo fa con la Chiesa, poiché siamo membra del suo corpo.\nPer questo l'uomo lascerà il padre e la madre e si unirà a sua moglie e i due diventeranno una sola carne.\nQuesto mistero è grande: io lo dico in riferimento a Cristo e alla Chiesa!\n\nParola di Dio."
+      },
+      {
+        "id": "colossesi_3_12",
+        "reference": "Col 3, 12-17",
+        "title": "Al di sopra di tutto vi sia la carità",
+        "source": "Dalla lettera di san Paolo apostolo ai Colossesi",
+        "text": "Fratelli, scelti da Dio, santi e amati, rivestitevi di sentimenti di tenerezza, di bontà, di umiltà, di mansuetudine, di magnanimità, sopportandovi a vicenda e perdonandovi gli uni gli altri, se qualcuno avesse di che lamentarsi nei riguardi di un altro.\nCome il Signore vi ha perdonato, così fate anche voi. Ma sopra tutte queste cose rivestitevi della carità, che le unisce in modo perfetto. E la pace di Cristo regni nei vostri cuori, perché ad essa siete stati chiamati in un solo corpo. E rendete grazie!\nLa parola di Cristo abiti tra voi nella sua ricchezza. Con ogni sapienza istruitevi e ammonitevi a vicenda con salmi, inni e canti ispirati, con gratitudine, cantando a Dio nei vostri cuori. E qualunque cosa facciate, in parole e in opere, tutto avvenga nel nome del Signore Gesù, rendendo per mezzo di lui grazie a Dio Padre.\n\nParola di Dio."
+      },
+      {
+        "id": "1giovanni_4_7",
+        "reference": "1 Gv 4, 7-12",
+        "title": "Dio è amore",
+        "source": "Dalla prima lettera di san Giovanni apostolo",
+        "text": "Carissimi, amiamoci gli uni gli altri, perché l'amore è da Dio: chiunque ama è stato generato da Dio e conosce Dio. Chi non ama non ha conosciuto Dio, perché Dio è amore.\nIn questo si è manifestato l'amore di Dio in noi: Dio ha mandato nel mondo il suo Figlio unigenito, perché noi avessimo la vita per mezzo di lui.\nIn questo sta l'amore: non siamo stati noi ad amare Dio, ma è lui che ha amato noi e ha mandato il suo Figlio come vittima di espiazione per i nostri peccati.\nCarissimi, se Dio ci ha amati così, anche noi dobbiamo amarci gli uni gli altri. Nessuno mai ha visto Dio; se ci amiamo gli uni gli altri, Dio rimane in noi e l'amore di lui è perfetto in noi.\n\nParola di Dio."
+      }
+    ],
+    "gospel": [
+      {
+        "id": "matteo_5_1",
+        "reference": "Mt 5, 1-16",
+        "title": "Voi siete la luce del mondo",
+        "source": "Dal Vangelo secondo Matteo",
+        "text": "In quel tempo, vedendo le folle, Gesù salì sulla montagna e, messosi a sedere, gli si avvicinarono i suoi discepoli. Prendendo allora la parola, li ammaestrava dicendo:\n«Beati i poveri in spirito, perché di essi è il regno dei cieli.\nBeati gli afflitti, perché saranno consolati.\nBeati i miti, perché erediteranno la terra.\nBeati quelli che hanno fame e sete della giustizia, perché saranno saziati.\nBeati i misericordiosi, perché troveranno misericordia.\nBeati i puri di cuore, perché vedranno Dio.\nBeati gli operatori di pace, perché saranno chiamati figli di Dio.\nBeati i perseguitati per causa della giustizia, perché di essi è il regno dei cieli.\nBeati voi quando vi insulteranno, vi perseguiteranno e, mentendo, diranno ogni sorta di male contro di voi per causa mia.\nRallegratevi ed esultate, perché grande è la vostra ricompensa nei cieli.\nVoi siete il sale della terra; ma se il sale perdesse il sapore, con che cosa lo si potrà rendere salato? A null'altro serve che ad essere gettato via e calpestato dagli uomini.\nVoi siete la luce del mondo; non può restare nascosta una città collocata sopra un monte, né si accende una lucerna per metterla sotto il moggio, ma sopra il lucerniere perché faccia luce a tutti quelli che sono nella casa.\nCosì risplenda la vostra luce davanti agli uomini, perché vedano le vostre opere buone e rendano gloria al vostro Padre che è nei cieli».\n\nParola del Signore."
+      },
+      {
+        "id": "matteo_7_21",
+        "reference": "Mt 7, 21.24-29",
+        "title": "La casa costruita sulla roccia",
+        "source": "Dal Vangelo secondo Matteo",
+        "text": "In quel tempo, Gesù disse ai suoi discepoli:\n«Non chiunque mi dice: "Signore, Signore", entrerà nel regno dei cieli, ma colui che fa la volontà del Padre mio che è nei cieli.\nPerciò chiunque ascolta queste mie parole e le mette in pratica, sarà simile a un uomo saggio, che ha costruito la sua casa sulla roccia. Cadde la pioggia, strariparono i fiumi, soffiarono i venti e si abbatterono su quella casa, ma essa non cadde, perché era fondata sulla roccia.\nChiunque ascolta queste mie parole e non le mette in pratica, sarà simile a un uomo stolto, che ha costruito la sua casa sulla sabbia. Cadde la pioggia, strariparono i fiumi, soffiarono i venti e si abbatterono su quella casa, ed essa cadde e la sua rovina fu grande».\nQuando Gesù ebbe terminato questi discorsi, le folle erano stupite del suo insegnamento: egli infatti insegnava loro come uno che ha autorità, e non come i loro scribi.\n\nParola del Signore."
+      },
+      {
+        "id": "giovanni_15_1",
+        "reference": "Gv 15, 1-5.9-12",
+        "title": "Io sono la vite, voi i tralci",
+        "source": "Dal Vangelo secondo Giovanni",
+        "text": "In quel tempo, Gesù disse ai suoi discepoli:\n«Io sono la vite vera e il Padre mio è l'agricoltore. Ogni tralcio che in me non porta frutto, lo taglia, e ogni tralcio che porta frutto, lo pota perché porti più frutto. Voi siete già puri, a causa della parola che vi ho annunciato. Rimanete in me e io in voi. Come il tralcio non può portare frutto da se stesso se non rimane nella vite, così neanche voi se non rimanete in me. Io sono la vite, voi i tralci. Chi rimane in me, e io in lui, porta molto frutto, perché senza di me non potete far nulla.\nCome il Padre ha amato me, anche io ho amato voi. Rimanete nel mio amore. Se osserverete i miei comandamenti, rimarrete nel mio amore, come io ho osservato i comandamenti del Padre mio e rimango nel suo amore. Vi ho detto queste cose perché la mia gioia sia in voi e la vostra gioia sia piena.\nQuesto è il mio comandamento: che vi amiate gli uni gli altri come io ho amato voi».\n\nParola del Signore."
+      },
+      {
+        "id": "giovanni_2_1",
+        "reference": "Gv 2, 1-11",
+        "title": "Le nozze di Cana",
+        "source": "Dal Vangelo secondo Giovanni",
+        "text": "In quel tempo, vi fu una festa di nozze a Cana di Galilea e c'era la madre di Gesù. Fu invitato alle nozze anche Gesù con i suoi discepoli. Venuto a mancare il vino, la madre di Gesù gli disse: «Non hanno vino». E Gesù le rispose: «Donna, che vuoi da me? Non è ancora giunta la mia ora». Sua madre disse ai servitori: «Qualsiasi cosa vi dica, fatela».\nVi erano là sei anfore di pietra per la purificazione rituale dei Giudei, contenenti ciascuna da ottanta a centoventi litri. E Gesù disse loro: «Riempite d'acqua le anfore»; e le riempirono fino all'orlo. Disse loro di nuovo: «Ora prendetene e portatene a colui che dirige il banchetto». Ed essi gliene portarono.\nCome ebbe assaggiato l'acqua diventata vino, colui che dirigeva il banchetto – il quale non sapeva da dove venisse, ma lo sapevano i servitori che avevano preso l'acqua – chiamò lo sposo e gli disse: «Tutti mettono in tavola il vino buono all'inizio e, quando si è già bevuto molto, quello meno buono. Tu invece hai tenuto da parte il vino buono finora».\nQuesto, a Cana di Galilea, fu l'inizio dei segni compiuti da Gesù; egli manifestò la sua gloria e i suoi discepoli credettero in lui.\n\nParola del Signore."
+      },
+      {
+        "id": "matteo_19_3",
+        "reference": "Mt 19, 3-6",
+        "title": "Quello che Dio ha congiunto, l'uomo non lo separi",
+        "source": "Dal Vangelo secondo Matteo",
+        "text": "In quel tempo, si avvicinarono a Gesù alcuni farisei per metterlo alla prova e gli chiesero: «È lecito a un uomo ripudiare la propria moglie per qualsiasi motivo?».\nEgli rispose: «Non avete letto che il Creatore da principio li fece maschio e femmina e disse: Per questo l'uomo lascerà il padre e la madre e si unirà a sua moglie e i due diventeranno una sola carne? Così non sono più due, ma una sola carne. Dunque l'uomo non divida quello che Dio ha congiunto».\n\nParola del Signore."
+      },
+      {
+        "id": "luca_7_36",
+        "reference": "Lc 7, 36 – 8, 3",
+        "title": "Sono perdonati i suoi molti peccati, perché ha molto amato",
+        "source": "Dal Vangelo secondo Luca",
+        "text": "In quel tempo, uno dei farisei invitò Gesù a mangiare da lui. Egli entrò nella casa del fariseo e si mise a tavola. Ed ecco, una donna, peccatrice di quella città, saputo che si trovava nella casa del fariseo, portò un vaso di profumo; stando dietro, presso i piedi di lui, piangendo, cominciò a bagnarli di lacrime, poi li asciugava con i suoi capelli, li baciava e li cospargeva di profumo.\nVedendo questo, il fariseo che l'aveva invitato disse tra sé: «Se costui fosse un profeta, saprebbe chi è, e di quale genere è la donna che lo tocca: è una peccatrice!».\nGesù allora gli disse: «Simone, ho da dirti qualcosa». Ed egli rispose: «Dì pure, maestro».\n«Un creditore aveva due debitori: uno gli doveva cinquecento denari, l'altro cinquanta. Non avendo essi di che restituire, condonò il debito a tutti e due. Chi di loro dunque lo amerà di più?».\nSimone rispose: «Suppongo sia colui al quale ha condonato di più». Gli disse Gesù: «Hai giudicato bene».\nE, volgendosi verso la donna, disse a Simone: «Vedi questa donna? Sono entrato in casa tua e tu non mi hai dato l'acqua per i piedi; lei invece mi ha bagnato i piedi con le lacrime e li ha asciugati con i suoi capelli. Tu non mi hai dato un bacio; lei invece, da quando sono entrato, non ha cessato di baciarmi i piedi. Tu non mi hai unto con olio il mio capo; lei invece mi ha cosparso i piedi di profumo.\nPer questo io ti dico: sono perdonati i suoi molti peccati, perché ha molto amato. Invece colui al quale si perdona poco, ama poco».\nPoi disse a lei: «I tuoi peccati sono perdonati».\nAllora i commensali cominciarono a dire tra sé: «Chi è costui che perdona anche i peccati?».\nMa egli disse alla donna: «La tua fede ti ha salvata; va' in pace!».\n\nParola del Signore."
+      }
+    ]
+  },
+  "fixed_texts": {
+    "rite_intro": {
+      "sign_of_cross": "Nel nome del Padre e del Figlio e dello Spirito Santo.",
+      "greeting": "Il Signore che guida i nostri cuori nell'amore e nella pienezza di Cristo sia con tutti voi.",
+      "response_greeting": "E con il tuo spirito."
+    },
+    "baptism_memory": "Fratelli e sorelle, ci siamo riuniti con gioia nella casa del Signore nel giorno in cui {{partner1}} e {{partner2}} intendono formare la loro famiglia.\nIn quest'ora di particolare grazia siamo loro vicini con l'affetto, con l'amicizia e la preghiera fraterna.\nAscoltiamo insieme con loro la Parola che Dio oggi ci rivolge.\nIn unione con la santa Chiesa supplichiamo Dio Padre, per Cristo Signore nostro, perché benedica questi suoi figli che stanno per celebrare il loro matrimonio, li accolga nel suo amore e li costituisca in unità.\nFacciamo ora memoria del battesimo, nel quale siamo rinati a vita nuova.",
+    "consent_questions": {
+      "intro": "Carissimi {{partner1}} e {{partner2}}, siete venuti nella casa del Signore, davanti al ministro della Chiesa e davanti alla comunità, perché la vostra decisione di unirvi in Matrimonio riceva il sigillo dello Spirito Santo, sorgente dell'amore fedele e inesauribile.",
+      "question_freedom": "{{partner1}} e {{partner2}}, siete venuti a celebrare il Matrimonio senza alcuna costrizione, in piena libertà e consapevoli del significato della vostra decisione?",
+      "question_faithfulness": "Siete disposti, seguendo la via del Matrimonio, ad amarvi e a onorarvi l'un l'altro per tutta la vita?",
+      "question_children": "Siete disposti ad accogliere con amore i figli che Dio vorrà donarvi e ad educarli secondo la legge di Cristo e della sua Chiesa?"
+    },
+    "consent_formula": {
+      "groom": "Io, {{partner1}}, accolgo te, {{partner2}}, come mia sposa.\nCon la grazia di Cristo\nprometto di esserti fedele sempre,\nnella gioia e nel dolore,\nnella salute e nella malattia,\ne di amarti e onorarti\ntutti i giorni della mia vita.",
+      "bride": "Io, {{partner2}}, accolgo te, {{partner1}}, come mio sposo.\nCon la grazia di Cristo\nprometto di esserti fedele sempre,\nnella gioia e nel dolore,\nnella salute e nella malattia,\ne di amarti e onorarti\ntutti i giorni della mia vita."
+    },
+    "consent_acceptance": "Il Signore onnipotente e misericordioso confermi il consenso che avete manifestato davanti alla Chiesa e vi ricolmi della sua benedizione.\nL'uomo non osi separare ciò che Dio unisce.",
+    "rings_blessing": "Signore, benedici questi anelli nuziali: gli sposi che li porteranno custodiscano integra la loro fedeltà, rimangano nella tua volontà e nella tua pace e vivano sempre nel reciproco amore.\nPer Cristo nostro Signore.",
+    "ring_exchange": {
+      "formula": "{{name}}, ricevi questo anello,\nsegno del mio amore e della mia fedeltà.\nNel nome del Padre e del Figlio\ne dello Spirito Santo."
+    },
+    "prayers_refrain": "Ascoltaci, o Signore.",
+    "our_father": "Padre nostro che sei nei Cieli,\nsia santificato il tuo nome,\nvenga il tuo regno,\nsia fatta la tua volontà\ncome in cielo così in terra.\nDacci oggi il nostro pane quotidiano\ne rimetti a noi i nostri debiti\ncome noi li rimettiamo ai nostri debitori,\ne non ci indurre in tentazione\nma liberaci dal male.\nAmen."
+  }
+}
