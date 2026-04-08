@@ -356,6 +356,23 @@ const DroppableTable = ({
           </div>
         ))}
 
+        {phantomPlusOnes.map(({ guest }) => (
+          <div
+            key={`phantom_${guest!.id}`}
+            className="flex items-center gap-2 p-2 border border-dashed border-muted-foreground/30 rounded text-sm bg-muted/30"
+          >
+            <Badge variant="outline" className="text-[10px] shrink-0 px-1">+1</Badge>
+            <span className="truncate text-muted-foreground italic">
+              {guest!.plus_one_name?.trim()
+                ? guest!.plus_one_name
+                : `+1 di ${guest!.first_name} ${guest!.last_name}`}
+            </span>
+            {!guest!.plus_one_name?.trim() && (
+              <span className="text-[10px] text-muted-foreground shrink-0">(previsto)</span>
+            )}
+          </div>
+        ))}
+
         {totalGuests === 0 && (
           <p className="text-xs text-muted-foreground text-center py-4">
             {table.is_locked ? "🔒 Tavolo bloccato" : "Trascina qui gli invitati"}
@@ -379,6 +396,8 @@ export const TableCanvas = ({
   proposedAssignments,
   isProposalMode,
   isMobile,
+  showConfirmedOnly,
+}: TableCanvasProps) => {
 }: TableCanvasProps) => {
   const standardTables = tables.filter(t => t.table_type !== 'imperial');
   const imperialTables = tables.filter(t => t.table_type === 'imperial');
@@ -415,6 +434,7 @@ export const TableCanvas = ({
                   onDeleteTable={onDeleteTable}
                   proposedGuestIds={proposed?.guestIds}
                   isProposalMode={isProposalMode}
+                  showConfirmedOnly={showConfirmedOnly}
                 />
               );
             })}
@@ -438,6 +458,7 @@ export const TableCanvas = ({
               onDeleteTable={onDeleteTable}
               proposedGuestIds={proposed?.guestIds}
               isProposalMode={isProposalMode}
+              showConfirmedOnly={showConfirmedOnly}
             />
           );
         })}
