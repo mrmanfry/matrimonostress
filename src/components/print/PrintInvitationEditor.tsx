@@ -162,6 +162,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
         if (config.hasPhoto !== undefined) setHasPhoto(config.hasPhoto);
         if (config.textPosition) setTextPosition(config.textPosition);
         if (config.qrPosition) setQrPosition(config.qrPosition);
+        if (config.textColor) setTextColor(config.textColor);
         if (config.editableTexts) {
           setEditableTexts(config.editableTexts);
           setTextsInitialized(true);
