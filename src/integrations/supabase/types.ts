@@ -1916,12 +1916,14 @@ export type Database = {
           created_at: string
           created_by: string
           current_period_end: string | null
+          custom_pdf_template_url: string | null
           id: string
           is_date_tentative: boolean
           location: string | null
           partner1_name: string
           partner2_name: string
           print_design: Json | null
+          qr_overlay_config: Json | null
           reception_start_time: string | null
           reception_venue_address: string | null
           reception_venue_name: string | null
@@ -1954,12 +1956,14 @@ export type Database = {
           created_at?: string
           created_by: string
           current_period_end?: string | null
+          custom_pdf_template_url?: string | null
           id?: string
           is_date_tentative?: boolean
           location?: string | null
           partner1_name: string
           partner2_name: string
           print_design?: Json | null
+          qr_overlay_config?: Json | null
           reception_start_time?: string | null
           reception_venue_address?: string | null
           reception_venue_name?: string | null
@@ -1992,12 +1996,14 @@ export type Database = {
           created_at?: string
           created_by?: string
           current_period_end?: string | null
+          custom_pdf_template_url?: string | null
           id?: string
           is_date_tentative?: boolean
           location?: string | null
           partner1_name?: string
           partner2_name?: string
           print_design?: Json | null
+          qr_overlay_config?: Json | null
           reception_start_time?: string | null
           reception_venue_address?: string | null
           reception_venue_name?: string | null
