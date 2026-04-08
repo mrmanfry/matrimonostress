@@ -61,7 +61,7 @@ const Settings = () => {
   const currentUserRole = authState.status === 'authenticated' ? authState.activeRole : '';
   const isCoPlanner = currentUserRole === 'co_planner' || currentUserRole === 'owner';
   const isManagerOrPlanner = currentUserRole === 'manager' || currentUserRole === 'planner';
-  const activePermissions = authState.status === 'authenticated' ? authState.activePermissions : null;
+  
   const [wedding, setWedding] = useState<any>(null);
   const [roles, setRoles] = useState<UserRole[]>([]);
   const [invites, setInvites] = useState<PendingInvite[]>([]);
