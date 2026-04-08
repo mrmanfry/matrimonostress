@@ -144,14 +144,11 @@ export async function generatePrintPDFs(
   // Bundle into ZIP
   const JSZip = (await import("jszip")).default;
   const zip = new JSZip();
-  let totalSize = 0;
 
   for (const { name, blob } of pdfBlobs) {
     zip.file(name, blob);
-    totalSize += blob.size;
   }
 
-  // If > 500MB, warn (but still generate single ZIP for now)
   const zipBlob = await zip.generateAsync({ type: "blob", compression: "DEFLATE", compressionOptions: { level: 6 } });
   const today = new Date().toISOString().slice(0, 10);
   return { blob: zipBlob, fileName: `Inviti_Custom_${today}.zip` };
