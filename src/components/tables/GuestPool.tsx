@@ -183,7 +183,7 @@ const PartyGroup = ({
   );
 };
 
-export const GuestPool = ({ guests, allGuests, assignments, isMobile }: GuestPoolProps) => {
+export const GuestPool = ({ guests, allGuests, assignments, isMobile, partyNames }: GuestPoolProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterMode, setFilterMode] = useState<'all' | 'singles' | 'families'>('all');
 
@@ -304,6 +304,7 @@ export const GuestPool = ({ guests, allGuests, assignments, isMobile }: GuestPoo
               guests={partyGuests}
               allGuests={allGuests}
               assignments={assignments}
+              partyNames={partyNames}
             />
           ))}
 
