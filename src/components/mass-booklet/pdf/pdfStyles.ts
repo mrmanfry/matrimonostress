@@ -1,23 +1,10 @@
 import { StyleSheet, Font } from '@react-pdf/renderer';
 
-// Register Google Fonts
-Font.register({
-  family: 'Lora',
-  fonts: [
-    { src: 'https://fonts.gstatic.com/s/lora/v35/0QI6MX1D_JOuGQbT0gvTJPa787weuxJBkq0.ttf', fontWeight: 400 },
-    { src: 'https://fonts.gstatic.com/s/lora/v35/0QI6MX1D_JOuGQbT0gvTJPa787z5vBJBkq0.ttf', fontWeight: 400, fontStyle: 'italic' },
-    { src: 'https://fonts.gstatic.com/s/lora/v35/0QI6MX1D_JOuGQbT0gvTJPa787wsuxJBkq0.ttf', fontWeight: 700 },
-  ],
-});
-
-Font.register({
-  family: 'Source Sans 3',
-  fonts: [
-    { src: 'https://fonts.gstatic.com/s/sourcesans3/v15/nwpBtKy2OAdR1K-IwhWudF-R9QMylBJAV3Bo8Ky462EM.ttf', fontWeight: 400 },
-    { src: 'https://fonts.gstatic.com/s/sourcesans3/v15/nwpBtKy2OAdR1K-IwhWudF-R9QMylBJAV3Bo8Kya5GEM.ttf', fontWeight: 400, fontStyle: 'italic' },
-    { src: 'https://fonts.gstatic.com/s/sourcesans3/v15/nwpBtKy2OAdR1K-IwhWudF-R9QMylBJAV3Bo8Ky4p2EM.ttf', fontWeight: 600 },
-  ],
-});
+// Use built-in PDF fonts to avoid network dependency issues.
+// 'Times-Roman' family replaces Lora (serif headings).
+// 'Helvetica' family replaces Source Sans 3 (sans-serif body).
+// Built-in fonts: Times-Roman, Times-Bold, Times-Italic, Times-BoldItalic,
+//                 Helvetica, Helvetica-Bold, Helvetica-Oblique
 
 // Hyphenation callback — disable for Italian
 Font.registerHyphenationCallback((word) => [word]);
@@ -31,7 +18,7 @@ const s = StyleSheet.create({
     paddingBottom: '15mm',
     paddingLeft: '12mm',
     paddingRight: '10mm',
-    fontFamily: 'Source Sans 3',
+    fontFamily: 'Helvetica',
     fontSize: 10.5,
     lineHeight: 1.5,
     color: '#1a1a1a',
@@ -55,30 +42,28 @@ const s = StyleSheet.create({
     color: '#8b7355',
   },
   coverTitle: {
-    fontFamily: 'Lora',
+    fontFamily: 'Times-Bold',
     fontSize: 20,
-    fontWeight: 700,
     textAlign: 'center',
     marginBottom: 6,
     color: '#1a1a1a',
   },
   coverAmpersand: {
-    fontFamily: 'Lora',
+    fontFamily: 'Times-Italic',
     fontSize: 14,
-    fontStyle: 'italic',
     textAlign: 'center',
     marginVertical: 4,
     color: '#8b7355',
   },
   coverDate: {
-    fontFamily: 'Source Sans 3',
+    fontFamily: 'Helvetica',
     fontSize: 11,
     textAlign: 'center',
     marginTop: 20,
     color: '#4a4a4a',
   },
   coverChurch: {
-    fontFamily: 'Source Sans 3',
+    fontFamily: 'Helvetica',
     fontSize: 10,
     textAlign: 'center',
     marginTop: 4,
@@ -93,17 +78,15 @@ const s = StyleSheet.create({
 
   // Section titles
   sectionTitle: {
-    fontFamily: 'Lora',
+    fontFamily: 'Times-Bold',
     fontSize: 14,
-    fontWeight: 700,
     marginBottom: 10,
     color: '#1a1a1a',
     textAlign: 'center',
   },
   subTitle: {
-    fontFamily: 'Lora',
+    fontFamily: 'Times-Bold',
     fontSize: 12,
-    fontWeight: 700,
     marginBottom: 6,
     marginTop: 14,
     color: '#1a1a1a',
@@ -116,14 +99,14 @@ const s = StyleSheet.create({
     textAlign: 'justify',
   },
   bodyItalic: {
+    fontFamily: 'Helvetica-Oblique',
     fontSize: 10.5,
     lineHeight: 1.55,
-    fontStyle: 'italic',
     textAlign: 'justify',
   },
   rubric: {
+    fontFamily: 'Helvetica-Oblique',
     fontSize: 9,
-    fontStyle: 'italic',
     color: '#8b4513',
     marginBottom: 4,
     marginTop: 8,
@@ -134,22 +117,22 @@ const s = StyleSheet.create({
     marginBottom: 6,
   },
   response: {
+    fontFamily: 'Helvetica-Bold',
     fontSize: 10.5,
-    fontWeight: 600,
     marginVertical: 3,
   },
 
   // Songs
   songTitle: {
+    fontFamily: 'Helvetica-Bold',
     fontSize: 9,
-    fontWeight: 600,
     color: '#8b7355',
     marginTop: 10,
     marginBottom: 2,
   },
   songName: {
+    fontFamily: 'Helvetica-Oblique',
     fontSize: 10,
-    fontStyle: 'italic',
   },
 
   // Prayers
@@ -159,9 +142,8 @@ const s = StyleSheet.create({
     marginBottom: 2,
   },
   prayerRefrain: {
+    fontFamily: 'Helvetica-Oblique',
     fontSize: 10.5,
-    fontWeight: 600,
-    fontStyle: 'italic',
     marginBottom: 8,
     textAlign: 'center',
   },
@@ -181,10 +163,10 @@ const s = StyleSheet.create({
 
   // Thanks
   thanksText: {
+    fontFamily: 'Helvetica-Oblique',
     fontSize: 10.5,
     lineHeight: 1.6,
     textAlign: 'center',
-    fontStyle: 'italic',
   },
 
   // Page number

@@ -2,7 +2,8 @@ import { AlertTriangle, ArrowRight, Download, FileText, Loader2 } from "lucide-r
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import { validateBookletCompleteness, type MassBookletContent } from "@/lib/massBookletSchema";
 import { pdf } from "@react-pdf/renderer";
 import BookletPdfDocument from "./pdf/BookletPdfDocument";
@@ -20,15 +21,23 @@ export default function BookletStepPreview({ content, onGoToStep, partner1, part
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const validation = validateBookletCompleteness(content);
 
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
+
   const handleGeneratePreview = async () => {
     setGenerating(true);
     try {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
       const doc = <BookletPdfDocument content={content} partner1={partner1} partner2={partner2} />;
       const blob = await pdf(doc).toBlob();
       const url = URL.createObjectURL(blob);
       setPreviewUrl(url);
     } catch (e) {
       console.error("PDF generation error:", e);
+      toast.error("Impossibile generare l'anteprima PDF. Riprova tra poco.");
     } finally {
       setGenerating(false);
     }
@@ -47,6 +56,7 @@ export default function BookletStepPreview({ content, onGoToStep, partner1, part
       URL.revokeObjectURL(url);
     } catch (e) {
       console.error("PDF download error:", e);
+      toast.error("Impossibile scaricare il PDF. Riprova tra poco.");
     } finally {
       setGenerating(false);
     }
