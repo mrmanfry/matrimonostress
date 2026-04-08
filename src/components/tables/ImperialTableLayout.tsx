@@ -219,7 +219,7 @@ export const ImperialTableLayout = ({
     <div className="space-y-3">
       <div className="relative">
         {/* Side A */}
-        <div className="flex gap-1 justify-center flex-wrap mb-1">
+        <div className="flex gap-1 justify-center overflow-x-auto mb-1">
           {sideA.map(seat => (
             <SeatSlot
               key={seat}
@@ -238,7 +238,7 @@ export const ImperialTableLayout = ({
         <div className="mx-4 h-4 bg-muted rounded-sm border border-border" />
 
         {/* Side B */}
-        <div className="flex gap-1 justify-center flex-wrap mt-1">
+        <div className="flex gap-1 justify-center overflow-x-auto mt-1">
           {sideB.map(seat => (
             <SeatSlot
               key={seat}
