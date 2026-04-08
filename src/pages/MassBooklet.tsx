@@ -244,8 +244,8 @@ export default function MassBooklet() {
         <BookletStepPreview
           content={content}
           onGoToStep={goToStep}
-          partner1={authState.status === "authenticated" ? (authState.weddings?.find(w => w.id === weddingId)?.partner1Name || "") : ""}
-          partner2={authState.status === "authenticated" ? (authState.weddings?.find(w => w.id === weddingId)?.partner2Name || "") : ""}
+          partner1={authState.status === "authenticated" ? (authState.weddings?.find(w => w.weddingId === weddingId)?.partner1Name || "") : ""}
+          partner2={authState.status === "authenticated" ? (authState.weddings?.find(w => w.weddingId === weddingId)?.partner2Name || "") : ""}
         />
       )}
 

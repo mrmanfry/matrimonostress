@@ -17,14 +17,7 @@ interface Props {
 
 export default function BookletStepPreview({ content, onGoToStep, partner1, partner2 }: Props) {
   const [accepted, setAccepted] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
   const validation = validateBookletCompleteness(content);
-
-  const pdfDoc = (
-    <Suspense fallback={null}>
-      <BookletPdfDocument content={content} partner1={partner1} partner2={partner2} />
-    </Suspense>
-  );
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
