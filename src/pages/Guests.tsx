@@ -141,7 +141,7 @@ const Guests = () => {
   const [selectedPartiesForRSVP, setSelectedPartiesForRSVP] = useState<InviteParty[]>([]);
   const [analyticsSheetOpen, setAnalyticsSheetOpen] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
-  const [printEditorOpen, setPrintEditorOpen] = useState(false);
+  
   
   // Selection state for multi-select
   const [selectedGuestIds, setSelectedGuestIds] = useState<Set<string>>(new Set());
