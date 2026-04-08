@@ -11,6 +11,8 @@ import {
   resolveDisplayName,
   resolveSyncToken,
   type PartyPrintTarget,
+  resolveGreeting,
+  resolveGreetingSolo,
 } from "@/lib/printNameResolver";
 import PrintDesignStep, { type FontStyle, FONT_MAP, type WeddingPrintData, type InvitationTexts, formatWeddingDate, formatTime } from "./PrintDesignStep";
 import PrintAudienceStep from "./PrintAudienceStep";
@@ -321,6 +323,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
         });
       }
 
+      const soloGuests = realGuests.filter(g => !g.party_id);
       for (const guest of soloGuests) {
         partyTargets.push({
           partyId: `solo_${guest.id}`,
