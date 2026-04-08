@@ -53,6 +53,7 @@ type Assignment = {
   id: string;
   table_id: string;
   guest_id: string;
+  seat_position?: number | null;
 };
 
 type Conflict = {
@@ -70,6 +71,7 @@ type TableCanvasProps = {
   onUnassign: (assignmentId: string) => void;
   onClearTable?: (tableId: string) => void;
   onDeleteTable?: (tableId: string) => void;
+  onUpdateSeatPosition?: (assignmentId: string, seatPosition: number | null) => void;
   proposedAssignments?: { tableId: string; guestIds: string[] }[];
   isProposalMode?: boolean;
   isMobile?: boolean;
