@@ -179,11 +179,6 @@ const DroppableTable = ({
     >
       {/* Shape indicator */}
       <div className="absolute top-2 right-2 flex items-center gap-1">
-        {isRound ? (
-          <Circle className="w-4 h-4 text-muted-foreground" />
-        ) : (
-          <Square className="w-4 h-4 text-muted-foreground" />
-        )}
         {/* Per-table actions menu */}
         {(onClearTable || onDeleteTable) && !isProposalMode && (
           <DropdownMenu>
