@@ -75,6 +75,7 @@ type TableCanvasProps = {
   proposedAssignments?: { tableId: string; guestIds: string[] }[];
   isProposalMode?: boolean;
   isMobile?: boolean;
+  showConfirmedOnly?: boolean;
 };
 
 const DroppableTable = ({
@@ -88,6 +89,7 @@ const DroppableTable = ({
   onDeleteTable,
   proposedGuestIds,
   isProposalMode,
+  showConfirmedOnly,
 }: {
   table: Table;
   guests: Guest[];
@@ -99,6 +101,7 @@ const DroppableTable = ({
   onDeleteTable?: (tableId: string) => void;
   proposedGuestIds?: string[];
   isProposalMode?: boolean;
+  showConfirmedOnly?: boolean;
 }) => {
   const { setNodeRef, isOver } = useDroppable({ id: table.id });
   const [editing, setEditing] = useState(false);
@@ -116,7 +119,14 @@ const DroppableTable = ({
     .map(id => guests.find(g => g.id === id))
     .filter((g): g is Guest => g !== undefined) || [];
 
-  const totalGuests = tableGuests.length + proposedGuests.length;
+  // Phantom +1: guests with allow_plus_one who don't have a real +1 assigned to this table
+  const phantomPlusOnes = tableGuests.filter(({ guest }) =>
+    guest!.allow_plus_one &&
+    !tableGuests.some(tg => tg.guest?.is_plus_one && tg.guest?.plus_one_of_guest_id === guest!.id) &&
+    (!showConfirmedOnly || (guest!.plus_one_name?.trim()))
+  );
+
+  const totalGuests = tableGuests.length + proposedGuests.length + phantomPlusOnes.length;
   const assignedGuestIds = [...tableGuests.map(({ guest }) => guest!.id), ...proposedGuestIds || []];
   
   const hasConflicts = conflicts.some(c => {
@@ -346,6 +356,23 @@ const DroppableTable = ({
           </div>
         ))}
 
+        {phantomPlusOnes.map(({ guest }) => (
+          <div
+            key={`phantom_${guest!.id}`}
+            className="flex items-center gap-2 p-2 border border-dashed border-muted-foreground/30 rounded text-sm bg-muted/30"
+          >
+            <Badge variant="outline" className="text-[10px] shrink-0 px-1">+1</Badge>
+            <span className="truncate text-muted-foreground italic">
+              {guest!.plus_one_name?.trim()
+                ? guest!.plus_one_name
+                : `+1 di ${guest!.first_name} ${guest!.last_name}`}
+            </span>
+            {!guest!.plus_one_name?.trim() && (
+              <span className="text-[10px] text-muted-foreground shrink-0">(previsto)</span>
+            )}
+          </div>
+        ))}
+
         {totalGuests === 0 && (
           <p className="text-xs text-muted-foreground text-center py-4">
             {table.is_locked ? "🔒 Tavolo bloccato" : "Trascina qui gli invitati"}
@@ -369,6 +396,7 @@ export const TableCanvas = ({
   proposedAssignments,
   isProposalMode,
   isMobile,
+  showConfirmedOnly,
 }: TableCanvasProps) => {
   const standardTables = tables.filter(t => t.table_type !== 'imperial');
   const imperialTables = tables.filter(t => t.table_type === 'imperial');
@@ -405,6 +433,7 @@ export const TableCanvas = ({
                   onDeleteTable={onDeleteTable}
                   proposedGuestIds={proposed?.guestIds}
                   isProposalMode={isProposalMode}
+                  showConfirmedOnly={showConfirmedOnly}
                 />
               );
             })}
@@ -428,6 +457,7 @@ export const TableCanvas = ({
               onDeleteTable={onDeleteTable}
               proposedGuestIds={proposed?.guestIds}
               isProposalMode={isProposalMode}
+              showConfirmedOnly={showConfirmedOnly}
             />
           );
         })}

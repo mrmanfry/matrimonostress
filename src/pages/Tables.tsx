@@ -564,6 +564,7 @@ const Tables = () => {
     },
     onClearTable: handleClearTable,
     onDeleteTable: handleDeleteTable,
+    showConfirmedOnly,
   };
 
   return (
