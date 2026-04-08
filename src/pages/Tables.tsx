@@ -519,19 +519,22 @@ const Tables = () => {
     }
 
     const tableData = tables.map(table => {
-      const tableGuests = assignments
-        .filter(a => a.table_id === table.id)
-        .map(a => guests.find(g => g.id === a.guest_id))
-        .filter((g): g is Guest => g !== undefined)
-        .map(g => ({
-          first_name: g.first_name,
-          last_name: g.last_name,
-          menu_choice: g.menu_choice,
-          dietary_restrictions: g.dietary_restrictions,
-          notes: g.notes,
-        }));
+      const tableAssignments = assignments.filter(a => a.table_id === table.id);
+      const tableGuests = tableAssignments
+        .map(a => {
+          const guest = guests.find(g => g.id === a.guest_id);
+          return guest ? {
+            first_name: guest.first_name,
+            last_name: guest.last_name,
+            menu_choice: guest.menu_choice,
+            dietary_restrictions: guest.dietary_restrictions,
+            notes: guest.notes,
+            seat_position: a.seat_position,
+          } : null;
+        })
+        .filter((g): g is NonNullable<typeof g> => g !== null);
 
-      return { name: table.name, capacity: table.capacity, guests: tableGuests };
+      return { name: table.name, capacity: table.capacity, guests: tableGuests, table_type: table.table_type };
     });
 
     generateTableReport(tableData);
