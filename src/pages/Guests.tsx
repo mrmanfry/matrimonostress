@@ -1189,12 +1189,26 @@ const Guests = () => {
         </Card>
       ) : (
         <>
-          {/* Funnel KPI Cards - Wedding CRM */}
-          <FunnelKPICards 
-            guests={allGuests}
-            activeFilter={funnelFilter}
-            onFilterChange={setFunnelFilter}
-          />
+          {/* Navigation Banner to Campaigns */}
+          {parties.length > 0 && !maskGuestData && (
+            <Card 
+              className="p-3 cursor-pointer hover:shadow-md transition-all border-primary/20 bg-primary/5"
+              onClick={() => window.location.href = '/app/invitations'}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm">
+                  <Send className="w-4 h-4 text-primary" />
+                  <span>
+                    Hai <strong>{parties.length}</strong> nuclei pronti per ricevere l'invito
+                  </span>
+                </div>
+                <Button variant="ghost" size="sm" className="gap-1 text-primary">
+                  Vai alle Campagne
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
+            </Card>
+          )}
           
           {/* Compact Warnings */}
           {(guestsWithoutPhone > 0 || ungroupedGuests.length > 0) && (
@@ -1368,15 +1382,15 @@ const Guests = () => {
                 />
               </div>
 
-              {!maskGuestData && (
+              {!maskGuestData && parties.length > 0 && (
                 <Button
-                  onClick={handleBulkSendRSVP}
-                  disabled={parties.length === 0}
-                  variant="default"
+                  onClick={() => window.location.href = '/app/invitations'}
+                  variant="outline"
                   className="gap-2 w-full sm:w-auto sm:whitespace-nowrap"
                 >
-                  <span className="sm:hidden">💬 Campagna</span>
-                  <span className="hidden sm:inline">💬 Campagna RSVP</span>
+                  <Send className="w-4 h-4" />
+                  <span className="sm:hidden">Campagne</span>
+                  <span className="hidden sm:inline">Vai alle Campagne</span>
                 </Button>
               )}
             </div>
@@ -1592,11 +1606,6 @@ const Guests = () => {
         }}
       />
 
-      <PrintInvitationEditor
-        open={printEditorOpen}
-        onOpenChange={setPrintEditorOpen}
-        weddingId={wedding?.id || ""}
-      />
     </div>
   );
 };
