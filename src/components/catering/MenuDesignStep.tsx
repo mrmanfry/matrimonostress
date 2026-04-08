@@ -26,6 +26,14 @@ const FONT_LABELS: Record<FontStyle, string> = {
   lato: 'Lato (Moderno)',
   montserrat: 'Montserrat (Contemporaneo)',
   josefin: 'Josefin Sans (Minimalista)',
+  cinzel: 'Cinzel (Classico)',
+  philosopher: 'Philosopher (Classico)',
+  librebaskerville: 'Libre Baskerville (Classico)',
+  raleway: 'Raleway (Moderno)',
+  poppins: 'Poppins (Moderno)',
+  merriweather: 'Merriweather (Classico)',
+  crimsontext: 'Crimson Text (Classico)',
+  italiana: 'Italiana (Classico)',
 };
 
 export type MenuFormat = 'a5' | 'a6';

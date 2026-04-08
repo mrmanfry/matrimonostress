@@ -12,7 +12,7 @@ import {
   resolveSyncToken,
   type PartyPrintTarget,
 } from "@/lib/printNameResolver";
-import PrintDesignStep, { type FontStyle, FONT_MAP, type WeddingPrintData } from "./PrintDesignStep";
+import PrintDesignStep, { type FontStyle, FONT_MAP, type WeddingPrintData, type InvitationTexts, formatWeddingDate, formatTime } from "./PrintDesignStep";
 import PrintAudienceStep from "./PrintAudienceStep";
 import PrintGenerationStep from "./PrintGenerationStep";
 import HiddenPrintNode from "./HiddenPrintNode";
@@ -31,6 +31,8 @@ interface PrintDesignConfig {
   imageTransform: ImageTransform;
   backgroundImagePath: string | null;
   printed_party_ids?: string[];
+  hasPhoto?: boolean;
+  editableTexts?: InvitationTexts;
 }
 
 interface PrintInvitationEditorProps {
@@ -56,6 +58,22 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
   const [showSafeZone, setShowSafeZone] = useState(false);
   const [imageTransform, setImageTransform] = useState<ImageTransform>({ x: 0, y: 0, scale: 1 });
   const [edgeStyle, setEdgeStyle] = useState<EdgeStyle>('none');
+  const [hasPhoto, setHasPhoto] = useState(true);
+  const [editableTexts, setEditableTexts] = useState<InvitationTexts>({
+    greeting: 'Cari',
+    names: '',
+    announcement: 'sono lieti di annunciare il loro matrimonio',
+    dateText: '',
+    timePrefix: 'alle ore',
+    time: '',
+    venuePrefix: 'presso',
+    ceremonyVenue: '',
+    ceremonyAddress: '',
+    receptionPrefix: 'A seguire festeggeremo insieme presso',
+    receptionVenue: '',
+    receptionAddress: '',
+  });
+  const [textsInitialized, setTextsInitialized] = useState(false);
 
   // Persistence tracking
   const [bgDirty, setBgDirty] = useState(false);
@@ -123,11 +141,36 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
         if (config.edgeStyle) setEdgeStyle(config.edgeStyle);
         if (config.imageTransform) setImageTransform(config.imageTransform);
         if (config.printed_party_ids) setPrintedPartyIds(config.printed_party_ids);
+        if (config.hasPhoto !== undefined) setHasPhoto(config.hasPhoto);
+        if (config.editableTexts) {
+          setEditableTexts(config.editableTexts);
+          setTextsInitialized(true);
+        }
         if (config.backgroundImagePath) {
           setSavedBgPath(config.backgroundImagePath);
           loadBackgroundFromStorage(config.backgroundImagePath);
         }
         setDesignLoaded(true);
+      }
+
+      // Initialize editable texts from wedding data if not restored from saved config
+      if (!textsInitialized && !(data.print_design as unknown as PrintDesignConfig)?.editableTexts) {
+        const ft = formatTime(data.ceremony_start_time);
+        setEditableTexts({
+          greeting: 'Cari',
+          names: `${data.partner1_name} e ${data.partner2_name}`,
+          announcement: 'sono lieti di annunciare il loro matrimonio',
+          dateText: data.wedding_date ? formatWeddingDate(data.wedding_date) : '',
+          timePrefix: 'alle ore',
+          time: ft,
+          venuePrefix: 'presso',
+          ceremonyVenue: data.ceremony_venue_name || '',
+          ceremonyAddress: data.ceremony_venue_address || '',
+          receptionPrefix: 'A seguire festeggeremo insieme presso',
+          receptionVenue: data.reception_venue_name || '',
+          receptionAddress: data.reception_venue_address || '',
+        });
+        setTextsInitialized(true);
       }
     }
   };
@@ -194,6 +237,8 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
       edgeStyle,
       imageTransform,
       backgroundImagePath: bgPath,
+      hasPhoto,
+      editableTexts,
     };
 
     await supabase
@@ -461,6 +506,10 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
                 onImageTransformChange={setImageTransform}
                 edgeStyle={edgeStyle}
                 onEdgeStyleChange={setEdgeStyle}
+                hasPhoto={hasPhoto}
+                onHasPhotoChange={setHasPhoto}
+                editableTexts={editableTexts}
+                onEditableTextsChange={setEditableTexts}
               />
             )}
 
@@ -530,9 +579,10 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
           syncToken={currentProcessingParty.syncToken}
           fontFamily={fontFamily}
           backgroundImageUrl={bgDataUrlRef.current}
-          weddingData={weddingData}
           imageTransform={imageTransform}
           edgeStyle={edgeStyle}
+          hasPhoto={hasPhoto}
+          editableTexts={editableTexts}
         />
       )}
     </>
