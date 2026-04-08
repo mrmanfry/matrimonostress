@@ -25,6 +25,16 @@ export interface ImageTransform {
   scale: number;
 }
 
+export interface TextPosition {
+  y: number; // percentage from top
+}
+
+export interface QrPosition {
+  x: number; // percentage from left
+  y: number; // percentage from top
+  size: number; // percentage of canvas width
+}
+
 interface PrintDesignConfig {
   fontStyle: FontStyle;
   edgeStyle: EdgeStyle;
@@ -33,6 +43,8 @@ interface PrintDesignConfig {
   printed_party_ids?: string[];
   hasPhoto?: boolean;
   editableTexts?: InvitationTexts;
+  textPosition?: TextPosition;
+  qrPosition?: QrPosition;
 }
 
 interface PrintInvitationEditorProps {
@@ -59,6 +71,8 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
   const [imageTransform, setImageTransform] = useState<ImageTransform>({ x: 0, y: 0, scale: 1 });
   const [edgeStyle, setEdgeStyle] = useState<EdgeStyle>('none');
   const [hasPhoto, setHasPhoto] = useState(true);
+  const [textPosition, setTextPosition] = useState<TextPosition>({ y: 55 });
+  const [qrPosition, setQrPosition] = useState<QrPosition>({ x: 42, y: 85, size: 15 });
   const [editableTexts, setEditableTexts] = useState<InvitationTexts>({
     greeting: 'Cari',
     names: '',
