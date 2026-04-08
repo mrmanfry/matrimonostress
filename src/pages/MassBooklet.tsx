@@ -240,7 +240,14 @@ export default function MassBooklet() {
       {currentStep === 2 && <BookletStepRite content={content} onChange={handleContentChange} />}
       {currentStep === 3 && <BookletStepReadings content={content} onChange={handleContentChange} />}
       {currentStep === 4 && <BookletStepCustom content={content} onChange={handleContentChange} />}
-      {currentStep === 5 && <BookletStepPreview content={content} onGoToStep={goToStep} />}
+      {currentStep === 5 && (
+        <BookletStepPreview
+          content={content}
+          onGoToStep={goToStep}
+          partner1={authState.status === "authenticated" ? (authState.weddings?.find(w => w.weddingId === weddingId)?.partner1Name || "") : ""}
+          partner2={authState.status === "authenticated" ? (authState.weddings?.find(w => w.weddingId === weddingId)?.partner2Name || "") : ""}
+        />
+      )}
 
       {/* Nav buttons */}
       <div className="flex justify-between mt-8 max-w-2xl mx-auto">
