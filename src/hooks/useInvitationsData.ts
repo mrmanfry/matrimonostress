@@ -75,13 +75,13 @@ export function useInvitationsData() {
     staleTime: 30000,
   });
 
-  const { data: weddingData } = useQuery({
+  const { data: weddingData, refetch: refetchWedding } = useQuery({
     queryKey: ["invitations-wedding", weddingId],
     queryFn: async () => {
       if (!weddingId) return null;
       const { data, error } = await supabase
         .from("weddings")
-        .select("id, partner1_name, partner2_name")
+        .select("id, partner1_name, partner2_name, wedding_date, campaigns_config, rsvp_config")
         .eq("id", weddingId)
         .single();
       if (error) throw error;
@@ -144,9 +144,25 @@ export function useInvitationsData() {
     p.guests.length > 0 && p.guests.some(g => g.phone && !g.is_couple_member)
   ).length;
 
+  // Campaign stats from guest data
+  const campaignStats = {
+    save_the_date: {
+      sent: regularGuests.filter(g => g.save_the_date_sent_at).length,
+      responded: regularGuests.filter(g => g.std_response).length,
+    },
+    rsvp: {
+      sent: regularGuests.filter(g => g.formal_invite_sent_at).length,
+      responded: regularGuests.filter(g => g.rsvp_status === 'confirmed' || g.rsvp_status === 'declined').length,
+    },
+  };
+
+  // Campaigns config with defaults
+  const campaignsConfig = (weddingData?.campaigns_config as any) || null;
+
   const refetch = () => {
     refetchGuests();
     refetchParties();
+    refetchWedding();
   };
 
   return {
@@ -155,6 +171,8 @@ export function useInvitationsData() {
     wedding: weddingData,
     funnelStats,
     partiesReadyToSend,
+    campaignStats,
+    campaignsConfig,
     isLoading: guestsLoading || partiesLoading,
     refetch,
     weddingId,

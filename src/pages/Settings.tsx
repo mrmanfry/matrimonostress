@@ -6,15 +6,12 @@ import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { UserPlus, Trash2, Users, Shield, Plus, Link2, Calendar, DollarSign, Heart, Share2, ExternalLink, Mail, MessageSquare, Settings2, Palette, User, CreditCard } from "lucide-react";
+import { UserPlus, Trash2, Users, Shield, Plus, Link2, Calendar, DollarSign, Heart, Share2, ExternalLink, Settings2, User, CreditCard } from "lucide-react";
 import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 import { AccountSettingsCard } from "@/components/settings/AccountSettingsCard";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ShareProgressDialog } from "@/components/settings/ShareProgressDialog";
-import { RSVPConfigDialog } from "@/components/settings/RSVPConfigDialog";
-import CampaignCard, { CampaignsConfig } from "@/components/settings/CampaignCard";
-import CampaignConfigDialog from "@/components/settings/CampaignConfigDialog";
 import { SubscriptionTab } from "@/components/settings/SubscriptionTab";
 import { CollaboratorPermissionsCard } from "@/components/settings/CollaboratorPermissionsCard";
 import { useAuth } from "@/contexts/AuthContext";
@@ -59,38 +56,12 @@ interface ProgressToken {
   show_countdown: boolean;
 }
 
-const getDefaultCampaignsConfig = (): CampaignsConfig => ({
-  save_the_date: {
-    status: "draft",
-    enabled: true,
-    hero_image_url: null,
-    welcome_title: "Save The Date!",
-    welcome_text: "Segnati questa data sul calendario!",
-    deadline_date: null,
-  },
-  rsvp: {
-    status: "draft",
-    enabled: true,
-    hero_image_url: null,
-    welcome_title: "Conferma la tua Presenza",
-    welcome_text: "Non vediamo l'ora di festeggiare con voi!",
-    deadline_date: null,
-  },
-  theme: {
-    layout_mode: "immersive_scroll",
-    font_family: "serif",
-    primary_color: "#D4AF37",
-    show_countdown: true,
-    show_powered_by: true,
-  },
-});
-
 const Settings = () => {
   const { authState } = useAuth();
   const currentUserRole = authState.status === 'authenticated' ? authState.activeRole : '';
   const isCoPlanner = currentUserRole === 'co_planner' || currentUserRole === 'owner';
   const isManagerOrPlanner = currentUserRole === 'manager' || currentUserRole === 'planner';
-  const activePermissions = authState.status === 'authenticated' ? authState.activePermissions : null;
+  
   const [wedding, setWedding] = useState<any>(null);
   const [roles, setRoles] = useState<UserRole[]>([]);
   const [invites, setInvites] = useState<PendingInvite[]>([]);
@@ -104,11 +75,6 @@ const Settings = () => {
   const [roleToDelete, setRoleToDelete] = useState<string | null>(null);
   const [progressToken, setProgressToken] = useState<ProgressToken | null>(null);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
-  const [rsvpConfigDialogOpen, setRsvpConfigDialogOpen] = useState(false);
-  
-  // Campaign dialogs
-  const [stdConfigDialogOpen, setStdConfigDialogOpen] = useState(false);
-  const [rsvpCampaignDialogOpen, setRsvpCampaignDialogOpen] = useState(false);
   
   // Wedding data edit states
   const [editMode, setEditMode] = useState(false);
@@ -124,8 +90,6 @@ const Settings = () => {
   
   const { toast } = useToast();
 
-  // Get campaigns config with fallback
-  const campaignsConfig: CampaignsConfig = wedding?.campaigns_config || getDefaultCampaignsConfig();
 
   useEffect(() => {
     loadData();
@@ -622,52 +586,6 @@ const Settings = () => {
     setEditedTimezone(wedding?.timezone || "Europe/Rome");
   };
 
-  const handleToggleCampaignStatus = async (campaignType: "save_the_date" | "rsvp") => {
-    if (!wedding) return;
-    
-    try {
-      const currentStatus = campaignsConfig[campaignType].status;
-      const newStatus = currentStatus === "active" ? "draft" : "active";
-      
-      const updatedConfig = {
-        ...campaignsConfig,
-        [campaignType]: {
-          ...campaignsConfig[campaignType],
-          status: newStatus,
-        },
-      };
-
-      const { error } = await supabase
-        .from("weddings")
-        .update({ campaigns_config: updatedConfig as any })
-        .eq("id", wedding.id);
-
-      if (error) throw error;
-
-      toast({
-        title: newStatus === "active" ? "Campagna attivata" : "Campagna in pausa",
-        description: newStatus === "active" 
-          ? "La campagna è ora attiva e visibile agli invitati"
-          : "La campagna è stata messa in pausa",
-      });
-
-      loadData();
-    } catch (error: any) {
-      toast({
-        title: "Errore",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handlePreviewCampaign = (campaignType: "save_the_date" | "rsvp") => {
-    const path = campaignType === "save_the_date" 
-      ? "/save-the-date/preview" 
-      : "/rsvp/preview";
-    window.open(path, "_blank");
-  };
-
   if (!wedding) {
     return (
       <div className="p-4 lg:p-8">
@@ -681,12 +599,12 @@ const Settings = () => {
       <div>
         <h1 className="text-3xl font-bold mb-2">Impostazioni</h1>
         <p className="text-muted-foreground">
-          Gestisci i dati del matrimonio, le comunicazioni e i collaboratori
+          Gestisci i dati del matrimonio e i collaboratori
         </p>
       </div>
 
       <Tabs defaultValue="account" className="w-full">
-        <TabsList className={`grid w-full lg:w-auto lg:inline-flex ${isManagerOrPlanner ? 'grid-cols-3' : 'grid-cols-5'}`}>
+        <TabsList className={`grid w-full lg:w-auto lg:inline-flex ${isManagerOrPlanner ? 'grid-cols-2' : 'grid-cols-4'}`}>
           <TabsTrigger value="account" className="gap-2">
             <User className="w-4 h-4" />
             <span className="hidden sm:inline">Account</span>
@@ -701,12 +619,6 @@ const Settings = () => {
             <TabsTrigger value="subscription" className="gap-2">
               <CreditCard className="w-4 h-4" />
               <span className="hidden sm:inline">Abbonamento</span>
-            </TabsTrigger>
-          )}
-          {(isCoPlanner || activePermissions?.communications?.view) && (
-            <TabsTrigger value="communications" className="gap-2">
-              <MessageSquare className="w-4 h-4" />
-              <span className="hidden sm:inline">Comunicazioni</span>
             </TabsTrigger>
           )}
           <TabsTrigger value="team" className="gap-2">
@@ -1004,93 +916,6 @@ const Settings = () => {
                   Crea Link Pubblico
                 </Button>
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* TAB: Comunicazioni Invitati */}
-        <TabsContent value="communications" className="space-y-6 mt-6">
-          <div className="space-y-2">
-            <h2 className="text-xl font-semibold flex items-center gap-2">
-              <MessageSquare className="w-5 h-5" />
-              Campagne di Comunicazione
-            </h2>
-            <p className="text-muted-foreground">
-              Gestisci le pagine che vedranno i tuoi invitati quando ricevono il link
-            </p>
-          </div>
-
-          {/* Campaign Cards Grid */}
-          <div className="grid md:grid-cols-2 gap-6">
-            <CampaignCard
-              type="save_the_date"
-              config={campaignsConfig.save_the_date}
-              stats={{ sent: 0, responded: 0 }}
-              onConfigure={() => setStdConfigDialogOpen(true)}
-              onPreview={() => handlePreviewCampaign("save_the_date")}
-              onToggleStatus={() => handleToggleCampaignStatus("save_the_date")}
-            />
-            
-            <CampaignCard
-              type="rsvp"
-              config={campaignsConfig.rsvp}
-              stats={{ sent: 0, responded: 0 }}
-              onConfigure={() => setRsvpCampaignDialogOpen(true)}
-              onPreview={() => handlePreviewCampaign("rsvp")}
-              onToggleStatus={() => handleToggleCampaignStatus("rsvp")}
-            />
-          </div>
-
-          {/* Theme Settings Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Palette className="w-5 h-5" />
-                Stile Globale
-              </CardTitle>
-              <CardDescription>
-                Queste impostazioni vengono applicate a tutte le pagine pubbliche
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-4 items-center">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">Font:</span>
-                  <span className="font-medium capitalize">{campaignsConfig.theme.font_family}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">Colore:</span>
-                  <div 
-                    className="w-6 h-6 rounded-full border"
-                    style={{ backgroundColor: campaignsConfig.theme.primary_color }}
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">Countdown:</span>
-                  <span className="font-medium">{campaignsConfig.theme.show_countdown ? "Sì" : "No"}</span>
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground mt-4">
-                💡 Modifica lo stile dalla configurazione di ciascuna campagna
-              </p>
-            </CardContent>
-          </Card>
-
-          {/* Legacy RSVP Config (for backward compatibility) */}
-          <Card className="opacity-60">
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Settings2 className="w-5 h-5" />
-                Configurazione Legacy (RSVP)
-              </CardTitle>
-              <CardDescription>
-                Impostazioni precedenti della pagina RSVP
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button onClick={() => setRsvpConfigDialogOpen(true)} variant="outline" size="sm">
-                Apri Configurazione Legacy
-              </Button>
             </CardContent>
           </Card>
         </TabsContent>
@@ -1402,35 +1227,6 @@ const Settings = () => {
         }}
       />
 
-      <RSVPConfigDialog
-        open={rsvpConfigDialogOpen}
-        onOpenChange={setRsvpConfigDialogOpen}
-        weddingId={wedding?.id || ""}
-        currentConfig={(wedding?.rsvp_config as any) || null}
-        onSave={() => loadData()}
-      />
-
-      <CampaignConfigDialog
-        open={stdConfigDialogOpen}
-        onOpenChange={setStdConfigDialogOpen}
-        weddingId={wedding?.id || ""}
-        campaignType="save_the_date"
-        currentConfig={campaignsConfig}
-        partnerNames={`${wedding?.partner1_name} & ${wedding?.partner2_name}`}
-        weddingDate={wedding?.wedding_date || ""}
-        onSave={() => loadData()}
-      />
-
-      <CampaignConfigDialog
-        open={rsvpCampaignDialogOpen}
-        onOpenChange={setRsvpCampaignDialogOpen}
-        weddingId={wedding?.id || ""}
-        campaignType="rsvp"
-        currentConfig={campaignsConfig}
-        partnerNames={`${wedding?.partner1_name} & ${wedding?.partner2_name}`}
-        weddingDate={wedding?.wedding_date || ""}
-        onSave={() => loadData()}
-      />
 
       {/* Confirmation Dialog */}
       <AlertDialog open={!!roleToDelete} onOpenChange={() => setRoleToDelete(null)}>
