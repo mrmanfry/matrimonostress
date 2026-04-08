@@ -398,7 +398,6 @@ export const TableCanvas = ({
   isMobile,
   showConfirmedOnly,
 }: TableCanvasProps) => {
-}: TableCanvasProps) => {
   const standardTables = tables.filter(t => t.table_type !== 'imperial');
   const imperialTables = tables.filter(t => t.table_type === 'imperial');
 
