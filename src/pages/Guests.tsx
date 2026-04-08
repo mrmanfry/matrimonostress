@@ -19,7 +19,7 @@ import {
   ChevronDown,
   BarChart3,
   ChevronRight,
-  Printer,
+  
   Send,
 } from "lucide-react";
 import {
@@ -37,19 +37,19 @@ import { RSVPCampaignDialog } from "@/components/guests/RSVPCampaignDialog";
 import { GuestAnalyticsDashboard, AnalyticsFilterType } from "@/components/guests/GuestAnalyticsDashboard";
 import { ImportDropdown } from "@/components/guests/ImportDropdown";
 import { GuestDiffDialog } from "@/components/guests/GuestDiffDialog";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+
 import { GuestSingleCard } from "@/components/guests/GuestSingleCard";
 import { GuestNucleoCard } from "@/components/guests/GuestNucleoCard";
 import { SelectionToolbar } from "@/components/guests/SelectionToolbar";
-import { FunnelKPICards } from "@/components/guests/FunnelKPICards";
+
 import { GuestDialog } from "@/components/guests/GuestDialog";
-import { GuestCampaignBadges } from "@/components/guests/GuestCampaignBadges";
+
 import { cn } from "@/lib/utils";
 import { generateCateringReport } from "@/utils/pdfHelpers";
 import { CSVImportDialog } from "@/components/guests/CSVImportDialog";
 import { generateCSVTemplate, downloadCSV, exportGuestsToCSV } from "@/utils/csvHelpers";
 import { matchesFunnelFilter } from "@/lib/nucleusStatusHelper";
-import PrintInvitationEditor from "@/components/print/PrintInvitationEditor";
+
 
 interface Guest {
   id: string;
