@@ -1,18 +1,30 @@
-import { AlertTriangle, ArrowRight, FileText } from "lucide-react";
+import { AlertTriangle, ArrowRight, Download, FileText, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { validateBookletCompleteness, type MassBookletContent } from "@/lib/massBookletSchema";
+import { BlobProvider, PDFViewer } from "@react-pdf/renderer";
+
+const BookletPdfDocument = lazy(() => import("./pdf/BookletPdfDocument"));
 
 interface Props {
   content: MassBookletContent;
   onGoToStep: (step: number) => void;
+  partner1: string;
+  partner2: string;
 }
 
-export default function BookletStepPreview({ content, onGoToStep }: Props) {
+export default function BookletStepPreview({ content, onGoToStep, partner1, partner2 }: Props) {
   const [accepted, setAccepted] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const validation = validateBookletCompleteness(content);
+
+  const pdfDoc = (
+    <Suspense fallback={null}>
+      <BookletPdfDocument content={content} partner1={partner1} partner2={partner2} />
+    </Suspense>
+  );
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
@@ -50,16 +62,30 @@ export default function BookletStepPreview({ content, onGoToStep }: Props) {
         </div>
       )}
 
-      {/* Preview Placeholder */}
-      <div className="border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center py-16 text-center">
-        <FileText className="w-12 h-12 text-muted-foreground/40 mb-3" />
-        <p className="text-sm font-medium text-muted-foreground">
-          L'anteprima PDF sarà disponibile nello Sprint 3
-        </p>
-        <p className="text-xs text-muted-foreground/70 mt-1">
-          Il motore di rendering @react-pdf verrà integrato nel prossimo sprint.
-        </p>
-      </div>
+      {/* PDF Preview */}
+      {validation.isComplete && !showPreview && (
+        <div className="flex justify-center">
+          <Button variant="outline" onClick={() => setShowPreview(true)} className="gap-2">
+            <FileText className="w-4 h-4" />
+            Mostra anteprima PDF
+          </Button>
+        </div>
+      )}
+
+      {validation.isComplete && showPreview && (
+        <div className="border rounded-xl overflow-hidden" style={{ height: 600 }}>
+          <Suspense fallback={
+            <div className="flex items-center justify-center h-full">
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              <span className="ml-2 text-sm text-muted-foreground">Generazione anteprima...</span>
+            </div>
+          }>
+            <PDFViewer width="100%" height="100%" showToolbar={false}>
+              <BookletPdfDocument content={content} partner1={partner1} partner2={partner2} />
+            </PDFViewer>
+          </Suspense>
+        </div>
+      )}
 
       {/* Disclaimer */}
       <div className="bg-muted/50 rounded-lg p-4 space-y-3">
@@ -77,14 +103,44 @@ export default function BookletStepPreview({ content, onGoToStep }: Props) {
         </div>
       </div>
 
-      <Button
-        disabled={!validation.isComplete || !accepted}
-        className="w-full gap-2"
-        size="lg"
-      >
-        <FileText className="w-4 h-4" />
-        Genera PDF (disponibile nello Sprint 3)
-      </Button>
+      {/* Download button */}
+      {validation.isComplete && (
+        <Suspense fallback={null}>
+          <BlobProvider document={
+            <BookletPdfDocument content={content} partner1={partner1} partner2={partner2} />
+          }>
+            {({ blob, loading, error }) => (
+              <Button
+                disabled={!accepted || loading || !!error}
+                className="w-full gap-2"
+                size="lg"
+                onClick={() => {
+                  if (!blob) return;
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `Libretto_Messa_${partner1}_${partner2}.pdf`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+              >
+                {loading ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Generazione PDF...</>
+                ) : (
+                  <><Download className="w-4 h-4" /> Scarica PDF</>
+                )}
+              </Button>
+            )}
+          </BlobProvider>
+        </Suspense>
+      )}
+
+      {!validation.isComplete && (
+        <Button disabled className="w-full gap-2" size="lg">
+          <FileText className="w-4 h-4" />
+          Completa i campi obbligatori per generare il PDF
+        </Button>
+      )}
     </div>
   );
 }
