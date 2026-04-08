@@ -86,7 +86,18 @@ interface PrintDesignStepProps {
   onTextPositionChange: (pos: TextPosition) => void;
   qrPosition: QrPosition;
   onQrPositionChange: (pos: QrPosition) => void;
+  textColor: string;
+  onTextColorChange: (color: string) => void;
 }
+
+const TEXT_COLOR_PRESETS = [
+  { label: 'Nero', value: '#1a1a1a' },
+  { label: 'Grigio scuro', value: '#4a4a4a' },
+  { label: 'Oro', value: '#C9A84C' },
+  { label: 'Bordeaux', value: '#722F37' },
+  { label: 'Blu notte', value: '#1B2A4A' },
+  { label: 'Bianco', value: '#FFFFFF' },
+];
 
 export const FONT_MAP: Record<FontStyle, string> = {
   garamond: "'EB Garamond', Georgia, serif",
