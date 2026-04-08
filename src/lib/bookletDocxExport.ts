@@ -176,140 +176,140 @@ export async function generateBookletDocx(
   const ft = lit.fixed_texts;
   const isEucharist = content.rite_type === 'messa_eucaristia';
   const r = content.readings;
+  const st = content.style;
+  const { hf, bf } = getDocxFonts(st);
+  const { bodySize } = getDocxSizes(st);
+  const colors = getDocxColors(st);
 
   // --- Cover page ---
   const coverChildren: Paragraph[] = [
     new Paragraph({ spacing: { before: 2400 }, children: [] }),
     new Paragraph({
       alignment: AlignmentType.CENTER,
-      children: [new TextRun({ text: '✝', font: 'Times New Roman', size: 56, color: '8B7355' })],
+      children: [new TextRun({ text: '✝', font: hf, size: 56, color: colors.subtitle })],
     }),
     new Paragraph({ spacing: { before: 400 }, children: [] }),
     new Paragraph({
       alignment: AlignmentType.CENTER,
-      children: [new TextRun({ text: partner1 || '...', bold: true, font: 'Times New Roman', size: 40 })],
+      children: [new TextRun({ text: partner1 || '...', bold: true, font: hf, size: 40, color: colors.heading })],
     }),
     new Paragraph({
       alignment: AlignmentType.CENTER,
       spacing: { before: 80, after: 80 },
-      children: [new TextRun({ text: '&', italics: true, font: 'Times New Roman', size: 28, color: '8B7355' })],
+      children: [new TextRun({ text: '&', italics: true, font: hf, size: 28, color: colors.subtitle })],
     }),
     new Paragraph({
       alignment: AlignmentType.CENTER,
-      children: [new TextRun({ text: partner2 || '...', bold: true, font: 'Times New Roman', size: 40 })],
+      children: [new TextRun({ text: partner2 || '...', bold: true, font: hf, size: 40, color: colors.heading })],
     }),
     new Paragraph({ spacing: { before: 300 }, children: [] }),
     new Paragraph({
       alignment: AlignmentType.CENTER,
-      children: [new TextRun({ text: content.ceremony_date_text, font: 'Arial', size: 22, color: '4A4A4A' })],
+      children: [new TextRun({ text: content.ceremony_date_text, font: bf, size: 22, color: '4A4A4A' })],
     }),
   ];
   if (content.church_name) {
     coverChildren.push(new Paragraph({
       alignment: AlignmentType.CENTER,
       spacing: { before: 60 },
-      children: [new TextRun({ text: content.church_name, font: 'Arial', size: 20, color: '6B6B6B' })],
+      children: [new TextRun({ text: content.church_name, font: bf, size: 20, color: '6B6B6B' })],
     }));
   }
 
   // --- Rite intro ---
   const introChildren: Paragraph[] = [
-    sectionTitle('Riti di Introduzione'),
+    sectionTitle('Riti di Introduzione', st),
     separator(),
-    ...songBlock('CANTO D\'INGRESSO', content.songs.entrance),
-    rubricPara('Il celebrante dice:'),
-    responsePara(ft.rite_intro.sign_of_cross),
-    bodyPara(ft.rite_intro.greeting),
-    responsePara(ft.rite_intro.response_greeting),
+    ...songBlock('CANTO D\'INGRESSO', content.songs.entrance, st),
+    rubricPara('Il celebrante dice:', st),
+    responsePara(ft.rite_intro.sign_of_cross, st),
+    bodyPara(ft.rite_intro.greeting, st),
+    responsePara(ft.rite_intro.response_greeting, st),
     spacer(),
-    subTitle('Memoria del Battesimo'),
-    bodyPara(rep(ft.baptism_memory, partner1, partner2)),
+    subTitle('Memoria del Battesimo', st),
+    bodyPara(rep(ft.baptism_memory, partner1, partner2), st),
   ];
 
   // --- Readings ---
   const readingsChildren: Paragraph[] = [
-    sectionTitle('Liturgia della Parola'),
+    sectionTitle('Liturgia della Parola', st),
     separator(),
   ];
 
-  // First reading
   if (r.use_custom_first_reading && r.first_reading_custom) {
-    readingsChildren.push(...readingBlock('Prima Lettura', '', '', r.first_reading_custom));
+    readingsChildren.push(...readingBlock('Prima Lettura', '', '', r.first_reading_custom, st));
   } else if (r.first_reading) {
     const rd = lit.readings.first_reading.find(x => x.id === r.first_reading) as LiturgiaReading | undefined;
-    if (rd) readingsChildren.push(...readingBlock('Prima Lettura', rd.source, rd.reference, rd.text));
+    if (rd) readingsChildren.push(...readingBlock('Prima Lettura', rd.source, rd.reference, rd.text, st));
   }
 
-  // Psalm
   if (r.use_custom_psalm && r.psalm_custom) {
-    readingsChildren.push(subTitle('Salmo Responsoriale'), bodyPara(r.psalm_custom));
+    readingsChildren.push(subTitle('Salmo Responsoriale', st), bodyPara(r.psalm_custom, st));
   } else if (r.psalm) {
     const ps = lit.readings.responsorial_psalm.find(x => x.id === r.psalm) as LiturgiaPsalm | undefined;
-    if (ps) readingsChildren.push(...psalmBlock(ps));
+    if (ps) readingsChildren.push(...psalmBlock(ps, st));
   }
 
-  // Second reading
   if (r.use_custom_second_reading && r.second_reading_custom) {
-    readingsChildren.push(...readingBlock('Seconda Lettura', '', '', r.second_reading_custom));
+    readingsChildren.push(...readingBlock('Seconda Lettura', '', '', r.second_reading_custom, st));
   } else if (r.second_reading) {
     const rd = lit.readings.second_reading.find(x => x.id === r.second_reading) as LiturgiaReading | undefined;
-    if (rd) readingsChildren.push(...readingBlock('Seconda Lettura', rd.source, rd.reference, rd.text));
+    if (rd) readingsChildren.push(...readingBlock('Seconda Lettura', rd.source, rd.reference, rd.text, st));
   }
 
-  // Gospel
   if (r.use_custom_gospel && r.gospel_custom) {
-    readingsChildren.push(...readingBlock('Vangelo', '', '', r.gospel_custom));
+    readingsChildren.push(...readingBlock('Vangelo', '', '', r.gospel_custom, st));
   } else if (r.gospel) {
     const rd = lit.readings.gospel.find(x => x.id === r.gospel) as LiturgiaReading | undefined;
-    if (rd) readingsChildren.push(...readingBlock('Vangelo', rd.source, rd.reference, rd.text));
+    if (rd) readingsChildren.push(...readingBlock('Vangelo', rd.source, rd.reference, rd.text, st));
   }
 
   // --- Consent ---
   const consentChildren: Paragraph[] = [
-    sectionTitle('Rito del Matrimonio'),
+    sectionTitle('Rito del Matrimonio', st),
     separator(),
-    subTitle('Interrogazioni'),
-    bodyPara(rep(ft.consent_questions.intro, partner1, partner2)),
-    rubricPara('Il celebrante interroga gli sposi:'),
-    bodyPara(rep(ft.consent_questions.question_freedom, partner1, partner2)),
-    responsePara('Sì.'),
-    bodyPara(rep(ft.consent_questions.question_faithfulness, partner1, partner2)),
-    responsePara('Sì.'),
-    bodyPara(rep(ft.consent_questions.question_children, partner1, partner2)),
-    responsePara('Sì.'),
+    subTitle('Interrogazioni', st),
+    bodyPara(rep(ft.consent_questions.intro, partner1, partner2), st),
+    rubricPara('Il celebrante interroga gli sposi:', st),
+    bodyPara(rep(ft.consent_questions.question_freedom, partner1, partner2), st),
+    responsePara('Sì.', st),
+    bodyPara(rep(ft.consent_questions.question_faithfulness, partner1, partner2), st),
+    responsePara('Sì.', st),
+    bodyPara(rep(ft.consent_questions.question_children, partner1, partner2), st),
+    responsePara('Sì.', st),
     spacer(),
-    subTitle('Consenso'),
-    rubricPara('Lo sposo dice:'),
-    bodyPara(rep(ft.consent_formula.groom, partner1, partner2)),
-    rubricPara('La sposa dice:'),
-    bodyPara(rep(ft.consent_formula.bride, partner1, partner2)),
-    rubricPara('Il celebrante dice:'),
-    bodyPara(ft.consent_acceptance),
+    subTitle('Consenso', st),
+    rubricPara('Lo sposo dice:', st),
+    bodyPara(rep(ft.consent_formula.groom, partner1, partner2), st),
+    rubricPara('La sposa dice:', st),
+    bodyPara(rep(ft.consent_formula.bride, partner1, partner2), st),
+    rubricPara('Il celebrante dice:', st),
+    bodyPara(ft.consent_acceptance, st),
     spacer(),
-    subTitle('Benedizione e Scambio degli Anelli'),
-    bodyPara(ft.rings_blessing),
-    rubricPara('Ciascuno degli sposi dice mettendo l\'anello:'),
-    bodyPara(rep(ft.ring_exchange.formula, partner1, partner2)),
+    subTitle('Benedizione e Scambio degli Anelli', st),
+    bodyPara(ft.rings_blessing, st),
+    rubricPara('Ciascuno degli sposi dice mettendo l\'anello:', st),
+    bodyPara(rep(ft.ring_exchange.formula, partner1, partner2), st),
   ];
 
   // --- Prayers ---
   const prayersChildren: Paragraph[] = [];
   if (content.prayers.intentions.length) {
     prayersChildren.push(
-      subTitle('Preghiera dei Fedeli'),
-      rubricPara('Dopo ogni intenzione l\'assemblea risponde:'),
+      subTitle('Preghiera dei Fedeli', st),
+      rubricPara('Dopo ogni intenzione l\'assemblea risponde:', st),
       new Paragraph({
         alignment: AlignmentType.CENTER,
         spacing: { after: 80 },
-        children: [new TextRun({ text: content.prayers.refrain, italics: true, font: 'Arial', size: 21 })],
+        children: [new TextRun({ text: content.prayers.refrain, italics: true, font: bf, size: bodySize })],
       }),
     );
     for (const intention of content.prayers.intentions) {
-      prayersChildren.push(bodyPara(intention));
+      prayersChildren.push(bodyPara(intention, st));
       prayersChildren.push(new Paragraph({
         alignment: AlignmentType.CENTER,
         spacing: { after: 80 },
-        children: [new TextRun({ text: content.prayers.refrain, italics: true, font: 'Arial', size: 21 })],
+        children: [new TextRun({ text: content.prayers.refrain, italics: true, font: bf, size: bodySize })],
       }));
     }
   }
@@ -318,41 +318,38 @@ export async function generateBookletDocx(
   const eucharistChildren: Paragraph[] = [];
   if (isEucharist) {
     eucharistChildren.push(
-      sectionTitle('Liturgia Eucaristica'),
+      sectionTitle('Liturgia Eucaristica', st),
       separator(),
-      ...songBlock('CANTO D\'OFFERTORIO', content.songs.offertory),
+      ...songBlock('CANTO D\'OFFERTORIO', content.songs.offertory, st),
       spacer(),
     );
     if (content.songs.holy) {
-      eucharistChildren.push(
-        new Paragraph({ spacing: { before: 120, after: 20 }, children: [new TextRun({ text: 'SANTO', bold: true, font: 'Arial', size: 18, color: '8B7355' })] }),
-        new Paragraph({ spacing: { after: 60 }, children: [new TextRun({ text: content.songs.holy, italics: true, font: 'Arial', size: 20 })] }),
-      );
+      eucharistChildren.push(...songBlock('SANTO', content.songs.holy, st));
     }
-    eucharistChildren.push(subTitle('Padre Nostro'), bodyPara(ft.our_father), spacer());
+    eucharistChildren.push(subTitle('Padre Nostro', st), bodyPara(ft.our_father, st), spacer());
     if (content.songs.peace) {
-      eucharistChildren.push(...songBlock('SEGNO DELLA PACE', content.songs.peace));
+      eucharistChildren.push(...songBlock('SEGNO DELLA PACE', content.songs.peace, st));
     }
     if (content.songs.fraction) {
-      eucharistChildren.push(...songBlock('AGNELLO DI DIO', content.songs.fraction));
+      eucharistChildren.push(...songBlock('AGNELLO DI DIO', content.songs.fraction, st));
     }
-    eucharistChildren.push(...songBlock('CANTO DI COMUNIONE', content.songs.communion));
+    eucharistChildren.push(...songBlock('CANTO DI COMUNIONE', content.songs.communion, st));
     if (content.songs.communion_2) {
-      eucharistChildren.push(...songBlock('CANTO DI COMUNIONE (2)', content.songs.communion_2));
+      eucharistChildren.push(...songBlock('CANTO DI COMUNIONE (2)', content.songs.communion_2, st));
     }
   } else {
-    eucharistChildren.push(subTitle('Padre Nostro'), bodyPara(ft.our_father));
+    eucharistChildren.push(subTitle('Padre Nostro', st), bodyPara(ft.our_father, st));
   }
 
   // --- Thanks ---
   const thanksChildren: Paragraph[] = [];
   if (content.thanks.text) {
     thanksChildren.push(
-      sectionTitle('Ringraziamenti'),
+      sectionTitle('Ringraziamenti', st),
       separator(),
       new Paragraph({
         alignment: AlignmentType.CENTER,
-        children: [new TextRun({ text: content.thanks.text, italics: true, font: 'Arial', size: 21 })],
+        children: [new TextRun({ text: content.thanks.text, italics: true, font: bf, size: bodySize })],
       }),
     );
   }
@@ -360,9 +357,9 @@ export async function generateBookletDocx(
   // --- Gloria + exit ---
   const finalChildren: Paragraph[] = [];
   if (content.songs.gloria) {
-    finalChildren.push(...songBlock('GLORIA', content.songs.gloria));
+    finalChildren.push(...songBlock('GLORIA', content.songs.gloria, st));
   }
-  finalChildren.push(...songBlock('CANTO FINALE', content.songs.exit));
+  finalChildren.push(...songBlock('CANTO FINALE', content.songs.exit, st));
 
   // Build document with sections
   const pageProps = {
@@ -376,20 +373,15 @@ export async function generateBookletDocx(
     styles: {
       default: {
         document: {
-          run: { font: 'Arial', size: 21 },
+          run: { font: bf, size: bodySize },
         },
       },
     },
     sections: [
-      // Cover
       { properties: { ...pageProps }, children: coverChildren },
-      // Intro
       { properties: { ...pageProps }, children: introChildren },
-      // Readings
       { properties: { ...pageProps }, children: readingsChildren },
-      // Consent
       { properties: { ...pageProps }, children: consentChildren },
-      // Prayers + Eucharist + Thanks + Final
       {
         properties: { ...pageProps },
         children: [
