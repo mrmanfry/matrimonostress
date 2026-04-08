@@ -18,12 +18,14 @@ interface TableGuest {
   menu_choice: string | null;
   dietary_restrictions: string | null;
   notes: string | null;
+  seat_position?: number | null;
 }
 
 interface Table {
   name: string;
   capacity: number;
   guests: TableGuest[];
+  table_type?: string;
 }
 
 /**
@@ -259,48 +261,91 @@ export const generateTableReport = (tables: Table[]): void => {
       y += 12;
       
       doc.setFontSize(11);
+
+      // For imperial tables, sort by seat_position and show side labels
+      const isImperial = table.table_type === 'imperial';
+      let sortedGuests = [...table.guests];
       
-      table.guests.forEach((guest, index) => {
-        if (y > 260) {
-          doc.addPage();
-          y = 30;
-        }
+      if (isImperial) {
+        const positioned = sortedGuests.filter(g => g.seat_position != null).sort((a, b) => (a.seat_position || 0) - (b.seat_position || 0));
+        const unpositioned = sortedGuests.filter(g => g.seat_position == null);
+        sortedGuests = [...positioned, ...unpositioned];
         
-        // Nome ospite
-        doc.setFont("helvetica", "bold");
-        doc.text(`${index + 1}. ${guest.first_name} ${guest.last_name}`, 25, y);
-        y += 7;
+        const halfCap = Math.ceil(table.capacity / 2);
         
-        // Menù e note
-        doc.setFont("helvetica", "normal");
-        const details: string[] = [];
-        
-        if (guest.menu_choice) {
-          details.push(`Menù: ${guest.menu_choice}`);
-        }
-        
-        if (guest.dietary_restrictions) {
-          doc.setTextColor(220, 38, 38);
-          details.push(`⚠ ${guest.dietary_restrictions}`);
-        }
-        
-        if (guest.notes) {
-          details.push(`Note: ${guest.notes}`);
-        }
-        
-        if (details.length > 0) {
-          doc.setFontSize(9);
-          details.forEach(detail => {
-            const lines = doc.splitTextToSize(`   ${detail}`, 160);
-            doc.text(lines, 30, y);
-            y += lines.length * 5;
-          });
-          doc.setTextColor(0, 0, 0);
-          doc.setFontSize(11);
-        }
-        
-        y += 8;
-      });
+        sortedGuests.forEach((guest) => {
+          if (y > 260) {
+            doc.addPage();
+            y = 30;
+          }
+          
+          const seatLabel = guest.seat_position != null
+            ? `${guest.seat_position}. `
+            : "— ";
+          const sideLabel = guest.seat_position != null
+            ? (guest.seat_position <= halfCap ? " (Lato A)" : " (Lato B)")
+            : " (non posizionato)";
+          
+          doc.setFont("helvetica", "bold");
+          doc.text(`${seatLabel}${guest.first_name} ${guest.last_name}${sideLabel}`, 25, y);
+          y += 7;
+          
+          doc.setFont("helvetica", "normal");
+          const details: string[] = [];
+          if (guest.menu_choice) details.push(`Menù: ${guest.menu_choice}`);
+          if (guest.dietary_restrictions) {
+            doc.setTextColor(220, 38, 38);
+            details.push(`⚠ ${guest.dietary_restrictions}`);
+          }
+          if (guest.notes) details.push(`Note: ${guest.notes}`);
+          
+          if (details.length > 0) {
+            doc.setFontSize(9);
+            details.forEach(detail => {
+              const lines = doc.splitTextToSize(`   ${detail}`, 160);
+              doc.text(lines, 30, y);
+              y += lines.length * 5;
+            });
+            doc.setTextColor(0, 0, 0);
+            doc.setFontSize(11);
+          }
+          
+          y += 8;
+        });
+      } else {
+        table.guests.forEach((guest, index) => {
+          if (y > 260) {
+            doc.addPage();
+            y = 30;
+          }
+          
+          doc.setFont("helvetica", "bold");
+          doc.text(`${index + 1}. ${guest.first_name} ${guest.last_name}`, 25, y);
+          y += 7;
+          
+          doc.setFont("helvetica", "normal");
+          const details: string[] = [];
+          if (guest.menu_choice) details.push(`Menù: ${guest.menu_choice}`);
+          if (guest.dietary_restrictions) {
+            doc.setTextColor(220, 38, 38);
+            details.push(`⚠ ${guest.dietary_restrictions}`);
+          }
+          if (guest.notes) details.push(`Note: ${guest.notes}`);
+          
+          if (details.length > 0) {
+            doc.setFontSize(9);
+            details.forEach(detail => {
+              const lines = doc.splitTextToSize(`   ${detail}`, 160);
+              doc.text(lines, 30, y);
+              y += lines.length * 5;
+            });
+            doc.setTextColor(0, 0, 0);
+            doc.setFontSize(11);
+          }
+          
+          y += 8;
+        });
+      }
     }
     
     // Footer
