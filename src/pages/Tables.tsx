@@ -269,7 +269,18 @@ const Tables = () => {
     if (data) setConflicts(data);
   };
 
-  const createTable = async () => {
+  const fetchPartyNames = async (weddingId: string) => {
+    const { data } = await supabase
+      .from("invite_parties")
+      .select("id, party_name")
+      .eq("wedding_id", weddingId);
+    if (data) {
+      const map: Record<string, string> = {};
+      data.forEach(p => { map[p.id] = p.party_name; });
+      setPartyNames(map);
+    }
+  };
+
     if (!weddingId) return;
 
     const tableNumber = tables.length + 1;
