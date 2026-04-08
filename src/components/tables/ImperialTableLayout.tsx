@@ -96,17 +96,17 @@ const SeatSlot = ({
     <div
       ref={setNodeRef}
       className={cn(
-        "flex flex-col items-center justify-center rounded-md border px-2 py-1.5 min-w-[80px] min-h-[44px] transition-all text-xs",
+        "flex flex-col items-center justify-center rounded-md border px-1 py-1 min-w-[48px] min-h-[36px] transition-all text-xs",
         guest
           ? "bg-accent/20 border-border"
           : "bg-muted/30 border-dashed border-muted-foreground/30",
         isOver && "ring-2 ring-primary bg-primary/10 scale-105"
       )}
     >
-      <span className="text-[10px] text-muted-foreground mb-0.5">{seatIndex}</span>
+      <span className="text-[8px] text-muted-foreground mb-0.5">{seatIndex}</span>
       {guest ? (
         <div className="flex items-center gap-1">
-          <span className="truncate max-w-[70px] text-[11px] font-medium">{guest.first_name}</span>
+          <span className="truncate max-w-[40px] text-[10px] font-medium">{guest.first_name}</span>
           {guest.dietary_restrictions && <span className="text-[9px]">🍽️</span>}
           {!isLocked && assignment && (
             <Button
@@ -120,7 +120,7 @@ const SeatSlot = ({
           )}
         </div>
       ) : (
-        <User className="w-3.5 h-3.5 text-muted-foreground/40" />
+        <User className="w-3 h-3 text-muted-foreground/40" />
       )}
     </div>
   );
