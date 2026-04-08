@@ -10,8 +10,6 @@ import {
   AlertTriangle, 
   Edit2, 
   Check, 
-  Lock, 
-  Unlock,
   Eraser,
   Trash2,
   MoreHorizontal,
