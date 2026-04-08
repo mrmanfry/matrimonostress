@@ -688,6 +688,7 @@ const Tables = () => {
     onClearTable: handleClearTable,
     onDeleteTable: handleDeleteTable,
     onUpdateSeatPosition: handleUpdateSeatPosition,
+    onAssignToSeat: handleAssignToSeat,
     showConfirmedOnly,
   };
 
