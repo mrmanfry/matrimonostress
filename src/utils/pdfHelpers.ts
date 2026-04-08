@@ -262,7 +262,7 @@ export const generateTableReport = (tables: Table[]): void => {
       
       doc.setFontSize(11);
 
-      // For imperial tables, sort by seat_position and show side labels
+      // For imperial tables, draw a visual diagram first
       const isImperial = table.table_type === 'imperial';
       let sortedGuests = [...table.guests];
       
@@ -273,6 +273,110 @@ export const generateTableReport = (tables: Table[]): void => {
         
         const halfCap = Math.ceil(table.capacity / 2);
         
+        // Build seat map
+        const seatMap = new Map<number, TableGuest>();
+        table.guests.forEach(g => {
+          if (g.seat_position != null) seatMap.set(g.seat_position, g);
+        });
+
+        // --- Visual Diagram ---
+        const diagramX = 20;
+        const diagramW = 170;
+        const seatW = Math.min(30, diagramW / Math.max(halfCap, 1));
+        const seatH = 18;
+        const startX = diagramX + (diagramW - seatW * halfCap) / 2;
+
+        // Label "Lato A"
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(120, 120, 120);
+        doc.text("LATO A", diagramX, y);
+        y += 4;
+
+        // Side A seats
+        for (let i = 1; i <= halfCap; i++) {
+          const sx = startX + (i - 1) * seatW;
+          const guest = seatMap.get(i);
+          doc.setDrawColor(180, 180, 180);
+          if (guest) {
+            doc.setFillColor(230, 240, 250);
+            doc.rect(sx, y, seatW - 1, seatH, "FD");
+            doc.setFontSize(6);
+            doc.setTextColor(100, 100, 100);
+            doc.setFont("helvetica", "normal");
+            doc.text(`${i}`, sx + 1, y + 5);
+            doc.setFontSize(6);
+            doc.setTextColor(30, 30, 30);
+            doc.setFont("helvetica", "bold");
+            const name = `${guest.first_name} ${guest.last_name}`;
+            const truncName = name.length > (seatW / 1.8) ? name.substring(0, Math.floor(seatW / 2)) + "…" : name;
+            doc.text(truncName, sx + 1, y + 11, { maxWidth: seatW - 2 });
+          } else {
+            doc.setFillColor(245, 245, 245);
+            doc.rect(sx, y, seatW - 1, seatH, "FD");
+            doc.setFontSize(6);
+            doc.setTextColor(180, 180, 180);
+            doc.setFont("helvetica", "normal");
+            doc.text(`${i}`, sx + seatW / 2 - 2, y + 10);
+          }
+        }
+        y += seatH + 2;
+
+        // Table body rectangle
+        const tableBodyX = startX;
+        const tableBodyW = seatW * halfCap - 1;
+        doc.setFillColor(220, 220, 220);
+        doc.setDrawColor(180, 180, 180);
+        doc.rect(tableBodyX, y, tableBodyW, 6, "FD");
+        y += 8;
+
+        // Side B seats
+        const sideBCount = table.capacity - halfCap;
+        for (let i = 1; i <= sideBCount; i++) {
+          const seatIdx = halfCap + i;
+          const sx = startX + (i - 1) * seatW;
+          const guest = seatMap.get(seatIdx);
+          doc.setDrawColor(180, 180, 180);
+          if (guest) {
+            doc.setFillColor(230, 240, 250);
+            doc.rect(sx, y, seatW - 1, seatH, "FD");
+            doc.setFontSize(6);
+            doc.setTextColor(100, 100, 100);
+            doc.setFont("helvetica", "normal");
+            doc.text(`${seatIdx}`, sx + 1, y + 5);
+            doc.setFontSize(6);
+            doc.setTextColor(30, 30, 30);
+            doc.setFont("helvetica", "bold");
+            const name = `${guest.first_name} ${guest.last_name}`;
+            const truncName = name.length > (seatW / 1.8) ? name.substring(0, Math.floor(seatW / 2)) + "…" : name;
+            doc.text(truncName, sx + 1, y + 11, { maxWidth: seatW - 2 });
+          } else {
+            doc.setFillColor(245, 245, 245);
+            doc.rect(sx, y, seatW - 1, seatH, "FD");
+            doc.setFontSize(6);
+            doc.setTextColor(180, 180, 180);
+            doc.setFont("helvetica", "normal");
+            doc.text(`${seatIdx}`, sx + seatW / 2 - 2, y + 10);
+          }
+        }
+        y += seatH + 2;
+
+        // Label "Lato B"
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(120, 120, 120);
+        doc.text("LATO B", diagramX, y + 4);
+        y += 12;
+
+        doc.setTextColor(0, 0, 0);
+
+        // --- Positioned list with full names ---
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text("Dettaglio Posti:", 20, y);
+        y += 8;
+
+        doc.setFontSize(11);
         sortedGuests.forEach((guest) => {
           if (y > 260) {
             doc.addPage();
