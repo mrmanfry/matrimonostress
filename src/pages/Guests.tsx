@@ -1110,18 +1110,11 @@ const Guests = () => {
               hasConfirmedGuests={confirmedGuests.length > 0}
             />
             <Button
-              onClick={() => setContactSyncOpen(true)}
+              onClick={() => window.location.href = '/app/invitations'}
               variant="outline"
             >
-              <Smartphone className="w-4 h-4 mr-2" />
-              Sincronizza Contatti
-            </Button>
-            <Button
-              onClick={() => setPrintEditorOpen(true)}
-              variant="outline"
-            >
-              <Printer className="w-4 h-4 mr-2" />
-              Inviti Cartacei
+              <Send className="w-4 h-4 mr-2" />
+              Campagne
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
