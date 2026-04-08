@@ -44,7 +44,8 @@ interface PrintDesignConfig {
   backgroundImagePath: string | null;
   printed_party_ids?: string[];
   hasPhoto?: boolean;
-  editableTexts?: InvitationTexts;
+  editableTexts?: InvitationTexts; // legacy — migrated to textBlocks on load
+  textBlocks?: TextBlock[];
   textPosition?: TextPosition;
   qrPosition?: QrPosition;
   textColor?: string;
@@ -77,20 +78,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
   const [textPosition, setTextPosition] = useState<TextPosition>({ y: 55 });
   const [qrPosition, setQrPosition] = useState<QrPosition>({ x: 42, y: 85, size: 15 });
   const [textColor, setTextColor] = useState('#1a1a1a');
-  const [editableTexts, setEditableTexts] = useState<InvitationTexts>({
-    greeting: 'Cari',
-    names: '',
-    announcement: 'sono lieti di annunciare il loro matrimonio',
-    dateText: '',
-    timePrefix: 'alle ore',
-    time: '',
-    venuePrefix: 'presso',
-    ceremonyVenue: '',
-    ceremonyAddress: '',
-    receptionPrefix: 'A seguire festeggeremo insieme presso',
-    receptionVenue: '',
-    receptionAddress: '',
-  });
+  const [textBlocks, setTextBlocks] = useState<TextBlock[]>([]);
   const [textsInitialized, setTextsInitialized] = useState(false);
 
   // Persistence tracking
@@ -163,8 +151,12 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
         if (config.textPosition) setTextPosition(config.textPosition);
         if (config.qrPosition) setQrPosition(config.qrPosition);
         if (config.textColor) setTextColor(config.textColor);
-        if (config.editableTexts) {
-          setEditableTexts(config.editableTexts);
+        // Load textBlocks — migrate from legacy editableTexts if needed
+        if (config.textBlocks) {
+          setTextBlocks(config.textBlocks);
+          setTextsInitialized(true);
+        } else if (config.editableTexts) {
+          setTextBlocks(migrateTextsToBlocks(config.editableTexts));
           setTextsInitialized(true);
         }
         if (config.backgroundImagePath) {
@@ -174,23 +166,19 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
         setDesignLoaded(true);
       }
 
-      // Initialize editable texts from wedding data if not restored from saved config
-      if (!textsInitialized && !(data.print_design as unknown as PrintDesignConfig)?.editableTexts) {
-        const ft = formatTime(data.ceremony_start_time);
-        setEditableTexts({
-          greeting: 'Cari',
-          names: `${data.partner1_name} e ${data.partner2_name}`,
-          announcement: 'sono lieti di annunciare il loro matrimonio',
-          dateText: data.wedding_date ? formatWeddingDate(data.wedding_date) : '',
-          timePrefix: 'alle ore',
-          time: ft,
-          venuePrefix: 'presso',
-          ceremonyVenue: data.ceremony_venue_name || '',
-          ceremonyAddress: data.ceremony_venue_address || '',
-          receptionPrefix: 'A seguire festeggeremo insieme presso',
-          receptionVenue: data.reception_venue_name || '',
-          receptionAddress: data.reception_venue_address || '',
-        });
+      // Initialize text blocks from wedding data if not restored from saved config
+      if (!textsInitialized && !(data.print_design as unknown as PrintDesignConfig)?.textBlocks && !(data.print_design as unknown as PrintDesignConfig)?.editableTexts) {
+        setTextBlocks(buildDefaultBlocks({
+          partner1Name: data.partner1_name,
+          partner2Name: data.partner2_name,
+          weddingDate: data.wedding_date,
+          ceremonyTime: data.ceremony_start_time,
+          ceremonyVenueName: data.ceremony_venue_name,
+          ceremonyVenueAddress: data.ceremony_venue_address,
+          receptionVenueName: data.reception_venue_name,
+          receptionVenueAddress: data.reception_venue_address,
+          receptionTime: data.reception_start_time,
+        }));
         setTextsInitialized(true);
       }
     }
