@@ -621,6 +621,8 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
           editableTexts={editableTexts}
           textPosition={textPosition}
           qrPosition={qrPosition}
+          textColor={textColor}
+          greeting={currentProcessingParty.greeting}
         />
       )}
     </>
