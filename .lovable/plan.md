@@ -1,51 +1,14 @@
 
 
-## Problema di Scalabilità
+## Fix: Seat slots wrapping to new line in imperial table layout
 
-Un tavolo imperiale da 100 posti con la vista top-down a due lati significherebbe 50 slot per lato — completamente illeggibile, specialmente su mobile. Inoltre, nella realtà, tavoli imperiali molto lunghi hanno spesso posti anche sulle **testate** (capotavola).
+The issue is that `flex-wrap` on Side A and Side B containers allows seats to wrap when the container is too narrow. The fix is to remove `flex-wrap` and instead make the rows horizontally scrollable with `overflow-x-auto`, ensuring all seats stay on one line.
 
-## Piano Rivisto: Vista Top-Down Adattiva
+### Changes
 
-### Concetto
+**`src/components/tables/ImperialTableLayout.tsx`** (lines 222 and 241):
+- Side A (line 222): Change `flex gap-1 justify-center flex-wrap mb-1` → `flex gap-1 justify-center overflow-x-auto mb-1`
+- Side B (line 241): Change `flex gap-1 justify-center flex-wrap mt-1` → `flex gap-1 justify-center overflow-x-auto mt-1`
 
-La vista si adatta alla dimensione del tavolo:
-
-- **≤ 20 posti**: Vista grafica top-down completa con slot individuali sui due lati lunghi
-- **> 20 posti**: Vista **compatta a griglia numerata** — due colonne (Lato A / Lato B) con righe numerate, scrollabile. Stessa logica di posizionamento, ma rappresentata come tabella ordinata anziché rettangolo grafico
-
-```text
-TAVOLO PICCOLO (≤20):
-┌───────────────────────────────┐
-│ [1.Marco] [2.Lucia] [3.Paolo]│  Lato A
-│         ██████████████       │
-│ [4.Anna] [5.Giulia] [6.___] │  Lato B
-└───────────────────────────────┘
-
-TAVOLO GRANDE (>20):
-┌─────────────────────────────────┐
-│  Lato A              Lato B    │
-│  1. Marco Rossi      2. Anna  │
-│  3. Lucia Bianchi    4. Giulia│
-│  5. Paolo Verdi      6. ___   │
-│  ...                 ...      │
-│  49. ___             50. ___  │
-└─────────────────────────────────┘
-```
-
-### Cambiamenti
-
-1. **Migrazione DB**: Aggiungere `seat_position` (integer, nullable) a `table_assignments`
-
-2. **Nuovo `ImperialTableLayout.tsx`**:
-   - Riceve tavolo, ospiti, assignments con seat_position
-   - Se `capacity ≤ 20`: renderizza il rettangolo SVG/CSS con slot droppable sui lati
-   - Se `capacity > 20`: renderizza griglia a due colonne con righe numerate droppable
-   - Zona "Non posizionati" in entrambi i casi per ospiti assegnati ma senza posto
-   - Slot vuoti droppabili, bottone X per rimuovere dal posto
-
-3. **Modifica `TableCanvas.tsx`**: Per tavoli imperiali, usa `ImperialTableLayout` al posto della lista
-
-4. **Modifica `Tables.tsx`**: Gestire drop su slot specifico → salva `seat_position`
-
-5. **Modifica `pdfHelpers.ts`**: Export ordinato per `seat_position` con indicazione Lato A/B
+This keeps all seats on one row and allows horizontal scrolling if the table is wider than the container. For ≤20 seats this should rarely scroll, but prevents wrapping in all cases.
 
