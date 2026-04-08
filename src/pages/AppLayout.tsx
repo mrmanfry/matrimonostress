@@ -279,7 +279,7 @@ const AppLayoutInner = ({
         <SidebarFooter className="border-t border-border p-4">
           {weddingInfo && !(isPlannerMode && isOnCockpit) && (
             <div className="mb-3 p-3 bg-gradient-hero rounded-lg text-center">
-              <div className="text-3xl font-bold text-accent">{weddingInfo.daysUntil}</div>
+              <div className="text-3xl font-bold text-accent-foreground">{weddingInfo.daysUntil}</div>
               <div className="text-xs text-muted-foreground">giorni al matrimonio</div>
             </div>
           )}
