@@ -498,6 +498,68 @@ const Tables = () => {
     }
   };
 
+  const handleAssignToSeat = async (tableId: string, guestId: string, seatPosition: number) => {
+    if (!weddingId) return;
+
+    // If guest is a virtual +1, create real guest first
+    let realGuestId = guestId;
+    if (guestId.startsWith("plusone_")) {
+      const originalGuestId = guestId.replace("plusone_", "");
+      const virtualGuest = guests.find(g => g.id === guestId);
+      const originalGuest = guests.find(g => g.id === originalGuestId);
+      if (!virtualGuest || !originalGuest) return;
+
+      const { data: newGuest, error: createError } = await supabase
+        .from("guests")
+        .insert({
+          wedding_id: weddingId,
+          first_name: virtualGuest.first_name,
+          last_name: virtualGuest.last_name,
+          rsvp_status: originalGuest.rsvp_status,
+          party_id: originalGuest.party_id,
+          group_id: originalGuest.group_id,
+          category: originalGuest.category,
+          is_child: false,
+          adults_count: 1,
+          children_count: 0,
+        })
+        .select("id")
+        .single();
+
+      if (createError || !newGuest) {
+        toast({ title: "Errore", description: "Impossibile creare l'ospite +1", variant: "destructive" });
+        return;
+      }
+
+      await supabase
+        .from("guests")
+        .update({ plus_one_name: null, allow_plus_one: false })
+        .eq("id", originalGuestId);
+
+      realGuestId = newGuest.id;
+      await fetchGuests(weddingId);
+      await fetchAllGuests(weddingId);
+    }
+
+    // Remove existing assignment if any
+    const existingAssignment = assignments.find(a => a.guest_id === realGuestId);
+    if (existingAssignment) {
+      await supabase.from("table_assignments").delete().eq("id", existingAssignment.id);
+    }
+
+    const { error } = await supabase.from("table_assignments").insert({
+      table_id: tableId,
+      guest_id: realGuestId,
+      seat_position: seatPosition,
+    });
+
+    if (error) {
+      toast({ title: "Errore", description: "Impossibile assegnare l'ospite", variant: "destructive" });
+    } else {
+      fetchAssignments(weddingId);
+    }
+  };
+
   const handleWizardComplete = async () => {
     if (!weddingId) return;
     
