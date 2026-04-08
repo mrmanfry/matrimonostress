@@ -1,47 +1,99 @@
 
 
-## Miglioramenti Imperial Table Layout
+## Piano di Implementazione: Separazione Modulo Invitati → CRM + Hub Campagne
 
-L'utente chiede 3 cose:
+### Situazione Attuale
 
-1. **Non posizionati draggabili** — rendere gli ospiti nella zona "Non posizionati" trascinabili sugli slot vuoti
-2. **Click su slot vuoto** — aprire un popover/dialog per selezionare un ospite (prima tra i non posizionati, poi tra quelli non ancora assegnati al tavolo)
-3. **Iniziali + tooltip nei box grafici** — nei box della vista top-down mostrare solo le iniziali (es. "BP") con tooltip al hover per il nome completo. Aggiungere sotto il rettangolo grafico una lista "Posizionati" con numero e nome completo
+`Guests.tsx` (1610 righe) gestisce tutto: data entry, filtri, analytics, campagne RSVP WhatsApp, inviti cartacei. Il refactoring lo separa in due moduli distinti.
 
-### Cambiamenti in `ImperialTableLayout.tsx`
+### EPIC 1: Decoupling Architetturale
 
-**A. Non posizionati draggabili**
-- Importare `useDraggable` da `@dnd-kit/core`
-- Wrappare ogni ospite nella `UnpositionedZone` con `useDraggable({ id: guest.id })` + attributi drag
-- Questo li rende trascinabili sugli slot (che sono già droppable)
+**1.1 Nuova route `/app/invitations` + sidebar**
+- Creare `src/pages/Invitations.tsx` come dashboard hub
+- Aggiungere la route in `App.tsx` sotto `/app`
+- Aggiungere voce "Campagne" nella sidebar in `AppLayout.tsx` (icona `Send`)
+- Lazy load della route per code splitting
 
-**B. Iniziali + Tooltip nei seat slot grafici (non-compact)**
-- Nel `SeatSlot` non-compact, sostituire `guest.first_name` troncato con le iniziali: `${first_name[0]}${last_name[0]}`
-- Wrappare il box con `Tooltip` (da `@/components/ui/tooltip`) che mostra `"Nome Cognome"` al hover
-- Rimuovere il bottone X dal box grafico (troppo stretto) — la rimozione avviene dalla lista posizionati
+**1.2 Dashboard KPI Campagne**
+- Creare `src/components/invitations/InvitationsKPIs.tsx` con funnel visuale (Da Invitare → Inviati → Confermati → Rifiutati)
+- Hook dedicato `useInvitationsData.ts` che fetcha solo i campi necessari (nome, telefono, token, rsvp_status, campaign timestamps)
+- Due card grandi centrali: "Invia su WhatsApp" e "Prepara per la Stampa"
 
-**C. Lista "Posizionati" sotto il rettangolo**
-- Dopo il rettangolo grafico e le label Lato A/B, aggiungere una sezione "Posizionati" che elenca: `{seatIndex}. {first_name} {last_name}` con bottone X per rimuovere dal posto
-- Ordinata per seat_position, divisa in Lato A e Lato B
+**1.3 Pulizia di `Guests.tsx`**
+- Rimuovere il bottone "💬 Campagna RSVP" dalla barra filtri
+- Rimuovere il bottone "Inviti Cartacei" dall'header
+- Rimuovere `RSVPCampaignDialog` e `PrintInvitationEditor` da Guests.tsx
+- Rimuovere `FunnelKPICards` (migrato nella dashboard Campagne)
+- Aggiungere banner di navigazione: "Hai N nuclei pronti — Vai alle Campagne →"
+- Mantenere: data entry, filtri anagrafici, analytics composizione, selezione/raggruppamento
 
-**D. Click su slot vuoto → Popover di selezione ospite**
-- Aggiungere una prop `allGuests` e `allAssignments` (o gli ospiti non assegnati) al componente
-- Quando si clicca su uno slot vuoto: aprire un `Popover` con una lista searchable (usando `Command` da shadcn)
-- La lista mostra prima "Non posizionati al tavolo" (assegnati ma senza seat), poi "Da assegnare" (non assegnati a nessun tavolo)
-- Al click su un ospite: chiamare `onUpdateSeatPosition` per i non posizionati, oppure una nuova callback `onAssignToSeat(guestId, seatPosition)` per i non assegnati
+### EPIC 2: Hub WhatsApp (parità feature)
 
-### Cambiamenti in `TableCanvas.tsx`
-- Passare `guests` (pool completo) e `assignments` a `ImperialTableLayout` — già fatto
-- Aggiungere prop `onAssignToSeat` callback
+**2.1 Migrazione RSVPCampaignDialog**
+- Spostare `RSVPCampaignDialog` come vista full-page in `/app/invitations/whatsapp` (o sub-route)
+- Mantenere tutta la logica esistente (AI generation, share API, recovery)
+- Aggiungere breadcrumb "Campagne → WhatsApp" per navigazione
 
-### Cambiamenti in `Tables.tsx`
-- Creare handler `handleAssignToSeat(tableId, guestId, seatPosition)` che inserisce assignment con seat_position
-- Passarlo a `TableCanvas` → `ImperialTableLayout`
+**2.2 Sync e invalidazione cache**
+- Usare React Query con `queryKey` condivisi tra moduli
+- Quando si modifica un guest in `/guests`, invalidare le query usate da `/invitations`
 
-### Props aggiornate di `ImperialTableLayout`
+### EPIC 3: Print Studio con Upload Custom PDF
+
+**3.1 Storage e DB**
+- Creare bucket `invitation-designs` con RLS (auth + wedding ownership)
+- Aggiungere colonne a `weddings`: `custom_pdf_template_url` (text), `qr_overlay_config` (jsonb: `{x, y, width, color, quietZone}`)
+- Indice su `guests(party_id, rsvp_status)` per performance dashboard
+
+**3.2 Upload e Preview**
+- Accettare PDF (max 2 pagine, max 25MB), PNG, JPG
+- Rasterizzare la prima pagina del PDF con `pdfjs-dist` per preview nel canvas
+- Validazione formato + dimensioni con errori chiari in italiano
+
+**3.3 Canvas Drag & Drop per QR**
+- Canvas split-screen (desktop only, warning su mobile)
+- Placeholder QR trascinabile con resize (min 60x60px = ~1.5cm)
+- Selettore colore QR (Nero, Oro, Bianco, Custom)
+- Toggle quiet zone bianca (default ON)
+- Salvataggio coordinate in `weddings.qr_overlay_config`
+
+**3.4 Motore di Rendering Client-Side**
+- `pdf-lib` per iniettare QR SVG nelle coordinate salvate
+- Iterazione su tutti i nuclei con `unique_rsvp_token`
+- Generazione automatica token mancanti prima del rendering
+- Progress bar visibile durante generazione
+- Output: ZIP (via `jszip`) con un PDF per nucleo, nominato per party_name
+- Segmentazione ZIP se supera 500MB
+
+### Struttura File Risultante
+
 ```text
-+ allGuests: Guest[]           // tutti gli ospiti per il popover di selezione
-+ allAssignments: Assignment[] // tutti gli assignment per sapere chi è libero
-+ onAssignToSeat: (guestId: string, seatPosition: number) => void
+src/pages/
+  Guests.tsx          (CRM puro, ~900 righe)
+  Invitations.tsx     (dashboard hub)
+
+src/components/invitations/
+  InvitationsKPIs.tsx
+  PrintStudio.tsx
+  QRCanvasEditor.tsx
+  PrintGeneratorEngine.tsx
+
+src/hooks/
+  useInvitationsData.ts
 ```
+
+### Ordine di Implementazione
+
+1. Epic 1.1 + 1.2 → Creare la nuova pagina e sidebar
+2. Epic 1.3 → Pulire Guests.tsx
+3. Epic 2.1 + 2.2 → Migrare WhatsApp
+4. Epic 3.1 → DB + Storage
+5. Epic 3.2-3.4 → Print Studio
+
+### Note Tecniche
+
+- **Code splitting**: `React.lazy()` per `/invitations` e sub-routes print
+- **Librerie nuove**: `pdf-lib`, `pdfjs-dist` (solo nel chunk print)
+- **Nessuna migrazione distruttiva**: solo colonne nullable aggiunte a `weddings`
+- **Mobile**: Print Studio bloccato con warning, tutto il resto mobile-first
 
