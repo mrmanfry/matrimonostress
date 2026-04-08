@@ -699,7 +699,7 @@ const PrintDesignStep = ({
             onPointerDown={handleTextPointerDown}
           >
             <div className="pointer-events-none">
-              {renderTextContent(editableTexts, fontFamily)}
+              {renderTextContent(editableTexts, fontFamily, textColor)}
             </div>
           </div>
 
