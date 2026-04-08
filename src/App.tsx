@@ -36,6 +36,7 @@ import Accommodation from "./pages/Accommodation";
 import MemoriesReel from "./pages/MemoriesReel";
 import CameraPublic from "./pages/CameraPublic";
 import Invitations from "./pages/Invitations";
+import MassBooklet from "./pages/MassBooklet";
 import NotFound from "./pages/NotFound";
 
 const AppIndexRedirect = () => {
@@ -98,6 +99,7 @@ const App = () => (
               <Route path="accommodation" element={<Accommodation />} />
               <Route path="invitations" element={<Invitations />} />
               <Route path="memories" element={<MemoriesReel />} />
+              <Route path="mass-booklet" element={<MassBooklet />} />
               <Route path="timeline" element={<Timeline />} />
               <Route path="settings" element={<Settings />} />
               <Route path="chat" element={<Chat />} />

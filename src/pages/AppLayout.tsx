@@ -220,6 +220,7 @@ const AppLayoutInner = ({
       { name: "Catering", href: "/app/catering", icon: ChefHat },
       { name: "Pernotto", href: "/app/accommodation", icon: Hotel },
       { name: "Memories", href: "/app/memories", icon: Camera },
+      { name: "Libretto Messa", href: "/app/mass-booklet", icon: BookOpen },
       { name: "Timeline", href: "/app/timeline", icon: Calendar },
       { name: "Impostazioni", href: "/app/settings", icon: Settings },
     ];
