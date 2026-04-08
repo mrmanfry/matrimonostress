@@ -1,5 +1,5 @@
 import { Document, Page, View, Text } from '@react-pdf/renderer';
-import s from './pdfStyles';
+import { createStyles } from './pdfStyles';
 import type { MassBookletContent } from '@/lib/massBookletSchema';
 import PdfCoverPage from './PdfCoverPage';
 import PdfReadingSection from './PdfReadingSection';
@@ -16,6 +16,8 @@ const A5: [number, number] = [420.94, 595.28]; // 148.5mm x 210mm in points
 
 export default function BookletPdfDocument({ content, partner1, partner2 }: Props) {
   const isEucharist = content.rite_type === 'messa_eucaristia';
+  const style = content.style;
+  const s = createStyles(style);
 
   return (
     <Document title={`Libretto Messa - ${partner1} & ${partner2}`} author="MatrimonoStress">
@@ -25,25 +27,26 @@ export default function BookletPdfDocument({ content, partner1, partner2 }: Prop
         partner2={partner2}
         dateText={content.ceremony_date_text}
         churchName={content.church_name}
+        style={style}
       />
 
       {/* Content pages — wrap enables auto-pagination */}
       <Page size={A5} style={s.page} wrap>
         {/* Rite Intro */}
-        <PdfRiteIntro content={content} partner1={partner1} partner2={partner2} />
+        <PdfRiteIntro content={content} partner1={partner1} partner2={partner2} style={style} />
 
         <View style={s.spacerLg} />
 
         {/* Readings — force new page */}
         <View break>
-          <PdfReadingSection content={content} />
+          <PdfReadingSection content={content} style={style} />
         </View>
 
         <View style={s.spacerLg} />
 
         {/* Consent & Rings — force new page */}
         <View break>
-          <PdfConsent partner1={partner1} partner2={partner2} />
+          <PdfConsent partner1={partner1} partner2={partner2} style={style} />
         </View>
 
         <View style={s.spacerLg} />

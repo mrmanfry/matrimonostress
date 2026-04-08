@@ -1,6 +1,6 @@
 import { View, Text } from '@react-pdf/renderer';
-import s from './pdfStyles';
-import type { LiturgiaReading, LiturgiaPsalm, LiturgiaData } from '@/lib/massBookletSchema';
+import { createStyles } from './pdfStyles';
+import type { LiturgiaReading, LiturgiaPsalm, LiturgiaData, MassBookletStyle } from '@/lib/massBookletSchema';
 import type { MassBookletContent } from '@/lib/massBookletSchema';
 import liturgiaData from '@/data/liturgia.json';
 
@@ -8,9 +8,11 @@ const lit = liturgiaData as unknown as LiturgiaData;
 
 interface Props {
   content: MassBookletContent;
+  style?: MassBookletStyle;
 }
 
-function ReadingBlock({ label, source, reference, text }: { label: string; source: string; reference: string; text: string }) {
+function ReadingBlock({ label, source, reference, text, style }: { label: string; source: string; reference: string; text: string; style?: MassBookletStyle }) {
+  const s = createStyles(style);
   return (
     <View style={{ marginBottom: 14 }}>
       <Text style={s.subTitle} minPresenceAhead={40}>{label}</Text>
@@ -21,7 +23,8 @@ function ReadingBlock({ label, source, reference, text }: { label: string; sourc
   );
 }
 
-function PsalmBlock({ psalm }: { psalm: LiturgiaPsalm }) {
+function PsalmBlock({ psalm, style }: { psalm: LiturgiaPsalm; style?: MassBookletStyle }) {
+  const s = createStyles(style);
   return (
     <View style={{ marginBottom: 14 }}>
       <Text style={s.subTitle} minPresenceAhead={40}>Salmo Responsoriale</Text>
@@ -37,7 +40,8 @@ function PsalmBlock({ psalm }: { psalm: LiturgiaPsalm }) {
   );
 }
 
-export default function PdfReadingSection({ content }: Props) {
+export default function PdfReadingSection({ content, style }: Props) {
+  const s = createStyles(style);
   const r = content.readings;
 
   let firstReading: LiturgiaReading | undefined;
@@ -78,9 +82,9 @@ export default function PdfReadingSection({ content }: Props) {
       <View style={s.separator} />
 
       {firstReadingCustom ? (
-        <ReadingBlock label="Prima Lettura" source="" reference="" text={r.first_reading_custom!} />
+        <ReadingBlock label="Prima Lettura" source="" reference="" text={r.first_reading_custom!} style={style} />
       ) : firstReading ? (
-        <ReadingBlock label="Prima Lettura" source={firstReading.source} reference={firstReading.reference} text={firstReading.text} />
+        <ReadingBlock label="Prima Lettura" source={firstReading.source} reference={firstReading.reference} text={firstReading.text} style={style} />
       ) : null}
 
       {psalmCustom ? (
@@ -89,19 +93,19 @@ export default function PdfReadingSection({ content }: Props) {
           <Text style={s.body}>{r.psalm_custom}</Text>
         </View>
       ) : psalm ? (
-        <PsalmBlock psalm={psalm} />
+        <PsalmBlock psalm={psalm} style={style} />
       ) : null}
 
       {secondReadingCustom ? (
-        <ReadingBlock label="Seconda Lettura" source="" reference="" text={r.second_reading_custom!} />
+        <ReadingBlock label="Seconda Lettura" source="" reference="" text={r.second_reading_custom!} style={style} />
       ) : secondReading ? (
-        <ReadingBlock label="Seconda Lettura" source={secondReading.source} reference={secondReading.reference} text={secondReading.text} />
+        <ReadingBlock label="Seconda Lettura" source={secondReading.source} reference={secondReading.reference} text={secondReading.text} style={style} />
       ) : null}
 
       {gospelCustom ? (
-        <ReadingBlock label="Vangelo" source="" reference="" text={r.gospel_custom!} />
+        <ReadingBlock label="Vangelo" source="" reference="" text={r.gospel_custom!} style={style} />
       ) : gospel ? (
-        <ReadingBlock label="Vangelo" source={gospel.source} reference={gospel.reference} text={gospel.text} />
+        <ReadingBlock label="Vangelo" source={gospel.source} reference={gospel.reference} text={gospel.text} style={style} />
       ) : null}
     </View>
   );

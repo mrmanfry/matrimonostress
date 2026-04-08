@@ -16,6 +16,7 @@ import BookletStepRite from "@/components/mass-booklet/BookletStepRite";
 import BookletStepReadings from "@/components/mass-booklet/BookletStepReadings";
 import BookletStepCustom from "@/components/mass-booklet/BookletStepCustom";
 import BookletStepPreview from "@/components/mass-booklet/BookletStepPreview";
+import BookletStepStyle from "@/components/mass-booklet/BookletStepStyle";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
@@ -258,7 +259,7 @@ export default function MassBooklet() {
         >
           ← Indietro
         </Button>
-        {currentStep < 5 && (
+        {currentStep < 6 && (
           <Button onClick={() => goToStep(currentStep + 1)}>
             Avanti →
           </Button>
