@@ -89,6 +89,7 @@ const DroppableTable = ({
   onDeleteTable,
   proposedGuestIds,
   isProposalMode,
+  showConfirmedOnly,
 }: {
   table: Table;
   guests: Guest[];
@@ -118,7 +119,14 @@ const DroppableTable = ({
     .map(id => guests.find(g => g.id === id))
     .filter((g): g is Guest => g !== undefined) || [];
 
-  const totalGuests = tableGuests.length + proposedGuests.length;
+  // Phantom +1: guests with allow_plus_one who don't have a real +1 assigned to this table
+  const phantomPlusOnes = tableGuests.filter(({ guest }) =>
+    guest!.allow_plus_one &&
+    !tableGuests.some(tg => tg.guest?.is_plus_one && tg.guest?.plus_one_of_guest_id === guest!.id) &&
+    (!showConfirmedOnly || (guest!.plus_one_name?.trim()))
+  );
+
+  const totalGuests = tableGuests.length + proposedGuests.length + phantomPlusOnes.length;
   const assignedGuestIds = [...tableGuests.map(({ guest }) => guest!.id), ...proposedGuestIds || []];
   
   const hasConflicts = conflicts.some(c => {
