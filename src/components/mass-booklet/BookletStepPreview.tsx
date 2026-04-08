@@ -17,6 +17,7 @@ interface Props {
 
 export default function BookletStepPreview({ content, onGoToStep, partner1, partner2 }: Props) {
   const [accepted, setAccepted] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const validation = validateBookletCompleteness(content);
 
   return (
