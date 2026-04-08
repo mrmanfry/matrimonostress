@@ -135,7 +135,7 @@ const DroppableTable = ({
 
   const isOverCapacity = totalGuests > table.capacity;
   const fillRate = (totalGuests / table.capacity) * 100;
-  const isRound = table.shape?.toUpperCase() === 'ROUND' || !table.shape;
+  
 
   const handleSave = async () => {
     const { error } = await supabase
