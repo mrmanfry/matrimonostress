@@ -25,6 +25,16 @@ export interface ImageTransform {
   scale: number;
 }
 
+export interface TextPosition {
+  y: number; // percentage from top
+}
+
+export interface QrPosition {
+  x: number; // percentage from left
+  y: number; // percentage from top
+  size: number; // percentage of canvas width
+}
+
 interface PrintDesignConfig {
   fontStyle: FontStyle;
   edgeStyle: EdgeStyle;
@@ -33,6 +43,8 @@ interface PrintDesignConfig {
   printed_party_ids?: string[];
   hasPhoto?: boolean;
   editableTexts?: InvitationTexts;
+  textPosition?: TextPosition;
+  qrPosition?: QrPosition;
 }
 
 interface PrintInvitationEditorProps {
@@ -59,6 +71,8 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
   const [imageTransform, setImageTransform] = useState<ImageTransform>({ x: 0, y: 0, scale: 1 });
   const [edgeStyle, setEdgeStyle] = useState<EdgeStyle>('none');
   const [hasPhoto, setHasPhoto] = useState(true);
+  const [textPosition, setTextPosition] = useState<TextPosition>({ y: 55 });
+  const [qrPosition, setQrPosition] = useState<QrPosition>({ x: 42, y: 85, size: 15 });
   const [editableTexts, setEditableTexts] = useState<InvitationTexts>({
     greeting: 'Cari',
     names: '',
@@ -142,6 +156,8 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
         if (config.imageTransform) setImageTransform(config.imageTransform);
         if (config.printed_party_ids) setPrintedPartyIds(config.printed_party_ids);
         if (config.hasPhoto !== undefined) setHasPhoto(config.hasPhoto);
+        if (config.textPosition) setTextPosition(config.textPosition);
+        if (config.qrPosition) setQrPosition(config.qrPosition);
         if (config.editableTexts) {
           setEditableTexts(config.editableTexts);
           setTextsInitialized(true);
@@ -239,6 +255,8 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
       backgroundImagePath: bgPath,
       hasPhoto,
       editableTexts,
+      textPosition,
+      qrPosition,
     };
 
     await supabase
@@ -247,7 +265,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
       .eq('id', weddingId);
 
     setBgDirty(false);
-  }, [backgroundImage, bgDirty, savedBgPath, fontStyle, edgeStyle, imageTransform, weddingId]);
+  }, [backgroundImage, bgDirty, savedBgPath, fontStyle, edgeStyle, imageTransform, weddingId, hasPhoto, editableTexts, textPosition, qrPosition]);
 
   // Load parties when entering step 2
   useEffect(() => {
@@ -510,6 +528,10 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
                 onHasPhotoChange={setHasPhoto}
                 editableTexts={editableTexts}
                 onEditableTextsChange={setEditableTexts}
+                textPosition={textPosition}
+                onTextPositionChange={setTextPosition}
+                qrPosition={qrPosition}
+                onQrPositionChange={setQrPosition}
               />
             )}
 
@@ -583,6 +605,8 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
           edgeStyle={edgeStyle}
           hasPhoto={hasPhoto}
           editableTexts={editableTexts}
+          textPosition={textPosition}
+          qrPosition={qrPosition}
         />
       )}
     </>

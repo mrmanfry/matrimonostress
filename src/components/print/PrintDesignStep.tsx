@@ -13,10 +13,11 @@ import {
   SelectTrigger,
   SelectValue } from
 "@/components/ui/select";
-import { Upload, ImageIcon, RotateCcw } from "lucide-react";
+import { Upload, ImageIcon, RotateCcw, GripVertical, QrCode } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
-import type { ImageTransform, EdgeStyle } from "./PrintInvitationEditor";
+import { QRCodeSVG } from "qrcode.react";
+import type { ImageTransform, EdgeStyle, TextPosition, QrPosition } from "./PrintInvitationEditor";
 
 export type FontStyle =
 'garamond' |
@@ -81,6 +82,10 @@ interface PrintDesignStepProps {
   onHasPhotoChange: (v: boolean) => void;
   editableTexts: InvitationTexts;
   onEditableTextsChange: (texts: InvitationTexts) => void;
+  textPosition: TextPosition;
+  onTextPositionChange: (pos: TextPosition) => void;
+  qrPosition: QrPosition;
+  onQrPositionChange: (pos: QrPosition) => void;
 }
 
 export const FONT_MAP: Record<FontStyle, string> = {
@@ -173,6 +178,10 @@ const PrintDesignStep = ({
   onHasPhotoChange,
   editableTexts,
   onEditableTextsChange,
+  textPosition,
+  onTextPositionChange,
+  qrPosition,
+  onQrPositionChange,
 }: PrintDesignStepProps) => {
   const weddingData = weddingDataProp ?? {
     partner1Name: '', partner2Name: '', weddingDate: '',
@@ -182,8 +191,15 @@ const PrintDesignStep = ({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragContainerRef = useRef<HTMLDivElement>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isTextDragging, setIsTextDragging] = useState(false);
+  const [isQrDragging, setIsQrDragging] = useState(false);
+  const [isQrResizing, setIsQrResizing] = useState(false);
   const dragStartRef = useRef<{startX: number;startY: number;startTx: number;startTy: number;} | null>(null);
+  const textDragRef = useRef<{startY: number; origY: number} | null>(null);
+  const qrDragRef = useRef<{startX: number; startY: number; origX: number; origY: number} | null>(null);
+  const qrResizeRef = useRef<{startX: number; origSize: number} | null>(null);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -227,8 +243,70 @@ const PrintDesignStep = ({
 
   const handlePointerUp = useCallback(() => {
     setIsDragging(false);
+    setIsTextDragging(false);
+    setIsQrDragging(false);
+    setIsQrResizing(false);
     dragStartRef.current = null;
+    textDragRef.current = null;
+    qrDragRef.current = null;
+    qrResizeRef.current = null;
   }, []);
+
+  // Text block drag
+  const handleTextPointerDown = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    setIsTextDragging(true);
+    textDragRef.current = { startY: e.clientY, origY: textPosition.y };
+  }, [textPosition.y]);
+
+  // QR drag
+  const handleQrPointerDown = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    setIsQrDragging(true);
+    qrDragRef.current = { startX: e.clientX, startY: e.clientY, origX: qrPosition.x, origY: qrPosition.y };
+  }, [qrPosition.x, qrPosition.y]);
+
+  // QR resize
+  const handleQrResizeDown = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    setIsQrResizing(true);
+    qrResizeRef.current = { startX: e.clientX, origSize: qrPosition.size };
+  }, [qrPosition.size]);
+
+  // Unified pointer move for text/QR drag on the preview container
+  const handlePreviewPointerMove = useCallback((e: React.PointerEvent) => {
+    if (!previewRef.current) return;
+    const rect = previewRef.current.getBoundingClientRect();
+
+    if (isTextDragging && textDragRef.current) {
+      e.preventDefault();
+      const dy = ((e.clientY - textDragRef.current.startY) / rect.height) * 100;
+      const newY = Math.max(5, Math.min(85, textDragRef.current.origY + dy));
+      onTextPositionChange({ y: newY });
+    }
+
+    if (isQrDragging && qrDragRef.current) {
+      e.preventDefault();
+      const dx = ((e.clientX - qrDragRef.current.startX) / rect.width) * 100;
+      const dy = ((e.clientY - qrDragRef.current.startY) / rect.height) * 100;
+      const newX = Math.max(0, Math.min(100 - qrPosition.size, qrDragRef.current.origX + dx));
+      const newY = Math.max(0, Math.min(100 - qrPosition.size, qrDragRef.current.origY + dy));
+      onQrPositionChange({ ...qrPosition, x: newX, y: newY });
+    }
+
+    if (isQrResizing && qrResizeRef.current) {
+      e.preventDefault();
+      const dx = ((e.clientX - qrResizeRef.current.startX) / rect.width) * 100;
+      const newSize = Math.max(6, Math.min(35, qrResizeRef.current.origSize + dx));
+      onQrPositionChange({ ...qrPosition, size: newSize });
+    }
+  }, [isTextDragging, isQrDragging, isQrResizing, qrPosition, onTextPositionChange, onQrPositionChange]);
 
   const showGuideH = isDragging && Math.abs(imageTransform.y) < SNAP_THRESHOLD;
   const showGuideV = isDragging && Math.abs(imageTransform.x) < SNAP_THRESHOLD;
@@ -418,17 +496,72 @@ const PrintDesignStep = ({
             <Input value={editableTexts.receptionAddress} onChange={(e) => updateText('receptionAddress', e.target.value)} placeholder="Via..." />
           </div>
         </div>
+
+        {/* Position controls */}
+        <div className="space-y-3 pt-2 border-t border-border">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <GripVertical className="w-4 h-4" />
+            Posizione elementi
+          </h3>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">Posizione testo</Label>
+              <span className="text-[10px] text-muted-foreground">{Math.round(textPosition.y)}%</span>
+            </div>
+            <Slider
+              value={[textPosition.y]}
+              onValueChange={([v]) => onTextPositionChange({ y: v })}
+              min={5}
+              max={85}
+              step={1}
+            />
+            <p className="text-[10px] text-muted-foreground">Trascina il blocco testo nell'anteprima oppure usa lo slider</p>
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs flex items-center gap-1"><QrCode className="w-3 h-3" /> Dimensione QR</Label>
+              <span className="text-[10px] text-muted-foreground">{Math.round(qrPosition.size)}%</span>
+            </div>
+            <Slider
+              value={[qrPosition.size]}
+              onValueChange={([v]) => onQrPositionChange({ ...qrPosition, size: v })}
+              min={6}
+              max={35}
+              step={1}
+            />
+            <p className="text-[10px] text-muted-foreground">Trascina il QR code nell'anteprima per spostarlo</p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full"
+            onClick={() => {
+              onTextPositionChange({ y: hasPhoto ? 55 : 30 });
+              onQrPositionChange({ x: 42, y: 85, size: 15 });
+            }}
+          >
+            <RotateCcw className="w-3 h-3 mr-2" />
+            Ripristina posizioni
+          </Button>
+        </div>
       </div>
 
       {/* Preview Area */}
-      <div className="flex-1 bg-muted/30 flex items-center justify-center p-4 md:p-8 overflow-auto">
+      <div
+        className="flex-1 bg-muted/30 flex items-center justify-center p-4 md:p-8 overflow-auto"
+        onPointerMove={handlePreviewPointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+      >
         <div
-          className="relative bg-white shadow-xl rounded-sm overflow-hidden"
+          ref={previewRef}
+          className="relative bg-white shadow-xl rounded-sm overflow-hidden select-none"
           style={{
             width: '100%',
             maxWidth: '400px',
             aspectRatio: '1 / 1.414',
-            fontFamily
+            fontFamily,
+            touchAction: 'none',
           }}>
           
           {/* Safe zone indicator */}
@@ -442,9 +575,9 @@ const PrintDesignStep = ({
               }} />
           )}
 
-          {hasPhoto ? (
+          {hasPhoto && (
             <>
-              {/* TOP HALF: Photo with drag support */}
+              {/* Photo area with drag support */}
               <div
                 ref={dragContainerRef}
                 className="absolute top-0 left-0 right-0"
@@ -511,28 +644,60 @@ const PrintDesignStep = ({
                     style={{ top: '50%', height: '1px', backgroundColor: 'hsl(0 80% 55%)' }} />
                 )}
               </div>
-
-              {/* Fold line */}
-              <div
-                className="absolute left-[10%] right-[10%] z-10"
-                style={{
-                  top: '50%',
-                  borderTop: '1px dashed hsl(var(--muted-foreground) / 0.2)'
-                }} />
-
-              {/* BOTTOM HALF: Formal text */}
-              <div
-                className="absolute left-0 right-0 bottom-0 flex flex-col items-center justify-center px-6 text-center"
-                style={{ height: '50%' }}>
-                {renderTextContent(editableTexts, fontFamily)}
-              </div>
             </>
-          ) : (
-            /* NO PHOTO: Full-page centered text */
-            <div className="absolute inset-0 flex flex-col items-center justify-center px-8 text-center">
+          )}
+
+          {/* Text block — draggable vertically */}
+          <div
+            className="absolute left-0 right-0 z-10 flex flex-col items-center px-6 text-center"
+            style={{
+              top: `${textPosition.y}%`,
+              cursor: isTextDragging ? 'grabbing' : 'grab',
+              touchAction: 'none',
+            }}
+            onPointerDown={handleTextPointerDown}
+          >
+            <div className="pointer-events-none">
               {renderTextContent(editableTexts, fontFamily)}
             </div>
-          )}
+          </div>
+
+          {/* QR Code overlay — draggable + resizable */}
+          <div
+            className="absolute z-10"
+            style={{
+              left: `${qrPosition.x}%`,
+              top: `${qrPosition.y}%`,
+              width: `${qrPosition.size}%`,
+              aspectRatio: '1 / 1',
+              cursor: isQrDragging ? 'grabbing' : 'grab',
+              touchAction: 'none',
+            }}
+            onPointerDown={handleQrPointerDown}
+          >
+            <div
+              className="w-full h-full flex items-center justify-center rounded-sm"
+              style={{
+                backgroundColor: '#ffffff',
+                padding: '8%',
+                border: '2px dashed hsl(var(--primary))',
+              }}
+            >
+              <QRCodeSVG
+                value="https://example.com/rsvp/preview"
+                size={200}
+                fgColor="#000000"
+                bgColor="transparent"
+                level="M"
+                style={{ width: '100%', height: '100%' }}
+              />
+            </div>
+            {/* Resize handle */}
+            <div
+              className="absolute -right-1.5 -bottom-1.5 w-4 h-4 bg-primary rounded-full cursor-se-resize border-2 border-background shadow-sm z-20"
+              onPointerDown={handleQrResizeDown}
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -599,11 +764,6 @@ function renderTextContent(texts: InvitationTexts, fontFamily: string) {
           )}
         </div>
       )}
-      <div className="mt-3 flex items-center justify-center">
-        <div className="w-[32px] h-[32px] bg-muted/50 rounded flex items-center justify-center">
-          <ImageIcon className="w-3.5 h-3.5 text-muted-foreground/40" />
-        </div>
-      </div>
     </>
   );
 }
