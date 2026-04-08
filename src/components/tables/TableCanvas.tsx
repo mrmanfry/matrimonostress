@@ -377,7 +377,7 @@ const DroppableTable = ({
               <span className="truncate text-muted-foreground italic">
                 {guest!.plus_one_name?.trim()
                   ? guest!.plus_one_name
-                  : `+1 di ${guest!.first_name} ${guest!.last_name}`}
+                  : `${guest!.first_name} ${guest!.last_name}`}
               </span>
               {!guest!.plus_one_name?.trim() && (
                 <span className="text-[10px] text-muted-foreground shrink-0">(previsto)</span>
