@@ -255,8 +255,11 @@ const DroppableTable = ({
 
       <Progress 
         value={Math.min(fillRate, 100)} 
-        className={`h-1 mb-3 ${fillRate > 100 ? '[&>div]:bg-destructive' : fillRate > 80 ? '[&>div]:bg-primary' : ''}`}
+        className={`h-1 mb-1 ${fillRate > 100 ? '[&>div]:bg-destructive' : fillRate > 80 ? '[&>div]:bg-primary' : ''}`}
       />
+      <p className="text-[10px] italic text-muted-foreground mb-3">
+        {table.table_type === 'imperial' ? 'Tavolo imperiale' : 'Tavolo tondo'}
+      </p>
 
       {hasConflicts && (
         <div className="mb-2 p-2 bg-destructive/10 rounded-md flex items-center gap-2">
