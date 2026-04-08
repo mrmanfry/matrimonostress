@@ -371,17 +371,14 @@ const DroppableTable = ({
           {phantomPlusOnes.map(({ guest }) => (
             <div
               key={`phantom_${guest!.id}`}
-              className="flex items-center gap-2 p-2 border border-dashed border-muted-foreground/30 rounded text-sm bg-muted/30"
+              className="flex items-center gap-1.5 p-1.5 border border-dashed border-muted-foreground/15 rounded text-xs bg-muted/20"
             >
-              <Badge variant="outline" className="text-[10px] shrink-0 px-1">+1</Badge>
-              <span className="truncate text-muted-foreground italic">
+              <Badge variant="outline" className="text-[10px] shrink-0 px-1 opacity-60">+1</Badge>
+              <span className="truncate text-muted-foreground/60 italic">
                 {guest!.plus_one_name?.trim()
                   ? guest!.plus_one_name
                   : `${guest!.first_name} ${guest!.last_name}`}
               </span>
-              {!guest!.plus_one_name?.trim() && (
-                <span className="text-[10px] text-muted-foreground shrink-0">(previsto)</span>
-              )}
             </div>
           ))}
 
