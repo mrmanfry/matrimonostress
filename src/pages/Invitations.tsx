@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Send, Smartphone, Printer, Users, ChevronRight } from "lucide-react";
+import { Send, Smartphone, Printer, Users, ChevronRight, Upload, Palette } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
@@ -7,6 +7,13 @@ import { InvitationsKPIs } from "@/components/invitations/InvitationsKPIs";
 import { useInvitationsData } from "@/hooks/useInvitationsData";
 import { RSVPCampaignDialog } from "@/components/guests/RSVPCampaignDialog";
 import PrintInvitationEditor from "@/components/print/PrintInvitationEditor";
+import PrintStudio from "@/components/invitations/PrintStudio";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const Invitations = () => {
   const navigate = useNavigate();
@@ -15,6 +22,8 @@ const Invitations = () => {
   const [funnelFilter, setFunnelFilter] = useState<string | null>(null);
   const [rsvpCampaignOpen, setRsvpCampaignOpen] = useState(false);
   const [printEditorOpen, setPrintEditorOpen] = useState(false);
+  const [printStudioOpen, setPrintStudioOpen] = useState(false);
+  const [printChooserOpen, setPrintChooserOpen] = useState(false);
 
   // Check if there's a saved campaign in localStorage to auto-reopen
   useState(() => {
