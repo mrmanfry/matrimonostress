@@ -58,7 +58,6 @@ export default function MassBooklet() {
       }
 
       if (data) {
-        // existing booklet
         const raw = data.content as Record<string, any>;
         setContent({ ...createDefaultBookletContent(), ...raw });
         setCurrentStep(data.current_step || 1);
@@ -67,12 +66,11 @@ export default function MassBooklet() {
         // new booklet — pre-populate from wedding data
         const { data: wed } = await supabase
           .from("weddings")
-          .select("wedding_date, venue_name")
+          .select("wedding_date")
           .eq("id", weddingId)
           .maybeSingle();
 
         const defaults = createDefaultBookletContent();
-        if (wed?.venue_name) defaults.church_name = wed.venue_name;
         if (wed?.wedding_date) {
           const d = new Date(wed.wedding_date);
           defaults.ceremony_date_text = d.toLocaleDateString("it-IT", {

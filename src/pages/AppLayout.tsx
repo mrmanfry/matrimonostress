@@ -21,6 +21,7 @@ import {
   Hotel,
   Camera,
   Send,
+  BookOpen,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
