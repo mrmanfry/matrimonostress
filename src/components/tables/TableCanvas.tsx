@@ -90,6 +90,7 @@ const DroppableTable = ({
   onClearTable,
   onDeleteTable,
   onUpdateSeatPosition,
+  onAssignToSeat,
   proposedGuestIds,
   isProposalMode,
   showConfirmedOnly,
