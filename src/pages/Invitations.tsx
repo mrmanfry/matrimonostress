@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Send, Smartphone, Printer, Users, ChevronRight, Upload, Palette, MessageSquare, Settings2, BarChart3, Eye } from "lucide-react";
+import { Send, Smartphone, Printer, Users, ChevronRight, Upload, Palette, MessageSquare, Settings2, BarChart3 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
@@ -14,13 +14,6 @@ import CampaignConfigDialog from "@/components/settings/CampaignConfigDialog";
 import { RSVPConfigDialog } from "@/components/settings/RSVPConfigDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-
 const getDefaultCampaignsConfig = (): CampaignsConfig => ({
   save_the_date: {
     status: "draft",
@@ -56,7 +49,7 @@ const Invitations = () => {
   const [rsvpCampaignOpen, setRsvpCampaignOpen] = useState(false);
   const [printEditorOpen, setPrintEditorOpen] = useState(false);
   const [printStudioOpen, setPrintStudioOpen] = useState(false);
-  const [printChooserOpen, setPrintChooserOpen] = useState(false);
+  
 
   // Campaign dialog states
   const [stdConfigDialogOpen, setStdConfigDialogOpen] = useState(false);
