@@ -157,18 +157,6 @@ const DroppableTable = ({
     }
   };
 
-  const handleToggleLock = async () => {
-    const { error } = await supabase
-      .from("tables")
-      .update({ is_locked: !table.is_locked })
-      .eq("id", table.id);
-
-    if (error) {
-      toast({ title: "Errore", description: "Impossibile cambiare lo stato", variant: "destructive" });
-    } else {
-      onUpdate();
-    }
-  };
 
   return (
     <Card
