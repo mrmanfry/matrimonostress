@@ -1,65 +1,77 @@
 
 
-## Fix: Impaginazione PDF + Export Word
+## Fix DOCX Export + Personalizzazione Stile Libretto
 
-### Problemi identificati
+### Problema 1: DOCX non scaricabile
+**Root cause**: `Packer.toBuffer()` (riga 356 di `bookletDocxExport.ts`) usa `nodebuffer` che non esiste nel browser. Fix: sostituire con `Packer.toBlob()` che funziona client-side.
 
-1. **Causa principale del taglio letture**: Tutto il contenuto (intro, letture, consenso, preghiere, eucaristia, ringraziamenti) è dentro **un singolo `<Page>`**. `@react-pdf/renderer` non fa auto-paginazione del contenuto che eccede la pagina — va tutto fuori margine.
-2. **`wrap={false}` su `ReadingBlock`**: impedisce lo spezzamento delle letture lunghe, che vengono tagliate se non entrano nella pagina.
-3. **Nessun export Word** per permettere personalizzazione libera.
+### Problema 2: Personalizzazione stile
+L'utente vuole controllare l'aspetto del libretto: font, colori, dimensioni testo, immagine copertina, layout copertina.
 
-### Piano di intervento
+---
 
-#### 1. Fix impaginazione PDF — `BookletPdfDocument.tsx`
+### Piano
 
-Ristrutturare il documento: ogni sezione liturgica diventa un **`<View break>`** separato (non `wrap={false}`), permettendo a `@react-pdf/renderer` di spezzare automaticamente su più pagine.
+#### 1. Fix DOCX — `src/lib/bookletDocxExport.ts`
+- Sostituire `Packer.toBuffer(doc)` con `Packer.toBlob(doc)` (una riga)
 
-Modifiche chiave:
-- Wrappare tutto il contenuto (esclusa la cover) in **un unico `<Page wrap>`** — la prop `wrap` (default `true`) abilita l'auto-paginazione
-- Rimuovere `wrap={false}` da `ReadingBlock` in `PdfReadingSection.tsx` — le letture lunghe devono potersi spezzare
-- Aggiungere `minPresenceAhead={60}` sui titoli di sezione per evitare titoli orfani a fondo pagina (il titolo va alla pagina successiva se non c'è spazio per almeno 60pt di contenuto dopo)
-- Aggiungere `break` prop su sezioni principali (`View break`) per forzare inizio pagina su: Liturgia della Parola, Rito del Matrimonio, Liturgia Eucaristica
+#### 2. Aggiungere schema stile — `src/lib/massBookletSchema.ts`
+Nuovo oggetto `style` dentro `massBookletContentSchema`:
+```
+style: {
+  heading_font: 'Times New Roman' | 'Georgia' | 'Garamond' | 'Palatino',
+  body_font: 'Arial' | 'Helvetica' | 'Calibri' | 'Lato',
+  heading_color: string (hex, default '#1a1a1a'),
+  subtitle_color: string (hex, default '#8b7355'),
+  rubric_color: string (hex, default '#8b4513'),
+  body_size: number (9-13, default 10.5),
+  heading_size: number (12-20, default 14),
+  cover_image_url: string | null,
+  cover_image_height: number (default 200, px logici),
+  cover_layout: 'text_only' | 'image_top' | 'image_bottom' | 'image_background',
+}
+```
 
-#### 2. Fix `PdfReadingSection.tsx`
+#### 3. Nuovo step "Stile" — Stepper a 6 step
+- Rinumerare: Setup (1), Rito (2), Letture (3), Canti/Preghiere (4), **Stile (5)**, Anteprima (6)
+- `BookletStepper.tsx`: aggiungere icona Palette per step 5
+- `MassBooklet.tsx`: aggiungere `currentStep === 5` con nuovo componente
 
-- Rimuovere `wrap={false}` da `ReadingBlock` — le letture devono potersi spezzare su più pagine
-- Aggiungere `minPresenceAhead={40}` sul titolo (`subTitle`) per evitare orfani
+#### 4. Nuovo componente `BookletStepStyle.tsx`
+UI con:
+- **Font titoli**: Select con 4 opzioni serif
+- **Font corpo**: Select con 4 opzioni sans-serif
+- **Colore titoli**: Input color picker (hex)
+- **Colore sottotitoli/accenti**: Input color picker
+- **Dimensione corpo testo**: Slider 9-13pt
+- **Dimensione titoli**: Slider 12-20pt
+- **Immagine copertina**: Upload file (salva come data URL base64 o in storage) con preview
+- **Dimensione immagine**: Slider altezza
+- **Layout copertina**: 4 opzioni radio (solo testo, immagine sopra, immagine sotto, immagine sfondo)
+- Preview live mini della copertina in sidebar/card
 
-#### 3. Fix `PdfFixedTexts.tsx`
+#### 5. Aggiornare PDF — `pdfStyles.ts` + `BookletPdfDocument.tsx` + `PdfCoverPage.tsx`
+- `pdfStyles.ts`: convertire da `StyleSheet.create()` statico a **funzione** `createStyles(style)` che riceve i valori di stile e genera lo stylesheet dinamico
+- `PdfCoverPage.tsx`: gestire immagine copertina (`<Image>` di react-pdf) con i 4 layout possibili
+- `BookletPdfDocument.tsx`: passare `style` ai componenti figli
 
-- Stesso pattern: permettere wrap su blocchi lunghi (consenso, memoria battesimo)
-- Mantenere `wrap={false}` solo su blocchi brevi (Padre Nostro, risposte singole)
+#### 6. Aggiornare DOCX — `bookletDocxExport.ts`
+- Leggere `content.style` per applicare font, colori e dimensioni dinamici
+- Gestire immagine copertina nel DOCX (embed come `ImageRun`)
 
-#### 4. Export Word — `BookletStepPreview.tsx`
-
-Aggiungere un bottone "Scarica Word (.docx)" che genera il libretto come documento Word editabile usando la libreria `docx` (npm).
-
-Creare un nuovo file `src/lib/bookletDocxExport.ts`:
-- Funzione `generateBookletDocx(content, partner1, partner2): Promise<Blob>`
-- Usa `docx` (Document, Paragraph, TextRun, etc.)
-- Formato A5, font Times New Roman per titoli e Arial per corpo
-- Struttura identica al PDF: copertina, intro, letture, consenso, preghiere, eucaristia, ringraziamenti
-- Sostituisce placeholder `{{partner1}}` / `{{partner2}}` come nel PDF
-- L'utente riceve un `.docx` che può aprire e modificare liberamente in Word/Google Docs
-
-Aggiornare `BookletStepPreview.tsx`:
-- Aggiungere bottone "Scarica Word" accanto al bottone PDF
-- Icona FileText differenziata
-- Stessa logica async con loading state e toast errore
-
-#### 5. Installazione dipendenza
-
-- Aggiungere `docx` al `package.json` (per generazione Word client-side)
-
-### File da modificare
-- `src/components/mass-booklet/pdf/BookletPdfDocument.tsx` — ristrutturare paginazione
-- `src/components/mass-booklet/pdf/PdfReadingSection.tsx` — rimuovere `wrap={false}`
-- `src/components/mass-booklet/pdf/PdfFixedTexts.tsx` — permettere wrap su blocchi lunghi
-- `src/components/mass-booklet/BookletStepPreview.tsx` — aggiungere bottone Word export
+#### 7. Aggiornare `BookletStepPreview.tsx`
+- Riceve step 6 invece di 5
 
 ### File da creare
-- `src/lib/bookletDocxExport.ts` — motore generazione DOCX
+- `src/components/mass-booklet/BookletStepStyle.tsx`
 
-### Dipendenze
-- `docx` (npm) — generazione Word client-side, zero server
+### File da modificare
+- `src/lib/bookletDocxExport.ts` (fix blob + stili dinamici)
+- `src/lib/massBookletSchema.ts` (schema stile)
+- `src/components/mass-booklet/BookletStepper.tsx` (6 step)
+- `src/pages/MassBooklet.tsx` (step 5 = stile, step 6 = preview)
+- `src/components/mass-booklet/pdf/pdfStyles.ts` (funzione dinamica)
+- `src/components/mass-booklet/pdf/PdfCoverPage.tsx` (immagine + layout)
+- `src/components/mass-booklet/pdf/BookletPdfDocument.tsx` (passaggio stili)
+- `src/components/mass-booklet/BookletStepPreview.tsx` (minor)
 
