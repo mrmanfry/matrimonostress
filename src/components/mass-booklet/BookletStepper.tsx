@@ -1,4 +1,4 @@
-import { Check, Church, BookOpen, Music, Eye, ListChecks } from "lucide-react";
+import { Check, Church, BookOpen, Music, Eye, ListChecks, Palette } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const steps = [
@@ -6,6 +6,7 @@ const steps = [
   { label: "Rito", icon: ListChecks },
   { label: "Letture", icon: BookOpen },
   { label: "Personalizzazioni", icon: Music },
+  { label: "Stile", icon: Palette },
   { label: "Anteprima", icon: Eye },
 ];
 

@@ -353,6 +353,5 @@ export async function generateBookletDocx(
     ],
   });
 
-  const buffer = await Packer.toBuffer(doc);
-  return new Blob([buffer as unknown as ArrayBuffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+  return await Packer.toBlob(doc);
 }
