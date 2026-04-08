@@ -105,6 +105,7 @@ export type MassBookletReadings = z.infer<typeof massBookletReadingsSchema>;
 export type MassBookletSongs = z.infer<typeof massBookletSongsSchema>;
 export type MassBookletPrayers = z.infer<typeof massBookletPrayersSchema>;
 export type MassBookletThanks = z.infer<typeof massBookletThanksSchema>;
+export type MassBookletStyle = z.infer<typeof massBookletStyleSchema>;
 export type MassBookletContent = z.infer<typeof massBookletContentSchema>;
 export type MassBooklet = z.infer<typeof massBookletSchema>;
 
