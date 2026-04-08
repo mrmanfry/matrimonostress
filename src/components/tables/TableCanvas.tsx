@@ -75,6 +75,7 @@ type TableCanvasProps = {
   proposedAssignments?: { tableId: string; guestIds: string[] }[];
   isProposalMode?: boolean;
   isMobile?: boolean;
+  showConfirmedOnly?: boolean;
 };
 
 const DroppableTable = ({
