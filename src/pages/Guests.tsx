@@ -20,6 +20,7 @@ import {
   BarChart3,
   ChevronRight,
   Printer,
+  Send,
 } from "lucide-react";
 import {
   DropdownMenu,
