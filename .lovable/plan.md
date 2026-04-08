@@ -1,57 +1,60 @@
 
 
-## Piano: Centralizzazione Campagne nell'Hub Inviti
+## Piano: Riprogettazione "Progetta il tuo Invito"
 
 ### Cosa cambia
 
-Spostare l'intera sezione "Comunicazioni" (CampaignCard STD/RSVP, Stile Globale, Legacy RSVP Config) da `Settings.tsx` a `Invitations.tsx`, strutturando la pagina con 3 tab.
+Quattro miglioramenti al design integrato degli inviti:
 
-### Modifiche
+1. **Foto opzionale** — Switch "Inserisci una foto". Se disattivato, il foglio e bianco e il testo occupa tutta la pagina centrato.
 
-**1. `src/pages/Invitations.tsx` — Ristrutturazione a Tab**
+2. **Piu font** — Aggiunta di 8 nuovi Google Fonts (Cinzel, Philosopher, Libre Baskerville, Raleway, Poppins, Merriweather, Crimson Text, Italiana), raggruppati per stile.
 
-Aggiungere `Tabs` con 3 schede:
+3. **Tutti i testi modificabili** — Ogni riga dell'invito (saluto, annuncio, prefissi "alle ore"/"presso"/"A seguire...", nomi, data, venue, indirizzi) diventa un campo editabile nella sidebar, pre-popolato dai dati del matrimonio.
 
-- **📊 Panoramica & Invii** (default): KPI funnel + card WhatsApp/Stampa (contenuto attuale)
-- **🎨 Pagine Pubbliche**: Le 2 CampaignCard (Save the Date + RSVP) con status/stats/configura/anteprima/attiva-pausa + card Stile Globale (font, colore, countdown)
-- **🖨️ Print Studio**: Chooser tra Design Integrato e Carica il tuo Design (spostato dalla tab Panoramica)
+4. **Indirizzo ricevimento visibile e modificabile** — L'indirizzo del ricevimento (`receptionVenueAddress`) oggi non viene mostrato ne nell'anteprima ne nel PDF. Verra aggiunto sotto il nome del ricevimento, come gia avviene per la cerimonia. Sara editabile e cancellabile come tutti gli altri testi.
 
-Questo richiede:
-- Caricare `campaigns_config` dal wedding (via `useInvitationsData` o query diretta)
-- Importare `CampaignCard`, `CampaignConfigDialog`, `RSVPConfigDialog`
-- Replicare i handler `handleToggleCampaignStatus` e `handlePreviewCampaign` 
-- Calcolare stats reali (sent/responded) dai dati già disponibili nel hook
+### Struttura delle modifiche
 
-**2. `src/pages/Settings.tsx` — Rimozione tab Comunicazioni**
+**`index.html`**
+- Aggiungere i nuovi Google Fonts al link esistente (Cinzel, Philosopher, Libre Baskerville, Raleway, Poppins, Merriweather, Crimson Text, Italiana).
 
-- Rimuovere il `TabsTrigger` "Comunicazioni" e il relativo `TabsContent`
-- Rimuovere import di `CampaignCard`, `CampaignConfigDialog`, `RSVPConfigDialog`
-- Rimuovere state: `stdConfigDialogOpen`, `rsvpCampaignDialogOpen`, `rsvpConfigDialogOpen`
-- Rimuovere handler: `handleToggleCampaignStatus`, `handlePreviewCampaign`
-- Rimuovere i 3 dialog (CampaignConfigDialog x2, RSVPConfigDialog) dal JSX
-- Aggiornare la griglia TabsList (da 5 a 4 colonne per co_planner, da 3 a 2 per manager/planner)
+**`src/components/print/PrintDesignStep.tsx`**
 
-**3. `src/hooks/useInvitationsData.ts` — Espansione dati**
+- Aggiungere i nuovi font a `FontStyle`, `FONT_MAP` e `FONT_LABELS`
+- Nuova interfaccia `InvitationTexts`:
+  ```
+  { greeting, names, announcement, dateText, timePrefix, time,
+    venuePrefix, ceremonyVenue, ceremonyAddress,
+    receptionPrefix, receptionVenue, receptionAddress }
+  ```
+- Nuove prop: `hasPhoto`, `onHasPhotoChange`, `editableTexts`, `onEditableTextsChange`
+- Sidebar: Switch "Inserisci una foto" + sezione "Testi dell'invito" con Input per ogni riga
+- Anteprima: se `hasPhoto=false`, niente sezione foto, testo centrato su tutto il foglio
+- Anteprima: mostrare `receptionAddress` sotto il nome del ricevimento (come gia fa `ceremonyAddress`)
+- L'anteprima usa `editableTexts` invece di stringhe hardcoded
 
-Aggiungere al return:
-- `campaignsConfig` (dal wedding object, con fallback default)
-- `weddingDate`, `partnerNames` (necessari per CampaignConfigDialog)
-- `campaignStats` calcolati: per STD → count di `save_the_date_sent_at` non null e `std_response` non null; per RSVP → count di `formal_invite_sent_at` non null e rsvp_status confermato/rifiutato
+**`src/components/print/PrintInvitationEditor.tsx`**
 
-### Struttura risultante delle Tab in Invitations.tsx
+- Nuovo stato `hasPhoto` (default `true`) e `editableTexts`
+- Pre-popolare `editableTexts` dai dati wedding al caricamento (nomi, data formattata, venue, indirizzi, frasi standard)
+- Persistere `hasPhoto` e `editableTexts` nel JSONB `print_design`
+- Ripristinare al reload
+- Passare le nuove prop a `PrintDesignStep` e `HiddenPrintNode`
 
-```text
-[📊 Panoramica & Invii]  [🎨 Pagine Pubbliche]  [🖨️ Print Studio]
-         |                         |                      |
-   KPI Funnel              CampaignCard STD         Chooser dialog
-   Card WhatsApp           CampaignCard RSVP        PrintInvitationEditor
-                           Stile Globale            PrintStudio (custom)
-                           Legacy RSVP Config
-```
+**`src/components/print/HiddenPrintNode.tsx`**
+
+- Nuove prop: `hasPhoto`, `editableTexts`
+- Se `hasPhoto=false`: layout full-page centrato (niente sezione foto)
+- Usare `editableTexts` per tutte le righe
+- Aggiungere `receptionAddress` sotto il nome del ricevimento
+- Se un testo e vuoto/cancellato, la riga non viene renderizzata
 
 ### Ordine di esecuzione
 
-1. Espandere `useInvitationsData` con campaignsConfig + stats
-2. Ristrutturare `Invitations.tsx` con Tabs e contenuto campagne
-3. Pulire `Settings.tsx` rimuovendo il tab Comunicazioni
+1. Font in `index.html` + aggiornare `FONT_MAP`/`FONT_LABELS`
+2. Interfaccia `InvitationTexts`, prop toggle foto, campi editabili nella sidebar di `PrintDesignStep`
+3. Aggiornare anteprima (layout foto/no-foto, testi dinamici, indirizzo ricevimento)
+4. Aggiornare `PrintInvitationEditor` con stato e persistenza
+5. Aggiornare `HiddenPrintNode` per rendering PDF con testi editabili e indirizzo ricevimento
 
