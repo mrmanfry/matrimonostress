@@ -157,12 +157,12 @@ export function createDefaultBookletContent(): MassBookletContent {
 export function sanitizeBookletText(text: string): string {
   // Strip HTML tags
   let clean = text.replace(/<[^>]*>/g, '');
-  // Remove emoji (broad Unicode ranges)
-  clean = clean.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{200D}\u{20E3}]/gu, '');
+  // Remove emoji
+  clean = clean.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '');
   // Collapse multiple newlines
   clean = clean.replace(/\n{3,}/g, '\n\n');
   // Remove zero-width characters
-  clean = clean.replace(/[\u200B-\u200D\uFEFF]/g, '');
+  clean = clean.replace(/\u200B/g, '').replace(/\u200C/g, '').replace(/\u200D/g, '').replace(/\uFEFF/g, '');
   return clean.trim();
 }
 
