@@ -45,6 +45,7 @@ const Invitations = () => {
   const { parties, wedding, funnelStats, partiesReadyToSend, campaignStats, campaignsConfig: rawCampaignsConfig, isLoading, refetch, weddingId } = useInvitationsData();
   const { toast } = useToast();
 
+  const [activeTab, setActiveTab] = useState("overview");
   const [funnelFilter, setFunnelFilter] = useState<string | null>(null);
   const [rsvpCampaignOpen, setRsvpCampaignOpen] = useState(false);
   const [printEditorOpen, setPrintEditorOpen] = useState(false);
