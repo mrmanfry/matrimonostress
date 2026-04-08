@@ -745,44 +745,47 @@ const PrintDesignStep = ({
   );
 };
 
-function renderTextContent(texts: InvitationTexts, fontFamily: string) {
+function renderTextContent(texts: InvitationTexts, fontFamily: string, textColor: string) {
+  const mainColor = textColor || '#1a1a1a';
+  const secondaryColor = textColor === '#FFFFFF' ? 'rgba(255,255,255,0.7)' : textColor === '#1a1a1a' ? undefined : `${textColor}99`;
+  
   return (
     <>
       {texts.greeting && (
-        <p className="text-xs tracking-wide text-muted-foreground mb-3" style={{ fontFamily }}>
+        <p className={`text-xs tracking-wide mb-3 ${!secondaryColor ? 'text-muted-foreground' : ''}`} style={{ fontFamily, color: secondaryColor }}>
           {texts.greeting} <span className="font-semibold">Famiglia Rossi</span>
         </p>
       )}
       {texts.names && (
-        <p className="text-base md:text-lg font-semibold text-foreground leading-tight" style={{ fontFamily }}>
+        <p className="text-base md:text-lg font-semibold leading-tight" style={{ fontFamily, color: mainColor }}>
           {texts.names}
         </p>
       )}
       {texts.announcement && (
-        <p className="text-xs text-muted-foreground mt-1 mb-3" style={{ fontFamily }}>
+        <p className={`text-xs mt-1 mb-3 ${!secondaryColor ? 'text-muted-foreground' : ''}`} style={{ fontFamily, color: secondaryColor }}>
           {texts.announcement}
         </p>
       )}
       {texts.dateText && (
-        <p className="text-sm font-medium text-foreground capitalize" style={{ fontFamily }}>
+        <p className="text-sm font-medium capitalize" style={{ fontFamily, color: mainColor }}>
           {texts.dateText}
         </p>
       )}
       {texts.time && texts.timePrefix && (
-        <p className="text-xs text-muted-foreground" style={{ fontFamily }}>
+        <p className={`text-xs ${!secondaryColor ? 'text-muted-foreground' : ''}`} style={{ fontFamily, color: secondaryColor }}>
           {texts.timePrefix} {texts.time}
         </p>
       )}
       {texts.ceremonyVenue && (
         <div className="mt-2">
           {texts.venuePrefix && (
-            <p className="text-xs text-muted-foreground" style={{ fontFamily }}>{texts.venuePrefix}</p>
+            <p className={`text-xs ${!secondaryColor ? 'text-muted-foreground' : ''}`} style={{ fontFamily, color: secondaryColor }}>{texts.venuePrefix}</p>
           )}
-          <p className="text-sm font-medium text-foreground" style={{ fontFamily }}>
+          <p className="text-sm font-medium" style={{ fontFamily, color: mainColor }}>
             {texts.ceremonyVenue}
           </p>
           {texts.ceremonyAddress && (
-            <p className="text-[10px] text-muted-foreground" style={{ fontFamily }}>
+            <p className={`text-[10px] ${!secondaryColor ? 'text-muted-foreground' : ''}`} style={{ fontFamily, color: secondaryColor }}>
               {texts.ceremonyAddress}
             </p>
           )}
@@ -791,15 +794,15 @@ function renderTextContent(texts: InvitationTexts, fontFamily: string) {
       {texts.receptionVenue && (
         <div className="mt-2">
           {texts.receptionPrefix && (
-            <p className="text-xs text-muted-foreground" style={{ fontFamily }}>
+            <p className={`text-xs ${!secondaryColor ? 'text-muted-foreground' : ''}`} style={{ fontFamily, color: secondaryColor }}>
               {texts.receptionPrefix}
             </p>
           )}
-          <p className="text-sm font-medium text-foreground" style={{ fontFamily }}>
+          <p className="text-sm font-medium" style={{ fontFamily, color: mainColor }}>
             {texts.receptionVenue}
           </p>
           {texts.receptionAddress && (
-            <p className="text-[10px] text-muted-foreground" style={{ fontFamily }}>
+            <p className={`text-[10px] ${!secondaryColor ? 'text-muted-foreground' : ''}`} style={{ fontFamily, color: secondaryColor }}>
               {texts.receptionAddress}
             </p>
           )}
