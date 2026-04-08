@@ -241,7 +241,8 @@ export default function MassBooklet() {
       {currentStep === 2 && <BookletStepRite content={content} onChange={handleContentChange} />}
       {currentStep === 3 && <BookletStepReadings content={content} onChange={handleContentChange} />}
       {currentStep === 4 && <BookletStepCustom content={content} onChange={handleContentChange} />}
-      {currentStep === 5 && (
+      {currentStep === 5 && <BookletStepStyle content={content} onChange={handleContentChange} />}
+      {currentStep === 6 && (
         <BookletStepPreview
           content={content}
           onGoToStep={goToStep}
