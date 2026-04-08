@@ -1,14 +1,17 @@
 
 
-## Fix: Seat slots wrapping to new line in imperial table layout
+## Fix: Ridurre dimensione slot posti imperiali
 
-The issue is that `flex-wrap` on Side A and Side B containers allows seats to wrap when the container is too narrow. The fix is to remove `flex-wrap` and instead make the rows horizontally scrollable with `overflow-x-auto`, ensuring all seats stay on one line.
+Gli slot dei posti nella vista grafica (≤20) sono troppo larghi e alcuni escono dalla visualizzazione. Riduco le dimensioni minime e il padding per farli stare tutti.
 
-### Changes
+### Cambiamenti
 
-**`src/components/tables/ImperialTableLayout.tsx`** (lines 222 and 241):
-- Side A (line 222): Change `flex gap-1 justify-center flex-wrap mb-1` → `flex gap-1 justify-center overflow-x-auto mb-1`
-- Side B (line 241): Change `flex gap-1 justify-center flex-wrap mt-1` → `flex gap-1 justify-center overflow-x-auto mt-1`
+**`src/components/tables/ImperialTableLayout.tsx`** — SeatSlot non-compact (vista grafica):
+- Ridurre `min-w-[80px]` → `min-w-[48px]` e `min-h-[44px]` → `min-h-[36px]`
+- Ridurre padding da `px-2 py-1.5` → `px-1 py-1`
+- Ridurre font del numero sede da `text-[10px]` → `text-[8px]`
+- Ridurre font nome da `text-[11px]` → `text-[10px]` e `max-w-[70px]` → `max-w-[40px]`
+- Ridurre dimensione icona User vuota da `w-3.5 h-3.5` → `w-3 h-3`
 
-This keeps all seats on one row and allows horizontal scrolling if the table is wider than the container. For ≤20 seats this should rarely scroll, but prevents wrapping in all cases.
+Questo permette a 16 posti (8 per lato) di stare comodamente nella larghezza disponibile senza scroll.
 
