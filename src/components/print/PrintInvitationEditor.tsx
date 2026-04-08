@@ -544,6 +544,8 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
                 onTextPositionChange={setTextPosition}
                 qrPosition={qrPosition}
                 onQrPositionChange={setQrPosition}
+                textColor={textColor}
+                onTextColorChange={setTextColor}
               />
             )}
 
