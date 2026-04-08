@@ -166,7 +166,7 @@ const Invitations = () => {
           </div>
         </Card>
       ) : (
-        <Tabs defaultValue="overview" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-flex">
             <TabsTrigger value="overview" className="gap-2">
               <BarChart3 className="w-4 h-4" />
