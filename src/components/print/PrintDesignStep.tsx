@@ -445,6 +445,31 @@ const PrintDesignStep = ({
           </Select>
         </div>
 
+        {/* Text color */}
+        <div className="space-y-2">
+          <Label>Colore testo</Label>
+          <div className="flex gap-2 flex-wrap">
+            {TEXT_COLOR_PRESETS.map((preset) => (
+              <button
+                key={preset.value}
+                onClick={() => onTextColorChange(preset.value)}
+                className={`w-8 h-8 rounded-lg border-2 transition-all ${
+                  textColor === preset.value ? "border-primary ring-2 ring-primary/30" : "border-border"
+                }`}
+                style={{ backgroundColor: preset.value }}
+                title={preset.label}
+              />
+            ))}
+            <Input
+              type="color"
+              value={!TEXT_COLOR_PRESETS.some(p => p.value === textColor) ? textColor : '#1a1a1a'}
+              onChange={(e) => onTextColorChange(e.target.value)}
+              className="w-8 h-8 p-0.5 cursor-pointer rounded-lg"
+              title="Colore personalizzato"
+            />
+          </div>
+        </div>
+
         <div className="flex items-center justify-between">
           <Label htmlFor="safe-zone">Mostra margini di sicurezza</Label>
           <Switch
@@ -459,6 +484,9 @@ const PrintDesignStep = ({
           <div className="space-y-2">
             <Label className="text-xs">Saluto</Label>
             <Input value={editableTexts.greeting} onChange={(e) => updateText('greeting', e.target.value)} placeholder="Cari" />
+            <p className="text-[10px] text-muted-foreground">
+              💡 Nel PDF il saluto si adatta automaticamente: "Caro Marco", "Cara Lavinia", "Cara Famiglia Rossi" in base al nucleo.
+            </p>
           </div>
           <div className="space-y-2">
             <Label className="text-xs">Nomi</Label>
