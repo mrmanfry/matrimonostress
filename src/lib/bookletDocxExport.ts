@@ -1,7 +1,7 @@
 import {
   Document, Packer, Paragraph, TextRun, AlignmentType, BorderStyle,
 } from 'docx';
-import type { MassBookletContent, LiturgiaData, LiturgiaReading, LiturgiaPsalm } from './massBookletSchema';
+import type { MassBookletContent, LiturgiaData, LiturgiaReading, LiturgiaPsalm, MassBookletStyle } from './massBookletSchema';
 import liturgiaData from '@/data/liturgia.json';
 
 const lit = liturgiaData as unknown as LiturgiaData;
@@ -10,6 +10,38 @@ const lit = liturgiaData as unknown as LiturgiaData;
 const A5_W = 8419; // 148.5mm
 const A5_H = 11906; // 210mm
 
+// Map PDF font names to DOCX font names
+const DOCX_HEADING_FONT: Record<string, string> = {
+  'Times-Roman': 'Times New Roman',
+  'Times-Bold': 'Times New Roman',
+};
+const DOCX_BODY_FONT: Record<string, string> = {
+  'Helvetica': 'Arial',
+  'Courier': 'Courier New',
+};
+
+function getDocxFonts(style?: MassBookletStyle) {
+  const hf = DOCX_HEADING_FONT[style?.heading_font || 'Times-Bold'] || 'Times New Roman';
+  const bf = DOCX_BODY_FONT[style?.body_font || 'Helvetica'] || 'Arial';
+  return { hf, bf };
+}
+
+function getDocxSizes(style?: MassBookletStyle) {
+  // docx sizes are in half-points
+  const bodySize = Math.round((style?.body_size || 10.5) * 2);
+  const headingSize = Math.round((style?.heading_size || 14) * 2);
+  return { bodySize, headingSize };
+}
+
+function getDocxColors(style?: MassBookletStyle) {
+  const strip = (c: string) => c.replace('#', '');
+  return {
+    heading: strip(style?.heading_color || '#1a1a1a'),
+    subtitle: strip(style?.subtitle_color || '#8b7355'),
+    rubric: strip(style?.rubric_color || '#8b4513'),
+  };
+}
+
 function rep(text: string, p1: string, p2: string): string {
   return text
     .replace(/\{\{partner1\}\}/g, p1 || '___')
@@ -17,53 +49,69 @@ function rep(text: string, p1: string, p2: string): string {
     .replace(/\{\{name\}\}/g, '___');
 }
 
-function sectionTitle(text: string): Paragraph {
+function sectionTitle(text: string, style?: MassBookletStyle): Paragraph {
+  const { hf } = getDocxFonts(style);
+  const { headingSize } = getDocxSizes(style);
+  const { heading } = getDocxColors(style);
   return new Paragraph({
     alignment: AlignmentType.CENTER,
     spacing: { before: 240, after: 120 },
-    children: [new TextRun({ text, bold: true, font: 'Times New Roman', size: 28 })],
+    children: [new TextRun({ text, bold: true, font: hf, size: headingSize, color: heading })],
   });
 }
 
-function subTitle(text: string): Paragraph {
+function subTitle(text: string, style?: MassBookletStyle): Paragraph {
+  const { hf } = getDocxFonts(style);
+  const { headingSize } = getDocxSizes(style);
+  const { heading } = getDocxColors(style);
   return new Paragraph({
     spacing: { before: 200, after: 80 },
-    children: [new TextRun({ text, bold: true, font: 'Times New Roman', size: 24 })],
+    children: [new TextRun({ text, bold: true, font: hf, size: headingSize - 4, color: heading })],
   });
 }
 
-function bodyPara(text: string): Paragraph {
+function bodyPara(text: string, style?: MassBookletStyle): Paragraph {
+  const { bf } = getDocxFonts(style);
+  const { bodySize } = getDocxSizes(style);
   return new Paragraph({
     alignment: AlignmentType.JUSTIFIED,
     spacing: { after: 60 },
-    children: [new TextRun({ text, font: 'Arial', size: 21 })],
+    children: [new TextRun({ text, font: bf, size: bodySize })],
   });
 }
 
-function rubricPara(text: string): Paragraph {
+function rubricPara(text: string, style?: MassBookletStyle): Paragraph {
+  const { bf } = getDocxFonts(style);
+  const { bodySize } = getDocxSizes(style);
+  const { rubric } = getDocxColors(style);
   return new Paragraph({
     spacing: { before: 80, after: 40 },
-    children: [new TextRun({ text, italics: true, font: 'Arial', size: 18, color: '8B4513' })],
+    children: [new TextRun({ text, italics: true, font: bf, size: bodySize - 3, color: rubric })],
   });
 }
 
-function responsePara(text: string): Paragraph {
+function responsePara(text: string, style?: MassBookletStyle): Paragraph {
+  const { bf } = getDocxFonts(style);
+  const { bodySize } = getDocxSizes(style);
   return new Paragraph({
     spacing: { after: 40 },
-    children: [new TextRun({ text, bold: true, font: 'Arial', size: 21 })],
+    children: [new TextRun({ text, bold: true, font: bf, size: bodySize })],
   });
 }
 
-function songBlock(label: string, name: string): Paragraph[] {
+function songBlock(label: string, name: string, style?: MassBookletStyle): Paragraph[] {
   if (!name) return [];
+  const { bf } = getDocxFonts(style);
+  const { bodySize } = getDocxSizes(style);
+  const { subtitle } = getDocxColors(style);
   return [
     new Paragraph({
       spacing: { before: 120, after: 20 },
-      children: [new TextRun({ text: label, bold: true, font: 'Arial', size: 18, color: '8B7355' })],
+      children: [new TextRun({ text: label, bold: true, font: bf, size: bodySize - 3, color: subtitle })],
     }),
     new Paragraph({
       spacing: { after: 60 },
-      children: [new TextRun({ text: name, italics: true, font: 'Arial', size: 20 })],
+      children: [new TextRun({ text: name, italics: true, font: bf, size: bodySize - 1 })],
     }),
   ];
 }
