@@ -1,8 +1,14 @@
 {
   "schema_version": 1,
   "rite_types": [
-    { "id": "messa_eucaristia", "label": "Messa con Eucaristia" },
-    { "id": "liturgia_parola", "label": "Solo Liturgia della Parola" }
+    {
+      "id": "messa_eucaristia",
+      "label": "Messa con Eucaristia"
+    },
+    {
+      "id": "liturgia_parola",
+      "label": "Solo Liturgia della Parola"
+    }
   ],
   "readings": {
     "first_reading": [
@@ -191,7 +197,7 @@
         "reference": "Mt 7, 21.24-29",
         "title": "La casa costruita sulla roccia",
         "source": "Dal Vangelo secondo Matteo",
-        "text": "In quel tempo, Gesù disse ai suoi discepoli:\n«Non chiunque mi dice: 'Signore, Signore', entrerà nel regno dei cieli, ma colui che fa la volontà del Padre mio che è nei cieli.\nPerciò chiunque ascolta queste mie parole e le mette in pratica, sarà simile a un uomo saggio, che ha costruito la sua casa sulla roccia. Cadde la pioggia, strariparono i fiumi, soffiarono i venti e si abbatterono su quella casa, ma essa non cadde, perché era fondata sulla roccia.\nChiunque ascolta queste mie parole e non le mette in pratica, sarà simile a un uomo stolto, che ha costruito la sua casa sulla sabbia. Cadde la pioggia, strariparono i fiumi, soffiarono i venti e si abbatterono su quella casa, ed essa cadde e la sua rovina fu grande».\nQuando Gesù ebbe terminato questi discorsi, le folle erano stupite del suo insegnamento: egli infatti insegnava loro come uno che ha autorità, e non come i loro scribi.\n\nParola del Signore." nel regno dei cieli, ma colui che fa la volontà del Padre mio che è nei cieli.\nPerciò chiunque ascolta queste mie parole e le mette in pratica, sarà simile a un uomo saggio, che ha costruito la sua casa sulla roccia. Cadde la pioggia, strariparono i fiumi, soffiarono i venti e si abbatterono su quella casa, ma essa non cadde, perché era fondata sulla roccia.\nChiunque ascolta queste mie parole e non le mette in pratica, sarà simile a un uomo stolto, che ha costruito la sua casa sulla sabbia. Cadde la pioggia, strariparono i fiumi, soffiarono i venti e si abbatterono su quella casa, ed essa cadde e la sua rovina fu grande».\nQuando Gesù ebbe terminato questi discorsi, le folle erano stupite del suo insegnamento: egli infatti insegnava loro come uno che ha autorità, e non come i loro scribi.\n\nParola del Signore."
+        "text": "In quel tempo, Gesù disse ai suoi discepoli: Non chiunque mi dice: Signore, Signore, entrerà nel regno dei cieli, ma colui che fa la volontà del Padre mio che è nei cieli.\nPerciò chiunque ascolta queste mie parole e le mette in pratica, sarà simile a un uomo saggio, che ha costruito la sua casa sulla roccia. Cadde la pioggia, strariparono i fiumi, soffiarono i venti e si abbatterono su quella casa, ma essa non cadde, perché era fondata sulla roccia.\nChiunque ascolta queste mie parole e non le mette in pratica, sarà simile a un uomo stolto, che ha costruito la sua casa sulla sabbia. Cadde la pioggia, strariparono i fiumi, soffiarono i venti e si abbatterono su quella casa, ed essa cadde e la sua rovina fu grande.\nQuando Gesù ebbe terminato questi discorsi, le folle erano stupite del suo insegnamento: egli infatti insegnava loro come uno che ha autorità, e non come i loro scribi.\n\nParola del Signore."
       },
       {
         "id": "giovanni_15_1",
