@@ -73,6 +73,7 @@ type TableCanvasProps = {
   onClearTable?: (tableId: string) => void;
   onDeleteTable?: (tableId: string) => void;
   onUpdateSeatPosition?: (assignmentId: string, seatPosition: number | null) => void;
+  onAssignToSeat?: (tableId: string, guestId: string, seatPosition: number) => void;
   proposedAssignments?: { tableId: string; guestIds: string[] }[];
   isProposalMode?: boolean;
   isMobile?: boolean;
@@ -102,6 +103,7 @@ const DroppableTable = ({
   onClearTable?: (tableId: string) => void;
   onDeleteTable?: (tableId: string) => void;
   onUpdateSeatPosition?: (assignmentId: string, seatPosition: number | null) => void;
+  onAssignToSeat?: (tableId: string, guestId: string, seatPosition: number) => void;
   proposedGuestIds?: string[];
   isProposalMode?: boolean;
   showConfirmedOnly?: boolean;
