@@ -281,6 +281,7 @@ const Tables = () => {
     }
   };
 
+  const createTable = async () => {
     if (!weddingId) return;
 
     const tableNumber = tables.length + 1;
