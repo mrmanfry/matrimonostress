@@ -10,7 +10,7 @@ import PrintInvitationEditor from "@/components/print/PrintInvitationEditor";
 
 const Invitations = () => {
   const navigate = useNavigate();
-  const { guests, parties, wedding, funnelStats, partiesReadyToSend, isLoading, refetch, weddingId } = useInvitationsData();
+  const { parties, wedding, funnelStats, partiesReadyToSend, isLoading, refetch, weddingId } = useInvitationsData();
 
   const [funnelFilter, setFunnelFilter] = useState<string | null>(null);
   const [rsvpCampaignOpen, setRsvpCampaignOpen] = useState(false);

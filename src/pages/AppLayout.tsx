@@ -19,7 +19,8 @@ import {
   MessageCircle,
   ChefHat,
   Hotel,
-  Camera
+  Camera,
+  Send,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -208,6 +209,7 @@ const AppLayoutInner = ({
       ...(isPlannerMode ? [{ name: "Cockpit", href: "/app/planner", icon: LayoutGrid }] : []),
       { name: "Dashboard", href: "/app/dashboard", icon: LayoutDashboard },
       { name: "Invitati", href: "/app/guests", icon: Users },
+      { name: "Campagne", href: "/app/invitations", icon: Send },
       { name: "Budget", href: "/app/budget", icon: Euro, hidden: isCollaborator && !activePermissions?.budget?.view },
       { name: "Tesoreria", href: "/app/treasury", icon: TrendingUp, hidden: isCollaborator && !activePermissions?.budget?.view },
       { name: "Fornitori", href: "/app/vendors", icon: Package },
