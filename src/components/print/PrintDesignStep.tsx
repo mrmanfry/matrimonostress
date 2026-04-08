@@ -13,10 +13,11 @@ import {
   SelectTrigger,
   SelectValue } from
 "@/components/ui/select";
-import { Upload, ImageIcon, RotateCcw } from "lucide-react";
+import { Upload, ImageIcon, RotateCcw, GripVertical, QrCode } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
-import type { ImageTransform, EdgeStyle } from "./PrintInvitationEditor";
+import { QRCodeSVG } from "qrcode.react";
+import type { ImageTransform, EdgeStyle, TextPosition, QrPosition } from "./PrintInvitationEditor";
 
 export type FontStyle =
 'garamond' |
@@ -81,6 +82,10 @@ interface PrintDesignStepProps {
   onHasPhotoChange: (v: boolean) => void;
   editableTexts: InvitationTexts;
   onEditableTextsChange: (texts: InvitationTexts) => void;
+  textPosition: TextPosition;
+  onTextPositionChange: (pos: TextPosition) => void;
+  qrPosition: QrPosition;
+  onQrPositionChange: (pos: QrPosition) => void;
 }
 
 export const FONT_MAP: Record<FontStyle, string> = {
