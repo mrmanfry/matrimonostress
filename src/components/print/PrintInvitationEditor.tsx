@@ -262,6 +262,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
       editableTexts,
       textPosition,
       qrPosition,
+      textColor,
     };
 
     await supabase
@@ -270,7 +271,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
       .eq('id', weddingId);
 
     setBgDirty(false);
-  }, [backgroundImage, bgDirty, savedBgPath, fontStyle, edgeStyle, imageTransform, weddingId, hasPhoto, editableTexts, textPosition, qrPosition]);
+  }, [backgroundImage, bgDirty, savedBgPath, fontStyle, edgeStyle, imageTransform, weddingId, hasPhoto, editableTexts, textPosition, qrPosition, textColor]);
 
   // Load parties when entering step 2
   useEffect(() => {
