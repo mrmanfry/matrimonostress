@@ -586,52 +586,6 @@ const Settings = () => {
     setEditedTimezone(wedding?.timezone || "Europe/Rome");
   };
 
-  const handleToggleCampaignStatus = async (campaignType: "save_the_date" | "rsvp") => {
-    if (!wedding) return;
-    
-    try {
-      const currentStatus = campaignsConfig[campaignType].status;
-      const newStatus = currentStatus === "active" ? "draft" : "active";
-      
-      const updatedConfig = {
-        ...campaignsConfig,
-        [campaignType]: {
-          ...campaignsConfig[campaignType],
-          status: newStatus,
-        },
-      };
-
-      const { error } = await supabase
-        .from("weddings")
-        .update({ campaigns_config: updatedConfig as any })
-        .eq("id", wedding.id);
-
-      if (error) throw error;
-
-      toast({
-        title: newStatus === "active" ? "Campagna attivata" : "Campagna in pausa",
-        description: newStatus === "active" 
-          ? "La campagna è ora attiva e visibile agli invitati"
-          : "La campagna è stata messa in pausa",
-      });
-
-      loadData();
-    } catch (error: any) {
-      toast({
-        title: "Errore",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handlePreviewCampaign = (campaignType: "save_the_date" | "rsvp") => {
-    const path = campaignType === "save_the_date" 
-      ? "/save-the-date/preview" 
-      : "/rsvp/preview";
-    window.open(path, "_blank");
-  };
-
   if (!wedding) {
     return (
       <div className="p-4 lg:p-8">
@@ -645,12 +599,12 @@ const Settings = () => {
       <div>
         <h1 className="text-3xl font-bold mb-2">Impostazioni</h1>
         <p className="text-muted-foreground">
-          Gestisci i dati del matrimonio, le comunicazioni e i collaboratori
+          Gestisci i dati del matrimonio e i collaboratori
         </p>
       </div>
 
       <Tabs defaultValue="account" className="w-full">
-        <TabsList className={`grid w-full lg:w-auto lg:inline-flex ${isManagerOrPlanner ? 'grid-cols-3' : 'grid-cols-5'}`}>
+        <TabsList className={`grid w-full lg:w-auto lg:inline-flex ${isManagerOrPlanner ? 'grid-cols-2' : 'grid-cols-4'}`}>
           <TabsTrigger value="account" className="gap-2">
             <User className="w-4 h-4" />
             <span className="hidden sm:inline">Account</span>
