@@ -243,8 +243,70 @@ const PrintDesignStep = ({
 
   const handlePointerUp = useCallback(() => {
     setIsDragging(false);
+    setIsTextDragging(false);
+    setIsQrDragging(false);
+    setIsQrResizing(false);
     dragStartRef.current = null;
+    textDragRef.current = null;
+    qrDragRef.current = null;
+    qrResizeRef.current = null;
   }, []);
+
+  // Text block drag
+  const handleTextPointerDown = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    setIsTextDragging(true);
+    textDragRef.current = { startY: e.clientY, origY: textPosition.y };
+  }, [textPosition.y]);
+
+  // QR drag
+  const handleQrPointerDown = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    setIsQrDragging(true);
+    qrDragRef.current = { startX: e.clientX, startY: e.clientY, origX: qrPosition.x, origY: qrPosition.y };
+  }, [qrPosition.x, qrPosition.y]);
+
+  // QR resize
+  const handleQrResizeDown = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    setIsQrResizing(true);
+    qrResizeRef.current = { startX: e.clientX, origSize: qrPosition.size };
+  }, [qrPosition.size]);
+
+  // Unified pointer move for text/QR drag on the preview container
+  const handlePreviewPointerMove = useCallback((e: React.PointerEvent) => {
+    if (!previewRef.current) return;
+    const rect = previewRef.current.getBoundingClientRect();
+
+    if (isTextDragging && textDragRef.current) {
+      e.preventDefault();
+      const dy = ((e.clientY - textDragRef.current.startY) / rect.height) * 100;
+      const newY = Math.max(5, Math.min(85, textDragRef.current.origY + dy));
+      onTextPositionChange({ y: newY });
+    }
+
+    if (isQrDragging && qrDragRef.current) {
+      e.preventDefault();
+      const dx = ((e.clientX - qrDragRef.current.startX) / rect.width) * 100;
+      const dy = ((e.clientY - qrDragRef.current.startY) / rect.height) * 100;
+      const newX = Math.max(0, Math.min(100 - qrPosition.size, qrDragRef.current.origX + dx));
+      const newY = Math.max(0, Math.min(100 - qrPosition.size, qrDragRef.current.origY + dy));
+      onQrPositionChange({ ...qrPosition, x: newX, y: newY });
+    }
+
+    if (isQrResizing && qrResizeRef.current) {
+      e.preventDefault();
+      const dx = ((e.clientX - qrResizeRef.current.startX) / rect.width) * 100;
+      const newSize = Math.max(6, Math.min(35, qrResizeRef.current.origSize + dx));
+      onQrPositionChange({ ...qrPosition, size: newSize });
+    }
+  }, [isTextDragging, isQrDragging, isQrResizing, qrPosition, onTextPositionChange, onQrPositionChange]);
 
   const showGuideH = isDragging && Math.abs(imageTransform.y) < SNAP_THRESHOLD;
   const showGuideV = isDragging && Math.abs(imageTransform.x) < SNAP_THRESHOLD;
