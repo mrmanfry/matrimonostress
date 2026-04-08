@@ -280,106 +280,114 @@ const DroppableTable = ({
         </div>
       )}
 
-      <div className="space-y-1">
-        {tableGuests.map(({ assignment, guest }) => {
-          // Check if this guest is a +1 (virtual converted to real)
-          const isPlusOne = guest!.is_plus_one;
-          // Check if the original invitee of this +1 is also at this table
-          const plusOneOfName = isPlusOne && guest!.plus_one_of_guest_id
-            ? (() => {
-                const orig = guests.find(g => g.id === guest!.plus_one_of_guest_id);
-                return orig ? `${orig.first_name}` : null;
-              })()
-            : null;
+      {table.table_type === 'imperial' && onUpdateSeatPosition ? (
+        <ImperialTableLayout
+          tableId={table.id}
+          capacity={table.capacity}
+          guests={guests}
+          assignments={assignments}
+          isLocked={table.is_locked}
+          onUnassign={onUnassign}
+          onUpdateSeatPosition={onUpdateSeatPosition}
+        />
+      ) : (
+        <div className="space-y-1">
+          {tableGuests.map(({ assignment, guest }) => {
+            const isPlusOne = guest!.is_plus_one;
+            const plusOneOfName = isPlusOne && guest!.plus_one_of_guest_id
+              ? (() => {
+                  const orig = guests.find(g => g.id === guest!.plus_one_of_guest_id);
+                  return orig ? `${orig.first_name}` : null;
+                })()
+              : null;
 
-          // Check if this guest has a +1 that's also assigned to this table
-          const assignedPlusOne = !isPlusOne && guest!.allow_plus_one && guest!.plus_one_name?.trim()
-            ? (() => {
-                const plusOneId = `plusone_${guest!.id}`;
-                const plusOneAssigned = tableGuests.find(tg => tg.guest?.id === plusOneId);
-                if (plusOneAssigned) return null; // already shown as separate row (real guest)
-                // Check if a real guest was created from +1 and is at this table
-                const realPlusOne = tableGuests.find(tg => 
-                  tg.guest?.is_plus_one && tg.guest?.plus_one_of_guest_id === guest!.id
-                );
-                return realPlusOne ? null : guest!.plus_one_name;
-              })()
-            : null;
+            const assignedPlusOne = !isPlusOne && guest!.allow_plus_one && guest!.plus_one_name?.trim()
+              ? (() => {
+                  const plusOneId = `plusone_${guest!.id}`;
+                  const plusOneAssigned = tableGuests.find(tg => tg.guest?.id === plusOneId);
+                  if (plusOneAssigned) return null;
+                  const realPlusOne = tableGuests.find(tg => 
+                    tg.guest?.is_plus_one && tg.guest?.plus_one_of_guest_id === guest!.id
+                  );
+                  return realPlusOne ? null : guest!.plus_one_name;
+                })()
+              : null;
 
-          return (
-            <div key={assignment.id}>
-              <div className="flex items-center justify-between p-2 bg-accent/10 rounded text-sm">
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  {isPlusOne && (
-                    <Badge variant="outline" className="text-[10px] shrink-0 px-1">+1</Badge>
-                  )}
-                  <span className="truncate">
-                    {guest!.first_name} {guest!.last_name}
-                  </span>
-                  {isPlusOne && plusOneOfName && (
-                    <span className="text-[10px] text-muted-foreground shrink-0">di {plusOneOfName}</span>
-                  )}
-                  {guest!.dietary_restrictions && (
-                    <Badge variant="outline" className="text-[10px] shrink-0">🍽️</Badge>
-                  )}
+            return (
+              <div key={assignment.id}>
+                <div className="flex items-center justify-between p-2 bg-accent/10 rounded text-sm">
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    {isPlusOne && (
+                      <Badge variant="outline" className="text-[10px] shrink-0 px-1">+1</Badge>
+                    )}
+                    <span className="truncate">
+                      {guest!.first_name} {guest!.last_name}
+                    </span>
+                    {isPlusOne && plusOneOfName && (
+                      <span className="text-[10px] text-muted-foreground shrink-0">di {plusOneOfName}</span>
+                    )}
+                    {guest!.dietary_restrictions && (
+                      <Badge variant="outline" className="text-[10px] shrink-0">🍽️</Badge>
+                    )}
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => onUnassign(assignment.id)}
+                    className="h-6 w-6 p-0 shrink-0"
+                    disabled={table.is_locked}
+                  >
+                    <X className="w-3 h-3" />
+                  </Button>
                 </div>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => onUnassign(assignment.id)}
-                  className="h-6 w-6 p-0 shrink-0"
-                  disabled={table.is_locked}
-                >
-                  <X className="w-3 h-3" />
-                </Button>
+                {assignedPlusOne && (
+                  <div className="flex items-center gap-2 p-1.5 pl-6 text-xs text-muted-foreground">
+                    <Badge variant="outline" className="text-[10px] px-1">+1</Badge>
+                    <span className="truncate">{assignedPlusOne}</span>
+                    <span className="text-[10px]">(non assegnato)</span>
+                  </div>
+                )}
               </div>
-              {assignedPlusOne && (
-                <div className="flex items-center gap-2 p-1.5 pl-6 text-xs text-muted-foreground">
-                  <Badge variant="outline" className="text-[10px] px-1">+1</Badge>
-                  <span className="truncate">{assignedPlusOne}</span>
-                  <span className="text-[10px]">(non assegnato)</span>
-                </div>
+            );
+          })}
+
+          {proposedGuests.map(guest => (
+            <div
+              key={guest.id}
+              className="flex items-center justify-between p-2 bg-primary/10 border border-dashed border-primary/30 rounded text-sm"
+            >
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <span className="truncate text-primary">
+                  ✨ {guest.first_name} {guest.last_name}
+                </span>
+              </div>
+            </div>
+          ))}
+
+          {phantomPlusOnes.map(({ guest }) => (
+            <div
+              key={`phantom_${guest!.id}`}
+              className="flex items-center gap-2 p-2 border border-dashed border-muted-foreground/30 rounded text-sm bg-muted/30"
+            >
+              <Badge variant="outline" className="text-[10px] shrink-0 px-1">+1</Badge>
+              <span className="truncate text-muted-foreground italic">
+                {guest!.plus_one_name?.trim()
+                  ? guest!.plus_one_name
+                  : `+1 di ${guest!.first_name} ${guest!.last_name}`}
+              </span>
+              {!guest!.plus_one_name?.trim() && (
+                <span className="text-[10px] text-muted-foreground shrink-0">(previsto)</span>
               )}
             </div>
-          );
-        })}
+          ))}
 
-        {proposedGuests.map(guest => (
-          <div
-            key={guest.id}
-            className="flex items-center justify-between p-2 bg-primary/10 border border-dashed border-primary/30 rounded text-sm"
-          >
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-              <span className="truncate text-primary">
-                ✨ {guest.first_name} {guest.last_name}
-              </span>
-            </div>
-          </div>
-        ))}
-
-        {phantomPlusOnes.map(({ guest }) => (
-          <div
-            key={`phantom_${guest!.id}`}
-            className="flex items-center gap-2 p-2 border border-dashed border-muted-foreground/30 rounded text-sm bg-muted/30"
-          >
-            <Badge variant="outline" className="text-[10px] shrink-0 px-1">+1</Badge>
-            <span className="truncate text-muted-foreground italic">
-              {guest!.plus_one_name?.trim()
-                ? guest!.plus_one_name
-                : `+1 di ${guest!.first_name} ${guest!.last_name}`}
-            </span>
-            {!guest!.plus_one_name?.trim() && (
-              <span className="text-[10px] text-muted-foreground shrink-0">(previsto)</span>
-            )}
-          </div>
-        ))}
-
-        {totalGuests === 0 && (
-          <p className="text-xs text-muted-foreground text-center py-4">
-            {table.is_locked ? "🔒 Tavolo bloccato" : "Trascina qui gli invitati"}
-          </p>
-        )}
-      </div>
+          {totalGuests === 0 && (
+            <p className="text-xs text-muted-foreground text-center py-4">
+              {table.is_locked ? "🔒 Tavolo bloccato" : "Trascina qui gli invitati"}
+            </p>
+          )}
+        </div>
+      )}
     </Card>
   );
 };
