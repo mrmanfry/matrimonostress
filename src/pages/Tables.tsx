@@ -73,6 +73,7 @@ type Assignment = {
   id: string;
   table_id: string;
   guest_id: string;
+  seat_position?: number | null;
 };
 
 type Conflict = {
@@ -258,7 +259,7 @@ const Tables = () => {
       .from("table_assignments")
       .select("*, tables!inner(wedding_id)")
       .eq("tables.wedding_id", weddingId);
-    if (data) setAssignments(data.map(a => ({ id: a.id, table_id: a.table_id, guest_id: a.guest_id })));
+    if (data) setAssignments(data.map(a => ({ id: a.id, table_id: a.table_id, guest_id: a.guest_id, seat_position: a.seat_position })));
   };
 
   const fetchConflicts = async (weddingId: string) => {
