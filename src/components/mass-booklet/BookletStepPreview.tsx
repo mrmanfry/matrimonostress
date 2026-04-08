@@ -2,11 +2,10 @@ import { AlertTriangle, ArrowRight, Download, FileText, Loader2 } from "lucide-r
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { useState, lazy, Suspense } from "react";
+import { useState } from "react";
 import { validateBookletCompleteness, type MassBookletContent } from "@/lib/massBookletSchema";
-import { BlobProvider, PDFViewer } from "@react-pdf/renderer";
-
-const BookletPdfDocument = lazy(() => import("./pdf/BookletPdfDocument"));
+import { pdf } from "@react-pdf/renderer";
+import BookletPdfDocument from "./pdf/BookletPdfDocument";
 
 interface Props {
   content: MassBookletContent;
@@ -17,8 +16,41 @@ interface Props {
 
 export default function BookletStepPreview({ content, onGoToStep, partner1, partner2 }: Props) {
   const [accepted, setAccepted] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const validation = validateBookletCompleteness(content);
+
+  const handleGeneratePreview = async () => {
+    setGenerating(true);
+    try {
+      const doc = <BookletPdfDocument content={content} partner1={partner1} partner2={partner2} />;
+      const blob = await pdf(doc).toBlob();
+      const url = URL.createObjectURL(blob);
+      setPreviewUrl(url);
+    } catch (e) {
+      console.error("PDF generation error:", e);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleDownload = async () => {
+    setGenerating(true);
+    try {
+      const doc = <BookletPdfDocument content={content} partner1={partner1} partner2={partner2} />;
+      const blob = await pdf(doc).toBlob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Libretto_Messa_${partner1}_${partner2}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("PDF download error:", e);
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
@@ -57,27 +89,18 @@ export default function BookletStepPreview({ content, onGoToStep, partner1, part
       )}
 
       {/* PDF Preview */}
-      {validation.isComplete && !showPreview && (
+      {validation.isComplete && !previewUrl && (
         <div className="flex justify-center">
-          <Button variant="outline" onClick={() => setShowPreview(true)} className="gap-2">
-            <FileText className="w-4 h-4" />
-            Mostra anteprima PDF
+          <Button variant="outline" onClick={handleGeneratePreview} disabled={generating} className="gap-2">
+            {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+            {generating ? "Generazione..." : "Mostra anteprima PDF"}
           </Button>
         </div>
       )}
 
-      {validation.isComplete && showPreview && (
+      {previewUrl && (
         <div className="border rounded-xl overflow-hidden" style={{ height: 600 }}>
-          <Suspense fallback={
-            <div className="flex items-center justify-center h-full">
-              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-              <span className="ml-2 text-sm text-muted-foreground">Generazione anteprima...</span>
-            </div>
-          }>
-            <PDFViewer width="100%" height="100%" showToolbar={false}>
-              <BookletPdfDocument content={content} partner1={partner1} partner2={partner2} />
-            </PDFViewer>
-          </Suspense>
+          <iframe src={previewUrl} width="100%" height="100%" title="Anteprima libretto" />
         </div>
       )}
 
@@ -98,43 +121,18 @@ export default function BookletStepPreview({ content, onGoToStep, partner1, part
       </div>
 
       {/* Download button */}
-      {validation.isComplete && (
-        <Suspense fallback={null}>
-          <BlobProvider document={
-            <BookletPdfDocument content={content} partner1={partner1} partner2={partner2} />
-          }>
-            {({ blob, loading, error }) => (
-              <Button
-                disabled={!accepted || loading || !!error}
-                className="w-full gap-2"
-                size="lg"
-                onClick={() => {
-                  if (!blob) return;
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement("a");
-                  a.href = url;
-                  a.download = `Libretto_Messa_${partner1}_${partner2}.pdf`;
-                  a.click();
-                  URL.revokeObjectURL(url);
-                }}
-              >
-                {loading ? (
-                  <><Loader2 className="w-4 h-4 animate-spin" /> Generazione PDF...</>
-                ) : (
-                  <><Download className="w-4 h-4" /> Scarica PDF</>
-                )}
-              </Button>
-            )}
-          </BlobProvider>
-        </Suspense>
-      )}
-
-      {!validation.isComplete && (
-        <Button disabled className="w-full gap-2" size="lg">
-          <FileText className="w-4 h-4" />
-          Completa i campi obbligatori per generare il PDF
-        </Button>
-      )}
+      <Button
+        disabled={!validation.isComplete || !accepted || generating}
+        className="w-full gap-2"
+        size="lg"
+        onClick={handleDownload}
+      >
+        {generating ? (
+          <><Loader2 className="w-4 h-4 animate-spin" /> Generazione PDF...</>
+        ) : (
+          <><Download className="w-4 h-4" /> Scarica PDF</>
+        )}
+      </Button>
     </div>
   );
 }
