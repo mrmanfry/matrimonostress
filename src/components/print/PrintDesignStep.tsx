@@ -545,9 +545,27 @@ const PrintDesignStep = ({
     ? textBlocks.find(b => selectedBlockIds.has(b.id)) ?? null
     : null;
 
-  // Deselect when clicking the preview background
-  const handlePreviewBgClick = useCallback(() => {
-    setSelectedBlockIds(new Set());
+  // Lasso start on preview background
+  const handlePreviewBgPointerDown = useCallback((e: React.PointerEvent) => {
+    // Only start lasso if clicking directly on the preview background (not on a block/QR)
+    if (e.target !== e.currentTarget) return;
+    if (!previewRef.current) return;
+    const rect = previewRef.current.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    setIsLassoing(true);
+    lassoStartRef.current = { startX: e.clientX, startY: e.clientY };
+    setLassoRect({ x1: x, y1: y, x2: x, y2: y });
+    // Deselect unless holding shift
+    if (!e.shiftKey && !e.ctrlKey && !e.metaKey) {
+      setSelectedBlockIds(new Set());
+    }
+  }, []);
+
+  // Deselect when clicking the preview background (without dragging)
+  const handlePreviewBgClick = useCallback((e: React.MouseEvent) => {
+    if (e.target !== e.currentTarget) return;
+    // Only deselect if we didn't lasso (lasso handles its own selection)
   }, []);
 
   return (
