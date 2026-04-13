@@ -201,12 +201,11 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
 
         // Load textBlocks — migrate from legacy editableTexts if needed
         if (config.textBlocks) {
-          // Ensure blocks have x/y (migration from old schema without positions)
           const hp = config.hasPhoto !== undefined ? config.hasPhoto : true;
-          setTextBlocks(ensureBlockPositions(config.textBlocks, hp));
+          blocksUndo.reset(ensureBlockPositions(config.textBlocks, hp));
           setTextsInitialized(true);
         } else if (config.editableTexts) {
-          setTextBlocks(migrateTextsToBlocks(config.editableTexts));
+          blocksUndo.reset(migrateTextsToBlocks(config.editableTexts));
           setTextsInitialized(true);
         }
         if (config.backgroundImagePath) {
@@ -218,7 +217,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
 
       // Initialize text blocks from wedding data if not restored from saved config
       if (!textsInitialized && !(data.print_design as unknown as PrintDesignConfig)?.textBlocks && !(data.print_design as unknown as PrintDesignConfig)?.editableTexts) {
-        setTextBlocks(buildDefaultBlocks(wd));
+        blocksUndo.reset(buildDefaultBlocks(wd));
         setTextsInitialized(true);
       }
     }
@@ -567,6 +566,10 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
                 onQrPositionChange={setQrPosition}
                 textColor={textColor}
                 onTextColorChange={setTextColor}
+                canUndo={blocksUndo.canUndo}
+                canRedo={blocksUndo.canRedo}
+                onUndo={blocksUndo.undo}
+                onRedo={blocksUndo.redo}
               />
             )}
 
