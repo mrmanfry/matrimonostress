@@ -284,8 +284,12 @@ const PrintDesignStep = ({
   onQrPositionChange,
   textColor,
   onTextColorChange,
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
 }: PrintDesignStepProps) => {
-  const weddingData = weddingDataProp ?? {
+  const _weddingData = weddingDataProp ?? {
     partner1Name: '', partner2Name: '', weddingDate: '',
     ceremonyTime: null, ceremonyVenueName: null, ceremonyVenueAddress: null,
     receptionVenueName: null, receptionVenueAddress: null, receptionTime: null
@@ -298,8 +302,9 @@ const PrintDesignStep = ({
   const [isQrDragging, setIsQrDragging] = useState(false);
   const [isQrResizing, setIsQrResizing] = useState(false);
   const [draggingBlockId, setDraggingBlockId] = useState<string | null>(null);
-  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
+  const [selectedBlockIds, setSelectedBlockIds] = useState<Set<string>>(new Set());
   const dragStartRef = useRef<{startX: number;startY: number;startTx: number;startTy: number;} | null>(null);
+  const blockDragRef = useRef<{startX: number; startY: number; origPositions: Record<string, {x: number; y: number}>} | null>(null);
   const blockDragRef = useRef<{startX: number; startY: number; origX: number; origY: number} | null>(null);
   const qrDragRef = useRef<{startX: number; startY: number; origX: number; origY: number} | null>(null);
   const qrResizeRef = useRef<{startX: number; origSize: number} | null>(null);
