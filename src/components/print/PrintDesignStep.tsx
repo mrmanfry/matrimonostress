@@ -433,10 +433,34 @@ const PrintDesignStep = ({
     qrResizeRef.current = { startX: e.clientX, origSize: qrPosition.size };
   }, [qrPosition.size]);
 
-  // Unified pointer move for block/QR drag on the preview container
+  // Unified pointer move for block/QR drag + lasso on the preview container
   const handlePreviewPointerMove = useCallback((e: React.PointerEvent) => {
     if (!previewRef.current) return;
     const rect = previewRef.current.getBoundingClientRect();
+
+    // Lasso drawing
+    if (isLassoing && lassoStartRef.current) {
+      e.preventDefault();
+      const x2 = ((e.clientX - rect.left) / rect.width) * 100;
+      const y2 = ((e.clientY - rect.top) / rect.height) * 100;
+      setLassoRect(prev => prev ? { ...prev, x2: Math.max(0, Math.min(100, x2)), y2: Math.max(0, Math.min(100, y2)) } : null);
+
+      // Live-select blocks within lasso rectangle
+      if (lassoRect) {
+        const lx1 = Math.min(lassoRect.x1, x2);
+        const lx2 = Math.max(lassoRect.x1, x2);
+        const ly1 = Math.min(lassoRect.y1, y2);
+        const ly2 = Math.max(lassoRect.y1, y2);
+        const withinIds = new Set<string>();
+        textBlocks.forEach(b => {
+          if (b.x >= lx1 && b.x <= lx2 && b.y >= ly1 && b.y <= ly2) {
+            withinIds.add(b.id);
+          }
+        });
+        setSelectedBlockIds(withinIds);
+      }
+      return;
+    }
 
     if (draggingBlockId && blockDragRef.current) {
       e.preventDefault();
@@ -469,7 +493,7 @@ const PrintDesignStep = ({
       const newSize = Math.max(6, Math.min(35, qrResizeRef.current.origSize + dx));
       onQrPositionChange({ ...qrPosition, size: newSize });
     }
-  }, [draggingBlockId, isQrDragging, isQrResizing, qrPosition, onTextBlocksChange, onQrPositionChange, textBlocks]);
+  }, [draggingBlockId, isQrDragging, isQrResizing, isLassoing, lassoRect, qrPosition, onTextBlocksChange, onQrPositionChange, textBlocks]);
 
   const showGuideH = isDragging && Math.abs(imageTransform.y) < SNAP_THRESHOLD;
   const showGuideV = isDragging && Math.abs(imageTransform.x) < SNAP_THRESHOLD;
