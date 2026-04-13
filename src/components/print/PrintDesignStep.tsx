@@ -389,22 +389,27 @@ const PrintDesignStep = ({
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     setDraggingBlockId(blockId);
 
-    // Multi-select with shift/ctrl
+    // Determine the effective selection for this drag
+    let effectiveIds: Set<string>;
+
     if (e.shiftKey || e.ctrlKey || e.metaKey) {
-      setSelectedBlockIds(prev => {
-        const next = new Set(prev);
-        if (next.has(blockId)) next.delete(blockId); else next.add(blockId);
-        return next;
-      });
-    } else if (!selectedBlockIds.has(blockId)) {
-      setSelectedBlockIds(new Set([blockId]));
+      // Toggle this block in selection
+      effectiveIds = new Set(selectedBlockIds);
+      if (effectiveIds.has(blockId)) effectiveIds.delete(blockId); else effectiveIds.add(blockId);
+      setSelectedBlockIds(effectiveIds);
+    } else if (selectedBlockIds.has(blockId)) {
+      // Already selected — drag the whole group
+      effectiveIds = selectedBlockIds;
+    } else {
+      // Not selected, no modifier — select only this one
+      effectiveIds = new Set([blockId]);
+      setSelectedBlockIds(effectiveIds);
     }
 
-    // Store original positions for all selected blocks (or just the dragged one)
-    const dragIds = selectedBlockIds.has(blockId) ? selectedBlockIds : new Set([blockId]);
+    // Store original positions for all blocks in the effective selection
     const origPositions: Record<string, {x: number; y: number}> = {};
     textBlocks.forEach(b => {
-      if (dragIds.has(b.id)) origPositions[b.id] = { x: b.x, y: b.y };
+      if (effectiveIds.has(b.id)) origPositions[b.id] = { x: b.x, y: b.y };
     });
     blockDragRef.current = { startX: e.clientX, startY: e.clientY, origPositions };
   }, [textBlocks, selectedBlockIds]);
