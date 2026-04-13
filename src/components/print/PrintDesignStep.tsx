@@ -360,18 +360,48 @@ const PrintDesignStep = ({
     qrResizeRef.current = null;
   }, []);
 
-  // Block drag
+  // Keyboard shortcuts for undo/redo
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) { onRedo(); } else { onUndo(); }
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+        e.preventDefault();
+        onRedo();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onUndo, onRedo]);
+
+  // Block drag — multi-select aware
   const handleBlockPointerDown = useCallback((e: React.PointerEvent, blockId: string) => {
     e.preventDefault();
     e.stopPropagation();
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     setDraggingBlockId(blockId);
-    setSelectedBlockId(blockId);
-    const block = textBlocks.find(b => b.id === blockId);
-    if (block) {
-      blockDragRef.current = { startX: e.clientX, startY: e.clientY, origX: block.x, origY: block.y };
+
+    // Multi-select with shift/ctrl
+    if (e.shiftKey || e.ctrlKey || e.metaKey) {
+      setSelectedBlockIds(prev => {
+        const next = new Set(prev);
+        if (next.has(blockId)) next.delete(blockId); else next.add(blockId);
+        return next;
+      });
+    } else if (!selectedBlockIds.has(blockId)) {
+      setSelectedBlockIds(new Set([blockId]));
     }
-  }, [textBlocks]);
+
+    // Store original positions for all selected blocks (or just the dragged one)
+    const dragIds = selectedBlockIds.has(blockId) ? selectedBlockIds : new Set([blockId]);
+    const origPositions: Record<string, {x: number; y: number}> = {};
+    textBlocks.forEach(b => {
+      if (dragIds.has(b.id)) origPositions[b.id] = { x: b.x, y: b.y };
+    });
+    blockDragRef.current = { startX: e.clientX, startY: e.clientY, origPositions };
+  }, [textBlocks, selectedBlockIds]);
 
   // QR drag
   const handleQrPointerDown = useCallback((e: React.PointerEvent) => {
@@ -379,7 +409,7 @@ const PrintDesignStep = ({
     e.stopPropagation();
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     setIsQrDragging(true);
-    setSelectedBlockId(null);
+    setSelectedBlockIds(new Set());
     qrDragRef.current = { startX: e.clientX, startY: e.clientY, origX: qrPosition.x, origY: qrPosition.y };
   }, [qrPosition.x, qrPosition.y]);
 
@@ -401,11 +431,16 @@ const PrintDesignStep = ({
       e.preventDefault();
       const dx = ((e.clientX - blockDragRef.current.startX) / rect.width) * 100;
       const dy = ((e.clientY - blockDragRef.current.startY) / rect.height) * 100;
-      let newX = Math.max(5, Math.min(95, blockDragRef.current.origX + dx));
-      let newY = Math.max(2, Math.min(95, blockDragRef.current.origY + dy));
-      // snap to center X
-      if (Math.abs(newX - 50) < 2) newX = 50;
-      onTextBlocksChange(textBlocks.map(b => b.id === draggingBlockId ? { ...b, x: newX, y: newY } : b));
+
+      // Move all blocks whose original positions are stored (group drag)
+      const orig = blockDragRef.current.origPositions;
+      onTextBlocksChange(textBlocks.map(b => {
+        if (!orig[b.id]) return b;
+        let newX = Math.max(5, Math.min(95, orig[b.id].x + dx));
+        let newY = Math.max(2, Math.min(95, orig[b.id].y + dy));
+        if (Math.abs(newX - 50) < 2) newX = 50;
+        return { ...b, x: newX, y: newY };
+      }));
     }
 
     if (isQrDragging && qrDragRef.current) {
@@ -453,7 +488,11 @@ const PrintDesignStep = ({
 
   const removeBlock = (id: string) => {
     onTextBlocksChange(textBlocks.filter(b => b.id !== id));
-    if (selectedBlockId === id) setSelectedBlockId(null);
+    setSelectedBlockIds(prev => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
   };
 
   const moveBlock = (id: string, direction: -1 | 1) => {
@@ -477,14 +516,27 @@ const PrintDesignStep = ({
       y: 50,
     };
     onTextBlocksChange([...textBlocks, newBlock]);
-    setSelectedBlockId(newBlock.id);
+    setSelectedBlockIds(new Set([newBlock.id]));
   };
 
-  const selectedBlock = textBlocks.find(b => b.id === selectedBlockId);
+  // Apply bulk style changes to all selected blocks
+  const updateSelectedBlocksFont = (font: FontStyle | undefined) => {
+    onTextBlocksChange(textBlocks.map(b => selectedBlockIds.has(b.id) ? { ...b, fontOverride: font } : b));
+  };
+  const updateSelectedBlocksColor = (color: string | undefined) => {
+    onTextBlocksChange(textBlocks.map(b => selectedBlockIds.has(b.id) ? { ...b, colorOverride: color } : b));
+  };
+  const updateSelectedBlocksStyle = (style: TextBlockStyle) => {
+    onTextBlocksChange(textBlocks.map(b => selectedBlockIds.has(b.id) ? { ...b, style } : b));
+  };
+
+  const singleSelectedBlock = selectedBlockIds.size === 1
+    ? textBlocks.find(b => selectedBlockIds.has(b.id)) ?? null
+    : null;
 
   // Deselect when clicking the preview background
   const handlePreviewBgClick = useCallback(() => {
-    setSelectedBlockId(null);
+    setSelectedBlockIds(new Set());
   }, []);
 
   return (
