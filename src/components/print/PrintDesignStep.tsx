@@ -13,11 +13,11 @@ import {
   SelectTrigger,
   SelectValue } from
 "@/components/ui/select";
-import { Upload, ImageIcon, RotateCcw, GripVertical, QrCode, Plus, X, ChevronUp, ChevronDown } from "lucide-react";
+import { Upload, ImageIcon, RotateCcw, GripVertical, QrCode, Plus, X, ChevronUp, ChevronDown, Type, Palette, MousePointer } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
 import { QRCodeSVG } from "qrcode.react";
-import type { ImageTransform, EdgeStyle, TextPosition, QrPosition } from "./PrintInvitationEditor";
+import type { ImageTransform, EdgeStyle, QrPosition } from "./PrintInvitationEditor";
 
 export type FontStyle =
 'garamond' |
@@ -69,6 +69,10 @@ export interface TextBlock {
   label: string;
   value: string;
   style: TextBlockStyle;
+  x: number;  // % from left (center = 50)
+  y: number;  // % from top
+  fontOverride?: FontStyle;
+  colorOverride?: string;
 }
 
 // --- Migration utility ---
@@ -80,8 +84,10 @@ function makeBlockId() {
 
 export function migrateTextsToBlocks(old: InvitationTexts): TextBlock[] {
   const blocks: TextBlock[] = [];
+  let yPos = 55;
   const push = (type: TextBlockType, label: string, value: string, style: TextBlockStyle) => {
-    blocks.push({ id: makeBlockId(), type, label, value, style });
+    blocks.push({ id: makeBlockId(), type, label, value, style, x: 50, y: yPos });
+    yPos += 4;
   };
   push('greeting', 'Saluto', old.greeting || '', 'secondary');
   push('names', 'Nomi', old.names || '', 'primary');
@@ -121,6 +127,16 @@ export function buildDefaultBlocks(wd: WeddingPrintData): TextBlock[] {
   });
 }
 
+/** Ensure blocks have x/y (migration from old schema) */
+export function ensureBlockPositions(blocks: TextBlock[], hasPhoto: boolean): TextBlock[] {
+  const startY = hasPhoto ? 55 : 30;
+  return blocks.map((b, i) => ({
+    ...b,
+    x: b.x ?? 50,
+    y: b.y ?? (startY + i * 4),
+  }));
+}
+
 export interface WeddingPrintData {
   partner1Name: string;
   partner2Name: string;
@@ -149,8 +165,6 @@ interface PrintDesignStepProps {
   onHasPhotoChange: (v: boolean) => void;
   textBlocks: TextBlock[];
   onTextBlocksChange: (blocks: TextBlock[]) => void;
-  textPosition: TextPosition;
-  onTextPositionChange: (pos: TextPosition) => void;
   qrPosition: QrPosition;
   onQrPositionChange: (pos: QrPosition) => void;
   textColor: string;
@@ -262,8 +276,6 @@ const PrintDesignStep = ({
   onHasPhotoChange,
   textBlocks,
   onTextBlocksChange,
-  textPosition,
-  onTextPositionChange,
   qrPosition,
   onQrPositionChange,
   textColor,
@@ -279,11 +291,12 @@ const PrintDesignStep = ({
   const dragContainerRef = useRef<HTMLDivElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [isTextDragging, setIsTextDragging] = useState(false);
   const [isQrDragging, setIsQrDragging] = useState(false);
   const [isQrResizing, setIsQrResizing] = useState(false);
+  const [draggingBlockId, setDraggingBlockId] = useState<string | null>(null);
+  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const dragStartRef = useRef<{startX: number;startY: number;startTx: number;startTy: number;} | null>(null);
-  const textDragRef = useRef<{startY: number; origY: number} | null>(null);
+  const blockDragRef = useRef<{startX: number; startY: number; origX: number; origY: number} | null>(null);
   const qrDragRef = useRef<{startX: number; startY: number; origX: number; origY: number} | null>(null);
   const qrResizeRef = useRef<{startX: number; origSize: number} | null>(null);
 
@@ -329,23 +342,27 @@ const PrintDesignStep = ({
 
   const handlePointerUp = useCallback(() => {
     setIsDragging(false);
-    setIsTextDragging(false);
+    setDraggingBlockId(null);
     setIsQrDragging(false);
     setIsQrResizing(false);
     dragStartRef.current = null;
-    textDragRef.current = null;
+    blockDragRef.current = null;
     qrDragRef.current = null;
     qrResizeRef.current = null;
   }, []);
 
-  // Text block drag
-  const handleTextPointerDown = useCallback((e: React.PointerEvent) => {
+  // Block drag
+  const handleBlockPointerDown = useCallback((e: React.PointerEvent, blockId: string) => {
     e.preventDefault();
     e.stopPropagation();
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    setIsTextDragging(true);
-    textDragRef.current = { startY: e.clientY, origY: textPosition.y };
-  }, [textPosition.y]);
+    setDraggingBlockId(blockId);
+    setSelectedBlockId(blockId);
+    const block = textBlocks.find(b => b.id === blockId);
+    if (block) {
+      blockDragRef.current = { startX: e.clientX, startY: e.clientY, origX: block.x, origY: block.y };
+    }
+  }, [textBlocks]);
 
   // QR drag
   const handleQrPointerDown = useCallback((e: React.PointerEvent) => {
@@ -353,6 +370,7 @@ const PrintDesignStep = ({
     e.stopPropagation();
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     setIsQrDragging(true);
+    setSelectedBlockId(null);
     qrDragRef.current = { startX: e.clientX, startY: e.clientY, origX: qrPosition.x, origY: qrPosition.y };
   }, [qrPosition.x, qrPosition.y]);
 
@@ -365,16 +383,20 @@ const PrintDesignStep = ({
     qrResizeRef.current = { startX: e.clientX, origSize: qrPosition.size };
   }, [qrPosition.size]);
 
-  // Unified pointer move for text/QR drag on the preview container
+  // Unified pointer move for block/QR drag on the preview container
   const handlePreviewPointerMove = useCallback((e: React.PointerEvent) => {
     if (!previewRef.current) return;
     const rect = previewRef.current.getBoundingClientRect();
 
-    if (isTextDragging && textDragRef.current) {
+    if (draggingBlockId && blockDragRef.current) {
       e.preventDefault();
-      const dy = ((e.clientY - textDragRef.current.startY) / rect.height) * 100;
-      const newY = Math.max(5, Math.min(85, textDragRef.current.origY + dy));
-      onTextPositionChange({ y: newY });
+      const dx = ((e.clientX - blockDragRef.current.startX) / rect.width) * 100;
+      const dy = ((e.clientY - blockDragRef.current.startY) / rect.height) * 100;
+      let newX = Math.max(5, Math.min(95, blockDragRef.current.origX + dx));
+      let newY = Math.max(2, Math.min(95, blockDragRef.current.origY + dy));
+      // snap to center X
+      if (Math.abs(newX - 50) < 2) newX = 50;
+      onTextBlocksChange(textBlocks.map(b => b.id === draggingBlockId ? { ...b, x: newX, y: newY } : b));
     }
 
     if (isQrDragging && qrDragRef.current) {
@@ -392,7 +414,7 @@ const PrintDesignStep = ({
       const newSize = Math.max(6, Math.min(35, qrResizeRef.current.origSize + dx));
       onQrPositionChange({ ...qrPosition, size: newSize });
     }
-  }, [isTextDragging, isQrDragging, isQrResizing, qrPosition, onTextPositionChange, onQrPositionChange]);
+  }, [draggingBlockId, isQrDragging, isQrResizing, qrPosition, onTextBlocksChange, onQrPositionChange, textBlocks]);
 
   const showGuideH = isDragging && Math.abs(imageTransform.y) < SNAP_THRESHOLD;
   const showGuideV = isDragging && Math.abs(imageTransform.x) < SNAP_THRESHOLD;
@@ -412,8 +434,17 @@ const PrintDesignStep = ({
     onTextBlocksChange(textBlocks.map(b => b.id === id ? { ...b, style } : b));
   };
 
+  const updateBlockFont = (id: string, font: FontStyle | undefined) => {
+    onTextBlocksChange(textBlocks.map(b => b.id === id ? { ...b, fontOverride: font } : b));
+  };
+
+  const updateBlockColor = (id: string, color: string | undefined) => {
+    onTextBlocksChange(textBlocks.map(b => b.id === id ? { ...b, colorOverride: color } : b));
+  };
+
   const removeBlock = (id: string) => {
     onTextBlocksChange(textBlocks.filter(b => b.id !== id));
+    if (selectedBlockId === id) setSelectedBlockId(null);
   };
 
   const moveBlock = (id: string, direction: -1 | 1) => {
@@ -426,18 +457,26 @@ const PrintDesignStep = ({
     onTextBlocksChange(arr);
   };
 
-  const insertBlockAfter = (afterIndex: number) => {
+  const addCustomBlock = () => {
     const newBlock: TextBlock = {
       id: makeBlockId(),
       type: 'custom',
       label: 'Campo personalizzato',
       value: '',
       style: 'secondary',
+      x: 50,
+      y: 50,
     };
-    const arr = [...textBlocks];
-    arr.splice(afterIndex + 1, 0, newBlock);
-    onTextBlocksChange(arr);
+    onTextBlocksChange([...textBlocks, newBlock]);
+    setSelectedBlockId(newBlock.id);
   };
+
+  const selectedBlock = textBlocks.find(b => b.id === selectedBlockId);
+
+  // Deselect when clicking the preview background
+  const handlePreviewBgClick = useCallback(() => {
+    setSelectedBlockId(null);
+  }, []);
 
   return (
     <div className="flex flex-col md:flex-row h-full gap-4 md:gap-0">
@@ -534,7 +573,7 @@ const PrintDesignStep = ({
         )}
 
         <div className="space-y-2">
-          <Label>Stile Font</Label>
+          <Label>Stile Font (globale)</Label>
           <Select value={fontStyle} onValueChange={(v) => onFontStyleChange(v as FontStyle)}>
             <SelectTrigger>
               <SelectValue />
@@ -556,7 +595,7 @@ const PrintDesignStep = ({
 
         {/* Text color */}
         <div className="space-y-2">
-          <Label>Colore testo</Label>
+          <Label>Colore testo (globale)</Label>
           <div className="flex gap-2 flex-wrap">
             {TEXT_COLOR_PRESETS.map((preset) => (
               <button
@@ -587,28 +626,144 @@ const PrintDesignStep = ({
             onCheckedChange={onShowSafeZoneChange} />
         </div>
 
+        {/* Selected block controls */}
+        {selectedBlock && (
+          <div className="space-y-3 pt-3 border-t border-primary/30 bg-primary/5 -mx-4 md:-mx-6 px-4 md:px-6 pb-3">
+            <div className="flex items-center gap-2">
+              <MousePointer className="w-4 h-4 text-primary" />
+              <h3 className="text-sm font-semibold text-primary">
+                Elemento selezionato
+              </h3>
+              <Button variant="ghost" size="icon" className="h-5 w-5 ml-auto" onClick={() => setSelectedBlockId(null)}>
+                <X className="w-3 h-3" />
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">{selectedBlock.label}</p>
+
+            {/* Per-block font override */}
+            <div className="space-y-1">
+              <Label className="text-xs flex items-center gap-1">
+                <Type className="w-3 h-3" /> Font
+              </Label>
+              <Select
+                value={selectedBlock.fontOverride || '__global__'}
+                onValueChange={(v) => updateBlockFont(selectedBlock.id, v === '__global__' ? undefined : v as FontStyle)}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__global__">Usa globale</SelectItem>
+                  {FONT_GROUPS.map((group) => (
+                    <SelectGroup key={group.label}>
+                      <SelectLabel>{group.label}</SelectLabel>
+                      {group.fonts.map((f) => (
+                        <SelectItem key={f.key} value={f.key}>
+                          <span style={{ fontFamily: FONT_MAP[f.key] }}>{f.label}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Per-block color override */}
+            <div className="space-y-1">
+              <Label className="text-xs flex items-center gap-1">
+                <Palette className="w-3 h-3" /> Colore
+              </Label>
+              <div className="flex gap-1.5 flex-wrap items-center">
+                <button
+                  onClick={() => updateBlockColor(selectedBlock.id, undefined)}
+                  className={`h-7 px-2 text-[10px] rounded border transition-all ${
+                    !selectedBlock.colorOverride ? "border-primary ring-1 ring-primary/30 bg-primary/10" : "border-border"
+                  }`}
+                >
+                  Globale
+                </button>
+                {TEXT_COLOR_PRESETS.map((preset) => (
+                  <button
+                    key={preset.value}
+                    onClick={() => updateBlockColor(selectedBlock.id, preset.value)}
+                    className={`w-7 h-7 rounded border-2 transition-all ${
+                      selectedBlock.colorOverride === preset.value ? "border-primary ring-1 ring-primary/30" : "border-border"
+                    }`}
+                    style={{ backgroundColor: preset.value }}
+                    title={preset.label}
+                  />
+                ))}
+                <Input
+                  type="color"
+                  value={selectedBlock.colorOverride || textColor}
+                  onChange={(e) => updateBlockColor(selectedBlock.id, e.target.value)}
+                  className="w-7 h-7 p-0.5 cursor-pointer rounded"
+                />
+              </div>
+            </div>
+
+            {/* Per-block size */}
+            <div className="space-y-1">
+              <Label className="text-xs">Dimensione</Label>
+              <Select value={selectedBlock.style} onValueChange={(v) => updateBlockStyle(selectedBlock.id, v as TextBlockStyle)}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(STYLE_LABELS) as TextBlockStyle[]).map(s => (
+                    <SelectItem key={s} value={s}>{STYLE_LABELS[s]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Text input for selected block */}
+            <div className="space-y-1">
+              <Label className="text-xs">Testo</Label>
+              <Input
+                value={selectedBlock.value}
+                onChange={(e) => updateBlockValue(selectedBlock.id, e.target.value)}
+                className="h-8 text-xs"
+                placeholder="Testo..."
+              />
+            </div>
+
+            {selectedBlock.type === 'custom' && (
+              <Button
+                variant="destructive"
+                size="sm"
+                className="w-full h-7 text-xs"
+                onClick={() => removeBlock(selectedBlock.id)}
+              >
+                <X className="w-3 h-3 mr-1" /> Rimuovi casella
+              </Button>
+            )}
+          </div>
+        )}
+
         {/* Editable text blocks */}
         <div className="space-y-2 pt-2 border-t border-border">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-foreground">Testi dell'invito</h3>
-          </div>
-
-          {/* Insert before first */}
-          <div className="flex justify-center">
             <Button
-              variant="ghost"
+              variant="outline"
               size="sm"
-              className="h-6 w-6 p-0 rounded-full text-muted-foreground hover:text-primary"
-              onClick={() => insertBlockAfter(-1)}
-              title="Aggiungi campo all'inizio"
+              className="h-7 text-xs gap-1"
+              onClick={addCustomBlock}
             >
               <Plus className="w-3.5 h-3.5" />
+              Aggiungi casella
             </Button>
           </div>
 
           {textBlocks.map((block, idx) => (
             <div key={block.id}>
-              <div className="group relative rounded-lg border border-border p-2 space-y-1.5 bg-background">
+              <div
+                className={`group relative rounded-lg border p-2 space-y-1.5 bg-background cursor-pointer transition-colors ${
+                  selectedBlockId === block.id ? 'border-primary ring-1 ring-primary/30' : 'border-border hover:border-primary/50'
+                }`}
+                onClick={() => setSelectedBlockId(block.id)}
+              >
                 {/* Header row: label + controls */}
                 <div className="flex items-center gap-1">
                   <GripVertical className="w-3 h-3 text-muted-foreground flex-shrink-0" />
@@ -618,15 +773,20 @@ const PrintDesignStep = ({
                       onChange={(e) => updateBlockLabel(block.id, e.target.value)}
                       className="h-6 text-xs px-1 flex-1 border-0 shadow-none focus-visible:ring-0 bg-transparent font-medium"
                       placeholder="Etichetta campo"
+                      onClick={(e) => e.stopPropagation()}
                     />
                   ) : (
                     <span className="text-xs font-medium text-muted-foreground flex-1 truncate">{block.label}</span>
+                  )}
+                  {/* Overrides indicator */}
+                  {(block.fontOverride || block.colorOverride) && (
+                    <span className="text-[9px] text-primary bg-primary/10 px-1 rounded">stile</span>
                   )}
                   {/* Move up/down */}
                   <Button
                     variant="ghost" size="icon"
                     className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={() => moveBlock(block.id, -1)}
+                    onClick={(e) => { e.stopPropagation(); moveBlock(block.id, -1); }}
                     disabled={idx === 0}
                   >
                     <ChevronUp className="w-3 h-3" />
@@ -634,7 +794,7 @@ const PrintDesignStep = ({
                   <Button
                     variant="ghost" size="icon"
                     className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={() => moveBlock(block.id, 1)}
+                    onClick={(e) => { e.stopPropagation(); moveBlock(block.id, 1); }}
                     disabled={idx === textBlocks.length - 1}
                   >
                     <ChevronDown className="w-3 h-3" />
@@ -643,7 +803,7 @@ const PrintDesignStep = ({
                     <Button
                       variant="ghost" size="icon"
                       className="h-5 w-5 text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={() => removeBlock(block.id)}
+                      onClick={(e) => { e.stopPropagation(); removeBlock(block.id); }}
                     >
                       <X className="w-3 h-3" />
                     </Button>
@@ -655,37 +815,13 @@ const PrintDesignStep = ({
                   onChange={(e) => updateBlockValue(block.id, e.target.value)}
                   className="h-7 text-xs"
                   placeholder={block.type === 'greeting' ? 'Cari' : 'Testo...'}
+                  onClick={(e) => e.stopPropagation()}
                 />
-                {/* Style select for custom blocks */}
-                {block.type === 'custom' && (
-                  <Select value={block.style} onValueChange={(v) => updateBlockStyle(block.id, v as TextBlockStyle)}>
-                    <SelectTrigger className="h-6 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(Object.keys(STYLE_LABELS) as TextBlockStyle[]).map(s => (
-                        <SelectItem key={s} value={s}>{STYLE_LABELS[s]}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
                 {block.type === 'greeting' && (
                   <p className="text-[10px] text-muted-foreground">
                     💡 Nel PDF il saluto si adatta automaticamente al nucleo.
                   </p>
                 )}
-              </div>
-              {/* Insert after this block */}
-              <div className="flex justify-center py-0.5">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-5 w-5 p-0 rounded-full text-muted-foreground hover:text-primary opacity-0 hover:opacity-100 focus:opacity-100 transition-opacity"
-                  onClick={() => insertBlockAfter(idx)}
-                  title="Aggiungi campo qui"
-                >
-                  <Plus className="w-3 h-3" />
-                </Button>
               </div>
             </div>
           ))}
@@ -694,23 +830,9 @@ const PrintDesignStep = ({
         {/* Position controls */}
         <div className="space-y-3 pt-2 border-t border-border">
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <GripVertical className="w-4 h-4" />
-            Posizione elementi
+            <QrCode className="w-4 h-4" />
+            Codice QR
           </h3>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label className="text-xs">Posizione testo</Label>
-              <span className="text-[10px] text-muted-foreground">{Math.round(textPosition.y)}%</span>
-            </div>
-            <Slider
-              value={[textPosition.y]}
-              onValueChange={([v]) => onTextPositionChange({ y: v })}
-              min={5}
-              max={85}
-              step={1}
-            />
-            <p className="text-[10px] text-muted-foreground">Trascina il blocco testo nell'anteprima oppure usa lo slider</p>
-          </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label className="text-xs flex items-center gap-1"><QrCode className="w-3 h-3" /> Dimensione QR</Label>
@@ -723,19 +845,18 @@ const PrintDesignStep = ({
               max={35}
               step={1}
             />
-            <p className="text-[10px] text-muted-foreground">Trascina il QR code nell'anteprima per spostarlo</p>
+            <p className="text-[10px] text-muted-foreground">Trascina il QR code e le caselle testo nell'anteprima per spostarli</p>
           </div>
           <Button
             variant="outline"
             size="sm"
             className="w-full"
             onClick={() => {
-              onTextPositionChange({ y: hasPhoto ? 55 : 30 });
               onQrPositionChange({ x: 42, y: 85, size: 15 });
             }}
           >
             <RotateCcw className="w-3 h-3 mr-2" />
-            Ripristina posizioni
+            Ripristina posizione QR
           </Button>
         </div>
       </div>
@@ -756,7 +877,9 @@ const PrintDesignStep = ({
             aspectRatio: '1 / 1.414',
             fontFamily,
             touchAction: 'none',
-          }}>
+          }}
+          onClick={handlePreviewBgClick}
+        >
           
           {/* Safe zone indicator */}
           {showSafeZone && (
@@ -841,20 +964,39 @@ const PrintDesignStep = ({
             </>
           )}
 
-          {/* Text block — draggable vertically */}
-          <div
-            className="absolute left-0 right-0 z-10 flex flex-col items-center px-6 text-center"
-            style={{
-              top: `${textPosition.y}%`,
-              cursor: isTextDragging ? 'grabbing' : 'grab',
-              touchAction: 'none',
-            }}
-            onPointerDown={handleTextPointerDown}
-          >
-            <div className="pointer-events-none">
-              {renderBlocksPreview(textBlocks, fontFamily, textColor)}
-            </div>
-          </div>
+          {/* Individual text blocks — each draggable */}
+          {textBlocks.map((block) => {
+            if (!block.value && block.type !== 'greeting') return null;
+            const blockFont = block.fontOverride ? FONT_MAP[block.fontOverride] : fontFamily;
+            const blockColor = block.colorOverride || textColor;
+            const { className, style } = getBlockPreviewStyle(block, blockFont, blockColor);
+            const isSelected = selectedBlockId === block.id;
+            const isBeingDragged = draggingBlockId === block.id;
+
+            return (
+              <div
+                key={block.id}
+                className={`absolute z-10 text-center ${isSelected ? 'ring-2 ring-primary/50 rounded' : ''}`}
+                style={{
+                  left: `${block.x}%`,
+                  top: `${block.y}%`,
+                  transform: 'translateX(-50%)',
+                  cursor: isBeingDragged ? 'grabbing' : 'grab',
+                  touchAction: 'none',
+                  maxWidth: '90%',
+                  padding: isSelected ? '2px 4px' : undefined,
+                }}
+                onPointerDown={(e) => handleBlockPointerDown(e, block.id)}
+                onClick={(e) => { e.stopPropagation(); setSelectedBlockId(block.id); }}
+              >
+                <p className={`pointer-events-none whitespace-nowrap ${className}`} style={style}>
+                  {block.type === 'greeting' ? (
+                    <>{block.value} <span className="font-semibold">Famiglia Rossi</span></>
+                  ) : block.value}
+                </p>
+              </div>
+            );
+          })}
 
           {/* QR Code overlay — draggable + resizable */}
           <div
@@ -898,105 +1040,79 @@ const PrintDesignStep = ({
   );
 };
 
-function renderBlocksPreview(blocks: TextBlock[], fontFamily: string, textColor: string) {
-  const mainColor = textColor || '#1a1a1a';
-  const secondaryColor = textColor === '#FFFFFF' ? 'rgba(255,255,255,0.7)' : textColor === '#1a1a1a' ? undefined : `${textColor}99`;
-  const tertiaryColor = textColor === '#FFFFFF' ? 'rgba(255,255,255,0.5)' : textColor === '#1a1a1a' ? undefined : `${textColor}77`;
+function getBlockPreviewStyle(block: TextBlock, blockFont: string, blockColor: string): { className: string; style: React.CSSProperties } {
+  const mainColor = blockColor;
+  const secondaryColor = blockColor === '#FFFFFF' ? 'rgba(255,255,255,0.7)' : blockColor === '#1a1a1a' ? undefined : `${blockColor}99`;
+  const tertiaryColor = blockColor === '#FFFFFF' ? 'rgba(255,255,255,0.5)' : blockColor === '#1a1a1a' ? undefined : `${blockColor}77`;
 
-  const getStyleProps = (block: TextBlock): { className: string; style: React.CSSProperties } => {
-    // Use type-based styling for predefined blocks, style-based for custom
-    if (block.type !== 'custom') {
-      switch (block.type) {
-        case 'greeting':
-          return {
-            className: `text-xs tracking-wide mb-3 ${!secondaryColor ? 'text-muted-foreground' : ''}`,
-            style: { fontFamily, color: secondaryColor },
-          };
-        case 'names':
-          return {
-            className: 'text-base md:text-lg font-semibold leading-tight',
-            style: { fontFamily, color: mainColor },
-          };
-        case 'announcement':
-          return {
-            className: `text-xs mt-1 mb-3 ${!secondaryColor ? 'text-muted-foreground' : ''}`,
-            style: { fontFamily, color: secondaryColor },
-          };
-        case 'dateText':
-          return {
-            className: 'text-sm font-medium capitalize',
-            style: { fontFamily, color: mainColor },
-          };
-        case 'timePrefix_time':
-          return {
-            className: `text-xs ${!secondaryColor ? 'text-muted-foreground' : ''}`,
-            style: { fontFamily, color: secondaryColor },
-          };
-        case 'venuePrefix':
-        case 'receptionPrefix':
-          return {
-            className: `text-xs mt-2 ${!secondaryColor ? 'text-muted-foreground' : ''}`,
-            style: { fontFamily, color: secondaryColor },
-          };
-        case 'ceremonyVenue':
-        case 'receptionVenue':
-          return {
-            className: 'text-sm font-medium',
-            style: { fontFamily, color: mainColor },
-          };
-        case 'ceremonyAddress':
-        case 'receptionAddress':
-          return {
-            className: `text-[10px] ${!tertiaryColor ? 'text-muted-foreground' : ''}`,
-            style: { fontFamily, color: tertiaryColor },
-          };
-        default:
-          break;
-      }
-    }
-
-    // Custom blocks use the style property
-    switch (block.style) {
-      case 'primary':
+  if (block.type !== 'custom') {
+    switch (block.type) {
+      case 'greeting':
         return {
-          className: 'text-sm font-medium',
-          style: { fontFamily, color: mainColor },
+          className: `text-xs tracking-wide ${!secondaryColor ? 'text-muted-foreground' : ''}`,
+          style: { fontFamily: blockFont, color: secondaryColor },
         };
-      case 'tertiary':
+      case 'names':
         return {
-          className: `text-[10px] ${!tertiaryColor ? 'text-muted-foreground' : ''}`,
-          style: { fontFamily, color: tertiaryColor },
+          className: 'text-base md:text-lg font-semibold leading-tight',
+          style: { fontFamily: blockFont, color: mainColor },
         };
-      case 'secondary':
-      default:
+      case 'announcement':
         return {
           className: `text-xs ${!secondaryColor ? 'text-muted-foreground' : ''}`,
-          style: { fontFamily, color: secondaryColor },
+          style: { fontFamily: blockFont, color: secondaryColor },
         };
+      case 'dateText':
+        return {
+          className: 'text-sm font-medium capitalize',
+          style: { fontFamily: blockFont, color: mainColor },
+        };
+      case 'timePrefix_time':
+        return {
+          className: `text-xs ${!secondaryColor ? 'text-muted-foreground' : ''}`,
+          style: { fontFamily: blockFont, color: secondaryColor },
+        };
+      case 'venuePrefix':
+      case 'receptionPrefix':
+        return {
+          className: `text-xs ${!secondaryColor ? 'text-muted-foreground' : ''}`,
+          style: { fontFamily: blockFont, color: secondaryColor },
+        };
+      case 'ceremonyVenue':
+      case 'receptionVenue':
+        return {
+          className: 'text-sm font-medium',
+          style: { fontFamily: blockFont, color: mainColor },
+        };
+      case 'ceremonyAddress':
+      case 'receptionAddress':
+        return {
+          className: `text-[10px] ${!tertiaryColor ? 'text-muted-foreground' : ''}`,
+          style: { fontFamily: blockFont, color: tertiaryColor },
+        };
+      default:
+        break;
     }
-  };
+  }
 
-  return (
-    <>
-      {blocks.map((block) => {
-        if (!block.value) return null;
-        const { className, style } = getStyleProps(block);
-        // For greeting, show preview with "Famiglia Rossi"
-        if (block.type === 'greeting') {
-          return (
-            <p key={block.id} className={className} style={style}>
-              {block.value} <span className="font-semibold">Famiglia Rossi</span>
-            </p>
-          );
-        }
-        return (
-          <p key={block.id} className={className} style={style}>
-            {block.value}
-          </p>
-        );
-      })}
-    </>
-  );
+  switch (block.style) {
+    case 'primary':
+      return {
+        className: 'text-sm font-medium',
+        style: { fontFamily: blockFont, color: mainColor },
+      };
+    case 'tertiary':
+      return {
+        className: `text-[10px] ${!tertiaryColor ? 'text-muted-foreground' : ''}`,
+        style: { fontFamily: blockFont, color: tertiaryColor },
+      };
+    case 'secondary':
+    default:
+      return {
+        className: `text-xs ${!secondaryColor ? 'text-muted-foreground' : ''}`,
+        style: { fontFamily: blockFont, color: secondaryColor },
+      };
+  }
 }
 
 export default PrintDesignStep;
