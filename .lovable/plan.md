@@ -1,77 +1,82 @@
 
 
-## Fix DOCX Export + Personalizzazione Stile Libretto
+## Caselle Testo Indipendenti nell'Editor Inviti
 
-### Problema 1: DOCX non scaricabile
-**Root cause**: `Packer.toBuffer()` (riga 356 di `bookletDocxExport.ts`) usa `nodebuffer` che non esiste nel browser. Fix: sostituire con `Packer.toBlob()` che funziona client-side.
+### Situazione attuale
+Tutti i blocchi testo sono impilati verticalmente e si muovono insieme come un unico gruppo (`textPosition.y`). Il font e il colore sono globali per tutti i blocchi.
 
-### Problema 2: Personalizzazione stile
-L'utente vuole controllare l'aspetto del libretto: font, colori, dimensioni testo, immagine copertina, layout copertina.
+### Cosa cambia
+Ogni blocco testo diventa una **casella indipendente** posizionabile liberamente sul canvas, con font, colore e dimensione propri.
 
 ---
 
-### Piano
+### Piano tecnico
 
-#### 1. Fix DOCX — `src/lib/bookletDocxExport.ts`
-- Sostituire `Packer.toBuffer(doc)` con `Packer.toBlob(doc)` (una riga)
+#### 1. Estendere `TextBlock` — `PrintDesignStep.tsx`
 
-#### 2. Aggiungere schema stile — `src/lib/massBookletSchema.ts`
-Nuovo oggetto `style` dentro `massBookletContentSchema`:
+Aggiungere proprietà per-blocco:
+
 ```
-style: {
-  heading_font: 'Times New Roman' | 'Georgia' | 'Garamond' | 'Palatino',
-  body_font: 'Arial' | 'Helvetica' | 'Calibri' | 'Lato',
-  heading_color: string (hex, default '#1a1a1a'),
-  subtitle_color: string (hex, default '#8b7355'),
-  rubric_color: string (hex, default '#8b4513'),
-  body_size: number (9-13, default 10.5),
-  heading_size: number (12-20, default 14),
-  cover_image_url: string | null,
-  cover_image_height: number (default 200, px logici),
-  cover_layout: 'text_only' | 'image_top' | 'image_bottom' | 'image_background',
+interface TextBlock {
+  id: string;
+  type: TextBlockType;
+  label: string;
+  value: string;
+  style: TextBlockStyle;
+  // NUOVI campi:
+  x: number;        // % da sinistra (default 50)
+  y: number;        // % dall'alto (default calcolato)
+  fontStyle?: FontStyle;  // override font (se null usa globale)
+  color?: string;         // override colore (se null usa globale)
 }
 ```
 
-#### 3. Nuovo step "Stile" — Stepper a 6 step
-- Rinumerare: Setup (1), Rito (2), Letture (3), Canti/Preghiere (4), **Stile (5)**, Anteprima (6)
-- `BookletStepper.tsx`: aggiungere icona Palette per step 5
-- `MassBooklet.tsx`: aggiungere `currentStep === 5` con nuovo componente
+#### 2. Drag individuale nel canvas — `PrintDesignStep.tsx`
 
-#### 4. Nuovo componente `BookletStepStyle.tsx`
-UI con:
-- **Font titoli**: Select con 4 opzioni serif
-- **Font corpo**: Select con 4 opzioni sans-serif
-- **Colore titoli**: Input color picker (hex)
-- **Colore sottotitoli/accenti**: Input color picker
-- **Dimensione corpo testo**: Slider 9-13pt
-- **Dimensione titoli**: Slider 12-20pt
-- **Immagine copertina**: Upload file (salva come data URL base64 o in storage) con preview
-- **Dimensione immagine**: Slider altezza
-- **Layout copertina**: 4 opzioni radio (solo testo, immagine sopra, immagine sotto, immagine sfondo)
-- Preview live mini della copertina in sidebar/card
+- Ogni blocco testo diventa un `<div>` posizionato con `position: absolute; left: x%; top: y%` sul canvas
+- Ogni blocco ha il suo `onPointerDown` per il drag individuale (stesso pattern del QR code drag)
+- Cliccando un blocco nella preview, si seleziona → la sidebar mostra i controlli di quel blocco (font, colore, dimensione)
+- Stato `selectedBlockId` per sapere quale blocco è selezionato
+- Bordo tratteggiato attorno al blocco selezionato nella preview
 
-#### 5. Aggiornare PDF — `pdfStyles.ts` + `BookletPdfDocument.tsx` + `PdfCoverPage.tsx`
-- `pdfStyles.ts`: convertire da `StyleSheet.create()` statico a **funzione** `createStyles(style)` che riceve i valori di stile e genera lo stylesheet dinamico
-- `PdfCoverPage.tsx`: gestire immagine copertina (`<Image>` di react-pdf) con i 4 layout possibili
-- `BookletPdfDocument.tsx`: passare `style` ai componenti figli
+#### 3. Sidebar: controlli per blocco selezionato
 
-#### 6. Aggiornare DOCX — `bookletDocxExport.ts`
-- Leggere `content.style` per applicare font, colori e dimensioni dinamici
-- Gestire immagine copertina nel DOCX (embed come `ImageRun`)
+Quando un blocco è selezionato nella sidebar si mostra:
+- **Font**: Select con le stesse opzioni font già esistenti (override per-blocco)
+- **Colore**: Stessa palette colori già esistente (override per-blocco)  
+- **Dimensione**: Select Grande/Medio/Piccolo (già esiste come `style`)
+- **Testo**: Input per il contenuto
+- **Bottone "Usa stile globale"**: per resettare font/colore al default
 
-#### 7. Aggiornare `BookletStepPreview.tsx`
-- Riceve step 6 invece di 5
+#### 4. Bottone "Aggiungi casella testo"
 
-### File da creare
-- `src/components/mass-booklet/BookletStepStyle.tsx`
+- Bottone prominente in cima alla sezione testi nella sidebar
+- Crea un nuovo `TextBlock` di tipo `custom` con `x: 50, y: 50` (centro del canvas)
+- Si seleziona automaticamente per editing immediato
+
+#### 5. Rimuovere `textPosition` globale
+
+- La vecchia `textPosition.y` viene eliminata (ogni blocco ha la sua `y`)
+- Migrazione: i blocchi esistenti senza `x`/`y` ricevono `x: 50` e una `y` calcolata in sequenza (es. 30%, 35%, 40%...)
+- Rimuovere lo slider "Posizione testo" (sostituito dal drag individuale)
+
+#### 6. Aggiornare `HiddenPrintNode.tsx` (rendering PDF)
+
+- Ogni blocco testo è un `<div>` posizionato con `position: absolute; left: x%; top: y%`
+- Usa `fontFamily` e `color` dal blocco se specificati, altrimenti fallback ai valori globali
+- Non più un unico contenitore verticale centrato
+
+#### 7. Aggiornare `PrintInvitationEditor.tsx`
+
+- Rimuovere `textPosition` dallo stato e dal `PrintDesignConfig`
+- I blocchi portano le loro coordinate
+- Aggiornare `saveDesign` / load per il nuovo schema (retrocompatibile: blocchi senza `x`/`y` ricevono default)
 
 ### File da modificare
-- `src/lib/bookletDocxExport.ts` (fix blob + stili dinamici)
-- `src/lib/massBookletSchema.ts` (schema stile)
-- `src/components/mass-booklet/BookletStepper.tsx` (6 step)
-- `src/pages/MassBooklet.tsx` (step 5 = stile, step 6 = preview)
-- `src/components/mass-booklet/pdf/pdfStyles.ts` (funzione dinamica)
-- `src/components/mass-booklet/pdf/PdfCoverPage.tsx` (immagine + layout)
-- `src/components/mass-booklet/pdf/BookletPdfDocument.tsx` (passaggio stili)
-- `src/components/mass-booklet/BookletStepPreview.tsx` (minor)
+- `src/components/print/PrintDesignStep.tsx` — drag individuale, sidebar per-blocco, bottone aggiungi
+- `src/components/print/HiddenPrintNode.tsx` — rendering per-blocco posizionato
+- `src/components/print/PrintInvitationEditor.tsx` — rimozione textPosition, migrazione schema
+
+### Compatibilità
+I design salvati senza `x`/`y` nei blocchi vengono migrati automaticamente al caricamento con posizioni di default sequenziali.
 
