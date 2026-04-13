@@ -904,9 +904,19 @@ const PrintDesignStep = ({
             <div key={block.id}>
               <div
                 className={`group relative rounded-lg border p-2 space-y-1.5 bg-background cursor-pointer transition-colors ${
-                  selectedBlockId === block.id ? 'border-primary ring-1 ring-primary/30' : 'border-border hover:border-primary/50'
+                  selectedBlockIds.has(block.id) ? 'border-primary ring-1 ring-primary/30' : 'border-border hover:border-primary/50'
                 }`}
-                onClick={() => setSelectedBlockId(block.id)}
+                onClick={(e) => {
+                  if (e.shiftKey || e.ctrlKey || e.metaKey) {
+                    setSelectedBlockIds(prev => {
+                      const next = new Set(prev);
+                      if (next.has(block.id)) next.delete(block.id); else next.add(block.id);
+                      return next;
+                    });
+                  } else {
+                    setSelectedBlockIds(new Set([block.id]));
+                  }
+                }}
               >
                 {/* Header row: label + controls */}
                 <div className="flex items-center gap-1">
@@ -1114,7 +1124,7 @@ const PrintDesignStep = ({
             const blockFont = block.fontOverride ? FONT_MAP[block.fontOverride] : fontFamily;
             const blockColor = block.colorOverride || textColor;
             const { className, style } = getBlockPreviewStyle(block, blockFont, blockColor);
-            const isSelected = selectedBlockId === block.id;
+            const isSelected = selectedBlockIds.has(block.id);
             const isBeingDragged = draggingBlockId === block.id;
 
             return (
@@ -1131,7 +1141,18 @@ const PrintDesignStep = ({
                   padding: isSelected ? '2px 4px' : undefined,
                 }}
                 onPointerDown={(e) => handleBlockPointerDown(e, block.id)}
-                onClick={(e) => { e.stopPropagation(); setSelectedBlockId(block.id); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (e.shiftKey || e.ctrlKey || e.metaKey) {
+                    setSelectedBlockIds(prev => {
+                      const next = new Set(prev);
+                      if (next.has(block.id)) next.delete(block.id); else next.add(block.id);
+                      return next;
+                    });
+                  } else {
+                    setSelectedBlockIds(new Set([block.id]));
+                  }
+                }}
               >
                 <p className={`pointer-events-none whitespace-nowrap ${className}`} style={style}>
                   {block.type === 'greeting' ? (
