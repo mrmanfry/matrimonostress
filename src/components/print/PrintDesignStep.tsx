@@ -305,7 +305,7 @@ const PrintDesignStep = ({
   const [selectedBlockIds, setSelectedBlockIds] = useState<Set<string>>(new Set());
   const dragStartRef = useRef<{startX: number;startY: number;startTx: number;startTy: number;} | null>(null);
   const blockDragRef = useRef<{startX: number; startY: number; origPositions: Record<string, {x: number; y: number}>} | null>(null);
-  const blockDragRef = useRef<{startX: number; startY: number; origX: number; origY: number} | null>(null);
+  
   const qrDragRef = useRef<{startX: number; startY: number; origX: number; origY: number} | null>(null);
   const qrResizeRef = useRef<{startX: number; origSize: number} | null>(null);
 
