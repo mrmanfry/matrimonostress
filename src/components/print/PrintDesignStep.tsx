@@ -687,19 +687,43 @@ const PrintDesignStep = ({
             onCheckedChange={onShowSafeZoneChange} />
         </div>
 
-        {/* Selected block controls */}
-        {selectedBlock && (
+        {/* Undo/Redo buttons */}
+        <div className="flex items-center gap-1 pt-2 border-t border-border">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs gap-1 flex-1"
+            onClick={onUndo}
+            disabled={!canUndo}
+            title="Annulla (Ctrl+Z)"
+          >
+            <Undo2 className="w-3.5 h-3.5" /> Annulla
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs gap-1 flex-1"
+            onClick={onRedo}
+            disabled={!canRedo}
+            title="Ripristina (Ctrl+Shift+Z)"
+          >
+            <Redo2 className="w-3.5 h-3.5" /> Ripristina
+          </Button>
+        </div>
+
+        {/* Selected block controls — single selection */}
+        {singleSelectedBlock && (
           <div className="space-y-3 pt-3 border-t border-primary/30 bg-primary/5 -mx-4 md:-mx-6 px-4 md:px-6 pb-3">
             <div className="flex items-center gap-2">
               <MousePointer className="w-4 h-4 text-primary" />
               <h3 className="text-sm font-semibold text-primary">
                 Elemento selezionato
               </h3>
-              <Button variant="ghost" size="icon" className="h-5 w-5 ml-auto" onClick={() => setSelectedBlockId(null)}>
+              <Button variant="ghost" size="icon" className="h-5 w-5 ml-auto" onClick={() => setSelectedBlockIds(new Set())}>
                 <X className="w-3 h-3" />
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground">{selectedBlock.label}</p>
+            <p className="text-xs text-muted-foreground">{singleSelectedBlock.label}</p>
 
             {/* Per-block font override */}
             <div className="space-y-1">
@@ -707,8 +731,8 @@ const PrintDesignStep = ({
                 <Type className="w-3 h-3" /> Font
               </Label>
               <Select
-                value={selectedBlock.fontOverride || '__global__'}
-                onValueChange={(v) => updateBlockFont(selectedBlock.id, v === '__global__' ? undefined : v as FontStyle)}
+                value={singleSelectedBlock.fontOverride || '__global__'}
+                onValueChange={(v) => updateBlockFont(singleSelectedBlock.id, v === '__global__' ? undefined : v as FontStyle)}
               >
                 <SelectTrigger className="h-8 text-xs">
                   <SelectValue />
@@ -736,9 +760,9 @@ const PrintDesignStep = ({
               </Label>
               <div className="flex gap-1.5 flex-wrap items-center">
                 <button
-                  onClick={() => updateBlockColor(selectedBlock.id, undefined)}
+                  onClick={() => updateBlockColor(singleSelectedBlock.id, undefined)}
                   className={`h-7 px-2 text-[10px] rounded border transition-all ${
-                    !selectedBlock.colorOverride ? "border-primary ring-1 ring-primary/30 bg-primary/10" : "border-border"
+                    !singleSelectedBlock.colorOverride ? "border-primary ring-1 ring-primary/30 bg-primary/10" : "border-border"
                   }`}
                 >
                   Globale
@@ -746,9 +770,9 @@ const PrintDesignStep = ({
                 {TEXT_COLOR_PRESETS.map((preset) => (
                   <button
                     key={preset.value}
-                    onClick={() => updateBlockColor(selectedBlock.id, preset.value)}
+                    onClick={() => updateBlockColor(singleSelectedBlock.id, preset.value)}
                     className={`w-7 h-7 rounded border-2 transition-all ${
-                      selectedBlock.colorOverride === preset.value ? "border-primary ring-1 ring-primary/30" : "border-border"
+                      singleSelectedBlock.colorOverride === preset.value ? "border-primary ring-1 ring-primary/30" : "border-border"
                     }`}
                     style={{ backgroundColor: preset.value }}
                     title={preset.label}
@@ -756,8 +780,8 @@ const PrintDesignStep = ({
                 ))}
                 <Input
                   type="color"
-                  value={selectedBlock.colorOverride || textColor}
-                  onChange={(e) => updateBlockColor(selectedBlock.id, e.target.value)}
+                  value={singleSelectedBlock.colorOverride || textColor}
+                  onChange={(e) => updateBlockColor(singleSelectedBlock.id, e.target.value)}
                   className="w-7 h-7 p-0.5 cursor-pointer rounded"
                 />
               </div>
@@ -766,7 +790,7 @@ const PrintDesignStep = ({
             {/* Per-block size */}
             <div className="space-y-1">
               <Label className="text-xs">Dimensione</Label>
-              <Select value={selectedBlock.style} onValueChange={(v) => updateBlockStyle(selectedBlock.id, v as TextBlockStyle)}>
+              <Select value={singleSelectedBlock.style} onValueChange={(v) => updateBlockStyle(singleSelectedBlock.id, v as TextBlockStyle)}>
                 <SelectTrigger className="h-8 text-xs">
                   <SelectValue />
                 </SelectTrigger>
@@ -782,23 +806,82 @@ const PrintDesignStep = ({
             <div className="space-y-1">
               <Label className="text-xs">Testo</Label>
               <Input
-                value={selectedBlock.value}
-                onChange={(e) => updateBlockValue(selectedBlock.id, e.target.value)}
+                value={singleSelectedBlock.value}
+                onChange={(e) => updateBlockValue(singleSelectedBlock.id, e.target.value)}
                 className="h-8 text-xs"
                 placeholder="Testo..."
               />
             </div>
 
-            {selectedBlock.type === 'custom' && (
+            {singleSelectedBlock.type === 'custom' && (
               <Button
                 variant="destructive"
                 size="sm"
                 className="w-full h-7 text-xs"
-                onClick={() => removeBlock(selectedBlock.id)}
+                onClick={() => removeBlock(singleSelectedBlock.id)}
               >
                 <X className="w-3 h-3 mr-1" /> Rimuovi casella
               </Button>
             )}
+          </div>
+        )}
+
+        {/* Multi-selection controls */}
+        {selectedBlockIds.size > 1 && (
+          <div className="space-y-3 pt-3 border-t border-primary/30 bg-primary/5 -mx-4 md:-mx-6 px-4 md:px-6 pb-3">
+            <div className="flex items-center gap-2">
+              <MousePointer className="w-4 h-4 text-primary" />
+              <h3 className="text-sm font-semibold text-primary">
+                {selectedBlockIds.size} elementi selezionati
+              </h3>
+              <Button variant="ghost" size="icon" className="h-5 w-5 ml-auto" onClick={() => setSelectedBlockIds(new Set())}>
+                <X className="w-3 h-3" />
+              </Button>
+            </div>
+            <p className="text-[10px] text-muted-foreground">Trascina un elemento per muoverli tutti insieme. Usa i controlli sotto per applicare stile a tutti.</p>
+
+            <div className="space-y-1">
+              <Label className="text-xs flex items-center gap-1"><Type className="w-3 h-3" /> Font (tutti)</Label>
+              <Select value="__bulk__" onValueChange={(v) => updateSelectedBlocksFont(v === '__global__' ? undefined : v as FontStyle)}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Cambia font..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__global__">Usa globale</SelectItem>
+                  {FONT_GROUPS.map((group) => (
+                    <SelectGroup key={group.label}>
+                      <SelectLabel>{group.label}</SelectLabel>
+                      {group.fonts.map((f) => (
+                        <SelectItem key={f.key} value={f.key}>
+                          <span style={{ fontFamily: FONT_MAP[f.key] }}>{f.label}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs flex items-center gap-1"><Palette className="w-3 h-3" /> Colore (tutti)</Label>
+              <div className="flex gap-1.5 flex-wrap items-center">
+                <button onClick={() => updateSelectedBlocksColor(undefined)} className="h-7 px-2 text-[10px] rounded border border-border">Globale</button>
+                {TEXT_COLOR_PRESETS.map((preset) => (
+                  <button key={preset.value} onClick={() => updateSelectedBlocksColor(preset.value)}
+                    className="w-7 h-7 rounded border-2 border-border" style={{ backgroundColor: preset.value }} title={preset.label} />
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs">Dimensione (tutti)</Label>
+              <Select value="__bulk__" onValueChange={(v) => updateSelectedBlocksStyle(v as TextBlockStyle)}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Cambia dimensione..." /></SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(STYLE_LABELS) as TextBlockStyle[]).map(s => (
+                    <SelectItem key={s} value={s}>{STYLE_LABELS[s]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         )}
 
