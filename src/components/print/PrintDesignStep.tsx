@@ -1052,7 +1052,7 @@ const PrintDesignStep = ({
               max={35}
               step={1}
             />
-            <p className="text-[10px] text-muted-foreground">Trascina il QR code e le caselle testo nell'anteprima per spostarli</p>
+            <p className="text-[10px] text-muted-foreground">Trascina il QR code e le caselle testo nell'anteprima per spostarli. Disegna un rettangolo sullo sfondo per selezionare più elementi (lazo).</p>
           </div>
           <Button
             variant="outline"
