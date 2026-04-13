@@ -1086,7 +1086,23 @@ const PrintDesignStep = ({
             touchAction: 'none',
           }}
           onClick={handlePreviewBgClick}
+          onPointerDown={handlePreviewBgPointerDown}
         >
+          {/* Lasso selection rectangle */}
+          {isLassoing && lassoRect && (
+            <div
+              className="absolute z-30 pointer-events-none"
+              style={{
+                left: `${Math.min(lassoRect.x1, lassoRect.x2)}%`,
+                top: `${Math.min(lassoRect.y1, lassoRect.y2)}%`,
+                width: `${Math.abs(lassoRect.x2 - lassoRect.x1)}%`,
+                height: `${Math.abs(lassoRect.y2 - lassoRect.y1)}%`,
+                border: '2px dashed hsl(var(--primary))',
+                backgroundColor: 'hsl(var(--primary) / 0.08)',
+                borderRadius: '2px',
+              }}
+            />
+          )}
           
           {/* Safe zone indicator */}
           {showSafeZone && (
