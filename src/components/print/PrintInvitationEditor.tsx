@@ -58,6 +58,56 @@ const STEPS = [
   { label: 'Destinatari', number: 2 },
 ];
 
+// ── Undo/Redo hook ──
+const MAX_HISTORY = 50;
+
+function useUndoRedo<T>(initial: T) {
+  const [present, setPresent] = useState(initial);
+  const pastRef = useRef<T[]>([]);
+  const futureRef = useRef<T[]>([]);
+
+  const set = useCallback((next: T | ((prev: T) => T)) => {
+    setPresent(prev => {
+      const nextVal = typeof next === 'function' ? (next as (p: T) => T)(prev) : next;
+      pastRef.current = [...pastRef.current.slice(-(MAX_HISTORY - 1)), prev];
+      futureRef.current = [];
+      return nextVal;
+    });
+  }, []);
+
+  const undo = useCallback(() => {
+    setPresent(prev => {
+      if (pastRef.current.length === 0) return prev;
+      const previous = pastRef.current[pastRef.current.length - 1];
+      pastRef.current = pastRef.current.slice(0, -1);
+      futureRef.current = [prev, ...futureRef.current];
+      return previous;
+    });
+  }, []);
+
+  const redo = useCallback(() => {
+    setPresent(prev => {
+      if (futureRef.current.length === 0) return prev;
+      const next = futureRef.current[0];
+      futureRef.current = futureRef.current.slice(1);
+      pastRef.current = [...pastRef.current, prev];
+      return next;
+    });
+  }, []);
+
+  const canUndo = pastRef.current.length > 0;
+  const canRedo = futureRef.current.length > 0;
+
+  // Reset without pushing to history (for loading saved state)
+  const reset = useCallback((val: T) => {
+    setPresent(val);
+    pastRef.current = [];
+    futureRef.current = [];
+  }, []);
+
+  return { value: present, set, undo, redo, canUndo, canRedo, reset };
+}
+
 const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitationEditorProps) => {
   const { toast } = useToast();
 
@@ -73,7 +123,9 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
   const [hasPhoto, setHasPhoto] = useState(true);
   const [qrPosition, setQrPosition] = useState<QrPosition>({ x: 42, y: 85, size: 15 });
   const [textColor, setTextColor] = useState('#1a1a1a');
-  const [textBlocks, setTextBlocks] = useState<TextBlock[]>([]);
+  const blocksUndo = useUndoRedo<TextBlock[]>([]);
+  const textBlocks = blocksUndo.value;
+  const setTextBlocks = blocksUndo.set;
   const [textsInitialized, setTextsInitialized] = useState(false);
 
   // Persistence tracking
@@ -149,12 +201,11 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
 
         // Load textBlocks — migrate from legacy editableTexts if needed
         if (config.textBlocks) {
-          // Ensure blocks have x/y (migration from old schema without positions)
           const hp = config.hasPhoto !== undefined ? config.hasPhoto : true;
-          setTextBlocks(ensureBlockPositions(config.textBlocks, hp));
+          blocksUndo.reset(ensureBlockPositions(config.textBlocks, hp));
           setTextsInitialized(true);
         } else if (config.editableTexts) {
-          setTextBlocks(migrateTextsToBlocks(config.editableTexts));
+          blocksUndo.reset(migrateTextsToBlocks(config.editableTexts));
           setTextsInitialized(true);
         }
         if (config.backgroundImagePath) {
@@ -166,7 +217,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
 
       // Initialize text blocks from wedding data if not restored from saved config
       if (!textsInitialized && !(data.print_design as unknown as PrintDesignConfig)?.textBlocks && !(data.print_design as unknown as PrintDesignConfig)?.editableTexts) {
-        setTextBlocks(buildDefaultBlocks(wd));
+        blocksUndo.reset(buildDefaultBlocks(wd));
         setTextsInitialized(true);
       }
     }
@@ -515,6 +566,10 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
                 onQrPositionChange={setQrPosition}
                 textColor={textColor}
                 onTextColorChange={setTextColor}
+                canUndo={blocksUndo.canUndo}
+                canRedo={blocksUndo.canRedo}
+                onUndo={blocksUndo.undo}
+                onRedo={blocksUndo.redo}
               />
             )}
 

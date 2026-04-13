@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue } from
 "@/components/ui/select";
-import { Upload, ImageIcon, RotateCcw, GripVertical, QrCode, Plus, X, ChevronUp, ChevronDown, Type, Palette, MousePointer } from "lucide-react";
+import { Upload, ImageIcon, RotateCcw, GripVertical, QrCode, Plus, X, ChevronUp, ChevronDown, Type, Palette, MousePointer, Undo2, Redo2 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
 import { QRCodeSVG } from "qrcode.react";
@@ -169,6 +169,10 @@ interface PrintDesignStepProps {
   onQrPositionChange: (pos: QrPosition) => void;
   textColor: string;
   onTextColorChange: (color: string) => void;
+  canUndo: boolean;
+  canRedo: boolean;
+  onUndo: () => void;
+  onRedo: () => void;
 }
 
 const TEXT_COLOR_PRESETS = [
@@ -280,8 +284,12 @@ const PrintDesignStep = ({
   onQrPositionChange,
   textColor,
   onTextColorChange,
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
 }: PrintDesignStepProps) => {
-  const weddingData = weddingDataProp ?? {
+  const _weddingData = weddingDataProp ?? {
     partner1Name: '', partner2Name: '', weddingDate: '',
     ceremonyTime: null, ceremonyVenueName: null, ceremonyVenueAddress: null,
     receptionVenueName: null, receptionVenueAddress: null, receptionTime: null
@@ -294,9 +302,10 @@ const PrintDesignStep = ({
   const [isQrDragging, setIsQrDragging] = useState(false);
   const [isQrResizing, setIsQrResizing] = useState(false);
   const [draggingBlockId, setDraggingBlockId] = useState<string | null>(null);
-  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
+  const [selectedBlockIds, setSelectedBlockIds] = useState<Set<string>>(new Set());
   const dragStartRef = useRef<{startX: number;startY: number;startTx: number;startTy: number;} | null>(null);
-  const blockDragRef = useRef<{startX: number; startY: number; origX: number; origY: number} | null>(null);
+  const blockDragRef = useRef<{startX: number; startY: number; origPositions: Record<string, {x: number; y: number}>} | null>(null);
+  
   const qrDragRef = useRef<{startX: number; startY: number; origX: number; origY: number} | null>(null);
   const qrResizeRef = useRef<{startX: number; origSize: number} | null>(null);
 
@@ -351,18 +360,48 @@ const PrintDesignStep = ({
     qrResizeRef.current = null;
   }, []);
 
-  // Block drag
+  // Keyboard shortcuts for undo/redo
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) { onRedo(); } else { onUndo(); }
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+        e.preventDefault();
+        onRedo();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onUndo, onRedo]);
+
+  // Block drag — multi-select aware
   const handleBlockPointerDown = useCallback((e: React.PointerEvent, blockId: string) => {
     e.preventDefault();
     e.stopPropagation();
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     setDraggingBlockId(blockId);
-    setSelectedBlockId(blockId);
-    const block = textBlocks.find(b => b.id === blockId);
-    if (block) {
-      blockDragRef.current = { startX: e.clientX, startY: e.clientY, origX: block.x, origY: block.y };
+
+    // Multi-select with shift/ctrl
+    if (e.shiftKey || e.ctrlKey || e.metaKey) {
+      setSelectedBlockIds(prev => {
+        const next = new Set(prev);
+        if (next.has(blockId)) next.delete(blockId); else next.add(blockId);
+        return next;
+      });
+    } else if (!selectedBlockIds.has(blockId)) {
+      setSelectedBlockIds(new Set([blockId]));
     }
-  }, [textBlocks]);
+
+    // Store original positions for all selected blocks (or just the dragged one)
+    const dragIds = selectedBlockIds.has(blockId) ? selectedBlockIds : new Set([blockId]);
+    const origPositions: Record<string, {x: number; y: number}> = {};
+    textBlocks.forEach(b => {
+      if (dragIds.has(b.id)) origPositions[b.id] = { x: b.x, y: b.y };
+    });
+    blockDragRef.current = { startX: e.clientX, startY: e.clientY, origPositions };
+  }, [textBlocks, selectedBlockIds]);
 
   // QR drag
   const handleQrPointerDown = useCallback((e: React.PointerEvent) => {
@@ -370,7 +409,7 @@ const PrintDesignStep = ({
     e.stopPropagation();
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     setIsQrDragging(true);
-    setSelectedBlockId(null);
+    setSelectedBlockIds(new Set());
     qrDragRef.current = { startX: e.clientX, startY: e.clientY, origX: qrPosition.x, origY: qrPosition.y };
   }, [qrPosition.x, qrPosition.y]);
 
@@ -392,11 +431,16 @@ const PrintDesignStep = ({
       e.preventDefault();
       const dx = ((e.clientX - blockDragRef.current.startX) / rect.width) * 100;
       const dy = ((e.clientY - blockDragRef.current.startY) / rect.height) * 100;
-      let newX = Math.max(5, Math.min(95, blockDragRef.current.origX + dx));
-      let newY = Math.max(2, Math.min(95, blockDragRef.current.origY + dy));
-      // snap to center X
-      if (Math.abs(newX - 50) < 2) newX = 50;
-      onTextBlocksChange(textBlocks.map(b => b.id === draggingBlockId ? { ...b, x: newX, y: newY } : b));
+
+      // Move all blocks whose original positions are stored (group drag)
+      const orig = blockDragRef.current.origPositions;
+      onTextBlocksChange(textBlocks.map(b => {
+        if (!orig[b.id]) return b;
+        let newX = Math.max(5, Math.min(95, orig[b.id].x + dx));
+        let newY = Math.max(2, Math.min(95, orig[b.id].y + dy));
+        if (Math.abs(newX - 50) < 2) newX = 50;
+        return { ...b, x: newX, y: newY };
+      }));
     }
 
     if (isQrDragging && qrDragRef.current) {
@@ -444,7 +488,11 @@ const PrintDesignStep = ({
 
   const removeBlock = (id: string) => {
     onTextBlocksChange(textBlocks.filter(b => b.id !== id));
-    if (selectedBlockId === id) setSelectedBlockId(null);
+    setSelectedBlockIds(prev => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
   };
 
   const moveBlock = (id: string, direction: -1 | 1) => {
@@ -468,14 +516,27 @@ const PrintDesignStep = ({
       y: 50,
     };
     onTextBlocksChange([...textBlocks, newBlock]);
-    setSelectedBlockId(newBlock.id);
+    setSelectedBlockIds(new Set([newBlock.id]));
   };
 
-  const selectedBlock = textBlocks.find(b => b.id === selectedBlockId);
+  // Apply bulk style changes to all selected blocks
+  const updateSelectedBlocksFont = (font: FontStyle | undefined) => {
+    onTextBlocksChange(textBlocks.map(b => selectedBlockIds.has(b.id) ? { ...b, fontOverride: font } : b));
+  };
+  const updateSelectedBlocksColor = (color: string | undefined) => {
+    onTextBlocksChange(textBlocks.map(b => selectedBlockIds.has(b.id) ? { ...b, colorOverride: color } : b));
+  };
+  const updateSelectedBlocksStyle = (style: TextBlockStyle) => {
+    onTextBlocksChange(textBlocks.map(b => selectedBlockIds.has(b.id) ? { ...b, style } : b));
+  };
+
+  const singleSelectedBlock = selectedBlockIds.size === 1
+    ? textBlocks.find(b => selectedBlockIds.has(b.id)) ?? null
+    : null;
 
   // Deselect when clicking the preview background
   const handlePreviewBgClick = useCallback(() => {
-    setSelectedBlockId(null);
+    setSelectedBlockIds(new Set());
   }, []);
 
   return (
@@ -626,19 +687,43 @@ const PrintDesignStep = ({
             onCheckedChange={onShowSafeZoneChange} />
         </div>
 
-        {/* Selected block controls */}
-        {selectedBlock && (
+        {/* Undo/Redo buttons */}
+        <div className="flex items-center gap-1 pt-2 border-t border-border">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs gap-1 flex-1"
+            onClick={onUndo}
+            disabled={!canUndo}
+            title="Annulla (Ctrl+Z)"
+          >
+            <Undo2 className="w-3.5 h-3.5" /> Annulla
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs gap-1 flex-1"
+            onClick={onRedo}
+            disabled={!canRedo}
+            title="Ripristina (Ctrl+Shift+Z)"
+          >
+            <Redo2 className="w-3.5 h-3.5" /> Ripristina
+          </Button>
+        </div>
+
+        {/* Selected block controls — single selection */}
+        {singleSelectedBlock && (
           <div className="space-y-3 pt-3 border-t border-primary/30 bg-primary/5 -mx-4 md:-mx-6 px-4 md:px-6 pb-3">
             <div className="flex items-center gap-2">
               <MousePointer className="w-4 h-4 text-primary" />
               <h3 className="text-sm font-semibold text-primary">
                 Elemento selezionato
               </h3>
-              <Button variant="ghost" size="icon" className="h-5 w-5 ml-auto" onClick={() => setSelectedBlockId(null)}>
+              <Button variant="ghost" size="icon" className="h-5 w-5 ml-auto" onClick={() => setSelectedBlockIds(new Set())}>
                 <X className="w-3 h-3" />
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground">{selectedBlock.label}</p>
+            <p className="text-xs text-muted-foreground">{singleSelectedBlock.label}</p>
 
             {/* Per-block font override */}
             <div className="space-y-1">
@@ -646,8 +731,8 @@ const PrintDesignStep = ({
                 <Type className="w-3 h-3" /> Font
               </Label>
               <Select
-                value={selectedBlock.fontOverride || '__global__'}
-                onValueChange={(v) => updateBlockFont(selectedBlock.id, v === '__global__' ? undefined : v as FontStyle)}
+                value={singleSelectedBlock.fontOverride || '__global__'}
+                onValueChange={(v) => updateBlockFont(singleSelectedBlock.id, v === '__global__' ? undefined : v as FontStyle)}
               >
                 <SelectTrigger className="h-8 text-xs">
                   <SelectValue />
@@ -675,9 +760,9 @@ const PrintDesignStep = ({
               </Label>
               <div className="flex gap-1.5 flex-wrap items-center">
                 <button
-                  onClick={() => updateBlockColor(selectedBlock.id, undefined)}
+                  onClick={() => updateBlockColor(singleSelectedBlock.id, undefined)}
                   className={`h-7 px-2 text-[10px] rounded border transition-all ${
-                    !selectedBlock.colorOverride ? "border-primary ring-1 ring-primary/30 bg-primary/10" : "border-border"
+                    !singleSelectedBlock.colorOverride ? "border-primary ring-1 ring-primary/30 bg-primary/10" : "border-border"
                   }`}
                 >
                   Globale
@@ -685,9 +770,9 @@ const PrintDesignStep = ({
                 {TEXT_COLOR_PRESETS.map((preset) => (
                   <button
                     key={preset.value}
-                    onClick={() => updateBlockColor(selectedBlock.id, preset.value)}
+                    onClick={() => updateBlockColor(singleSelectedBlock.id, preset.value)}
                     className={`w-7 h-7 rounded border-2 transition-all ${
-                      selectedBlock.colorOverride === preset.value ? "border-primary ring-1 ring-primary/30" : "border-border"
+                      singleSelectedBlock.colorOverride === preset.value ? "border-primary ring-1 ring-primary/30" : "border-border"
                     }`}
                     style={{ backgroundColor: preset.value }}
                     title={preset.label}
@@ -695,8 +780,8 @@ const PrintDesignStep = ({
                 ))}
                 <Input
                   type="color"
-                  value={selectedBlock.colorOverride || textColor}
-                  onChange={(e) => updateBlockColor(selectedBlock.id, e.target.value)}
+                  value={singleSelectedBlock.colorOverride || textColor}
+                  onChange={(e) => updateBlockColor(singleSelectedBlock.id, e.target.value)}
                   className="w-7 h-7 p-0.5 cursor-pointer rounded"
                 />
               </div>
@@ -705,7 +790,7 @@ const PrintDesignStep = ({
             {/* Per-block size */}
             <div className="space-y-1">
               <Label className="text-xs">Dimensione</Label>
-              <Select value={selectedBlock.style} onValueChange={(v) => updateBlockStyle(selectedBlock.id, v as TextBlockStyle)}>
+              <Select value={singleSelectedBlock.style} onValueChange={(v) => updateBlockStyle(singleSelectedBlock.id, v as TextBlockStyle)}>
                 <SelectTrigger className="h-8 text-xs">
                   <SelectValue />
                 </SelectTrigger>
@@ -721,23 +806,82 @@ const PrintDesignStep = ({
             <div className="space-y-1">
               <Label className="text-xs">Testo</Label>
               <Input
-                value={selectedBlock.value}
-                onChange={(e) => updateBlockValue(selectedBlock.id, e.target.value)}
+                value={singleSelectedBlock.value}
+                onChange={(e) => updateBlockValue(singleSelectedBlock.id, e.target.value)}
                 className="h-8 text-xs"
                 placeholder="Testo..."
               />
             </div>
 
-            {selectedBlock.type === 'custom' && (
+            {singleSelectedBlock.type === 'custom' && (
               <Button
                 variant="destructive"
                 size="sm"
                 className="w-full h-7 text-xs"
-                onClick={() => removeBlock(selectedBlock.id)}
+                onClick={() => removeBlock(singleSelectedBlock.id)}
               >
                 <X className="w-3 h-3 mr-1" /> Rimuovi casella
               </Button>
             )}
+          </div>
+        )}
+
+        {/* Multi-selection controls */}
+        {selectedBlockIds.size > 1 && (
+          <div className="space-y-3 pt-3 border-t border-primary/30 bg-primary/5 -mx-4 md:-mx-6 px-4 md:px-6 pb-3">
+            <div className="flex items-center gap-2">
+              <MousePointer className="w-4 h-4 text-primary" />
+              <h3 className="text-sm font-semibold text-primary">
+                {selectedBlockIds.size} elementi selezionati
+              </h3>
+              <Button variant="ghost" size="icon" className="h-5 w-5 ml-auto" onClick={() => setSelectedBlockIds(new Set())}>
+                <X className="w-3 h-3" />
+              </Button>
+            </div>
+            <p className="text-[10px] text-muted-foreground">Trascina un elemento per muoverli tutti insieme. Usa i controlli sotto per applicare stile a tutti.</p>
+
+            <div className="space-y-1">
+              <Label className="text-xs flex items-center gap-1"><Type className="w-3 h-3" /> Font (tutti)</Label>
+              <Select value="__bulk__" onValueChange={(v) => updateSelectedBlocksFont(v === '__global__' ? undefined : v as FontStyle)}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Cambia font..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__global__">Usa globale</SelectItem>
+                  {FONT_GROUPS.map((group) => (
+                    <SelectGroup key={group.label}>
+                      <SelectLabel>{group.label}</SelectLabel>
+                      {group.fonts.map((f) => (
+                        <SelectItem key={f.key} value={f.key}>
+                          <span style={{ fontFamily: FONT_MAP[f.key] }}>{f.label}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs flex items-center gap-1"><Palette className="w-3 h-3" /> Colore (tutti)</Label>
+              <div className="flex gap-1.5 flex-wrap items-center">
+                <button onClick={() => updateSelectedBlocksColor(undefined)} className="h-7 px-2 text-[10px] rounded border border-border">Globale</button>
+                {TEXT_COLOR_PRESETS.map((preset) => (
+                  <button key={preset.value} onClick={() => updateSelectedBlocksColor(preset.value)}
+                    className="w-7 h-7 rounded border-2 border-border" style={{ backgroundColor: preset.value }} title={preset.label} />
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs">Dimensione (tutti)</Label>
+              <Select value="__bulk__" onValueChange={(v) => updateSelectedBlocksStyle(v as TextBlockStyle)}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Cambia dimensione..." /></SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(STYLE_LABELS) as TextBlockStyle[]).map(s => (
+                    <SelectItem key={s} value={s}>{STYLE_LABELS[s]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         )}
 
@@ -760,9 +904,19 @@ const PrintDesignStep = ({
             <div key={block.id}>
               <div
                 className={`group relative rounded-lg border p-2 space-y-1.5 bg-background cursor-pointer transition-colors ${
-                  selectedBlockId === block.id ? 'border-primary ring-1 ring-primary/30' : 'border-border hover:border-primary/50'
+                  selectedBlockIds.has(block.id) ? 'border-primary ring-1 ring-primary/30' : 'border-border hover:border-primary/50'
                 }`}
-                onClick={() => setSelectedBlockId(block.id)}
+                onClick={(e) => {
+                  if (e.shiftKey || e.ctrlKey || e.metaKey) {
+                    setSelectedBlockIds(prev => {
+                      const next = new Set(prev);
+                      if (next.has(block.id)) next.delete(block.id); else next.add(block.id);
+                      return next;
+                    });
+                  } else {
+                    setSelectedBlockIds(new Set([block.id]));
+                  }
+                }}
               >
                 {/* Header row: label + controls */}
                 <div className="flex items-center gap-1">
@@ -970,7 +1124,7 @@ const PrintDesignStep = ({
             const blockFont = block.fontOverride ? FONT_MAP[block.fontOverride] : fontFamily;
             const blockColor = block.colorOverride || textColor;
             const { className, style } = getBlockPreviewStyle(block, blockFont, blockColor);
-            const isSelected = selectedBlockId === block.id;
+            const isSelected = selectedBlockIds.has(block.id);
             const isBeingDragged = draggingBlockId === block.id;
 
             return (
@@ -987,7 +1141,18 @@ const PrintDesignStep = ({
                   padding: isSelected ? '2px 4px' : undefined,
                 }}
                 onPointerDown={(e) => handleBlockPointerDown(e, block.id)}
-                onClick={(e) => { e.stopPropagation(); setSelectedBlockId(block.id); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (e.shiftKey || e.ctrlKey || e.metaKey) {
+                    setSelectedBlockIds(prev => {
+                      const next = new Set(prev);
+                      if (next.has(block.id)) next.delete(block.id); else next.add(block.id);
+                      return next;
+                    });
+                  } else {
+                    setSelectedBlockIds(new Set([block.id]));
+                  }
+                }}
               >
                 <p className={`pointer-events-none whitespace-nowrap ${className}`} style={style}>
                   {block.type === 'greeting' ? (
