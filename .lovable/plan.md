@@ -1,82 +1,56 @@
 
 
-## Caselle Testo Indipendenti nell'Editor Inviti
+## Multi-selezione, Raggruppamento e Undo/Redo nell'Editor Inviti
 
-### Situazione attuale
-Tutti i blocchi testo sono impilati verticalmente e si muovono insieme come un unico gruppo (`textPosition.y`). Il font e il colore sono globali per tutti i blocchi.
+### Cosa viene aggiunto
 
-### Cosa cambia
-Ogni blocco testo diventa una **casella indipendente** posizionabile liberamente sul canvas, con font, colore e dimensione propri.
+1. **Multi-selezione**: Click + Shift/Ctrl per selezionare più caselle testo contemporaneamente. Le caselle selezionate mostrano un bordo evidenziato.
+
+2. **Drag di gruppo**: Quando più caselle sono selezionate, trascinandone una si muovono tutte insieme mantenendo le posizioni relative.
+
+3. **Undo/Redo**: Ctrl+Z per annullare, Ctrl+Shift+Z (o Ctrl+Y) per ripristinare. Anche un bottone visibile nella toolbar. Funziona su tutte le modifiche: spostamenti, testo, stili, aggiunta/rimozione caselle.
 
 ---
 
 ### Piano tecnico
 
-#### 1. Estendere `TextBlock` — `PrintDesignStep.tsx`
+#### 1. Undo/Redo — `PrintInvitationEditor.tsx`
 
-Aggiungere proprietà per-blocco:
+Implementare uno stack di history a livello del componente padre, dove già vivono `textBlocks`, `qrPosition`, `textColor`, ecc.
 
-```
-interface TextBlock {
-  id: string;
-  type: TextBlockType;
-  label: string;
-  value: string;
-  style: TextBlockStyle;
-  // NUOVI campi:
-  x: number;        // % da sinistra (default 50)
-  y: number;        // % dall'alto (default calcolato)
-  fontStyle?: FontStyle;  // override font (se null usa globale)
-  color?: string;         // override colore (se null usa globale)
-}
-```
+- Nuovo hook custom `useUndoRedo<T>(initialState)` che gestisce `past[]`, `present`, `future[]`
+- Wrappare `textBlocks` con questo hook: ogni chiamata a `setTextBlocks` passa per `pushState()` che salva lo stato precedente nello stack
+- Stack limitato a ~50 entry per non consumare troppa memoria
+- Passare `canUndo`, `canRedo`, `undo()`, `redo()` come props a `PrintDesignStep`
+- Listener `useEffect` su `keydown` per `Ctrl+Z` / `Ctrl+Shift+Z`
 
-#### 2. Drag individuale nel canvas — `PrintDesignStep.tsx`
+#### 2. Multi-selezione — `PrintDesignStep.tsx`
 
-- Ogni blocco testo diventa un `<div>` posizionato con `position: absolute; left: x%; top: y%` sul canvas
-- Ogni blocco ha il suo `onPointerDown` per il drag individuale (stesso pattern del QR code drag)
-- Cliccando un blocco nella preview, si seleziona → la sidebar mostra i controlli di quel blocco (font, colore, dimensione)
-- Stato `selectedBlockId` per sapere quale blocco è selezionato
-- Bordo tratteggiato attorno al blocco selezionato nella preview
+- Cambiare `selectedBlockId: string | null` → `selectedBlockIds: Set<string>`
+- Click su un blocco: lo seleziona (deseleziona gli altri)
+- Shift+Click o Ctrl+Click: aggiunge/toglie dalla selezione
+- Click sullo sfondo: deseleziona tutto
+- Sidebar: mostra controlli per-blocco solo se un singolo blocco è selezionato; se più blocchi selezionati, mostra solo azioni comuni (colore, font, dimensione — applicate a tutti)
+- Bordo evidenziato su tutti i blocchi selezionati
 
-#### 3. Sidebar: controlli per blocco selezionato
+#### 3. Drag di gruppo — `PrintDesignStep.tsx`
 
-Quando un blocco è selezionato nella sidebar si mostra:
-- **Font**: Select con le stesse opzioni font già esistenti (override per-blocco)
-- **Colore**: Stessa palette colori già esistente (override per-blocco)  
-- **Dimensione**: Select Grande/Medio/Piccolo (già esiste come `style`)
-- **Testo**: Input per il contenuto
-- **Bottone "Usa stile globale"**: per resettare font/colore al default
+- Quando si inizia a trascinare un blocco che è parte della multi-selezione:
+  - Calcolare l'offset `(dx, dy)` dal punto di partenza
+  - Applicare lo stesso delta a tutti i blocchi selezionati
+  - `blockDragRef` salva le posizioni originali di tutti i blocchi selezionati, non solo uno
+- Se si trascina un blocco NON selezionato, prima deselezionare tutti e selezionare solo quello (comportamento standard)
 
-#### 4. Bottone "Aggiungi casella testo"
+#### 4. UI bottoni Undo/Redo — `PrintDesignStep.tsx`
 
-- Bottone prominente in cima alla sezione testi nella sidebar
-- Crea un nuovo `TextBlock` di tipo `custom` con `x: 50, y: 50` (centro del canvas)
-- Si seleziona automaticamente per editing immediato
-
-#### 5. Rimuovere `textPosition` globale
-
-- La vecchia `textPosition.y` viene eliminata (ogni blocco ha la sua `y`)
-- Migrazione: i blocchi esistenti senza `x`/`y` ricevono `x: 50` e una `y` calcolata in sequenza (es. 30%, 35%, 40%...)
-- Rimuovere lo slider "Posizione testo" (sostituito dal drag individuale)
-
-#### 6. Aggiornare `HiddenPrintNode.tsx` (rendering PDF)
-
-- Ogni blocco testo è un `<div>` posizionato con `position: absolute; left: x%; top: y%`
-- Usa `fontFamily` e `color` dal blocco se specificati, altrimenti fallback ai valori globali
-- Non più un unico contenitore verticale centrato
-
-#### 7. Aggiornare `PrintInvitationEditor.tsx`
-
-- Rimuovere `textPosition` dallo stato e dal `PrintDesignConfig`
-- I blocchi portano le loro coordinate
-- Aggiornare `saveDesign` / load per il nuovo schema (retrocompatibile: blocchi senza `x`/`y` ricevono default)
+- Due bottoni piccoli (icone `Undo2` e `Redo2` di Lucide) nella toolbar sopra la preview o nella sidebar
+- Disabilitati quando lo stack è vuoto
+- Tooltip con shortcut keyboard
 
 ### File da modificare
-- `src/components/print/PrintDesignStep.tsx` — drag individuale, sidebar per-blocco, bottone aggiungi
-- `src/components/print/HiddenPrintNode.tsx` — rendering per-blocco posizionato
-- `src/components/print/PrintInvitationEditor.tsx` — rimozione textPosition, migrazione schema
+- `src/components/print/PrintInvitationEditor.tsx` — hook undo/redo, keydown listener, passaggio props
+- `src/components/print/PrintDesignStep.tsx` — multi-selezione, drag di gruppo, bottoni undo/redo, sidebar adattiva
 
-### Compatibilità
-I design salvati senza `x`/`y` nei blocchi vengono migrati automaticamente al caricamento con posizioni di default sequenziali.
+### File da creare
+- Nessuno (logica undo/redo inline o come hook locale nel file editor)
 
