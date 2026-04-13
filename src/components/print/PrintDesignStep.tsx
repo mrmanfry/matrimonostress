@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue } from
 "@/components/ui/select";
-import { Upload, ImageIcon, RotateCcw, GripVertical, QrCode, Plus, X, ChevronUp, ChevronDown, Type, Palette, MousePointer, Undo2, Redo2 } from "lucide-react";
+import { Upload, ImageIcon, RotateCcw, GripVertical, QrCode, Plus, X, ChevronUp, ChevronDown, Type, Palette, MousePointer, Undo2, Redo2, Group, Ungroup } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
 import { QRCodeSVG } from "qrcode.react";
@@ -303,6 +303,9 @@ const PrintDesignStep = ({
   const [isQrResizing, setIsQrResizing] = useState(false);
   const [draggingBlockId, setDraggingBlockId] = useState<string | null>(null);
   const [selectedBlockIds, setSelectedBlockIds] = useState<Set<string>>(new Set());
+  const [isLassoing, setIsLassoing] = useState(false);
+  const [lassoRect, setLassoRect] = useState<{x1: number; y1: number; x2: number; y2: number} | null>(null);
+  const lassoStartRef = useRef<{startX: number; startY: number} | null>(null);
   const dragStartRef = useRef<{startX: number;startY: number;startTx: number;startTy: number;} | null>(null);
   const blockDragRef = useRef<{startX: number; startY: number; origPositions: Record<string, {x: number; y: number}>} | null>(null);
   
@@ -354,10 +357,13 @@ const PrintDesignStep = ({
     setDraggingBlockId(null);
     setIsQrDragging(false);
     setIsQrResizing(false);
+    setIsLassoing(false);
+    setLassoRect(null);
     dragStartRef.current = null;
     blockDragRef.current = null;
     qrDragRef.current = null;
     qrResizeRef.current = null;
+    lassoStartRef.current = null;
   }, []);
 
   // Keyboard shortcuts for undo/redo
@@ -383,22 +389,27 @@ const PrintDesignStep = ({
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     setDraggingBlockId(blockId);
 
-    // Multi-select with shift/ctrl
+    // Determine the effective selection for this drag
+    let effectiveIds: Set<string>;
+
     if (e.shiftKey || e.ctrlKey || e.metaKey) {
-      setSelectedBlockIds(prev => {
-        const next = new Set(prev);
-        if (next.has(blockId)) next.delete(blockId); else next.add(blockId);
-        return next;
-      });
-    } else if (!selectedBlockIds.has(blockId)) {
-      setSelectedBlockIds(new Set([blockId]));
+      // Toggle this block in selection
+      effectiveIds = new Set(selectedBlockIds);
+      if (effectiveIds.has(blockId)) effectiveIds.delete(blockId); else effectiveIds.add(blockId);
+      setSelectedBlockIds(effectiveIds);
+    } else if (selectedBlockIds.has(blockId)) {
+      // Already selected — drag the whole group
+      effectiveIds = selectedBlockIds;
+    } else {
+      // Not selected, no modifier — select only this one
+      effectiveIds = new Set([blockId]);
+      setSelectedBlockIds(effectiveIds);
     }
 
-    // Store original positions for all selected blocks (or just the dragged one)
-    const dragIds = selectedBlockIds.has(blockId) ? selectedBlockIds : new Set([blockId]);
+    // Store original positions for all blocks in the effective selection
     const origPositions: Record<string, {x: number; y: number}> = {};
     textBlocks.forEach(b => {
-      if (dragIds.has(b.id)) origPositions[b.id] = { x: b.x, y: b.y };
+      if (effectiveIds.has(b.id)) origPositions[b.id] = { x: b.x, y: b.y };
     });
     blockDragRef.current = { startX: e.clientX, startY: e.clientY, origPositions };
   }, [textBlocks, selectedBlockIds]);
@@ -422,10 +433,34 @@ const PrintDesignStep = ({
     qrResizeRef.current = { startX: e.clientX, origSize: qrPosition.size };
   }, [qrPosition.size]);
 
-  // Unified pointer move for block/QR drag on the preview container
+  // Unified pointer move for block/QR drag + lasso on the preview container
   const handlePreviewPointerMove = useCallback((e: React.PointerEvent) => {
     if (!previewRef.current) return;
     const rect = previewRef.current.getBoundingClientRect();
+
+    // Lasso drawing
+    if (isLassoing && lassoStartRef.current) {
+      e.preventDefault();
+      const x2 = ((e.clientX - rect.left) / rect.width) * 100;
+      const y2 = ((e.clientY - rect.top) / rect.height) * 100;
+      setLassoRect(prev => prev ? { ...prev, x2: Math.max(0, Math.min(100, x2)), y2: Math.max(0, Math.min(100, y2)) } : null);
+
+      // Live-select blocks within lasso rectangle
+      if (lassoRect) {
+        const lx1 = Math.min(lassoRect.x1, x2);
+        const lx2 = Math.max(lassoRect.x1, x2);
+        const ly1 = Math.min(lassoRect.y1, y2);
+        const ly2 = Math.max(lassoRect.y1, y2);
+        const withinIds = new Set<string>();
+        textBlocks.forEach(b => {
+          if (b.x >= lx1 && b.x <= lx2 && b.y >= ly1 && b.y <= ly2) {
+            withinIds.add(b.id);
+          }
+        });
+        setSelectedBlockIds(withinIds);
+      }
+      return;
+    }
 
     if (draggingBlockId && blockDragRef.current) {
       e.preventDefault();
@@ -458,7 +493,7 @@ const PrintDesignStep = ({
       const newSize = Math.max(6, Math.min(35, qrResizeRef.current.origSize + dx));
       onQrPositionChange({ ...qrPosition, size: newSize });
     }
-  }, [draggingBlockId, isQrDragging, isQrResizing, qrPosition, onTextBlocksChange, onQrPositionChange, textBlocks]);
+  }, [draggingBlockId, isQrDragging, isQrResizing, isLassoing, lassoRect, qrPosition, onTextBlocksChange, onQrPositionChange, textBlocks]);
 
   const showGuideH = isDragging && Math.abs(imageTransform.y) < SNAP_THRESHOLD;
   const showGuideV = isDragging && Math.abs(imageTransform.x) < SNAP_THRESHOLD;
@@ -534,9 +569,27 @@ const PrintDesignStep = ({
     ? textBlocks.find(b => selectedBlockIds.has(b.id)) ?? null
     : null;
 
-  // Deselect when clicking the preview background
-  const handlePreviewBgClick = useCallback(() => {
-    setSelectedBlockIds(new Set());
+  // Lasso start on preview background
+  const handlePreviewBgPointerDown = useCallback((e: React.PointerEvent) => {
+    // Only start lasso if clicking directly on the preview background (not on a block/QR)
+    if (e.target !== e.currentTarget) return;
+    if (!previewRef.current) return;
+    const rect = previewRef.current.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    setIsLassoing(true);
+    lassoStartRef.current = { startX: e.clientX, startY: e.clientY };
+    setLassoRect({ x1: x, y1: y, x2: x, y2: y });
+    // Deselect unless holding shift
+    if (!e.shiftKey && !e.ctrlKey && !e.metaKey) {
+      setSelectedBlockIds(new Set());
+    }
+  }, []);
+
+  // Deselect when clicking the preview background (without dragging)
+  const handlePreviewBgClick = useCallback((e: React.MouseEvent) => {
+    if (e.target !== e.currentTarget) return;
+    // Only deselect if we didn't lasso (lasso handles its own selection)
   }, []);
 
   return (
@@ -999,7 +1052,7 @@ const PrintDesignStep = ({
               max={35}
               step={1}
             />
-            <p className="text-[10px] text-muted-foreground">Trascina il QR code e le caselle testo nell'anteprima per spostarli</p>
+            <p className="text-[10px] text-muted-foreground">Trascina il QR code e le caselle testo nell'anteprima per spostarli. Disegna un rettangolo sullo sfondo per selezionare più elementi (lazo).</p>
           </div>
           <Button
             variant="outline"
@@ -1033,7 +1086,23 @@ const PrintDesignStep = ({
             touchAction: 'none',
           }}
           onClick={handlePreviewBgClick}
+          onPointerDown={handlePreviewBgPointerDown}
         >
+          {/* Lasso selection rectangle */}
+          {isLassoing && lassoRect && (
+            <div
+              className="absolute z-30 pointer-events-none"
+              style={{
+                left: `${Math.min(lassoRect.x1, lassoRect.x2)}%`,
+                top: `${Math.min(lassoRect.y1, lassoRect.y2)}%`,
+                width: `${Math.abs(lassoRect.x2 - lassoRect.x1)}%`,
+                height: `${Math.abs(lassoRect.y2 - lassoRect.y1)}%`,
+                border: '2px dashed hsl(var(--primary))',
+                backgroundColor: 'hsl(var(--primary) / 0.08)',
+                borderRadius: '2px',
+              }}
+            />
+          )}
           
           {/* Safe zone indicator */}
           {showSafeZone && (
