@@ -1,6 +1,7 @@
 import { QRCodeSVG } from "qrcode.react";
-import type { ImageTransform, EdgeStyle, TextPosition, QrPosition } from "./PrintInvitationEditor";
+import type { ImageTransform, EdgeStyle, QrPosition } from "./PrintInvitationEditor";
 import type { TextBlock } from "./PrintDesignStep";
+import { FONT_MAP } from "./PrintDesignStep";
 
 interface HiddenPrintNodeProps {
   displayName: string;
@@ -11,7 +12,6 @@ interface HiddenPrintNodeProps {
   edgeStyle: EdgeStyle;
   hasPhoto: boolean;
   textBlocks: TextBlock[];
-  textPosition: TextPosition;
   qrPosition: QrPosition;
   textColor: string;
   greeting: string;
@@ -29,7 +29,6 @@ const HiddenPrintNode = ({
   edgeStyle,
   hasPhoto,
   textBlocks,
-  textPosition,
   qrPosition,
   textColor,
   greeting,
@@ -40,38 +39,47 @@ const HiddenPrintNode = ({
   const tertiaryColor = textColor === '#FFFFFF' ? 'rgba(255,255,255,0.5)' : textColor === '#1a1a1a' ? '#999' : `${textColor}77`;
 
   const getBlockStyle = (block: TextBlock): React.CSSProperties => {
+    const blockFont = block.fontOverride ? FONT_MAP[block.fontOverride] : fontFamily;
+    const blockMain = block.colorOverride || mainColor;
+    const blockSecondary = block.colorOverride
+      ? (block.colorOverride === '#FFFFFF' ? 'rgba(255,255,255,0.7)' : `${block.colorOverride}99`)
+      : secondaryColor;
+    const blockTertiary = block.colorOverride
+      ? (block.colorOverride === '#FFFFFF' ? 'rgba(255,255,255,0.5)' : `${block.colorOverride}77`)
+      : tertiaryColor;
+
     if (block.type !== 'custom') {
       switch (block.type) {
         case 'greeting':
-          return { fontSize: '48px', letterSpacing: '0.05em', color: secondaryColor, marginBottom: '44px' };
+          return { fontSize: '48px', letterSpacing: '0.05em', color: blockSecondary, fontFamily: blockFont };
         case 'names':
-          return { fontSize: '79px', fontWeight: 600, color: mainColor, lineHeight: 1.3 };
+          return { fontSize: '79px', fontWeight: 600, color: blockMain, lineHeight: 1.3, fontFamily: blockFont };
         case 'announcement':
-          return { fontSize: '48px', color: secondaryColor, marginTop: '17px', marginBottom: '44px' };
+          return { fontSize: '48px', color: blockSecondary, fontFamily: blockFont };
         case 'dateText':
-          return { fontSize: '57px', fontWeight: 500, color: mainColor, textTransform: 'capitalize' };
+          return { fontSize: '57px', fontWeight: 500, color: blockMain, textTransform: 'capitalize', fontFamily: blockFont };
         case 'timePrefix_time':
-          return { fontSize: '48px', color: secondaryColor };
+          return { fontSize: '48px', color: blockSecondary, fontFamily: blockFont };
         case 'venuePrefix':
         case 'receptionPrefix':
-          return { fontSize: '44px', color: secondaryColor, marginTop: '35px' };
+          return { fontSize: '44px', color: blockSecondary, fontFamily: blockFont };
         case 'ceremonyVenue':
         case 'receptionVenue':
-          return { fontSize: '57px', fontWeight: 500, color: mainColor };
+          return { fontSize: '57px', fontWeight: 500, color: blockMain, fontFamily: blockFont };
         case 'ceremonyAddress':
         case 'receptionAddress':
-          return { fontSize: '39px', color: tertiaryColor };
+          return { fontSize: '39px', color: blockTertiary, fontFamily: blockFont };
       }
     }
     // Custom blocks
     switch (block.style) {
       case 'primary':
-        return { fontSize: '57px', fontWeight: 500, color: mainColor };
+        return { fontSize: '57px', fontWeight: 500, color: blockMain, fontFamily: blockFont };
       case 'tertiary':
-        return { fontSize: '39px', color: tertiaryColor };
+        return { fontSize: '39px', color: blockTertiary, fontFamily: blockFont };
       case 'secondary':
       default:
-        return { fontSize: '48px', color: secondaryColor };
+        return { fontSize: '48px', color: blockSecondary, fontFamily: blockFont };
     }
   };
 
@@ -133,37 +141,30 @@ const HiddenPrintNode = ({
         </div>
       )}
 
-      <div
-        style={{
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          top: `${textPosition.y}%`,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          padding: '0 105px',
-          textAlign: 'center',
-        }}
-      >
-        {textBlocks.map((block) => {
-          if (!block.value && block.type !== 'greeting') return null;
-          const style = getBlockStyle(block);
-          // Greeting: use the resolved per-party greeting
-          if (block.type === 'greeting') {
-            return (
-              <p key={block.id} style={style}>
-                {greeting}
-              </p>
-            );
-          }
-          return (
-            <p key={block.id} style={style}>
-              {block.value}
+      {/* Each text block positioned individually */}
+      {textBlocks.map((block) => {
+        if (!block.value && block.type !== 'greeting') return null;
+        const style = getBlockStyle(block);
+        const displayValue = block.type === 'greeting' ? greeting : block.value;
+
+        return (
+          <div
+            key={block.id}
+            style={{
+              position: 'absolute',
+              left: `${block.x}%`,
+              top: `${block.y}%`,
+              transform: 'translateX(-50%)',
+              textAlign: 'center',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <p style={style}>
+              {displayValue}
             </p>
-          );
-        })}
-      </div>
+          </div>
+        );
+      })}
 
       {syncToken ? (
         <div

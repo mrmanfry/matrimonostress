@@ -14,7 +14,7 @@ import {
   resolveGreeting,
   resolveGreetingSolo,
 } from "@/lib/printNameResolver";
-import PrintDesignStep, { type FontStyle, FONT_MAP, type WeddingPrintData, type TextBlock, type InvitationTexts, migrateTextsToBlocks, buildDefaultBlocks } from "./PrintDesignStep";
+import PrintDesignStep, { type FontStyle, FONT_MAP, type WeddingPrintData, type TextBlock, type InvitationTexts, migrateTextsToBlocks, buildDefaultBlocks, ensureBlockPositions } from "./PrintDesignStep";
 import PrintAudienceStep from "./PrintAudienceStep";
 import PrintGenerationStep from "./PrintGenerationStep";
 import HiddenPrintNode from "./HiddenPrintNode";
@@ -25,10 +25,6 @@ export interface ImageTransform {
   x: number;
   y: number;
   scale: number;
-}
-
-export interface TextPosition {
-  y: number; // percentage from top
 }
 
 export interface QrPosition {
@@ -46,7 +42,7 @@ interface PrintDesignConfig {
   hasPhoto?: boolean;
   editableTexts?: InvitationTexts; // legacy — migrated to textBlocks on load
   textBlocks?: TextBlock[];
-  textPosition?: TextPosition;
+  textPosition?: { y: number }; // legacy — migrated into block y positions
   qrPosition?: QrPosition;
   textColor?: string;
 }
@@ -75,7 +71,6 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
   const [imageTransform, setImageTransform] = useState<ImageTransform>({ x: 0, y: 0, scale: 1 });
   const [edgeStyle, setEdgeStyle] = useState<EdgeStyle>('none');
   const [hasPhoto, setHasPhoto] = useState(true);
-  const [textPosition, setTextPosition] = useState<TextPosition>({ y: 55 });
   const [qrPosition, setQrPosition] = useState<QrPosition>({ x: 42, y: 85, size: 15 });
   const [textColor, setTextColor] = useState('#1a1a1a');
   const [textBlocks, setTextBlocks] = useState<TextBlock[]>([]);
@@ -128,7 +123,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
       .single();
 
     if (data) {
-      setWeddingData({
+      const wd: WeddingPrintData = {
         partner1Name: data.partner1_name,
         partner2Name: data.partner2_name,
         weddingDate: data.wedding_date,
@@ -138,7 +133,8 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
         receptionVenueName: data.reception_venue_name,
         receptionVenueAddress: data.reception_venue_address,
         receptionTime: data.reception_start_time,
-      });
+      };
+      setWeddingData(wd);
 
       // Restore saved design if available and not already loaded
       if (data.print_design && !designLoaded) {
@@ -148,12 +144,14 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
         if (config.imageTransform) setImageTransform(config.imageTransform);
         if (config.printed_party_ids) setPrintedPartyIds(config.printed_party_ids);
         if (config.hasPhoto !== undefined) setHasPhoto(config.hasPhoto);
-        if (config.textPosition) setTextPosition(config.textPosition);
         if (config.qrPosition) setQrPosition(config.qrPosition);
         if (config.textColor) setTextColor(config.textColor);
+
         // Load textBlocks — migrate from legacy editableTexts if needed
         if (config.textBlocks) {
-          setTextBlocks(config.textBlocks);
+          // Ensure blocks have x/y (migration from old schema without positions)
+          const hp = config.hasPhoto !== undefined ? config.hasPhoto : true;
+          setTextBlocks(ensureBlockPositions(config.textBlocks, hp));
           setTextsInitialized(true);
         } else if (config.editableTexts) {
           setTextBlocks(migrateTextsToBlocks(config.editableTexts));
@@ -168,17 +166,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
 
       // Initialize text blocks from wedding data if not restored from saved config
       if (!textsInitialized && !(data.print_design as unknown as PrintDesignConfig)?.textBlocks && !(data.print_design as unknown as PrintDesignConfig)?.editableTexts) {
-        setTextBlocks(buildDefaultBlocks({
-          partner1Name: data.partner1_name,
-          partner2Name: data.partner2_name,
-          weddingDate: data.wedding_date,
-          ceremonyTime: data.ceremony_start_time,
-          ceremonyVenueName: data.ceremony_venue_name,
-          ceremonyVenueAddress: data.ceremony_venue_address,
-          receptionVenueName: data.reception_venue_name,
-          receptionVenueAddress: data.reception_venue_address,
-          receptionTime: data.reception_start_time,
-        }));
+        setTextBlocks(buildDefaultBlocks(wd));
         setTextsInitialized(true);
       }
     }
@@ -248,7 +236,6 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
       backgroundImagePath: bgPath,
       hasPhoto,
       textBlocks,
-      textPosition,
       qrPosition,
       textColor,
     };
@@ -259,7 +246,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
       .eq('id', weddingId);
 
     setBgDirty(false);
-  }, [backgroundImage, bgDirty, savedBgPath, fontStyle, edgeStyle, imageTransform, weddingId, hasPhoto, textBlocks, textPosition, qrPosition, textColor]);
+  }, [backgroundImage, bgDirty, savedBgPath, fontStyle, edgeStyle, imageTransform, weddingId, hasPhoto, textBlocks, qrPosition, textColor]);
 
   // Load parties when entering step 2
   useEffect(() => {
@@ -397,7 +384,6 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
       setProgress(100);
 
       if (pdfBlobs.length === 1) {
-        // Single PDF — direct download
         const url = URL.createObjectURL(pdfBlobs[0].blob);
         const a = document.createElement('a');
         a.href = url;
@@ -405,7 +391,6 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
         a.click();
         URL.revokeObjectURL(url);
       } else {
-        // Multiple PDFs — bundle into ZIP
         const JSZip = (await import('jszip')).default;
         const zip = new JSZip();
         for (const { name, blob } of pdfBlobs) {
@@ -456,14 +441,12 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
 
   const handleClose = () => {
     if (step === 3 && !isSuccess) return;
-    // Reset only wizard-session state, NOT design settings
     setStep(1);
     setProgress(0);
     setCurrentProcessingParty(null);
     setCurrentIndex(0);
     setIsSuccess(false);
     setSelectedPartyIds([]);
-    // Save design on close so settings are persisted
     saveDesign();
     onOpenChange(false);
   };
@@ -528,8 +511,6 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
                 onHasPhotoChange={setHasPhoto}
                 textBlocks={textBlocks}
                 onTextBlocksChange={setTextBlocks}
-                textPosition={textPosition}
-                onTextPositionChange={setTextPosition}
                 qrPosition={qrPosition}
                 onQrPositionChange={setQrPosition}
                 textColor={textColor}
@@ -607,7 +588,6 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
           edgeStyle={edgeStyle}
           hasPhoto={hasPhoto}
           textBlocks={textBlocks}
-          textPosition={textPosition}
           qrPosition={qrPosition}
           textColor={textColor}
           greeting={currentProcessingParty.greeting}
