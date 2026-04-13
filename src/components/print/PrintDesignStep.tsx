@@ -357,10 +357,13 @@ const PrintDesignStep = ({
     setDraggingBlockId(null);
     setIsQrDragging(false);
     setIsQrResizing(false);
+    setIsLassoing(false);
+    setLassoRect(null);
     dragStartRef.current = null;
     blockDragRef.current = null;
     qrDragRef.current = null;
     qrResizeRef.current = null;
+    lassoStartRef.current = null;
   }, []);
 
   // Keyboard shortcuts for undo/redo
