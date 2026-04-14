@@ -128,9 +128,14 @@ const PrintStudio = ({ open, onOpenChange, weddingId }: PrintStudioProps) => {
   const rasterizePdfPreview = async (buffer: ArrayBuffer) => {
     try {
       const pdfjsLib = await import("pdfjs-dist");
-      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+      // Use inline fake worker to avoid CDN fetch issues in sandboxed environments
+      pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+        "pdfjs-dist/build/pdf.worker.min.mjs",
+        import.meta.url
+      ).toString();
 
-      const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
+      const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buffer) });
+      const pdf = await loadingTask.promise;
       const page = await pdf.getPage(1);
       const viewport = page.getViewport({ scale: 2 });
 
@@ -139,7 +144,7 @@ const PrintStudio = ({ open, onOpenChange, weddingId }: PrintStudioProps) => {
       canvas.height = viewport.height;
       const ctx = canvas.getContext("2d")!;
 
-      await page.render({ canvasContext: ctx, viewport, canvas } as any).promise;
+      await page.render({ canvasContext: ctx, viewport }).promise;
       setPreviewUrl(canvas.toDataURL("image/png"));
     } catch (err) {
       console.error("Error rasterizing PDF:", err);
