@@ -320,6 +320,7 @@ const PrintDesignStep = ({
   const [isLassoing, setIsLassoing] = useState(false);
   const [lassoRect, setLassoRect] = useState<{x1: number; y1: number; x2: number; y2: number} | null>(null);
   const [resizingBlockId, setResizingBlockId] = useState<string | null>(null);
+  const [clipboardBlockIds, setClipboardBlockIds] = useState<string[]>([]);
   const lassoStartRef = useRef<{startX: number; startY: number} | null>(null);
   const dragStartRef = useRef<{startX: number;startY: number;startTx: number;startTy: number;} | null>(null);
   const blockDragRef = useRef<{startX: number; startY: number; origPositions: Record<string, {x: number; y: number}>} | null>(null);
