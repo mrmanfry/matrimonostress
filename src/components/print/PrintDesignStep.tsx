@@ -402,13 +402,14 @@ const PrintDesignStep = ({
       // Toggle this block in selection
       effectiveIds = new Set(selectedBlockIds);
       if (effectiveIds.has(blockId)) effectiveIds.delete(blockId); else effectiveIds.add(blockId);
+      effectiveIds = expandSelectionForGroups(effectiveIds);
       setSelectedBlockIds(effectiveIds);
     } else if (selectedBlockIds.has(blockId)) {
       // Already selected — drag the whole group
       effectiveIds = selectedBlockIds;
     } else {
-      // Not selected, no modifier — select only this one
-      effectiveIds = new Set([blockId]);
+      // Not selected, no modifier — select only this one (+ its group)
+      effectiveIds = expandSelectionForGroups(new Set([blockId]));
       setSelectedBlockIds(effectiveIds);
     }
 
