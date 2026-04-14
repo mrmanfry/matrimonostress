@@ -40,6 +40,11 @@ function guessGender(firstName: string): 'M' | 'F' {
  * - 2+ with same last name → "Cara Famiglia Rossi"
  * - 2+ with different last names → "Cari Roberto e Alejo"
  */
+function resolvePluralPrefix(adults: PrintGuest[]): string {
+  const allFemale = adults.length > 0 && adults.every(g => guessGender(g.first_name) === 'F');
+  return allFemale ? 'Care' : 'Cari';
+}
+
 export function resolveGreeting(party: PrintParty): string {
   const adults = party.guests.filter(g => !g.is_child);
   if (adults.length === 0) return 'Cari';
@@ -55,15 +60,16 @@ export function resolveGreeting(party: PrintParty): string {
   // Check if all adults share the same last name
   const lastNames = new Set(adults.map(g => g.last_name.trim().toLowerCase()));
   if (lastNames.size === 1) {
-    return `Cara Famiglia ${adults[0].last_name}`;
+    return `Cari Famiglia ${adults[0].last_name}`;
   }
 
-  // Different last names: "Cari Name1 e Name2"
+  // Different last names: gender-aware prefix
+  const prefix = resolvePluralPrefix(adults);
   const names = adults.map(g => g.first_name);
   if (names.length === 2) {
-    return `Cari ${names.join(' e ')}`;
+    return `${prefix} ${names.join(' e ')}`;
   }
-  return `Cari ${names.slice(0, -1).join(', ')} e ${names[names.length - 1]}`;
+  return `${prefix} ${names.slice(0, -1).join(', ')} e ${names[names.length - 1]}`;
 }
 
 /**
