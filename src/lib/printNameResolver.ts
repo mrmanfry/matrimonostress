@@ -45,12 +45,17 @@ function resolvePluralPrefix(adults: PrintGuest[]): string {
   return allFemale ? 'Care' : 'Cari';
 }
 
+/** Check if party_name represents a "Famiglia" nucleus (feminine noun) */
+function isFamigliaNucleus(partyName: string): boolean {
+  return partyName.toLowerCase().startsWith('famiglia');
+}
+
 export function resolveGreeting(party: PrintParty): string {
   const adults = party.guests.filter(g => !g.is_child);
   if (adults.length === 0) return 'Cari';
 
-  // Single guest without nucleus: gender-aware, first name only
-  if (adults.length === 1 && !party.party_name) {
+  // Single adult: gender-aware, first name only (regardless of party_name)
+  if (adults.length === 1) {
     const g = adults[0];
     const gender = guessGender(g.first_name);
     return gender === 'F'
@@ -60,6 +65,10 @@ export function resolveGreeting(party: PrintParty): string {
 
   // Nucleus with party_name: use it as source of truth with correct prefix
   if (party.party_name) {
+    // "Famiglia X" is a feminine noun → always "Cara Famiglia X"
+    if (isFamigliaNucleus(party.party_name)) {
+      return `Cara ${party.party_name}`;
+    }
     const prefix = resolvePluralPrefix(adults);
     return `${prefix} ${party.party_name}`;
   }
