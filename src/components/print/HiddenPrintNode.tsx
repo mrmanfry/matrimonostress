@@ -44,15 +44,32 @@ const HiddenPrintNode = ({
   const getBlockStyle = (block: TextBlock): React.CSSProperties => {
     const blockFont = block.fontOverride ? FONT_MAP[block.fontOverride] : fontFamily;
     const blockMain = block.colorOverride || mainColor;
-    const blockSecondary = block.colorOverride
-      ? (block.colorOverride === '#FFFFFF' ? 'rgba(255,255,255,0.7)' : `${block.colorOverride}99`)
-      : secondaryColor;
-    const blockTertiary = block.colorOverride
-      ? (block.colorOverride === '#FFFFFF' ? 'rgba(255,255,255,0.5)' : `${block.colorOverride}77`)
-      : tertiaryColor;
-
-    // If block has explicit fontSize, use it (scaled for print resolution)
     const scaledFontSize = block.fontSize ? `${Math.round(block.fontSize * (W / 400))}px` : undefined;
+
+    // If user explicitly set a color override, use it as-is (no secondary/tertiary degradation)
+    if (block.colorOverride) {
+      const base: React.CSSProperties = { fontFamily: blockFont, color: blockMain, fontSize: scaledFontSize };
+      if (block.type !== 'custom') {
+        switch (block.type) {
+          case 'greeting': return { ...base, fontSize: scaledFontSize || '48px', letterSpacing: '0.05em' };
+          case 'names': return { ...base, fontSize: scaledFontSize || '79px', fontWeight: 600, lineHeight: 1.3 };
+          case 'dateText': return { ...base, fontSize: scaledFontSize || '57px', fontWeight: 500, textTransform: 'capitalize' };
+          case 'ceremonyVenue': case 'receptionVenue': return { ...base, fontSize: scaledFontSize || '57px', fontWeight: 500 };
+          case 'announcement': return { ...base, fontSize: scaledFontSize || '48px' };
+          case 'timePrefix_time': return { ...base, fontSize: scaledFontSize || '48px' };
+          case 'venuePrefix': case 'receptionPrefix': return { ...base, fontSize: scaledFontSize || '44px' };
+          case 'ceremonyAddress': case 'receptionAddress': return { ...base, fontSize: scaledFontSize || '39px' };
+        }
+      }
+      switch (block.style) {
+        case 'primary': return { ...base, fontSize: scaledFontSize || '57px', fontWeight: 500 };
+        case 'tertiary': return { ...base, fontSize: scaledFontSize || '39px' };
+        default: return { ...base, fontSize: scaledFontSize || '48px' };
+      }
+    }
+
+    const blockSecondary = secondaryColor;
+    const blockTertiary = tertiaryColor;
 
     if (block.type !== 'custom') {
       switch (block.type) {
@@ -77,7 +94,6 @@ const HiddenPrintNode = ({
           return { fontSize: scaledFontSize || '39px', color: blockTertiary, fontFamily: blockFont };
       }
     }
-    // Custom blocks
     switch (block.style) {
       case 'primary':
         return { fontSize: scaledFontSize || '57px', fontWeight: 500, color: blockMain, fontFamily: blockFont };
