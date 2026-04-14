@@ -16,6 +16,7 @@ import type { ImageTransform, EdgeStyle } from "@/components/print/PrintInvitati
 import type { MenuData } from "./MenuComposer";
 
 const FONT_LABELS: Record<FontStyle, string> = {
+  bettersaturday: 'Better Saturday (Calligrafico)',
   garamond: 'EB Garamond (Classico)',
   cormorant: 'Cormorant (Raffinato)',
   playfair: 'Playfair Display (Editoriale)',

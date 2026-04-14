@@ -22,6 +22,7 @@ import type { ImageTransform, EdgeStyle, QrPosition, PaperFormat, PaperOrientati
 import { PAPER_FORMATS, getPaperDimensions } from "./PrintInvitationEditor";
 
 export type FontStyle =
+'bettersaturday' |
 'garamond' |
 'cormorant' |
 'playfair' |
@@ -201,6 +202,7 @@ const TEXT_COLOR_PRESETS = [
 ];
 
 export const FONT_MAP: Record<FontStyle, string> = {
+  bettersaturday: "'Better Saturday', cursive",
   garamond: "'EB Garamond', Georgia, serif",
   cormorant: "'Cormorant Garamond', Georgia, serif",
   playfair: "'Playfair Display', Georgia, serif",
@@ -241,6 +243,7 @@ const FONT_GROUPS: { label: string; fonts: { key: FontStyle; label: string }[] }
   {
     label: 'Calligrafici',
     fonts: [
+      { key: 'bettersaturday', label: 'Better Saturday ✦' },
       { key: 'dancing', label: 'Dancing Script' },
       { key: 'greatvibes', label: 'Great Vibes' },
       { key: 'alex', label: 'Alex Brush' },
