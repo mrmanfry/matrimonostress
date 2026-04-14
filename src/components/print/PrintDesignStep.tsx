@@ -4,6 +4,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
+import { generateGreetingString, DEFAULT_MOCK_PARTY, type GreetingType } from "@/lib/greetingEngine";
 import {
   Select,
   SelectContent,
@@ -13,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue } from
 "@/components/ui/select";
-import { Upload, ImageIcon, RotateCcw, GripVertical, QrCode, Plus, Minus, X, ChevronUp, ChevronDown, Type, Palette, MousePointer, Undo2, Redo2, Group, Ungroup, AlignHorizontalJustifyStart, AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, Columns3, Rows3, AlignLeft, AlignCenter, AlignRight, ZoomIn } from "lucide-react";
+import { Upload, ImageIcon, RotateCcw, GripVertical, QrCode, Plus, Minus, X, ChevronUp, ChevronDown, Type, Palette, MousePointer, Undo2, Redo2, Group, Ungroup, AlignHorizontalJustifyStart, AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, Columns3, Rows3, AlignLeft, AlignCenter, AlignRight, Utensils } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
 import { QRCodeSVG } from "qrcode.react";
@@ -28,6 +29,7 @@ export type FontStyle =
 'dancing' |
 'greatvibes' |
 'alex' |
+'pinyon' |
 'lato' |
 'montserrat' |
 'josefin' |
@@ -78,6 +80,11 @@ export interface TextBlock {
   widthPct?: number; // % of canvas width — if set, text wraps
   lineHeight?: number; // e.g. 1.0, 1.2, 1.5 — only relevant when widthPct is set
   textAlign?: 'left' | 'center' | 'right';
+  fontSize?: number; // numeric px size (8-72), overrides style-based sizing
+  // Greeting-specific
+  greetingType?: GreetingType;
+  customGreeting?: string;
+  useAka?: boolean;
 }
 
 // --- Migration utility ---
@@ -201,6 +208,7 @@ export const FONT_MAP: Record<FontStyle, string> = {
   dancing: "'Dancing Script', cursive",
   greatvibes: "'Great Vibes', cursive",
   alex: "'Alex Brush', cursive",
+  pinyon: "'Pinyon Script', cursive",
   lato: "'Lato', system-ui, sans-serif",
   montserrat: "'Montserrat', system-ui, sans-serif",
   josefin: "'Josefin Sans', system-ui, sans-serif",
@@ -236,6 +244,7 @@ const FONT_GROUPS: { label: string; fonts: { key: FontStyle; label: string }[] }
       { key: 'dancing', label: 'Dancing Script' },
       { key: 'greatvibes', label: 'Great Vibes' },
       { key: 'alex', label: 'Alex Brush' },
+      { key: 'pinyon', label: 'Pinyon Script' },
     ],
   },
   {
@@ -272,6 +281,17 @@ const STYLE_LABELS: Record<TextBlockStyle, string> = {
   secondary: 'Medio',
   tertiary: 'Piccolo',
 };
+
+/** Default font sizes (in preview px) for each TextBlockStyle — used for backward compat */
+const STYLE_DEFAULT_SIZES: Record<TextBlockStyle, number> = {
+  primary: 18,
+  secondary: 14,
+  tertiary: 10,
+};
+
+function getEffectiveFontSize(block: TextBlock): number {
+  return block.fontSize ?? STYLE_DEFAULT_SIZES[block.style] ?? 14;
+}
 
 const PrintDesignStep = ({
   backgroundImage,
@@ -627,6 +647,10 @@ const PrintDesignStep = ({
     onTextBlocksChange(textBlocks.map(b => b.id === id ? { ...b, style } : b));
   };
 
+  const updateBlockFontSize = (id: string, fontSize: number) => {
+    onTextBlocksChange(textBlocks.map(b => b.id === id ? { ...b, fontSize } : b));
+  };
+
   const updateBlockFont = (id: string, font: FontStyle | undefined) => {
     onTextBlocksChange(textBlocks.map(b => b.id === id ? { ...b, fontOverride: font } : b));
   };
@@ -677,6 +701,9 @@ const PrintDesignStep = ({
   };
   const updateSelectedBlocksStyle = (style: TextBlockStyle) => {
     onTextBlocksChange(textBlocks.map(b => selectedBlockIds.has(b.id) ? { ...b, style } : b));
+  };
+  const updateSelectedBlocksFontSize = (fontSize: number) => {
+    onTextBlocksChange(textBlocks.map(b => selectedBlockIds.has(b.id) ? { ...b, fontSize } : b));
   };
 
   // ── Grouping ──
@@ -1081,20 +1108,97 @@ const PrintDesignStep = ({
               </div>
             </div>
 
-            {/* Per-block size */}
+            {/* Per-block font size — numeric slider */}
             <div className="space-y-1">
-              <Label className="text-xs">Dimensione</Label>
-              <Select value={singleSelectedBlock.style} onValueChange={(v) => updateBlockStyle(singleSelectedBlock.id, v as TextBlockStyle)}>
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(STYLE_LABELS) as TextBlockStyle[]).map(s => (
-                    <SelectItem key={s} value={s}>{STYLE_LABELS[s]}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label className="text-xs flex items-center justify-between">
+                <span>Dimensione</span>
+                <span className="text-muted-foreground">{getEffectiveFontSize(singleSelectedBlock)}px</span>
+              </Label>
+              <div className="flex items-center gap-2">
+                <Slider
+                  value={[getEffectiveFontSize(singleSelectedBlock)]}
+                  onValueChange={([v]) => updateBlockFontSize(singleSelectedBlock.id, v)}
+                  min={8}
+                  max={72}
+                  step={1}
+                  className="flex-1"
+                />
+                <Input
+                  type="number"
+                  min={8}
+                  max={72}
+                  value={getEffectiveFontSize(singleSelectedBlock)}
+                  onChange={(e) => {
+                    const v = Math.max(8, Math.min(72, parseInt(e.target.value) || 14));
+                    updateBlockFontSize(singleSelectedBlock.id, v);
+                  }}
+                  className="w-14 h-7 text-xs text-center"
+                  onClick={(e) => e.stopPropagation()}
+                />
+              </div>
             </div>
+
+            {/* Greeting-specific controls */}
+            {singleSelectedBlock.type === 'greeting' && (
+              <div className="space-y-2 pt-2 border-t border-border/50">
+                <div className="flex items-center gap-1">
+                  <Utensils className="w-3 h-3 text-primary" />
+                  <Label className="text-xs font-semibold text-primary">Impostazioni Saluto</Label>
+                </div>
+                {/* Greeting type */}
+                <div className="space-y-1">
+                  <Label className="text-xs">Formula di saluto</Label>
+                  <Select
+                    value={singleSelectedBlock.greetingType || 'informal'}
+                    onValueChange={(v) => {
+                      onTextBlocksChange(textBlocks.map(b => b.id === singleSelectedBlock.id
+                        ? { ...b, greetingType: v as GreetingType } : b));
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="informal">Informale (Caro/Cara/Cari)</SelectItem>
+                      <SelectItem value="formal">Formale (Gentile/Gentilissimi)</SelectItem>
+                      <SelectItem value="none">Nessuno (solo nomi)</SelectItem>
+                      <SelectItem value="custom">Personalizzato</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {/* Custom greeting input */}
+                {singleSelectedBlock.greetingType === 'custom' && (
+                  <div className="space-y-1">
+                    <Label className="text-xs">Saluto personalizzato</Label>
+                    <Input
+                      value={singleSelectedBlock.customGreeting || ''}
+                      onChange={(e) => {
+                        onTextBlocksChange(textBlocks.map(b => b.id === singleSelectedBlock.id
+                          ? { ...b, customGreeting: e.target.value } : b));
+                      }}
+                      className="h-7 text-xs"
+                      placeholder="Es. Carissimi"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
+                )}
+                {/* AKA toggle */}
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs" htmlFor="use-aka">Usa soprannome (AKA)</Label>
+                  <Switch
+                    id="use-aka"
+                    checked={singleSelectedBlock.useAka || false}
+                    onCheckedChange={(v) => {
+                      onTextBlocksChange(textBlocks.map(b => b.id === singleSelectedBlock.id
+                        ? { ...b, useAka: v } : b));
+                    }}
+                  />
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  💡 In stampa il saluto si adatta automaticamente al nucleo di ogni invitato
+                </p>
+              </div>
+            )}
 
             {/* Text input for selected block */}
             <div className="space-y-1">
@@ -1297,28 +1401,27 @@ const PrintDesignStep = ({
               </SelectContent>
             </Select>
 
-            {/* Size selector */}
-            <Select
-              value={selectedBlockIds.size === 1
-                ? (textBlocks.find(b => selectedBlockIds.has(b.id))?.style || 'secondary')
-                : '__bulk__'}
-              onValueChange={(v) => {
-                if (selectedBlockIds.size === 1) {
-                  updateBlockStyle([...selectedBlockIds][0], v as TextBlockStyle);
-                } else {
-                  updateSelectedBlocksStyle(v as TextBlockStyle);
-                }
-              }}
-            >
-              <SelectTrigger className="h-7 text-xs w-[90px]">
-                <SelectValue placeholder="Dimensione" />
-              </SelectTrigger>
-              <SelectContent>
-                {(Object.keys(STYLE_LABELS) as TextBlockStyle[]).map(s => (
-                  <SelectItem key={s} value={s}>{STYLE_LABELS[s]}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {/* Font size — numeric slider in toolbar */}
+            <div className="flex items-center gap-1">
+              <Input
+                type="number"
+                min={8}
+                max={72}
+                value={selectedBlockIds.size === 1
+                  ? getEffectiveFontSize(textBlocks.find(b => selectedBlockIds.has(b.id))!)
+                  : 14}
+                onChange={(e) => {
+                  const v = Math.max(8, Math.min(72, parseInt(e.target.value) || 14));
+                  if (selectedBlockIds.size === 1) {
+                    updateBlockFontSize([...selectedBlockIds][0], v);
+                  } else {
+                    updateSelectedBlocksFontSize(v);
+                  }
+                }}
+                className="w-14 h-7 text-xs text-center"
+              />
+              <span className="text-[10px] text-muted-foreground">px</span>
+            </div>
 
             {/* Line height — only for blocks with widthPct (wrapped text) */}
             {singleSelectedBlock?.widthPct && singleSelectedBlock.widthPct > 0 && (
@@ -1643,9 +1746,15 @@ const PrintDesignStep = ({
                 }}
               >
                 <p className={`pointer-events-none ${hasWidth ? 'whitespace-normal break-words' : 'whitespace-nowrap'} ${className}`} style={{ ...style, ...(hasWidth && block.lineHeight ? { lineHeight: block.lineHeight } : {}) }}>
-                  {block.type === 'greeting' ? (
-                    <>{block.value} <span className="font-semibold">Famiglia Rossi</span></>
-                  ) : block.value}
+                  {block.type === 'greeting' ? (() => {
+                    const result = generateGreetingString({
+                      greetingType: block.greetingType || 'informal',
+                      customGreeting: block.customGreeting,
+                      useAka: block.useAka || false,
+                      party: DEFAULT_MOCK_PARTY,
+                    });
+                    return result.full;
+                  })() : block.value}
                 </p>
                 {/* Resize handle — right edge */}
                 {isSelected && (
@@ -1705,77 +1814,72 @@ const PrintDesignStep = ({
 
 function getBlockPreviewStyle(block: TextBlock, blockFont: string, blockColor: string): { className: string; style: React.CSSProperties } {
   const mainColor = blockColor;
-  const secondaryColor = blockColor === '#FFFFFF' ? 'rgba(255,255,255,0.7)' : blockColor === '#1a1a1a' ? undefined : `${blockColor}99`;
-  const tertiaryColor = blockColor === '#FFFFFF' ? 'rgba(255,255,255,0.5)' : blockColor === '#1a1a1a' ? undefined : `${blockColor}77`;
+  // Match HiddenPrintNode colors exactly for WYSIWYG fidelity
+  const secondaryColor = blockColor === '#FFFFFF' ? 'rgba(255,255,255,0.7)' : blockColor === '#1a1a1a' ? '#888' : `${blockColor}99`;
+  const tertiaryColor = blockColor === '#FFFFFF' ? 'rgba(255,255,255,0.5)' : blockColor === '#1a1a1a' ? '#999' : `${blockColor}77`;
+
+  const fontSize = block.fontSize ? `${block.fontSize}px` : undefined;
+
+  // Determine color based on block type/style
+  let color = mainColor;
+  let fontWeight: number | undefined;
+  let textTransform: string | undefined;
+  let letterSpacing: string | undefined;
 
   if (block.type !== 'custom') {
     switch (block.type) {
       case 'greeting':
-        return {
-          className: `text-xs tracking-wide ${!secondaryColor ? 'text-muted-foreground' : ''}`,
-          style: { fontFamily: blockFont, color: secondaryColor },
-        };
+        color = secondaryColor;
+        letterSpacing = '0.05em';
+        break;
       case 'names':
-        return {
-          className: 'text-base md:text-lg font-semibold leading-tight',
-          style: { fontFamily: blockFont, color: mainColor },
-        };
+        fontWeight = 600;
+        break;
       case 'announcement':
-        return {
-          className: `text-xs ${!secondaryColor ? 'text-muted-foreground' : ''}`,
-          style: { fontFamily: blockFont, color: secondaryColor },
-        };
-      case 'dateText':
-        return {
-          className: 'text-sm font-medium capitalize',
-          style: { fontFamily: blockFont, color: mainColor },
-        };
       case 'timePrefix_time':
-        return {
-          className: `text-xs ${!secondaryColor ? 'text-muted-foreground' : ''}`,
-          style: { fontFamily: blockFont, color: secondaryColor },
-        };
       case 'venuePrefix':
       case 'receptionPrefix':
-        return {
-          className: `text-xs ${!secondaryColor ? 'text-muted-foreground' : ''}`,
-          style: { fontFamily: blockFont, color: secondaryColor },
-        };
+        color = secondaryColor;
+        break;
+      case 'dateText':
+        fontWeight = 500;
+        textTransform = 'capitalize';
+        break;
       case 'ceremonyVenue':
       case 'receptionVenue':
-        return {
-          className: 'text-sm font-medium',
-          style: { fontFamily: blockFont, color: mainColor },
-        };
+        fontWeight = 500;
+        break;
       case 'ceremonyAddress':
       case 'receptionAddress':
-        return {
-          className: `text-[10px] ${!tertiaryColor ? 'text-muted-foreground' : ''}`,
-          style: { fontFamily: blockFont, color: tertiaryColor },
-        };
+        color = tertiaryColor;
+        break;
+    }
+  } else {
+    switch (block.style) {
+      case 'primary':
+        fontWeight = 500;
+        break;
+      case 'tertiary':
+        color = tertiaryColor;
+        break;
+      case 'secondary':
       default:
+        color = secondaryColor;
         break;
     }
   }
 
-  switch (block.style) {
-    case 'primary':
-      return {
-        className: 'text-sm font-medium',
-        style: { fontFamily: blockFont, color: mainColor },
-      };
-    case 'tertiary':
-      return {
-        className: `text-[10px] ${!tertiaryColor ? 'text-muted-foreground' : ''}`,
-        style: { fontFamily: blockFont, color: tertiaryColor },
-      };
-    case 'secondary':
-    default:
-      return {
-        className: `text-xs ${!secondaryColor ? 'text-muted-foreground' : ''}`,
-        style: { fontFamily: blockFont, color: secondaryColor },
-      };
-  }
+  return {
+    className: '',
+    style: {
+      fontFamily: blockFont,
+      color,
+      fontSize: fontSize || undefined,
+      fontWeight,
+      textTransform: textTransform as any,
+      letterSpacing,
+    },
+  };
 }
 
 export default PrintDesignStep;

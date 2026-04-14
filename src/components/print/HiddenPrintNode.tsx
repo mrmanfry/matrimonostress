@@ -51,38 +51,41 @@ const HiddenPrintNode = ({
       ? (block.colorOverride === '#FFFFFF' ? 'rgba(255,255,255,0.5)' : `${block.colorOverride}77`)
       : tertiaryColor;
 
+    // If block has explicit fontSize, use it (scaled for print resolution)
+    const scaledFontSize = block.fontSize ? `${Math.round(block.fontSize * (W / 400))}px` : undefined;
+
     if (block.type !== 'custom') {
       switch (block.type) {
         case 'greeting':
-          return { fontSize: '48px', letterSpacing: '0.05em', color: blockSecondary, fontFamily: blockFont };
+          return { fontSize: scaledFontSize || '48px', letterSpacing: '0.05em', color: blockSecondary, fontFamily: blockFont };
         case 'names':
-          return { fontSize: '79px', fontWeight: 600, color: blockMain, lineHeight: 1.3, fontFamily: blockFont };
+          return { fontSize: scaledFontSize || '79px', fontWeight: 600, color: blockMain, lineHeight: 1.3, fontFamily: blockFont };
         case 'announcement':
-          return { fontSize: '48px', color: blockSecondary, fontFamily: blockFont };
+          return { fontSize: scaledFontSize || '48px', color: blockSecondary, fontFamily: blockFont };
         case 'dateText':
-          return { fontSize: '57px', fontWeight: 500, color: blockMain, textTransform: 'capitalize', fontFamily: blockFont };
+          return { fontSize: scaledFontSize || '57px', fontWeight: 500, color: blockMain, textTransform: 'capitalize', fontFamily: blockFont };
         case 'timePrefix_time':
-          return { fontSize: '48px', color: blockSecondary, fontFamily: blockFont };
+          return { fontSize: scaledFontSize || '48px', color: blockSecondary, fontFamily: blockFont };
         case 'venuePrefix':
         case 'receptionPrefix':
-          return { fontSize: '44px', color: blockSecondary, fontFamily: blockFont };
+          return { fontSize: scaledFontSize || '44px', color: blockSecondary, fontFamily: blockFont };
         case 'ceremonyVenue':
         case 'receptionVenue':
-          return { fontSize: '57px', fontWeight: 500, color: blockMain, fontFamily: blockFont };
+          return { fontSize: scaledFontSize || '57px', fontWeight: 500, color: blockMain, fontFamily: blockFont };
         case 'ceremonyAddress':
         case 'receptionAddress':
-          return { fontSize: '39px', color: blockTertiary, fontFamily: blockFont };
+          return { fontSize: scaledFontSize || '39px', color: blockTertiary, fontFamily: blockFont };
       }
     }
     // Custom blocks
     switch (block.style) {
       case 'primary':
-        return { fontSize: '57px', fontWeight: 500, color: blockMain, fontFamily: blockFont };
+        return { fontSize: scaledFontSize || '57px', fontWeight: 500, color: blockMain, fontFamily: blockFont };
       case 'tertiary':
-        return { fontSize: '39px', color: blockTertiary, fontFamily: blockFont };
+        return { fontSize: scaledFontSize || '39px', color: blockTertiary, fontFamily: blockFont };
       case 'secondary':
       default:
-        return { fontSize: '48px', color: blockSecondary, fontFamily: blockFont };
+        return { fontSize: scaledFontSize || '48px', color: blockSecondary, fontFamily: blockFont };
     }
   };
 
@@ -185,7 +188,7 @@ const HiddenPrintNode = ({
             width: `${qrPosition.size}%`,
           }}
         >
-          <div style={{ padding: '13px', backgroundColor: '#ffffff', borderRadius: '13px', border: '3px solid #eee', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="print-no-border" style={{ padding: '13px', backgroundColor: '#ffffff', borderRadius: '0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <QRCodeSVG value={rsvpUrl} size={qrSizePx} />
           </div>
         </div>
