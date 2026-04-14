@@ -845,6 +845,28 @@ const PrintDesignStep = ({
               ))}
             </SelectContent>
           </Select>
+          {paperFormat !== 'Square' && (
+            <div className="flex gap-2">
+              <Button
+                variant={paperOrientation === 'portrait' ? 'default' : 'outline'}
+                size="sm"
+                className="flex-1 h-8 text-xs gap-1.5"
+                onClick={() => onPaperOrientationChange('portrait')}
+              >
+                <div className="w-3 h-4 border border-current rounded-[1px]" />
+                Verticale
+              </Button>
+              <Button
+                variant={paperOrientation === 'landscape' ? 'default' : 'outline'}
+                size="sm"
+                className="flex-1 h-8 text-xs gap-1.5"
+                onClick={() => onPaperOrientationChange('landscape')}
+              >
+                <div className="w-4 h-3 border border-current rounded-[1px]" />
+                Orizzontale
+              </Button>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center justify-between">
