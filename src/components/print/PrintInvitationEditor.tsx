@@ -64,6 +64,7 @@ interface PrintDesignConfig {
   qrPosition?: QrPosition;
   textColor?: string;
   paperFormat?: PaperFormat;
+  paperOrientation?: PaperOrientation;
 }
 
 interface PrintInvitationEditorProps {
