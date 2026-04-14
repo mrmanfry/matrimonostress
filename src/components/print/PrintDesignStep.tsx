@@ -1364,13 +1364,9 @@ const PrintDesignStep = ({
                 onClick={(e) => {
                   e.stopPropagation();
                   if (e.shiftKey || e.ctrlKey || e.metaKey) {
-                    setSelectedBlockIds(prev => {
-                      const next = new Set(prev);
-                      if (next.has(block.id)) next.delete(block.id); else next.add(block.id);
-                      return next;
-                    });
+                    setSelectedBlockIds(prev => expandSelectionForGroups(new Set([...prev, block.id])));
                   } else {
-                    setSelectedBlockIds(new Set([block.id]));
+                    setSelectedBlockIds(expandSelectionForGroups(new Set([block.id])));
                   }
                 }}
               >
