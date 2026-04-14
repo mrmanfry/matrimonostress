@@ -1350,7 +1350,7 @@ const PrintDesignStep = ({
             return (
               <div
                 key={block.id}
-                className={`absolute z-10 text-center ${isSelected ? 'ring-2 ring-primary/50 rounded' : ''}`}
+                className={`absolute z-10 text-center ${isSelected ? 'ring-2 ring-primary/50 rounded' : ''} ${block.groupId && !isSelected ? 'ring-1 ring-primary/20 rounded' : ''}`}
                 style={{
                   left: `${block.x}%`,
                   top: `${block.y}%`,
