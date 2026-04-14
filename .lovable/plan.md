@@ -1,36 +1,47 @@
 
 
-## Piano: Preservare Aspect Ratio del File Caricato
+## Piano: Grammatica Italiana Gender-Aware nei Saluti
 
-### Problema
+### Problema attuale
 
-Il canvas di `OverlayCanvasEditor` usa `aspectRatio: "1 / 1.414"` fisso. Qualsiasi file con proporzioni diverse (A5, quadrato, landscape, ecc.) viene distorto.
+Il motore saluti usa sempre **"Cari"** / **"Gentilissimi"** per coppie e nuclei, ignorando il genere dei membri:
+- "Alessandra e Mariachiara" → "Cari" (sbagliato, dovrebbe essere "Care")
+- "Famiglia Baglioni" → "Cari" (corretto)
+- Due maschi → "Cari" (corretto)
+- Maschio + femmina → "Cari" (corretto, maschile sovraesteso in italiano)
 
-### Soluzione
+### Regole grammaticali da implementare
 
-1. **Rilevare l'aspect ratio reale** del file caricato in `PrintStudio.tsx`:
-   - Per le **immagini**: creare un `Image()` e leggere `naturalWidth / naturalHeight`.
-   - Per i **PDF**: il viewport di pdfjs ha già `width` e `height` — salvarli.
-   - Salvare il rapporto in un nuovo stato `templateAspectRatio: number` (default `1 / 1.414`).
+| Caso | Informal | Formal |
+|------|----------|--------|
+| Singolo M | Caro | Gentile |
+| Singolo F | Cara | Gentile |
+| Coppia M+M | Cari | Gentilissimi |
+| Coppia F+F | **Care** | **Gentilissime** |
+| Coppia M+F | Cari | Gentilissimi |
+| Nucleo "Famiglia X" | Cari | Gentilissimi |
+| Nucleo con nomi (es. "Alessandra e Mariachiara") | **gender-aware** | **gender-aware** |
+| Gruppo >2 | gender-aware | gender-aware |
 
-2. **Passare l'aspect ratio** a `OverlayCanvasEditor` come prop `aspectRatio?: number`.
+**Regola**: se **tutti** gli adulti sono F → "Care" / "Gentilissime". Altrimenti → "Cari" / "Gentilissimi".
 
-3. **Usare la prop** nel canvas div al posto del valore hardcoded:
-   ```ts
-   aspectRatio: `1 / ${1 / (aspectRatio || 0.707)}`,
-   ```
+Per i nuclei con `nucleusName` che inizia con "Famiglia" → sempre "Cari"/"Gentilissimi" (convenzione italiana).
 
-### File coinvolti
+### Modifiche
 
-| File | Modifiche |
-|------|-----------|
-| `src/components/invitations/PrintStudio.tsx` | Nuovo stato `templateAspectRatio`, calcolarlo in `handleFileSelect` e `rasterizePdfPreview`, passarlo come prop |
-| `src/components/invitations/OverlayCanvasEditor.tsx` | Aggiungere prop `aspectRatio?: number`, usarla al posto del valore fisso |
+**File**: `src/lib/greetingEngine.ts`
 
-### Dettagli
+1. Aggiungere una funzione helper `resolvePluralPrefix(adults, greetingType)`:
+   - Risolve il genere di ogni adulto via `resolveGender()`
+   - Se tutti sono `F` → informal: "Care", formal: "Gentilissime"
+   - Altrimenti → informal: "Cari", formal: "Gentilissimi"
 
-- In `rasterizePdfPreview`, dopo `page.getViewport()`: `setTemplateAspectRatio(viewport.width / viewport.height)`
-- In `handleFileSelect` per immagini: caricare in un `new Image()`, poi `setTemplateAspectRatio(img.naturalWidth / img.naturalHeight)`
-- In `OverlayCanvasEditor`, il div canvas usa: `aspectRatio: aspectRatio ? \`${aspectRatio}\` : "0.707"` (width/height ratio)
-- L'immagine di sfondo già usa `object-contain`, quindi si adatterà correttamente
+2. Nel blocco **nucleus/large group** (riga 84-93):
+   - Se `nucleusName` inizia con "Famiglia" → "Cari"/"Gentilissimi" (invariato)
+   - Altrimenti → usare `resolvePluralPrefix(adults, greetingType)`
+
+3. Nel blocco **couple** (riga 115-129):
+   - Sostituire il prefix fisso "Cari"/"Gentilissimi" con `resolvePluralPrefix(adults, greetingType)`
+
+4. Aggiornare i `STRESS_MOCKS` in `OverlayCanvasEditor.tsx` per includere un caso "due femmine" per testing visivo.
 
