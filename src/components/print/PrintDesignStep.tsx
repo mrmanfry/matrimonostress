@@ -455,9 +455,21 @@ const PrintDesignStep = ({
     e.stopPropagation();
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     setIsQrDragging(true);
+    setIsQrSelected(true);
     setSelectedBlockIds(new Set());
     qrDragRef.current = { startX: e.clientX, startY: e.clientY, origX: qrPosition.x, origY: qrPosition.y };
   }, [qrPosition.x, qrPosition.y]);
+
+  // Block resize
+  const handleBlockResizeDown = useCallback((e: React.PointerEvent, blockId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    const block = textBlocks.find(b => b.id === blockId);
+    if (!block) return;
+    setResizingBlockId(blockId);
+    blockResizeRef.current = { startX: e.clientX, origWidth: block.widthPct ?? 0, blockId };
+  }, [textBlocks]);
 
   // QR resize
   const handleQrResizeDown = useCallback((e: React.PointerEvent) => {
