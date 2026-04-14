@@ -1,9 +1,10 @@
-import { useRef, useState, useCallback, useEffect } from "react";
+import { useRef, useState, useCallback, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
+import { generateGreetingString, DEFAULT_MOCK_PARTY, type GreetingType } from "@/lib/greetingEngine";
 import {
   Select,
   SelectContent,
@@ -28,6 +29,7 @@ export type FontStyle =
 'dancing' |
 'greatvibes' |
 'alex' |
+'pinyon' |
 'lato' |
 'montserrat' |
 'josefin' |
@@ -78,6 +80,11 @@ export interface TextBlock {
   widthPct?: number; // % of canvas width — if set, text wraps
   lineHeight?: number; // e.g. 1.0, 1.2, 1.5 — only relevant when widthPct is set
   textAlign?: 'left' | 'center' | 'right';
+  fontSize?: number; // numeric px size (8-72), overrides style-based sizing
+  // Greeting-specific
+  greetingType?: GreetingType;
+  customGreeting?: string;
+  useAka?: boolean;
 }
 
 // --- Migration utility ---
