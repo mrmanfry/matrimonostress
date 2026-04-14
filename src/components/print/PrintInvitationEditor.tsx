@@ -221,6 +221,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
         if (config.qrPosition) setQrPosition(config.qrPosition);
         if (config.textColor) setTextColor(config.textColor);
         if (config.paperFormat) setPaperFormat(config.paperFormat);
+        if (config.paperOrientation) setPaperOrientation(config.paperOrientation);
 
         // Load textBlocks — migrate from legacy editableTexts if needed
         if (config.textBlocks) {
