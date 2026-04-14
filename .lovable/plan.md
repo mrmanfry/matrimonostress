@@ -1,47 +1,56 @@
 
 
-## Piano: Grammatica Italiana Gender-Aware nei Saluti
+## Piano: Fix Corrispondenza Preview ↔ PDF Generato
 
-### Problema attuale
+### Problema
 
-Il motore saluti usa sempre **"Cari"** / **"Gentilissimi"** per coppie e nuclei, ignorando il genere dei membri:
-- "Alessandra e Mariachiara" → "Cari" (sbagliato, dovrebbe essere "Care")
-- "Famiglia Baglioni" → "Cari" (corretto)
-- Due maschi → "Cari" (corretto)
-- Maschio + femmina → "Cari" (corretto, maschile sovraesteso in italiano)
+Il PDF generato non corrisponde all'anteprima per due ragioni:
 
-### Regole grammaticali da implementare
+1. **Font size del saluto**: Nel preview, il fontSize viene moltiplicato per `0.4` (riga 693: `fontSize * 0.4`px) per adattarsi al canvas di ~500px. Ma nel PDF engine, il fontSize viene usato **tal quale** come punti PDF (28pt diretto). Risultato: il testo nel PDF è ~2.5x più grande di quanto appare nell'anteprima.
 
-| Caso | Informal | Formal |
-|------|----------|--------|
-| Singolo M | Caro | Gentile |
-| Singolo F | Cara | Gentile |
-| Coppia M+M | Cari | Gentilissimi |
-| Coppia F+F | **Care** | **Gentilissime** |
-| Coppia M+F | Cari | Gentilissimi |
-| Nucleo "Famiglia X" | Cari | Gentilissimi |
-| Nucleo con nomi (es. "Alessandra e Mariachiara") | **gender-aware** | **gender-aware** |
-| Gruppo >2 | gender-aware | gender-aware |
+2. **Dimensione QR code**: La posizione usa percentuali (corretto), ma il QR potrebbe apparire diverso perché il canvas di preview e la pagina PDF hanno proporzioni diverse se l'aspect ratio non viene passato correttamente.
 
-**Regola**: se **tutti** gli adulti sono F → "Care" / "Gentilissime". Altrimenti → "Cari" / "Gentilissimi".
+### Causa radice
 
-Per i nuclei con `nucleusName` che inizia con "Famiglia" → sempre "Cari"/"Gentilissimi" (convenzione italiana).
+```text
+Preview:   fontSize=28 → renderizzato come 28*0.4 = 11.2px in un canvas di ~500px → 2.24% della larghezza
+PDF:       fontSize=28 → 28pt in una pagina di ~420pt → 6.67% della larghezza → ~3x più grande
+```
 
-### Modifiche
+### Soluzione
 
-**File**: `src/lib/greetingEngine.ts`
+**File**: `src/lib/printGeneratorEngine.ts`
 
-1. Aggiungere una funzione helper `resolvePluralPrefix(adults, greetingType)`:
-   - Risolve il genere di ogni adulto via `resolveGender()`
-   - Se tutti sono `F` → informal: "Care", formal: "Gentilissime"
-   - Altrimenti → informal: "Cari", formal: "Gentilissimi"
+1. **Scalare il fontSize proporzionalmente**: Usare lo stesso fattore `0.4` e poi convertire rispetto alla larghezza della pagina PDF, usando 500 come larghezza di riferimento del canvas preview:
 
-2. Nel blocco **nucleus/large group** (riga 84-93):
-   - Se `nucleusName` inizia con "Famiglia" → "Cari"/"Gentilissimi" (invariato)
-   - Altrimenti → usare `resolvePluralPrefix(adults, greetingType)`
+```typescript
+// Prima (sbagliato):
+const greetFontSize = greetingConfig.fontSize;
 
-3. Nel blocco **couple** (riga 115-129):
-   - Sostituire il prefix fisso "Cari"/"Gentilissimi" con `resolvePluralPrefix(adults, greetingType)`
+// Dopo (corretto):
+const PREVIEW_CANVAS_REF_WIDTH = 500; // maxWidth del canvas CSS
+const greetFontSize = (greetingConfig.fontSize * 0.4 / PREVIEW_CANVAS_REF_WIDTH) * pageW;
+```
 
-4. Aggiornare i `STRESS_MOCKS` in `OverlayCanvasEditor.tsx` per includere un caso "due femmine" per testing visivo.
+Per fontSize=28 su una pagina 419pt: `(28 * 0.4 / 500) * 419.53 ≈ 9.4pt` — proporzionalmente identico al preview.
+
+2. **Font custom**: Attualmente usa Helvetica nel PDF ma nel preview mostra il font scelto (Great Vibes, Garamond, ecc.). Per un fix completo, embeddare il font selezionato nel PDF. Come primo step, usiamo un approccio con font embedding via fetch del Google Font e `pdfDoc.embedFont(fontBytes)`. Se troppo complesso, almeno scalare correttamente il Helvetica.
+
+3. **Centratura testo**: Attualmente centra usando `widthOfTextAtSize` che calcola con Helvetica. Dopo il fix del font size, questo sarà più accurato.
+
+### File modificati
+
+| File | Modifica |
+|------|----------|
+| `src/lib/printGeneratorEngine.ts` | Scalare fontSize con riferimento canvas 500px, tentare embedding font Google |
+
+### Dettaglio tecnico
+
+Per l'embedding del font custom, il flow sarà:
+1. Mappare `fontStyle` → URL Google Fonts (usando la stessa `FONT_MAP` del preview)
+2. Fetch del file `.ttf` a runtime
+3. `pdfDoc.embedFont(fontBytes)` al posto di `StandardFonts.Helvetica`
+4. Fallback a Helvetica se il fetch fallisce
+
+Questo garantirà che il PDF sia pixel-perfect rispetto all'anteprima sia in dimensione che in stile del font.
 
