@@ -90,11 +90,7 @@ export function generateGreetingString(opts: {
   if (party.isNucleo || adults.length > 2) {
     const familyName = party.nucleusName
       || `Famiglia ${adults[0].lastName}`;
-    // "Famiglia X" → always masculine plural (Italian convention)
-    const isFamiglia = familyName.trim().toLowerCase().startsWith('famiglia');
-    const prefix = isFamiglia
-      ? (greetingType === 'informal' ? 'Cari' : 'Gentilissimi')
-      : resolvePluralPrefix(adults, greetingType);
+    const prefix = greetingType === 'formal' ? 'Gentile' : 'Cara';
     return {
       full: `${prefix} ${familyName}`,
       prefix,
@@ -126,12 +122,10 @@ export function generateGreetingString(opts: {
   const name2 = resolveName(adults[1], useAka);
   const namePart = `${name1} e ${name2}`;
 
-  // Check if same last name → use "Famiglia"
-  const sameLastName = adults[0].lastName.trim().toLowerCase() === adults[1].lastName.trim().toLowerCase();
-  if (sameLastName && party.isNucleo) {
-    const familyName = `Famiglia ${adults[0].lastName}`;
-    const prefix = greetingType === 'informal' ? 'Cari' : 'Gentilissimi';
-    return { full: `${prefix} ${familyName}`, prefix, namePart: familyName };
+  // Couple with nucleus name: use it as source of truth
+  if (party.isNucleo && party.nucleusName) {
+    const prefix = greetingType === 'formal' ? 'Gentile' : 'Cara';
+    return { full: `${prefix} ${party.nucleusName}`, prefix, namePart: party.nucleusName };
   }
 
   const prefix = resolvePluralPrefix(adults, greetingType);
