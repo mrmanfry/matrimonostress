@@ -1292,7 +1292,6 @@ const PrintDesignStep = ({
               <>
                 <div className="w-px h-5 bg-border mx-0.5" />
                 {(['left', 'center', 'right'] as const).map(align => {
-                  const icons = { left: 'AlignLeft', center: 'AlignCenter', right: 'AlignRight' };
                   const labels = { left: 'Sinistra', center: 'Centro', right: 'Destra' };
                   const currentAlign = singleSelectedBlock?.textAlign ?? 'center';
                   return (
