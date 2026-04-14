@@ -76,6 +76,7 @@ export interface TextBlock {
   colorOverride?: string;
   groupId?: string;
   widthPct?: number; // % of canvas width — if set, text wraps
+  lineHeight?: number; // e.g. 1.0, 1.2, 1.5 — only relevant when widthPct is set
 }
 
 // --- Migration utility ---
