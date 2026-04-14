@@ -1515,6 +1515,7 @@ const PrintDesignStep = ({
             />
           </div>
         </div>
+        </div>
       </div>
     </div>
   );
