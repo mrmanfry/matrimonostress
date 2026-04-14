@@ -208,6 +208,7 @@ export const FONT_MAP: Record<FontStyle, string> = {
   dancing: "'Dancing Script', cursive",
   greatvibes: "'Great Vibes', cursive",
   alex: "'Alex Brush', cursive",
+  pinyon: "'Pinyon Script', cursive",
   lato: "'Lato', system-ui, sans-serif",
   montserrat: "'Montserrat', system-ui, sans-serif",
   josefin: "'Josefin Sans', system-ui, sans-serif",
@@ -243,6 +244,7 @@ const FONT_GROUPS: { label: string; fonts: { key: FontStyle; label: string }[] }
       { key: 'dancing', label: 'Dancing Script' },
       { key: 'greatvibes', label: 'Great Vibes' },
       { key: 'alex', label: 'Alex Brush' },
+      { key: 'pinyon', label: 'Pinyon Script' },
     ],
   },
   {
