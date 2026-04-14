@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue } from
 "@/components/ui/select";
-import { Upload, ImageIcon, RotateCcw, GripVertical, QrCode, Plus, X, ChevronUp, ChevronDown, Type, Palette, MousePointer, Undo2, Redo2, Group, Ungroup, AlignHorizontalJustifyStart, AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, Columns3, Rows3 } from "lucide-react";
+import { Upload, ImageIcon, RotateCcw, GripVertical, QrCode, Plus, X, ChevronUp, ChevronDown, Type, Palette, MousePointer, Undo2, Redo2, Group, Ungroup, AlignHorizontalJustifyStart, AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, Columns3, Rows3, AlignLeft, AlignCenter, AlignRight } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
 import { QRCodeSVG } from "qrcode.react";
@@ -77,6 +77,7 @@ export interface TextBlock {
   groupId?: string;
   widthPct?: number; // % of canvas width — if set, text wraps
   lineHeight?: number; // e.g. 1.0, 1.2, 1.5 — only relevant when widthPct is set
+  textAlign?: 'left' | 'center' | 'right';
 }
 
 // --- Migration utility ---
@@ -1286,6 +1287,35 @@ const PrintDesignStep = ({
               </>
             )}
 
+            {/* Text alignment — left/center/right */}
+            {selectedBlockIds.size >= 1 && (
+              <>
+                <div className="w-px h-5 bg-border mx-0.5" />
+                {(['left', 'center', 'right'] as const).map(align => {
+                  const labels = { left: 'Sinistra', center: 'Centro', right: 'Destra' };
+                  const currentAlign = singleSelectedBlock?.textAlign ?? 'center';
+                  return (
+                    <Button
+                      key={align}
+                      variant="ghost"
+                      size="icon"
+                      className={`h-7 w-7 ${selectedBlockIds.size === 1 && currentAlign === align ? 'bg-muted' : ''}`}
+                      title={`Allinea testo: ${labels[align]}`}
+                      onClick={() => {
+                        onTextBlocksChange(textBlocks.map(b =>
+                          selectedBlockIds.has(b.id) ? { ...b, textAlign: align } : b
+                        ));
+                      }}
+                    >
+                      {align === 'left' && <AlignLeft className="w-3.5 h-3.5" />}
+                      {align === 'center' && <AlignCenter className="w-3.5 h-3.5" />}
+                      {align === 'right' && <AlignRight className="w-3.5 h-3.5" />}
+                    </Button>
+                  );
+                })}
+              </>
+            )}
+
             <div className="w-px h-5 bg-border mx-0.5" />
 
             {/* Color presets */}
@@ -1506,13 +1536,14 @@ const PrintDesignStep = ({
             return (
               <div
                 key={block.id}
-                className={`absolute z-10 text-center ${isSelected ? 'ring-2 ring-primary/50 rounded' : ''} ${block.groupId && !isSelected ? 'ring-1 ring-primary/20 rounded' : ''}`}
+                className={`absolute z-10 ${isSelected ? 'ring-2 ring-primary/50 rounded' : ''} ${block.groupId && !isSelected ? 'ring-1 ring-primary/20 rounded' : ''}`}
                 style={{
                   left: `${block.x}%`,
                   top: `${block.y}%`,
                   transform: 'translateX(-50%)',
                   cursor: isBeingDragged ? 'grabbing' : 'grab',
                   touchAction: 'none',
+                  textAlign: block.textAlign || 'center',
                   width: hasWidth ? `${block.widthPct}%` : undefined,
                   maxWidth: hasWidth ? undefined : '90%',
                   padding: isSelected ? '2px 4px' : undefined,
