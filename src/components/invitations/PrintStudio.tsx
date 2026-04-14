@@ -123,7 +123,13 @@ const PrintStudio = ({ open, onOpenChange, weddingId }: PrintStudioProps) => {
           if (isPdf) {
             await rasterizePdfPreview(await fileData.arrayBuffer());
           } else {
-            setPreviewUrl(URL.createObjectURL(fileData));
+            const objectUrl = URL.createObjectURL(fileData);
+            setPreviewUrl(objectUrl);
+            const img = new Image();
+            img.onload = () => {
+              setTemplateAspectRatio(img.naturalWidth / img.naturalHeight);
+            };
+            img.src = objectUrl;
           }
         }
       } catch (err) {
