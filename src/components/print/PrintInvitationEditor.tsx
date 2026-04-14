@@ -34,6 +34,7 @@ export interface QrPosition {
 }
 
 export type PaperFormat = 'A5' | '11x17' | 'A6' | 'Square';
+export type PaperOrientation = 'portrait' | 'landscape';
 
 export const PAPER_FORMATS: Record<PaperFormat, { label: string; w: number; h: number; mmLabel: string }> = {
   'A5': { label: 'A5', w: 1748, h: 2480, mmLabel: '148×210 mm' },
@@ -41,6 +42,14 @@ export const PAPER_FORMATS: Record<PaperFormat, { label: string; w: number; h: n
   'A6': { label: 'A6', w: 1240, h: 1748, mmLabel: '105×148 mm' },
   'Square': { label: 'Quadrato', w: 1748, h: 1748, mmLabel: '148×148 mm' },
 };
+
+export function getPaperDimensions(format: PaperFormat, orientation: PaperOrientation) {
+  const f = PAPER_FORMATS[format];
+  if (orientation === 'landscape' && format !== 'Square') {
+    return { w: f.h, h: f.w };
+  }
+  return { w: f.w, h: f.h };
+}
 
 interface PrintDesignConfig {
   fontStyle: FontStyle;
