@@ -34,6 +34,7 @@ export interface QrPosition {
 }
 
 export type PaperFormat = 'A5' | '11x17' | 'A6' | 'Square';
+export type PaperOrientation = 'portrait' | 'landscape';
 
 export const PAPER_FORMATS: Record<PaperFormat, { label: string; w: number; h: number; mmLabel: string }> = {
   'A5': { label: 'A5', w: 1748, h: 2480, mmLabel: '148×210 mm' },
@@ -41,6 +42,14 @@ export const PAPER_FORMATS: Record<PaperFormat, { label: string; w: number; h: n
   'A6': { label: 'A6', w: 1240, h: 1748, mmLabel: '105×148 mm' },
   'Square': { label: 'Quadrato', w: 1748, h: 1748, mmLabel: '148×148 mm' },
 };
+
+export function getPaperDimensions(format: PaperFormat, orientation: PaperOrientation) {
+  const f = PAPER_FORMATS[format];
+  if (orientation === 'landscape' && format !== 'Square') {
+    return { w: f.h, h: f.w };
+  }
+  return { w: f.w, h: f.h };
+}
 
 interface PrintDesignConfig {
   fontStyle: FontStyle;
@@ -55,6 +64,7 @@ interface PrintDesignConfig {
   qrPosition?: QrPosition;
   textColor?: string;
   paperFormat?: PaperFormat;
+  paperOrientation?: PaperOrientation;
 }
 
 interface PrintInvitationEditorProps {
@@ -134,6 +144,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
   const [qrPosition, setQrPosition] = useState<QrPosition>({ x: 42, y: 85, size: 15 });
   const [textColor, setTextColor] = useState('#1a1a1a');
   const [paperFormat, setPaperFormat] = useState<PaperFormat>('A5');
+  const [paperOrientation, setPaperOrientation] = useState<PaperOrientation>('portrait');
   const blocksUndo = useUndoRedo<TextBlock[]>([]);
   const textBlocks = blocksUndo.value;
   const setTextBlocks = blocksUndo.set;
@@ -210,6 +221,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
         if (config.qrPosition) setQrPosition(config.qrPosition);
         if (config.textColor) setTextColor(config.textColor);
         if (config.paperFormat) setPaperFormat(config.paperFormat);
+        if (config.paperOrientation) setPaperOrientation(config.paperOrientation);
 
         // Load textBlocks — migrate from legacy editableTexts if needed
         if (config.textBlocks) {
@@ -302,6 +314,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
       qrPosition,
       textColor,
       paperFormat,
+      paperOrientation,
     };
 
     await supabase
@@ -310,7 +323,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
       .eq('id', weddingId);
 
     setBgDirty(false);
-  }, [backgroundImage, bgDirty, savedBgPath, fontStyle, edgeStyle, imageTransform, weddingId, hasPhoto, textBlocks, qrPosition, textColor, paperFormat]);
+  }, [backgroundImage, bgDirty, savedBgPath, fontStyle, edgeStyle, imageTransform, weddingId, hasPhoto, textBlocks, qrPosition, textColor, paperFormat, paperOrientation]);
 
   // Load parties when entering step 2
   useEffect(() => {
@@ -438,10 +451,10 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
 
         const imgData = canvas.toDataURL('image/jpeg', 0.92);
 
-        const fmt = PAPER_FORMATS[paperFormat];
-        const mmW = fmt.w / 300 * 25.4;
-        const mmH = fmt.h / 300 * 25.4;
-        const pdf = new jsPDF({ orientation: mmH > mmW ? 'portrait' : 'landscape', unit: 'mm', format: [mmW, mmH] });
+        const dims = getPaperDimensions(paperFormat, paperOrientation);
+        const mmW = dims.w / 300 * 25.4;
+        const mmH = dims.h / 300 * 25.4;
+        const pdf = new jsPDF({ orientation: paperOrientation === 'landscape' ? 'landscape' : 'portrait', unit: 'mm', format: [Math.min(mmW, mmH), Math.max(mmW, mmH)] });
         pdf.addImage(imgData, 'JPEG', 0, 0, mmW, mmH);
 
         const fileName = `Invito_${sanitizeFileName(party.displayName)}.pdf`;
@@ -588,6 +601,8 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
                 onRedo={blocksUndo.redo}
                 paperFormat={paperFormat}
                 onPaperFormatChange={setPaperFormat}
+                paperOrientation={paperOrientation}
+                onPaperOrientationChange={setPaperOrientation}
               />
             )}
 
@@ -664,8 +679,8 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
           qrPosition={qrPosition}
           textColor={textColor}
           greeting={currentProcessingParty.greeting}
-          width={PAPER_FORMATS[paperFormat].w}
-          height={PAPER_FORMATS[paperFormat].h}
+          width={getPaperDimensions(paperFormat, paperOrientation).w}
+          height={getPaperDimensions(paperFormat, paperOrientation).h}
         />
       )}
     </>

@@ -17,8 +17,8 @@ import { Upload, ImageIcon, RotateCcw, GripVertical, QrCode, Plus, X, ChevronUp,
 import { format, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
 import { QRCodeSVG } from "qrcode.react";
-import type { ImageTransform, EdgeStyle, QrPosition, PaperFormat } from "./PrintInvitationEditor";
-import { PAPER_FORMATS } from "./PrintInvitationEditor";
+import type { ImageTransform, EdgeStyle, QrPosition, PaperFormat, PaperOrientation } from "./PrintInvitationEditor";
+import { PAPER_FORMATS, getPaperDimensions } from "./PrintInvitationEditor";
 
 export type FontStyle =
 'garamond' |
@@ -177,6 +177,8 @@ interface PrintDesignStepProps {
   onRedo: () => void;
   paperFormat: PaperFormat;
   onPaperFormatChange: (format: PaperFormat) => void;
+  paperOrientation: PaperOrientation;
+  onPaperOrientationChange: (orientation: PaperOrientation) => void;
 }
 
 const TEXT_COLOR_PRESETS = [
@@ -294,6 +296,8 @@ const PrintDesignStep = ({
   onRedo,
   paperFormat,
   onPaperFormatChange,
+  paperOrientation,
+  onPaperOrientationChange,
 }: PrintDesignStepProps) => {
   const _weddingData = weddingDataProp ?? {
     partner1Name: '', partner2Name: '', weddingDate: '',
@@ -841,6 +845,28 @@ const PrintDesignStep = ({
               ))}
             </SelectContent>
           </Select>
+          {paperFormat !== 'Square' && (
+            <div className="flex gap-2">
+              <Button
+                variant={paperOrientation === 'portrait' ? 'default' : 'outline'}
+                size="sm"
+                className="flex-1 h-8 text-xs gap-1.5"
+                onClick={() => onPaperOrientationChange('portrait')}
+              >
+                <div className="w-3 h-4 border border-current rounded-[1px]" />
+                Verticale
+              </Button>
+              <Button
+                variant={paperOrientation === 'landscape' ? 'default' : 'outline'}
+                size="sm"
+                className="flex-1 h-8 text-xs gap-1.5"
+                onClick={() => onPaperOrientationChange('landscape')}
+              >
+                <div className="w-4 h-3 border border-current rounded-[1px]" />
+                Orizzontale
+              </Button>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center justify-between">
@@ -1232,7 +1258,7 @@ const PrintDesignStep = ({
           style={{
             width: '100%',
             maxWidth: '400px',
-            aspectRatio: `${PAPER_FORMATS[paperFormat].w} / ${PAPER_FORMATS[paperFormat].h}`,
+            aspectRatio: `${getPaperDimensions(paperFormat, paperOrientation).w} / ${getPaperDimensions(paperFormat, paperOrientation).h}`,
             fontFamily,
             touchAction: 'none',
           }}
