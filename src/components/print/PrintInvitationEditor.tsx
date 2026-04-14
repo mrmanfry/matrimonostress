@@ -438,8 +438,11 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
 
         const imgData = canvas.toDataURL('image/jpeg', 0.92);
 
-        const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a5' });
-        pdf.addImage(imgData, 'JPEG', 0, 0, 148, 210);
+        const fmt = PAPER_FORMATS[paperFormat];
+        const mmW = fmt.w / 300 * 25.4;
+        const mmH = fmt.h / 300 * 25.4;
+        const pdf = new jsPDF({ orientation: mmH > mmW ? 'portrait' : 'landscape', unit: 'mm', format: [mmW, mmH] });
+        pdf.addImage(imgData, 'JPEG', 0, 0, mmW, mmH);
 
         const fileName = `Invito_${sanitizeFileName(party.displayName)}.pdf`;
         pdfBlobs.push({ name: fileName, blob: pdf.output('blob') });
@@ -583,6 +586,8 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
                 canRedo={blocksUndo.canRedo}
                 onUndo={blocksUndo.undo}
                 onRedo={blocksUndo.redo}
+                paperFormat={paperFormat}
+                onPaperFormatChange={setPaperFormat}
               />
             )}
 
