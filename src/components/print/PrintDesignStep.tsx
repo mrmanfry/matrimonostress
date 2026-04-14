@@ -376,7 +376,7 @@ const PrintDesignStep = ({
     lassoStartRef.current = null;
   }, []);
 
-  // Keyboard shortcuts for undo/redo
+  // Keyboard shortcuts for undo/redo + arrow keys for selected blocks
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
@@ -387,10 +387,28 @@ const PrintDesignStep = ({
         e.preventDefault();
         onRedo();
       }
+      // Arrow keys to move selected blocks
+      if (selectedBlockIds.size > 0 && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        // Don't move if focus is on an input/textarea/select
+        const tag = (e.target as HTMLElement)?.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+        e.preventDefault();
+        const step = e.shiftKey ? 2 : 0.5;
+        const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
+        const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
+        onTextBlocksChange(textBlocks.map(b => {
+          if (!selectedBlockIds.has(b.id)) return b;
+          return {
+            ...b,
+            x: Math.max(2, Math.min(98, b.x + dx)),
+            y: Math.max(2, Math.min(98, b.y + dy)),
+          };
+        }));
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [onUndo, onRedo]);
+  }, [onUndo, onRedo, selectedBlockIds, textBlocks, onTextBlocksChange]);
 
   // Block drag — multi-select aware
   const handleBlockPointerDown = useCallback((e: React.PointerEvent, blockId: string) => {
