@@ -540,7 +540,14 @@ const PrintDesignStep = ({
       const newSize = Math.max(6, Math.min(35, qrResizeRef.current.origSize + dx));
       onQrPositionChange({ ...qrPosition, size: newSize });
     }
-  }, [draggingBlockId, isQrDragging, isQrResizing, isLassoing, lassoRect, qrPosition, onTextBlocksChange, onQrPositionChange, textBlocks]);
+
+    if (resizingBlockId && blockResizeRef.current) {
+      e.preventDefault();
+      const dx = ((e.clientX - blockResizeRef.current.startX) / rect.width) * 100;
+      const newW = Math.max(10, Math.min(95, blockResizeRef.current.origWidth + dx));
+      onTextBlocksChange(textBlocks.map(b => b.id === resizingBlockId ? { ...b, widthPct: newW } : b));
+    }
+  }, [draggingBlockId, isQrDragging, isQrResizing, isLassoing, lassoRect, qrPosition, onTextBlocksChange, onQrPositionChange, textBlocks, resizingBlockId]);
 
   const showGuideH = isDragging && Math.abs(imageTransform.y) < SNAP_THRESHOLD;
   const showGuideV = isDragging && Math.abs(imageTransform.x) < SNAP_THRESHOLD;
