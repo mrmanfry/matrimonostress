@@ -90,7 +90,14 @@ export function generateGreetingString(opts: {
   if (party.isNucleo || adults.length > 2) {
     const familyName = party.nucleusName
       || `Famiglia ${adults[0].lastName}`;
-    const prefix = greetingType === 'formal' ? 'Gentile' : 'Cara';
+    let prefix: string;
+    if (greetingType === 'formal') {
+      const allFemale = adults.every(m => resolveGender(m) === 'F');
+      prefix = allFemale ? 'Gentilissime' : 'Gentilissimi';
+    } else {
+      const allFemale = adults.every(m => resolveGender(m) === 'F');
+      prefix = allFemale ? 'Care' : 'Cari';
+    }
     return {
       full: `${prefix} ${familyName}`,
       prefix,
@@ -124,7 +131,7 @@ export function generateGreetingString(opts: {
 
   // Couple with nucleus name: use it as source of truth
   if (party.isNucleo && party.nucleusName) {
-    const prefix = greetingType === 'formal' ? 'Gentile' : 'Cara';
+    const prefix = resolvePluralPrefix(adults, greetingType);
     return { full: `${prefix} ${party.nucleusName}`, prefix, namePart: party.nucleusName };
   }
 
