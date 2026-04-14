@@ -292,6 +292,8 @@ const PrintDesignStep = ({
   canRedo,
   onUndo,
   onRedo,
+  paperFormat,
+  onPaperFormatChange,
 }: PrintDesignStepProps) => {
   const _weddingData = weddingDataProp ?? {
     partner1Name: '', partner2Name: '', weddingDate: '',
