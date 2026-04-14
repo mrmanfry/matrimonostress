@@ -571,6 +571,95 @@ const PrintDesignStep = ({
     onTextBlocksChange(textBlocks.map(b => selectedBlockIds.has(b.id) ? { ...b, style } : b));
   };
 
+  // ── Grouping ──
+  const groupSelected = () => {
+    if (selectedBlockIds.size < 2) return;
+    const gid = `grp_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    onTextBlocksChange(textBlocks.map(b => selectedBlockIds.has(b.id) ? { ...b, groupId: gid } : b));
+  };
+
+  const ungroupSelected = () => {
+    onTextBlocksChange(textBlocks.map(b => selectedBlockIds.has(b.id) ? { ...b, groupId: undefined } : b));
+  };
+
+  const selectedHaveGroup = (() => {
+    const sel = textBlocks.filter(b => selectedBlockIds.has(b.id));
+    return sel.length > 0 && sel.every(b => b.groupId);
+  })();
+
+  // Auto-select group members on click
+  const expandSelectionForGroups = useCallback((ids: Set<string>): Set<string> => {
+    const expanded = new Set(ids);
+    const groupIds = new Set<string>();
+    textBlocks.forEach(b => { if (expanded.has(b.id) && b.groupId) groupIds.add(b.groupId); });
+    if (groupIds.size > 0) {
+      textBlocks.forEach(b => { if (b.groupId && groupIds.has(b.groupId)) expanded.add(b.id); });
+    }
+    return expanded;
+  }, [textBlocks]);
+
+  // ── Alignment & Distribution ──
+  const getSelectedBlocks = () => textBlocks.filter(b => selectedBlockIds.has(b.id));
+
+  const alignLeft = () => {
+    const sel = getSelectedBlocks();
+    if (sel.length < 2) return;
+    const minX = Math.min(...sel.map(b => b.x));
+    onTextBlocksChange(textBlocks.map(b => selectedBlockIds.has(b.id) ? { ...b, x: minX } : b));
+  };
+  const alignCenterH = () => {
+    const sel = getSelectedBlocks();
+    if (sel.length < 2) return;
+    const avg = sel.reduce((s, b) => s + b.x, 0) / sel.length;
+    onTextBlocksChange(textBlocks.map(b => selectedBlockIds.has(b.id) ? { ...b, x: avg } : b));
+  };
+  const alignRight = () => {
+    const sel = getSelectedBlocks();
+    if (sel.length < 2) return;
+    const maxX = Math.max(...sel.map(b => b.x));
+    onTextBlocksChange(textBlocks.map(b => selectedBlockIds.has(b.id) ? { ...b, x: maxX } : b));
+  };
+  const alignTop = () => {
+    const sel = getSelectedBlocks();
+    if (sel.length < 2) return;
+    const minY = Math.min(...sel.map(b => b.y));
+    onTextBlocksChange(textBlocks.map(b => selectedBlockIds.has(b.id) ? { ...b, y: minY } : b));
+  };
+  const alignCenterV = () => {
+    const sel = getSelectedBlocks();
+    if (sel.length < 2) return;
+    const avg = sel.reduce((s, b) => s + b.y, 0) / sel.length;
+    onTextBlocksChange(textBlocks.map(b => selectedBlockIds.has(b.id) ? { ...b, y: avg } : b));
+  };
+  const alignBottom = () => {
+    const sel = getSelectedBlocks();
+    if (sel.length < 2) return;
+    const maxY = Math.max(...sel.map(b => b.y));
+    onTextBlocksChange(textBlocks.map(b => selectedBlockIds.has(b.id) ? { ...b, y: maxY } : b));
+  };
+  const distributeH = () => {
+    const sel = getSelectedBlocks();
+    if (sel.length < 3) return;
+    const sorted = [...sel].sort((a, b) => a.x - b.x);
+    const minX = sorted[0].x;
+    const maxX = sorted[sorted.length - 1].x;
+    const step = (maxX - minX) / (sorted.length - 1);
+    const posMap: Record<string, number> = {};
+    sorted.forEach((b, i) => { posMap[b.id] = minX + i * step; });
+    onTextBlocksChange(textBlocks.map(b => posMap[b.id] !== undefined ? { ...b, x: posMap[b.id] } : b));
+  };
+  const distributeV = () => {
+    const sel = getSelectedBlocks();
+    if (sel.length < 3) return;
+    const sorted = [...sel].sort((a, b) => a.y - b.y);
+    const minY = sorted[0].y;
+    const maxY = sorted[sorted.length - 1].y;
+    const step = (maxY - minY) / (sorted.length - 1);
+    const posMap: Record<string, number> = {};
+    sorted.forEach((b, i) => { posMap[b.id] = minY + i * step; });
+    onTextBlocksChange(textBlocks.map(b => posMap[b.id] !== undefined ? { ...b, y: posMap[b.id] } : b));
+  };
+
   const singleSelectedBlock = selectedBlockIds.size === 1
     ? textBlocks.find(b => selectedBlockIds.has(b.id)) ?? null
     : null;
