@@ -17,7 +17,6 @@ import PrintAudienceStep from "@/components/print/PrintAudienceStep";
 import PrintGenerationStep from "@/components/print/PrintGenerationStep";
 import OverlayCanvasEditor, {
   type GreetingOverlayConfig,
-  DEFAULT_GREETING_CONFIG,
 } from "./OverlayCanvasEditor";
 import { type QROverlayConfig } from "./QRCanvasEditor";
 import { generatePrintPDFs } from "@/lib/printGeneratorEngine";
