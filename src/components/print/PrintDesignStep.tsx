@@ -1812,15 +1812,46 @@ const PrintDesignStep = ({
   );
 };
 
-function getBlockPreviewStyle(block: TextBlock, blockFont: string, blockColor: string): { className: string; style: React.CSSProperties } {
+function getBlockPreviewStyle(block: TextBlock, blockFont: string, blockColor: string, hasColorOverride: boolean): { className: string; style: React.CSSProperties } {
   const mainColor = blockColor;
+
+  // If the user explicitly set a color override, use it as-is for ALL block types
+  // (no secondary/tertiary degradation — the user chose this exact color)
+  if (hasColorOverride) {
+    let fontWeight: number | undefined;
+    let textTransform: string | undefined;
+    let letterSpacing: string | undefined;
+
+    if (block.type !== 'custom') {
+      switch (block.type) {
+        case 'greeting': letterSpacing = '0.05em'; break;
+        case 'names': fontWeight = 600; break;
+        case 'dateText': fontWeight = 500; textTransform = 'capitalize'; break;
+        case 'ceremonyVenue': case 'receptionVenue': fontWeight = 500; break;
+      }
+    } else if (block.style === 'primary') {
+      fontWeight = 500;
+    }
+
+    return {
+      className: '',
+      style: {
+        fontFamily: blockFont,
+        color: mainColor,
+        fontSize: block.fontSize ? `${block.fontSize}px` : undefined,
+        fontWeight,
+        textTransform: textTransform as any,
+        letterSpacing,
+      },
+    };
+  }
+
   // Match HiddenPrintNode colors exactly for WYSIWYG fidelity
   const secondaryColor = blockColor === '#FFFFFF' ? 'rgba(255,255,255,0.7)' : blockColor === '#1a1a1a' ? '#888' : `${blockColor}99`;
   const tertiaryColor = blockColor === '#FFFFFF' ? 'rgba(255,255,255,0.5)' : blockColor === '#1a1a1a' ? '#999' : `${blockColor}77`;
 
   const fontSize = block.fontSize ? `${block.fontSize}px` : undefined;
 
-  // Determine color based on block type/style
   let color = mainColor;
   let fontWeight: number | undefined;
   let textTransform: string | undefined;
