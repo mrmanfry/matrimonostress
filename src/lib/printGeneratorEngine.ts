@@ -90,11 +90,14 @@ export async function generatePrintPDFs(
 
     let pdfDoc: Awaited<ReturnType<typeof PDFDocument.load>>;
 
+    // Clone the ArrayBuffer so pdf-lib doesn't detach the original
+    const clonedBytes = templateBytes.slice(0);
+
     if (templateType === "pdf") {
-      pdfDoc = await PDFDocument.load(templateBytes);
+      pdfDoc = await PDFDocument.load(clonedBytes);
     } else {
       pdfDoc = await PDFDocument.create();
-      const imgBytes = new Uint8Array(templateBytes);
+      const imgBytes = new Uint8Array(clonedBytes);
 
       let img;
       const header = Array.from(imgBytes.slice(0, 4)).map(b => b.toString(16)).join("");
