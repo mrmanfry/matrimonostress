@@ -33,6 +33,15 @@ export interface QrPosition {
   size: number; // percentage of canvas width
 }
 
+export type PaperFormat = 'A5' | '11x17' | 'A6' | 'Square';
+
+export const PAPER_FORMATS: Record<PaperFormat, { label: string; w: number; h: number; mmLabel: string }> = {
+  'A5': { label: 'A5', w: 1748, h: 2480, mmLabel: '148×210 mm' },
+  '11x17': { label: '11×17 cm', w: 1299, h: 2008, mmLabel: '110×170 mm' },
+  'A6': { label: 'A6', w: 1240, h: 1748, mmLabel: '105×148 mm' },
+  'Square': { label: 'Quadrato', w: 1748, h: 1748, mmLabel: '148×148 mm' },
+};
+
 interface PrintDesignConfig {
   fontStyle: FontStyle;
   edgeStyle: EdgeStyle;
@@ -45,6 +54,7 @@ interface PrintDesignConfig {
   textPosition?: { y: number }; // legacy — migrated into block y positions
   qrPosition?: QrPosition;
   textColor?: string;
+  paperFormat?: PaperFormat;
 }
 
 interface PrintInvitationEditorProps {
