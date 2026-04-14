@@ -128,13 +128,15 @@ const PrintStudio = ({ open, onOpenChange, weddingId }: PrintStudioProps) => {
   const rasterizePdfPreview = async (buffer: ArrayBuffer) => {
     try {
       const pdfjsLib = await import("pdfjs-dist");
-      // Use inline fake worker to avoid CDN fetch issues in sandboxed environments
-      pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-        "pdfjs-dist/build/pdf.worker.min.mjs",
-        import.meta.url
-      ).toString();
+      // Disable worker to avoid CDN/dynamic import issues in sandboxed environments
+      pdfjsLib.GlobalWorkerOptions.workerSrc = "";
 
-      const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buffer) });
+      const loadingTask = pdfjsLib.getDocument({
+        data: new Uint8Array(buffer),
+        useWorkerFetch: false,
+        isEvalSupported: false,
+        useSystemFonts: true,
+      });
       const pdf = await loadingTask.promise;
       const page = await pdf.getPage(1);
       const viewport = page.getViewport({ scale: 2 });
