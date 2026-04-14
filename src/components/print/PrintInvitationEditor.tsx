@@ -325,6 +325,17 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
     setBgDirty(false);
   }, [backgroundImage, bgDirty, savedBgPath, fontStyle, edgeStyle, imageTransform, weddingId, hasPhoto, textBlocks, qrPosition, textColor, paperFormat, paperOrientation]);
 
+  // Auto-save design changes with debounce (covers custom fields, positions, etc.)
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!weddingId || !textsInitialized) return;
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(() => {
+      saveDesign();
+    }, 1500);
+    return () => { if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current); };
+  }, [textBlocks, fontStyle, edgeStyle, imageTransform, hasPhoto, qrPosition, textColor, paperFormat, paperOrientation, weddingId, textsInitialized]);
+
   // Load parties when entering step 2
   useEffect(() => {
     if (step === 2 && weddingId) {
