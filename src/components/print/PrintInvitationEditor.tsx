@@ -133,6 +133,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
   const [hasPhoto, setHasPhoto] = useState(true);
   const [qrPosition, setQrPosition] = useState<QrPosition>({ x: 42, y: 85, size: 15 });
   const [textColor, setTextColor] = useState('#1a1a1a');
+  const [paperFormat, setPaperFormat] = useState<PaperFormat>('A5');
   const blocksUndo = useUndoRedo<TextBlock[]>([]);
   const textBlocks = blocksUndo.value;
   const setTextBlocks = blocksUndo.set;
@@ -208,6 +209,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
         if (config.hasPhoto !== undefined) setHasPhoto(config.hasPhoto);
         if (config.qrPosition) setQrPosition(config.qrPosition);
         if (config.textColor) setTextColor(config.textColor);
+        if (config.paperFormat) setPaperFormat(config.paperFormat);
 
         // Load textBlocks — migrate from legacy editableTexts if needed
         if (config.textBlocks) {
