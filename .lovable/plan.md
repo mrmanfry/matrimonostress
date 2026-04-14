@@ -1,56 +1,31 @@
 
 
-## Piano: Fix Corrispondenza Preview ↔ PDF Generato
+## Piano: Fix Logica Saluti in printNameResolver.ts
 
 ### Problema
 
-Il PDF generato non corrisponde all'anteprima per due ragioni:
+Ci sono **due sistemi** di generazione saluti:
+1. `greetingEngine.ts` — usato nel Print Studio (overlay) → **già corretto** dopo le modifiche recenti
+2. `printNameResolver.ts` — usato nel Design Integrato (`PrintInvitationEditor`) → **ha bug**
 
-1. **Font size del saluto**: Nel preview, il fontSize viene moltiplicato per `0.4` (riga 693: `fontSize * 0.4`px) per adattarsi al canvas di ~500px. Ma nel PDF engine, il fontSize viene usato **tal quale** come punti PDF (28pt diretto). Risultato: il testo nel PDF è ~2.5x più grande di quanto appare nell'anteprima.
+Bug in `printNameResolver.ts`:
+- Riga 58: `"Cara Famiglia Rossi"` — usa sempre "Cara" per Famiglia, dovrebbe essere **"Cari"** (convenzione italiana: Famiglia → maschile plurale)
+- Righe 63-66: usa sempre `"Cari"` senza controllare il genere — due femmine dovrebbe dare **"Care"**
 
-2. **Dimensione QR code**: La posizione usa percentuali (corretto), ma il QR potrebbe apparire diverso perché il canvas di preview e la pagina PDF hanno proporzioni diverse se l'aspect ratio non viene passato correttamente.
+### Modifiche
 
-### Causa radice
+**File**: `src/lib/printNameResolver.ts`
 
-```text
-Preview:   fontSize=28 → renderizzato come 28*0.4 = 11.2px in un canvas di ~500px → 2.24% della larghezza
-PDF:       fontSize=28 → 28pt in una pagina di ~420pt → 6.67% della larghezza → ~3x più grande
-```
+1. Aggiungere la stessa logica gender-aware del `greetingEngine.ts`:
+   - Stesso-cognome → `"Cari Famiglia X"` (non "Cara")
+   - Cognomi diversi → `resolvePluralPrefix()`: se tutti F → "Care", altrimenti "Cari"
 
-### Soluzione
+2. Allineare `resolveGreeting()` e `resolveGreetingSolo()` alla grammatica corretta:
+   - Singolo M → "Caro Nome"
+   - Singolo F → "Cara Nome"  
+   - Nucleo Famiglia → "Cari Famiglia X"
+   - Nucleo nomi (tutte F) → "Care Nome1 e Nome2"
+   - Nucleo nomi (misto/M) → "Cari Nome1 e Nome2"
 
-**File**: `src/lib/printGeneratorEngine.ts`
-
-1. **Scalare il fontSize proporzionalmente**: Usare lo stesso fattore `0.4` e poi convertire rispetto alla larghezza della pagina PDF, usando 500 come larghezza di riferimento del canvas preview:
-
-```typescript
-// Prima (sbagliato):
-const greetFontSize = greetingConfig.fontSize;
-
-// Dopo (corretto):
-const PREVIEW_CANVAS_REF_WIDTH = 500; // maxWidth del canvas CSS
-const greetFontSize = (greetingConfig.fontSize * 0.4 / PREVIEW_CANVAS_REF_WIDTH) * pageW;
-```
-
-Per fontSize=28 su una pagina 419pt: `(28 * 0.4 / 500) * 419.53 ≈ 9.4pt` — proporzionalmente identico al preview.
-
-2. **Font custom**: Attualmente usa Helvetica nel PDF ma nel preview mostra il font scelto (Great Vibes, Garamond, ecc.). Per un fix completo, embeddare il font selezionato nel PDF. Come primo step, usiamo un approccio con font embedding via fetch del Google Font e `pdfDoc.embedFont(fontBytes)`. Se troppo complesso, almeno scalare correttamente il Helvetica.
-
-3. **Centratura testo**: Attualmente centra usando `widthOfTextAtSize` che calcola con Helvetica. Dopo il fix del font size, questo sarà più accurato.
-
-### File modificati
-
-| File | Modifica |
-|------|----------|
-| `src/lib/printGeneratorEngine.ts` | Scalare fontSize con riferimento canvas 500px, tentare embedding font Google |
-
-### Dettaglio tecnico
-
-Per l'embedding del font custom, il flow sarà:
-1. Mappare `fontStyle` → URL Google Fonts (usando la stessa `FONT_MAP` del preview)
-2. Fetch del file `.ttf` a runtime
-3. `pdfDoc.embedFont(fontBytes)` al posto di `StandardFonts.Helvetica`
-4. Fallback a Helvetica se il fetch fallisce
-
-Questo garantirà che il PDF sia pixel-perfect rispetto all'anteprima sia in dimensione che in stile del font.
+Nessun altro file da modificare — `greetingEngine.ts` è già corretto.
 
