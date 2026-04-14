@@ -1,72 +1,82 @@
 
-## Piano: usare sempre il nome del nucleo come fonte di verità nei saluti
+## Piano: correggere definitivamente genere e nome stampato nei saluti
 
-### Diagnosi
-Il comportamento non segue la regola richiesta per due motivi distinti:
+### Problema reale individuato
+Il nome del nucleo ora viene preso correttamente, ma la logica attuale fa ancora un errore chiave:
 
-1. `src/lib/printNameResolver.ts`
-   - `resolveGreeting()` oggi ignora `party_name` per costruire il saluto.
-   - Se ci sono più adulti, ricalcola da cognomi e nomi dei membri, quindi inventa formule tipo `Cari Roberto, Angelo e Stefania`.
+- in `src/lib/printNameResolver.ts` se esiste `party_name` restituisce sempre `Cara ${party_name}`
+- quindi sbaglia tutti i nuclei con:
+  - due femmine → deve essere `Care ...`
+  - gruppo misto / con almeno un uomo → deve essere `Cari ...`
+- inoltre il singolo senza nucleo in alcuni punti continua a usare anche il cognome nel nome stampato
 
-2. `src/lib/printGeneratorEngine.ts`
-   - Il Print Studio non passa il nucleo reale al motore PDF.
-   - Oggi ricostruisce un `MockParty` partendo da `displayName` con `buildMockPartyFromName(...)`, che perde il significato di “nucleo” e può trasformare `Famiglia Luca Baglioni` o `Stefania, Angelo e Roberto` in coppie/liste nomi non desiderate.
+Questo spiega esattamente i casi che hai riportato:
+- `Alessandra e Mariachiara` → deve essere `Care`
+- `Filippo, Carolina e Leopoldo` → deve essere `Cari`
+- `Stefania, Angelo e Roberto` → deve essere `Cari`
+- `Roberto e Alejo` → deve essere `Cari`
+- `Pietro Dessì` singolo → deve diventare `Caro Pietro` e non usare il cognome nel saluto
 
-### Regola da applicare
-Allineo tutto a questa logica:
+### Regola finale da applicare
+Userò questa regola unica in tutto il flusso stampa:
 
-- **Singolo**: `Caro Nome` / `Cara Nome`
-- **Nucleo con nome valorizzato (`party_name`)**: usare sempre il nome del nucleo, senza espandere i membri
-  - esempio: `Cara Stefania, Angelo e Roberto`
-  - esempio: `Cara Famiglia Luca Baglioni`
+- **1 adulto senza nucleo** → `Caro Nome` / `Cara Nome`
+- **nucleo con `party_name` valorizzato**:
+  - se tutti gli adulti sono femmine → `Care ${party_name}`
+  - altrimenti → `Cari ${party_name}`
+- il saluto del singolo deve usare **solo il nome**
+- il nome mostrato/stampato per il singolo va riallineato dove serve per evitare fallback col cognome
 
-Quindi il nome del nucleo diventa la fonte di verità, non i nomi dei singoli ospiti.
-
-### Modifiche previste
+### File da aggiornare
 
 #### 1) `src/lib/printNameResolver.ts`
-Aggiorno `resolveGreeting()` così:
-- se il party ha `party_name` ed è un nucleo/multi-ospite, restituisce direttamente `Cara ${party.party_name}`
-- solo se manca `party_name`, usa il fallback attuale sui membri
-- `resolveGreetingSolo()` resta gender-aware per il singolo
+Correggere `resolveGreeting()`:
+- non usare più sempre `Cara ${party.party_name}`
+- se `party_name` esiste:
+  - calcolare il prefisso da tutti gli adulti del nucleo
+  - `Care` se tutte donne
+  - `Cari` in ogni altro caso
+- mantenere il singolo gender-aware con solo `first_name`
 
-In parallelo verifico anche `resolveDisplayName()` per mantenere coerente il nome stampato.
+Correggere anche `resolveDisplayName()`:
+- per un singolo adulto restituire solo `first_name`
+- così evitiamo output tipo `Pietro Dessì` nei casi in cui non serve
 
 #### 2) `src/lib/greetingEngine.ts`
-Aggiorno il motore condiviso del saluto preview:
-- se `party.isNucleo === true` e `party.nucleusName` esiste, in modalità informale restituisce `Cara ${nucleusName}`
-- non deve più derivare il nome dai membri quando il nome del nucleo è già presente
+Allineare anche il motore preview del Print Studio:
+- oggi per `party.isNucleo || adults.length > 2` usa sempre `Cara ${nucleusName}`
+- va cambiato per usare la stessa regola:
+  - tutte donne → `Care`
+  - altrimenti → `Cari`
+- per il singolo deve restare `Caro/Cara Nome`
 
-Questo serve per far combaciare preview ed export.
+Questo serve a far combaciare anteprima e PDF.
 
-#### 3) `src/components/invitations/PrintStudio.tsx`
-Cambio il caricamento dei destinatari del Print Studio:
-- invece di passare al generatore solo `displayName` + `syncToken`, preparo anche i dati reali del nucleo necessari al saluto
-- per ogni party salvo esplicitamente il `party_name` / stato nucleo, così il PDF non deve più “indovinare”
+#### 3) Verifica dei due flussi
+Controllare che entrambi leggano il saluto già corretto dal resolver:
+- `src/components/invitations/PrintStudio.tsx`
+- `src/components/print/PrintInvitationEditor.tsx`
 
-#### 4) `src/lib/printGeneratorEngine.ts`
-Rimuovo la dipendenza da `buildMockPartyFromName(displayName)` come sorgente principale per i saluti:
-- il generatore deve ricevere il nucleo reale o il saluto già risolto
-- così il PDF usa esattamente `Cara Stefania, Angelo e Roberto` oppure `Cara Famiglia Luca Baglioni`
-- niente più riordino nomi, niente più parsing fragile del `displayName`
+Non serve cambiare il flusso dati se il resolver viene corretto bene, ma va verificato che non ci siano fallback che ricostruiscono il nome dal display.
 
-### Effetto finale atteso
-Dopo il fix:
+### Casi da verificare dopo il fix
+- `Alessandra e Mariachiara` → `Care Alessandra e Mariachiara`
+- `Filippo, Carolina e Leopoldo` → `Cari Filippo, Carolina e Leopoldo`
+- `Stefania, Angelo e Roberto` → `Cari Stefania, Angelo e Roberto`
+- `Roberto e Alejo` → `Cari Roberto e Alejo`
+- singola donna → `Cara Alessandra`
+- singolo uomo → `Caro Pietro`
 
-- `Stefania, Angelo e Roberto` → `Cara Stefania, Angelo e Roberto`
-- `Famiglia Luca Baglioni` → `Cara Famiglia Luca Baglioni`
-- singolo uomo → `Caro Marco`
-- singola donna → `Cara Stefania`
+### Impatto atteso
+Dopo questa correzione:
+- il nucleo continuerà a usare il suo nome come fonte di verità
+- il prefisso sarà finalmente corretto per femminile/maschile plurale
+- i singoli non porteranno più dietro il cognome nel saluto o nei fallback di stampa
+- preview e PDF torneranno coerenti
 
-### Verifica
-Controllerò entrambi i flussi:
-1. **Design Integrato**
-2. **Print Studio / Porta il tuo design**
+### Dettaglio tecnico
+La causa è semplice e localizzata:
+- `printNameResolver.ts` ha un hardcode `Cara ${party.party_name}`
+- `greetingEngine.ts` ha lo stesso hardcode nel ramo nucleo/large group
 
-Con test mirati su:
-- un singolo uomo
-- una singola donna
-- un nucleo con nome custom (`Stefania, Angelo e Roberto`)
-- un nucleo stile famiglia (`Famiglia Luca Baglioni`)
-
-Obiettivo: stessa stringa nel preview e nello scaricamento PDF, senza calcoli automatici sui membri quando esiste già il nome del nucleo.
+Quindi il fix è mirato: sostituire quell’hardcode con una funzione condivisa di prefisso plurale basata sugli adulti effettivi del party.
