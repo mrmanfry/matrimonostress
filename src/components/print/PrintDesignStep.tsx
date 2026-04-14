@@ -76,6 +76,7 @@ export interface TextBlock {
   colorOverride?: string;
   groupId?: string;
   widthPct?: number; // % of canvas width — if set, text wraps
+  lineHeight?: number; // e.g. 1.0, 1.2, 1.5 — only relevant when widthPct is set
 }
 
 // --- Migration utility ---
@@ -1260,6 +1261,31 @@ const PrintDesignStep = ({
               </SelectContent>
             </Select>
 
+            {/* Line height — only for blocks with widthPct (wrapped text) */}
+            {singleSelectedBlock?.widthPct && singleSelectedBlock.widthPct > 0 && (
+              <>
+                <div className="w-px h-5 bg-border mx-0.5" />
+                <div className="flex items-center gap-1">
+                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">Interlinea</span>
+                  <Select
+                    value={String(singleSelectedBlock.lineHeight ?? 1.4)}
+                    onValueChange={(v) => {
+                      onTextBlocksChange(textBlocks.map(b => b.id === singleSelectedBlock.id ? { ...b, lineHeight: parseFloat(v) } : b));
+                    }}
+                  >
+                    <SelectTrigger className="h-7 text-xs w-[65px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.8, 2.0].map(v => (
+                        <SelectItem key={v} value={String(v)}>{v.toFixed(1)}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
+
             <div className="w-px h-5 bg-border mx-0.5" />
 
             {/* Color presets */}
@@ -1502,7 +1528,7 @@ const PrintDesignStep = ({
                   }
                 }}
               >
-                <p className={`pointer-events-none ${hasWidth ? 'whitespace-normal break-words' : 'whitespace-nowrap'} ${className}`} style={style}>
+                <p className={`pointer-events-none ${hasWidth ? 'whitespace-normal break-words' : 'whitespace-nowrap'} ${className}`} style={{ ...style, ...(hasWidth && block.lineHeight ? { lineHeight: block.lineHeight } : {}) }}>
                   {block.type === 'greeting' ? (
                     <>{block.value} <span className="font-semibold">Famiglia Rossi</span></>
                   ) : block.value}

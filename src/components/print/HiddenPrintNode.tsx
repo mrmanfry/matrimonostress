@@ -163,6 +163,7 @@ const HiddenPrintNode = ({
                 width: `${block.widthPct}%`,
                 whiteSpace: 'normal' as const,
                 wordWrap: 'break-word' as const,
+                ...(block.lineHeight ? { lineHeight: block.lineHeight } : {}),
               } : {
                 whiteSpace: 'nowrap' as const,
               }),
