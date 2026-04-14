@@ -15,10 +15,9 @@ interface HiddenPrintNodeProps {
   qrPosition: QrPosition;
   textColor: string;
   greeting: string;
+  width?: number;
+  height?: number;
 }
-
-const W = 1748;
-const H = 2480;
 
 const HiddenPrintNode = ({
   displayName,
@@ -32,7 +31,11 @@ const HiddenPrintNode = ({
   qrPosition,
   textColor,
   greeting,
+  width = 1748,
+  height = 2480,
 }: HiddenPrintNodeProps) => {
+  const W = width;
+  const H = height;
   const rsvpUrl = syncToken ? `https://wedsapp.it/rsvp/${syncToken}` : '';
   const mainColor = textColor || '#1a1a1a';
   const secondaryColor = textColor === '#FFFFFF' ? 'rgba(255,255,255,0.7)' : textColor === '#1a1a1a' ? '#888' : `${textColor}99`;

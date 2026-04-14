@@ -33,6 +33,15 @@ export interface QrPosition {
   size: number; // percentage of canvas width
 }
 
+export type PaperFormat = 'A5' | '11x17' | 'A6' | 'Square';
+
+export const PAPER_FORMATS: Record<PaperFormat, { label: string; w: number; h: number; mmLabel: string }> = {
+  'A5': { label: 'A5', w: 1748, h: 2480, mmLabel: '148×210 mm' },
+  '11x17': { label: '11×17 cm', w: 1299, h: 2008, mmLabel: '110×170 mm' },
+  'A6': { label: 'A6', w: 1240, h: 1748, mmLabel: '105×148 mm' },
+  'Square': { label: 'Quadrato', w: 1748, h: 1748, mmLabel: '148×148 mm' },
+};
+
 interface PrintDesignConfig {
   fontStyle: FontStyle;
   edgeStyle: EdgeStyle;
@@ -45,6 +54,7 @@ interface PrintDesignConfig {
   textPosition?: { y: number }; // legacy — migrated into block y positions
   qrPosition?: QrPosition;
   textColor?: string;
+  paperFormat?: PaperFormat;
 }
 
 interface PrintInvitationEditorProps {
@@ -123,6 +133,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
   const [hasPhoto, setHasPhoto] = useState(true);
   const [qrPosition, setQrPosition] = useState<QrPosition>({ x: 42, y: 85, size: 15 });
   const [textColor, setTextColor] = useState('#1a1a1a');
+  const [paperFormat, setPaperFormat] = useState<PaperFormat>('A5');
   const blocksUndo = useUndoRedo<TextBlock[]>([]);
   const textBlocks = blocksUndo.value;
   const setTextBlocks = blocksUndo.set;
@@ -198,6 +209,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
         if (config.hasPhoto !== undefined) setHasPhoto(config.hasPhoto);
         if (config.qrPosition) setQrPosition(config.qrPosition);
         if (config.textColor) setTextColor(config.textColor);
+        if (config.paperFormat) setPaperFormat(config.paperFormat);
 
         // Load textBlocks — migrate from legacy editableTexts if needed
         if (config.textBlocks) {
@@ -289,6 +301,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
       textBlocks,
       qrPosition,
       textColor,
+      paperFormat,
     };
 
     await supabase
@@ -297,7 +310,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
       .eq('id', weddingId);
 
     setBgDirty(false);
-  }, [backgroundImage, bgDirty, savedBgPath, fontStyle, edgeStyle, imageTransform, weddingId, hasPhoto, textBlocks, qrPosition, textColor]);
+  }, [backgroundImage, bgDirty, savedBgPath, fontStyle, edgeStyle, imageTransform, weddingId, hasPhoto, textBlocks, qrPosition, textColor, paperFormat]);
 
   // Load parties when entering step 2
   useEffect(() => {
@@ -425,8 +438,11 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
 
         const imgData = canvas.toDataURL('image/jpeg', 0.92);
 
-        const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a5' });
-        pdf.addImage(imgData, 'JPEG', 0, 0, 148, 210);
+        const fmt = PAPER_FORMATS[paperFormat];
+        const mmW = fmt.w / 300 * 25.4;
+        const mmH = fmt.h / 300 * 25.4;
+        const pdf = new jsPDF({ orientation: mmH > mmW ? 'portrait' : 'landscape', unit: 'mm', format: [mmW, mmH] });
+        pdf.addImage(imgData, 'JPEG', 0, 0, mmW, mmH);
 
         const fileName = `Invito_${sanitizeFileName(party.displayName)}.pdf`;
         pdfBlobs.push({ name: fileName, blob: pdf.output('blob') });
@@ -570,6 +586,8 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
                 canRedo={blocksUndo.canRedo}
                 onUndo={blocksUndo.undo}
                 onRedo={blocksUndo.redo}
+                paperFormat={paperFormat}
+                onPaperFormatChange={setPaperFormat}
               />
             )}
 
@@ -646,6 +664,8 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
           qrPosition={qrPosition}
           textColor={textColor}
           greeting={currentProcessingParty.greeting}
+          width={PAPER_FORMATS[paperFormat].w}
+          height={PAPER_FORMATS[paperFormat].h}
         />
       )}
     </>

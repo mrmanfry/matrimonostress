@@ -13,11 +13,12 @@ import {
   SelectTrigger,
   SelectValue } from
 "@/components/ui/select";
-import { Upload, ImageIcon, RotateCcw, GripVertical, QrCode, Plus, X, ChevronUp, ChevronDown, Type, Palette, MousePointer, Undo2, Redo2, Group, Ungroup } from "lucide-react";
+import { Upload, ImageIcon, RotateCcw, GripVertical, QrCode, Plus, X, ChevronUp, ChevronDown, Type, Palette, MousePointer, Undo2, Redo2, Group, Ungroup, AlignLeft, AlignCenter, AlignRight, AlignStartVertical, AlignCenterVertical, AlignEndVertical, Columns3, Rows3 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
 import { QRCodeSVG } from "qrcode.react";
-import type { ImageTransform, EdgeStyle, QrPosition } from "./PrintInvitationEditor";
+import type { ImageTransform, EdgeStyle, QrPosition, PaperFormat } from "./PrintInvitationEditor";
+import { PAPER_FORMATS } from "./PrintInvitationEditor";
 
 export type FontStyle =
 'garamond' |
@@ -73,6 +74,7 @@ export interface TextBlock {
   y: number;  // % from top
   fontOverride?: FontStyle;
   colorOverride?: string;
+  groupId?: string;
 }
 
 // --- Migration utility ---
@@ -173,6 +175,8 @@ interface PrintDesignStepProps {
   canRedo: boolean;
   onUndo: () => void;
   onRedo: () => void;
+  paperFormat: PaperFormat;
+  onPaperFormatChange: (format: PaperFormat) => void;
 }
 
 const TEXT_COLOR_PRESETS = [
@@ -288,6 +292,8 @@ const PrintDesignStep = ({
   canRedo,
   onUndo,
   onRedo,
+  paperFormat,
+  onPaperFormatChange,
 }: PrintDesignStepProps) => {
   const _weddingData = weddingDataProp ?? {
     partner1Name: '', partner2Name: '', weddingDate: '',
@@ -396,13 +402,14 @@ const PrintDesignStep = ({
       // Toggle this block in selection
       effectiveIds = new Set(selectedBlockIds);
       if (effectiveIds.has(blockId)) effectiveIds.delete(blockId); else effectiveIds.add(blockId);
+      effectiveIds = expandSelectionForGroups(effectiveIds);
       setSelectedBlockIds(effectiveIds);
     } else if (selectedBlockIds.has(blockId)) {
       // Already selected — drag the whole group
       effectiveIds = selectedBlockIds;
     } else {
-      // Not selected, no modifier — select only this one
-      effectiveIds = new Set([blockId]);
+      // Not selected, no modifier — select only this one (+ its group)
+      effectiveIds = expandSelectionForGroups(new Set([blockId]));
       setSelectedBlockIds(effectiveIds);
     }
 
@@ -563,6 +570,95 @@ const PrintDesignStep = ({
   };
   const updateSelectedBlocksStyle = (style: TextBlockStyle) => {
     onTextBlocksChange(textBlocks.map(b => selectedBlockIds.has(b.id) ? { ...b, style } : b));
+  };
+
+  // ── Grouping ──
+  const groupSelected = () => {
+    if (selectedBlockIds.size < 2) return;
+    const gid = `grp_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    onTextBlocksChange(textBlocks.map(b => selectedBlockIds.has(b.id) ? { ...b, groupId: gid } : b));
+  };
+
+  const ungroupSelected = () => {
+    onTextBlocksChange(textBlocks.map(b => selectedBlockIds.has(b.id) ? { ...b, groupId: undefined } : b));
+  };
+
+  const selectedHaveGroup = (() => {
+    const sel = textBlocks.filter(b => selectedBlockIds.has(b.id));
+    return sel.length > 0 && sel.every(b => b.groupId);
+  })();
+
+  // Auto-select group members on click
+  const expandSelectionForGroups = useCallback((ids: Set<string>): Set<string> => {
+    const expanded = new Set(ids);
+    const groupIds = new Set<string>();
+    textBlocks.forEach(b => { if (expanded.has(b.id) && b.groupId) groupIds.add(b.groupId); });
+    if (groupIds.size > 0) {
+      textBlocks.forEach(b => { if (b.groupId && groupIds.has(b.groupId)) expanded.add(b.id); });
+    }
+    return expanded;
+  }, [textBlocks]);
+
+  // ── Alignment & Distribution ──
+  const getSelectedBlocks = () => textBlocks.filter(b => selectedBlockIds.has(b.id));
+
+  const alignLeft = () => {
+    const sel = getSelectedBlocks();
+    if (sel.length < 2) return;
+    const minX = Math.min(...sel.map(b => b.x));
+    onTextBlocksChange(textBlocks.map(b => selectedBlockIds.has(b.id) ? { ...b, x: minX } : b));
+  };
+  const alignCenterH = () => {
+    const sel = getSelectedBlocks();
+    if (sel.length < 2) return;
+    const avg = sel.reduce((s, b) => s + b.x, 0) / sel.length;
+    onTextBlocksChange(textBlocks.map(b => selectedBlockIds.has(b.id) ? { ...b, x: avg } : b));
+  };
+  const alignRight = () => {
+    const sel = getSelectedBlocks();
+    if (sel.length < 2) return;
+    const maxX = Math.max(...sel.map(b => b.x));
+    onTextBlocksChange(textBlocks.map(b => selectedBlockIds.has(b.id) ? { ...b, x: maxX } : b));
+  };
+  const alignTop = () => {
+    const sel = getSelectedBlocks();
+    if (sel.length < 2) return;
+    const minY = Math.min(...sel.map(b => b.y));
+    onTextBlocksChange(textBlocks.map(b => selectedBlockIds.has(b.id) ? { ...b, y: minY } : b));
+  };
+  const alignCenterV = () => {
+    const sel = getSelectedBlocks();
+    if (sel.length < 2) return;
+    const avg = sel.reduce((s, b) => s + b.y, 0) / sel.length;
+    onTextBlocksChange(textBlocks.map(b => selectedBlockIds.has(b.id) ? { ...b, y: avg } : b));
+  };
+  const alignBottom = () => {
+    const sel = getSelectedBlocks();
+    if (sel.length < 2) return;
+    const maxY = Math.max(...sel.map(b => b.y));
+    onTextBlocksChange(textBlocks.map(b => selectedBlockIds.has(b.id) ? { ...b, y: maxY } : b));
+  };
+  const distributeH = () => {
+    const sel = getSelectedBlocks();
+    if (sel.length < 3) return;
+    const sorted = [...sel].sort((a, b) => a.x - b.x);
+    const minX = sorted[0].x;
+    const maxX = sorted[sorted.length - 1].x;
+    const step = (maxX - minX) / (sorted.length - 1);
+    const posMap: Record<string, number> = {};
+    sorted.forEach((b, i) => { posMap[b.id] = minX + i * step; });
+    onTextBlocksChange(textBlocks.map(b => posMap[b.id] !== undefined ? { ...b, x: posMap[b.id] } : b));
+  };
+  const distributeV = () => {
+    const sel = getSelectedBlocks();
+    if (sel.length < 3) return;
+    const sorted = [...sel].sort((a, b) => a.y - b.y);
+    const minY = sorted[0].y;
+    const maxY = sorted[sorted.length - 1].y;
+    const step = (maxY - minY) / (sorted.length - 1);
+    const posMap: Record<string, number> = {};
+    sorted.forEach((b, i) => { posMap[b.id] = minY + i * step; });
+    onTextBlocksChange(textBlocks.map(b => posMap[b.id] !== undefined ? { ...b, y: posMap[b.id] } : b));
   };
 
   const singleSelectedBlock = selectedBlockIds.size === 1
@@ -732,6 +828,21 @@ const PrintDesignStep = ({
           </div>
         </div>
 
+        {/* Paper format */}
+        <div className="space-y-2">
+          <Label>Formato carta</Label>
+          <Select value={paperFormat} onValueChange={(v) => onPaperFormatChange(v as PaperFormat)}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {(Object.keys(PAPER_FORMATS) as PaperFormat[]).map(f => (
+                <SelectItem key={f} value={f}>{PAPER_FORMATS[f].label} — {PAPER_FORMATS[f].mmLabel}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className="flex items-center justify-between">
           <Label htmlFor="safe-zone">Mostra margini di sicurezza</Label>
           <Switch
@@ -891,7 +1002,51 @@ const PrintDesignStep = ({
                 <X className="w-3 h-3" />
               </Button>
             </div>
-            <p className="text-[10px] text-muted-foreground">Trascina un elemento per muoverli tutti insieme. Usa i controlli sotto per applicare stile a tutti.</p>
+            <p className="text-[10px] text-muted-foreground">Trascina un elemento per muoverli tutti insieme.</p>
+
+            {/* Alignment toolbar */}
+            <div className="space-y-1">
+              <Label className="text-xs">Allinea</Label>
+              <div className="flex flex-wrap gap-1">
+                <Button variant="outline" size="icon" className="h-7 w-7" onClick={alignLeft} title="Allinea a sinistra">
+                  <AlignLeft className="w-3.5 h-3.5" />
+                </Button>
+                <Button variant="outline" size="icon" className="h-7 w-7" onClick={alignCenterH} title="Centra orizzontalmente">
+                  <AlignCenter className="w-3.5 h-3.5" />
+                </Button>
+                <Button variant="outline" size="icon" className="h-7 w-7" onClick={alignRight} title="Allinea a destra">
+                  <AlignRight className="w-3.5 h-3.5" />
+                </Button>
+                <Button variant="outline" size="icon" className="h-7 w-7" onClick={alignTop} title="Allinea in alto">
+                  <AlignStartVertical className="w-3.5 h-3.5" />
+                </Button>
+                <Button variant="outline" size="icon" className="h-7 w-7" onClick={alignCenterV} title="Centra verticalmente">
+                  <AlignCenterVertical className="w-3.5 h-3.5" />
+                </Button>
+                <Button variant="outline" size="icon" className="h-7 w-7" onClick={alignBottom} title="Allinea in basso">
+                  <AlignEndVertical className="w-3.5 h-3.5" />
+                </Button>
+                <Button variant="outline" size="icon" className="h-7 w-7" onClick={distributeH} title="Distribuisci orizzontalmente" disabled={selectedBlockIds.size < 3}>
+                  <Columns3 className="w-3.5 h-3.5" />
+                </Button>
+                <Button variant="outline" size="icon" className="h-7 w-7" onClick={distributeV} title="Distribuisci verticalmente" disabled={selectedBlockIds.size < 3}>
+                  <Rows3 className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Group / Ungroup */}
+            <div className="flex gap-2">
+              {!selectedHaveGroup ? (
+                <Button variant="outline" size="sm" className="h-7 text-xs gap-1 flex-1" onClick={groupSelected}>
+                  <Group className="w-3.5 h-3.5" /> Raggruppa
+                </Button>
+              ) : (
+                <Button variant="outline" size="sm" className="h-7 text-xs gap-1 flex-1" onClick={ungroupSelected}>
+                  <Ungroup className="w-3.5 h-3.5" /> Separa
+                </Button>
+              )}
+            </div>
 
             <div className="space-y-1">
               <Label className="text-xs flex items-center gap-1"><Type className="w-3 h-3" /> Font (tutti)</Label>
@@ -961,13 +1116,9 @@ const PrintDesignStep = ({
                 }`}
                 onClick={(e) => {
                   if (e.shiftKey || e.ctrlKey || e.metaKey) {
-                    setSelectedBlockIds(prev => {
-                      const next = new Set(prev);
-                      if (next.has(block.id)) next.delete(block.id); else next.add(block.id);
-                      return next;
-                    });
+                    setSelectedBlockIds(prev => expandSelectionForGroups(new Set([...prev, block.id])));
                   } else {
-                    setSelectedBlockIds(new Set([block.id]));
+                    setSelectedBlockIds(expandSelectionForGroups(new Set([block.id])));
                   }
                 }}
               >
@@ -1081,7 +1232,7 @@ const PrintDesignStep = ({
           style={{
             width: '100%',
             maxWidth: '400px',
-            aspectRatio: '1 / 1.414',
+            aspectRatio: `${PAPER_FORMATS[paperFormat].w} / ${PAPER_FORMATS[paperFormat].h}`,
             fontFamily,
             touchAction: 'none',
           }}
@@ -1199,7 +1350,7 @@ const PrintDesignStep = ({
             return (
               <div
                 key={block.id}
-                className={`absolute z-10 text-center ${isSelected ? 'ring-2 ring-primary/50 rounded' : ''}`}
+                className={`absolute z-10 text-center ${isSelected ? 'ring-2 ring-primary/50 rounded' : ''} ${block.groupId && !isSelected ? 'ring-1 ring-primary/20 rounded' : ''}`}
                 style={{
                   left: `${block.x}%`,
                   top: `${block.y}%`,
@@ -1213,13 +1364,9 @@ const PrintDesignStep = ({
                 onClick={(e) => {
                   e.stopPropagation();
                   if (e.shiftKey || e.ctrlKey || e.metaKey) {
-                    setSelectedBlockIds(prev => {
-                      const next = new Set(prev);
-                      if (next.has(block.id)) next.delete(block.id); else next.add(block.id);
-                      return next;
-                    });
+                    setSelectedBlockIds(prev => expandSelectionForGroups(new Set([...prev, block.id])));
                   } else {
-                    setSelectedBlockIds(new Set([block.id]));
+                    setSelectedBlockIds(expandSelectionForGroups(new Set([block.id])));
                   }
                 }}
               >
