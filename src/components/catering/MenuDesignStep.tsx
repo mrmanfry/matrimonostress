@@ -23,6 +23,7 @@ const FONT_LABELS: Record<FontStyle, string> = {
   dancing: 'Dancing Script (Romantico)',
   greatvibes: 'Great Vibes (Calligrafico)',
   alex: 'Alex Brush (Firma)',
+  pinyon: 'Pinyon Script (Calligrafico)',
   lato: 'Lato (Moderno)',
   montserrat: 'Montserrat (Contemporaneo)',
   josefin: 'Josefin Sans (Minimalista)',
