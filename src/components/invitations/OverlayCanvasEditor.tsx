@@ -79,7 +79,7 @@ const TEXT_COLOR_PRESETS = [
   { label: "Bordeaux", value: "#800020" },
 ];
 
-const MIN_QR_PCT = 8;
+const MIN_QR_PCT = 3;
 const MIN_GREETING_PCT = 15;
 
 const FONT_GROUPS: { label: string; fonts: { key: FontStyle; label: string }[] }[] = [
