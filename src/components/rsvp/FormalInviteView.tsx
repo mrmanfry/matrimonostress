@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { isConfirmed, isDeclined, isPending } from "@/lib/rsvpHelpers";
 import type { FAQItem, GiftInfo } from "@/components/settings/CampaignCard";
 
@@ -299,7 +300,6 @@ export function FormalInviteView({
           `linear-gradient(135deg, ${primaryColor}33 0%, ${primaryColor}11 100%)`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
-          backgroundAttachment: 'fixed'
         }}>
 
         {/* Gradient Overlay */}
@@ -338,10 +338,6 @@ export function FormalInviteView({
 
 
 
-          {/* Scroll Indicator */}
-          <div className="pt-8 animate-bounce">
-            <ChevronDown className="w-8 h-8 mx-auto text-white/60" />
-          </div>
         </div>
       </section>
 
@@ -572,76 +568,75 @@ export function FormalInviteView({
                   {/* Expanded Details (only for confirmed) */}
                   {isConfirmedStatus &&
                   <div className="px-4 pb-4 space-y-4 border-t border-stone-100 pt-4">
-                      {/* Dietary Preferences */}
-                      <div className="space-y-3">
-                        <p className="text-sm font-medium text-stone-700 flex items-center gap-2">
+                      {/* Dietary Preferences - Collapsible */}
+                      <Collapsible>
+                        <CollapsibleTrigger className="flex items-center gap-2 text-sm font-medium text-stone-700 hover:text-stone-900 transition-colors w-full">
                           <Utensils className="w-4 h-4" />
                           Preferenze alimentari
-                        </p>
-                        <div className="flex flex-wrap gap-3">
-                          {(() => {
-                            const defaultOptions = [
-                              { id: "vegetariano", label: "Vegetariano", enabled: true },
-                              { id: "vegano", label: "Vegano", enabled: true },
-                            ];
-                            const options = cateringConfig?.dietary_options?.filter(o => o.enabled) || defaultOptions;
-                            return options.map(opt => (
-                              <div key={opt.id} className="flex items-center gap-2 cursor-pointer">
-                                <Checkbox
-                                  checked={
-                                    opt.id === "vegetariano" ? (data?.isVegetarian || false) :
-                                    opt.id === "vegano" ? (data?.isVegan || false) :
-                                    data?.dietaryRestrictions?.includes(opt.label) || false
-                                  }
-                                  onCheckedChange={(checked) => {
-                                    console.log('[RSVP-DEBUG] Checkbox clicked:', opt.id, 'checked:', checked, 'memberId:', member.id);
-                                    // Build updated member data in one shot to avoid stale state
-                                    const currentData = memberData[member.id] || { rsvpStatus: 'pending' as const, isVegetarian: false, isVegan: false, dietaryRestrictions: '', hasPlusOne: false, plusOneName: '', plusOneMenu: '' };
-                                    const updates: Partial<MemberData> = {};
-                                    
-                                    if (opt.id === "vegetariano") {
-                                      updates.isVegetarian = !!checked;
-                                    } else if (opt.id === "vegano") {
-                                      updates.isVegan = !!checked;
-                                    } else {
-                                      // For custom options (celiaco, etc.), toggle in dietaryRestrictions
-                                      const current = currentData.dietaryRestrictions || "";
-                                      const items = current.split(",").map(s => s.trim()).filter(Boolean);
-                                      if (checked) {
-                                        if (!items.includes(opt.label)) items.push(opt.label);
-                                      } else {
-                                        const idx = items.indexOf(opt.label);
-                                        if (idx >= 0) items.splice(idx, 1);
-                                      }
-                                      updates.dietaryRestrictions = items.join(", ");
+                          <ChevronDown className="w-4 h-4 ml-auto transition-transform [[data-state=open]>&]:rotate-180" />
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="pt-3 space-y-3">
+                          <div className="flex flex-wrap gap-3">
+                            {(() => {
+                              const defaultOptions = [
+                                { id: "vegetariano", label: "Vegetariano", enabled: true },
+                                { id: "vegano", label: "Vegano", enabled: true },
+                              ];
+                              const options = cateringConfig?.dietary_options?.filter(o => o.enabled) || defaultOptions;
+                              return options.map(opt => (
+                                <div key={opt.id} className="flex items-center gap-2 cursor-pointer">
+                                  <Checkbox
+                                    checked={
+                                      opt.id === "vegetariano" ? (data?.isVegetarian || false) :
+                                      opt.id === "vegano" ? (data?.isVegan || false) :
+                                      data?.dietaryRestrictions?.includes(opt.label) || false
                                     }
-                                    
-                                    const newData = { ...currentData, ...updates };
-                                    console.log('[RSVP-DEBUG] New member data:', JSON.stringify(newData));
-                                    onMemberDataChange({
-                                      ...memberData,
-                                      [member.id]: newData as MemberData
-                                    });
-                                  }}
-                                  disabled={isReadOnly}
-                                />
-                                <span className="text-sm text-stone-600">{opt.label}</span>
-                              </div>
-                            ));
-                          })()}
-                        </div>
-                        
-                        {/* Allergies - only show if configured */}
-                        {(cateringConfig?.show_allergy_field !== false) && (
-                          <Input
-                            placeholder="Allergie o intolleranze..."
-                            value={data?.dietaryRestrictions || ""}
-                            onChange={(e) => handleMemberFieldChange(member.id, 'dietaryRestrictions', e.target.value)}
-                            disabled={isReadOnly}
-                            className="text-sm"
-                          />
-                        )}
-                      </div>
+                                    onCheckedChange={(checked) => {
+                                      const currentData = memberData[member.id] || { rsvpStatus: 'pending' as const, isVegetarian: false, isVegan: false, dietaryRestrictions: '', hasPlusOne: false, plusOneName: '', plusOneMenu: '' };
+                                      const updates: Partial<MemberData> = {};
+                                      
+                                      if (opt.id === "vegetariano") {
+                                        updates.isVegetarian = !!checked;
+                                      } else if (opt.id === "vegano") {
+                                        updates.isVegan = !!checked;
+                                      } else {
+                                        const current = currentData.dietaryRestrictions || "";
+                                        const items = current.split(",").map(s => s.trim()).filter(Boolean);
+                                        if (checked) {
+                                          if (!items.includes(opt.label)) items.push(opt.label);
+                                        } else {
+                                          const idx = items.indexOf(opt.label);
+                                          if (idx >= 0) items.splice(idx, 1);
+                                        }
+                                        updates.dietaryRestrictions = items.join(", ");
+                                      }
+                                      
+                                      const newData = { ...currentData, ...updates };
+                                      onMemberDataChange({
+                                        ...memberData,
+                                        [member.id]: newData as MemberData
+                                      });
+                                    }}
+                                    disabled={isReadOnly}
+                                  />
+                                  <span className="text-sm text-stone-600">{opt.label}</span>
+                                </div>
+                              ));
+                            })()}
+                          </div>
+                          
+                          {/* Allergies - only show if configured */}
+                          {(cateringConfig?.show_allergy_field !== false) && (
+                            <Input
+                              placeholder="Allergie o intolleranze..."
+                              value={data?.dietaryRestrictions || ""}
+                              onChange={(e) => handleMemberFieldChange(member.id, 'dietaryRestrictions', e.target.value)}
+                              disabled={isReadOnly}
+                              className="text-sm"
+                            />
+                          )}
+                        </CollapsibleContent>
+                      </Collapsible>
 
                       {/* Plus One (if allowed) */}
                       {member.allow_plus_one &&
@@ -667,35 +662,44 @@ export function FormalInviteView({
                           disabled={isReadOnly}
                           className="text-sm" />
 
-                              <div className="flex flex-wrap gap-3">
-                                {(() => {
-                                  const defaultPlusOneOptions = [
-                                    { id: "vegetariano", label: "Vegetariano", enabled: true },
-                                    { id: "vegano", label: "Vegano", enabled: true },
-                                  ];
-                                  const plusOneOptions = cateringConfig?.dietary_options?.filter(o => o.enabled) || defaultPlusOneOptions;
-                                  return plusOneOptions.map(opt => (
-                                    <div key={opt.id} className="flex items-center gap-2 cursor-pointer text-xs text-stone-500">
-                                      <Checkbox
-                                        checked={
-                                          (data?.plusOneMenu || "").split(",").map(s => s.trim()).filter(Boolean).includes(opt.id)
-                                        }
-                                        onCheckedChange={(checked) => {
-                                          const current = (data?.plusOneMenu || "").split(",").map(s => s.trim()).filter(Boolean);
-                                          if (checked) {
-                                            if (!current.includes(opt.id)) current.push(opt.id);
-                                          } else {
-                                            const idx = current.indexOf(opt.id);
-                                            if (idx >= 0) current.splice(idx, 1);
-                                          }
-                                          handleMemberFieldChange(member.id, 'plusOneMenu', current.join(", "));
-                                        }}
-                                        disabled={isReadOnly} />
-                                      {opt.label}
-                                    </div>
-                                  ));
-                                })()}
-                              </div>
+                              <Collapsible>
+                                <CollapsibleTrigger className="flex items-center gap-2 text-xs text-stone-500 hover:text-stone-700 transition-colors">
+                                  <Utensils className="w-3 h-3" />
+                                  Preferenze alimentari accompagnatore
+                                  <ChevronDown className="w-3 h-3 ml-1 transition-transform [[data-state=open]>&]:rotate-180" />
+                                </CollapsibleTrigger>
+                                <CollapsibleContent className="pt-2">
+                                  <div className="flex flex-wrap gap-3">
+                                    {(() => {
+                                      const defaultPlusOneOptions = [
+                                        { id: "vegetariano", label: "Vegetariano", enabled: true },
+                                        { id: "vegano", label: "Vegano", enabled: true },
+                                      ];
+                                      const plusOneOptions = cateringConfig?.dietary_options?.filter(o => o.enabled) || defaultPlusOneOptions;
+                                      return plusOneOptions.map(opt => (
+                                        <div key={opt.id} className="flex items-center gap-2 cursor-pointer text-xs text-stone-500">
+                                          <Checkbox
+                                            checked={
+                                              (data?.plusOneMenu || "").split(",").map(s => s.trim()).filter(Boolean).includes(opt.id)
+                                            }
+                                            onCheckedChange={(checked) => {
+                                              const current = (data?.plusOneMenu || "").split(",").map(s => s.trim()).filter(Boolean);
+                                              if (checked) {
+                                                if (!current.includes(opt.id)) current.push(opt.id);
+                                              } else {
+                                                const idx = current.indexOf(opt.id);
+                                                if (idx >= 0) current.splice(idx, 1);
+                                              }
+                                              handleMemberFieldChange(member.id, 'plusOneMenu', current.join(", "));
+                                            }}
+                                            disabled={isReadOnly} />
+                                          {opt.label}
+                                        </div>
+                                      ));
+                                    })()}
+                                  </div>
+                                </CollapsibleContent>
+                              </Collapsible>
                             </div>
                       }
                         </div>

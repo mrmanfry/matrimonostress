@@ -228,7 +228,6 @@ END:VCALENDAR`;
             : `linear-gradient(135deg, ${primaryColor}33 0%, ${primaryColor}11 100%)`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
-          backgroundAttachment: 'fixed',
         }}
       >
         {/* Dark Gradient Overlay */}
@@ -368,7 +367,6 @@ END:VCALENDAR`;
             : `linear-gradient(135deg, ${primaryColor}33 0%, ${primaryColor}11 100%)`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
-          backgroundAttachment: 'fixed',
         }}
       >
         {/* Dark Gradient Overlay */}
@@ -522,10 +520,6 @@ END:VCALENDAR`;
               )}
             </div>
 
-            {/* Scroll Indicator */}
-            <div className="pt-8 pb-4 animate-bounce">
-              <ChevronDown className="w-6 h-6 mx-auto text-white/40" />
-            </div>
           </div>
         </div>
       </div>
