@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
   resolveDisplayName,
+  resolveGreeting,
   resolveSyncToken,
   type PartyPrintTarget,
 } from "@/lib/printNameResolver";
@@ -295,10 +296,11 @@ const PrintStudio = ({ open, onOpenChange, weddingId }: PrintStudioProps) => {
         const members = realGuests.filter((g) => g.party_id === party.id);
         if (members.length === 0) continue;
 
+        const partyObj = { id: party.id, party_name: party.party_name, guests: members };
         targets.push({
           partyId: party.id,
-          displayName: resolveDisplayName({ id: party.id, party_name: party.party_name, guests: members }),
-          greeting: '',
+          displayName: resolveDisplayName(partyObj),
+          greeting: resolveGreeting(partyObj),
           guestCount: members.length,
           syncToken: resolveSyncToken(members),
           rsvpStatus: rsvpMap[party.rsvp_status] || "pending",
@@ -361,7 +363,7 @@ const PrintStudio = ({ open, onOpenChange, weddingId }: PrintStudioProps) => {
         templateBytesRef.current,
         templateType,
         qrConfig,
-        selected.map((p) => ({ partyId: p.partyId, displayName: p.displayName, syncToken: p.syncToken })),
+        selected.map((p) => ({ partyId: p.partyId, displayName: p.displayName, syncToken: p.syncToken, greeting: p.greeting })),
         rsvpBaseUrl,
         {
           onProgress: (idx, total, name) => {

@@ -49,7 +49,8 @@ export function resolveGreeting(party: PrintParty): string {
   const adults = party.guests.filter(g => !g.is_child);
   if (adults.length === 0) return 'Cari';
 
-  if (adults.length === 1) {
+  // Single guest: gender-aware
+  if (adults.length === 1 && !party.party_name) {
     const g = adults[0];
     const gender = guessGender(g.first_name);
     return gender === 'F'
@@ -57,13 +58,12 @@ export function resolveGreeting(party: PrintParty): string {
       : `Caro ${g.first_name}`;
   }
 
-  // Check if all adults share the same last name
-  const lastNames = new Set(adults.map(g => g.last_name.trim().toLowerCase()));
-  if (lastNames.size === 1) {
-    return `Cari Famiglia ${adults[0].last_name}`;
+  // Nucleus with party_name: always use it as source of truth
+  if (party.party_name) {
+    return `Cara ${party.party_name}`;
   }
 
-  // Different last names: gender-aware prefix
+  // Fallback for multi-guest without party_name (shouldn't happen normally)
   const prefix = resolvePluralPrefix(adults);
   const names = adults.map(g => g.first_name);
   if (names.length === 2) {

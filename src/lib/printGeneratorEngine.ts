@@ -64,10 +64,12 @@ async function fetchGoogleFontBytes(fontStyle: FontStyle): Promise<ArrayBuffer |
   }
 }
 
-interface PartyTarget {
+export interface PartyTarget {
   partyId: string;
   displayName: string;
   syncToken: string;
+  /** Pre-resolved greeting string, e.g. "Cara Famiglia Rossi" */
+  greeting?: string;
 }
 
 interface GenerationCallbacks {
@@ -234,13 +236,19 @@ export async function generatePrintPDFs(
         greetingFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
       }
 
-      const mockParty = buildMockPartyFromName(party.displayName);
-      const greeting = generateGreetingString({
-        greetingType: greetingConfig.greetingType,
-        customGreeting: greetingConfig.customGreeting,
-        useAka: greetingConfig.useAka,
-        party: mockParty,
-      });
+      // Use pre-resolved greeting if available, otherwise fall back to engine
+      let greeting: { full: string };
+      if (party.greeting) {
+        greeting = { full: party.greeting };
+      } else {
+        const mockParty = buildMockPartyFromName(party.displayName);
+        greeting = generateGreetingString({
+          greetingType: greetingConfig.greetingType,
+          customGreeting: greetingConfig.customGreeting,
+          useAka: greetingConfig.useAka,
+          party: mockParty,
+        });
+      }
 
       if (greeting.full) {
         // Scale fontSize to match preview proportions:
