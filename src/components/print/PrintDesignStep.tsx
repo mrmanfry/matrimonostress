@@ -74,6 +74,7 @@ export interface TextBlock {
   y: number;  // % from top
   fontOverride?: FontStyle;
   colorOverride?: string;
+  groupId?: string;
 }
 
 // --- Migration utility ---
