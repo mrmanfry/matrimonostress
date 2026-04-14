@@ -1814,77 +1814,72 @@ const PrintDesignStep = ({
 
 function getBlockPreviewStyle(block: TextBlock, blockFont: string, blockColor: string): { className: string; style: React.CSSProperties } {
   const mainColor = blockColor;
-  const secondaryColor = blockColor === '#FFFFFF' ? 'rgba(255,255,255,0.7)' : blockColor === '#1a1a1a' ? undefined : `${blockColor}99`;
-  const tertiaryColor = blockColor === '#FFFFFF' ? 'rgba(255,255,255,0.5)' : blockColor === '#1a1a1a' ? undefined : `${blockColor}77`;
+  // Match HiddenPrintNode colors exactly for WYSIWYG fidelity
+  const secondaryColor = blockColor === '#FFFFFF' ? 'rgba(255,255,255,0.7)' : blockColor === '#1a1a1a' ? '#888' : `${blockColor}99`;
+  const tertiaryColor = blockColor === '#FFFFFF' ? 'rgba(255,255,255,0.5)' : blockColor === '#1a1a1a' ? '#999' : `${blockColor}77`;
+
+  const fontSize = block.fontSize ? `${block.fontSize}px` : undefined;
+
+  // Determine color based on block type/style
+  let color = mainColor;
+  let fontWeight: number | undefined;
+  let textTransform: string | undefined;
+  let letterSpacing: string | undefined;
 
   if (block.type !== 'custom') {
     switch (block.type) {
       case 'greeting':
-        return {
-          className: `text-xs tracking-wide ${!secondaryColor ? 'text-muted-foreground' : ''}`,
-          style: { fontFamily: blockFont, color: secondaryColor },
-        };
+        color = secondaryColor;
+        letterSpacing = '0.05em';
+        break;
       case 'names':
-        return {
-          className: 'text-base md:text-lg font-semibold leading-tight',
-          style: { fontFamily: blockFont, color: mainColor },
-        };
+        fontWeight = 600;
+        break;
       case 'announcement':
-        return {
-          className: `text-xs ${!secondaryColor ? 'text-muted-foreground' : ''}`,
-          style: { fontFamily: blockFont, color: secondaryColor },
-        };
-      case 'dateText':
-        return {
-          className: 'text-sm font-medium capitalize',
-          style: { fontFamily: blockFont, color: mainColor },
-        };
       case 'timePrefix_time':
-        return {
-          className: `text-xs ${!secondaryColor ? 'text-muted-foreground' : ''}`,
-          style: { fontFamily: blockFont, color: secondaryColor },
-        };
       case 'venuePrefix':
       case 'receptionPrefix':
-        return {
-          className: `text-xs ${!secondaryColor ? 'text-muted-foreground' : ''}`,
-          style: { fontFamily: blockFont, color: secondaryColor },
-        };
+        color = secondaryColor;
+        break;
+      case 'dateText':
+        fontWeight = 500;
+        textTransform = 'capitalize';
+        break;
       case 'ceremonyVenue':
       case 'receptionVenue':
-        return {
-          className: 'text-sm font-medium',
-          style: { fontFamily: blockFont, color: mainColor },
-        };
+        fontWeight = 500;
+        break;
       case 'ceremonyAddress':
       case 'receptionAddress':
-        return {
-          className: `text-[10px] ${!tertiaryColor ? 'text-muted-foreground' : ''}`,
-          style: { fontFamily: blockFont, color: tertiaryColor },
-        };
+        color = tertiaryColor;
+        break;
+    }
+  } else {
+    switch (block.style) {
+      case 'primary':
+        fontWeight = 500;
+        break;
+      case 'tertiary':
+        color = tertiaryColor;
+        break;
+      case 'secondary':
       default:
+        color = secondaryColor;
         break;
     }
   }
 
-  switch (block.style) {
-    case 'primary':
-      return {
-        className: 'text-sm font-medium',
-        style: { fontFamily: blockFont, color: mainColor },
-      };
-    case 'tertiary':
-      return {
-        className: `text-[10px] ${!tertiaryColor ? 'text-muted-foreground' : ''}`,
-        style: { fontFamily: blockFont, color: tertiaryColor },
-      };
-    case 'secondary':
-    default:
-      return {
-        className: `text-xs ${!secondaryColor ? 'text-muted-foreground' : ''}`,
-        style: { fontFamily: blockFont, color: secondaryColor },
-      };
-  }
+  return {
+    className: '',
+    style: {
+      fontFamily: blockFont,
+      color,
+      fontSize: fontSize || undefined,
+      fontWeight,
+      textTransform: textTransform as any,
+      letterSpacing,
+    },
+  };
 }
 
 export default PrintDesignStep;
