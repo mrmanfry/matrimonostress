@@ -601,6 +601,8 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
                 onRedo={blocksUndo.redo}
                 paperFormat={paperFormat}
                 onPaperFormatChange={setPaperFormat}
+                paperOrientation={paperOrientation}
+                onPaperOrientationChange={setPaperOrientation}
               />
             )}
 
@@ -677,8 +679,8 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
           qrPosition={qrPosition}
           textColor={textColor}
           greeting={currentProcessingParty.greeting}
-          width={PAPER_FORMATS[paperFormat].w}
-          height={PAPER_FORMATS[paperFormat].h}
+          width={getPaperDimensions(paperFormat, paperOrientation).w}
+          height={getPaperDimensions(paperFormat, paperOrientation).h}
         />
       )}
     </>
