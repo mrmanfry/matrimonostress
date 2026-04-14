@@ -282,6 +282,17 @@ const STYLE_LABELS: Record<TextBlockStyle, string> = {
   tertiary: 'Piccolo',
 };
 
+/** Default font sizes (in preview px) for each TextBlockStyle — used for backward compat */
+const STYLE_DEFAULT_SIZES: Record<TextBlockStyle, number> = {
+  primary: 18,
+  secondary: 14,
+  tertiary: 10,
+};
+
+function getEffectiveFontSize(block: TextBlock): number {
+  return block.fontSize ?? STYLE_DEFAULT_SIZES[block.style] ?? 14;
+}
+
 const PrintDesignStep = ({
   backgroundImage,
   onBackgroundChange,
