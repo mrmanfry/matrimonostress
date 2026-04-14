@@ -175,6 +175,8 @@ interface PrintDesignStepProps {
   canRedo: boolean;
   onUndo: () => void;
   onRedo: () => void;
+  paperFormat: PaperFormat;
+  onPaperFormatChange: (format: PaperFormat) => void;
 }
 
 const TEXT_COLOR_PRESETS = [
