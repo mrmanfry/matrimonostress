@@ -373,8 +373,10 @@ const PrintDesignStep = ({
     setIsQrResizing(false);
     setIsLassoing(false);
     setLassoRect(null);
+    setResizingBlockId(null);
     dragStartRef.current = null;
     blockDragRef.current = null;
+    blockResizeRef.current = null;
     qrDragRef.current = null;
     qrResizeRef.current = null;
     lassoStartRef.current = null;
