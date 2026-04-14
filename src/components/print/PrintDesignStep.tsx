@@ -508,7 +508,10 @@ const PrintDesignStep = ({
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     setIsQrDragging(true);
     setIsQrSelected(true);
-    setSelectedBlockIds(new Set());
+    // With Shift/Ctrl, keep text block selection; otherwise clear it
+    if (!e.shiftKey && !e.ctrlKey && !e.metaKey) {
+      setSelectedBlockIds(new Set());
+    }
     qrDragRef.current = { startX: e.clientX, startY: e.clientY, origX: qrPosition.x, origY: qrPosition.y };
   }, [qrPosition.x, qrPosition.y]);
 
