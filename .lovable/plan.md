@@ -1,56 +1,70 @@
 
 
-## Multi-selezione, Raggruppamento e Undo/Redo nell'Editor Inviti
+## Formati Carta, Raggruppamento e Allineamento nell'Editor Inviti
 
-### Cosa viene aggiunto
+### 1. Scelta formato carta
 
-1. **Multi-selezione**: Click + Shift/Ctrl per selezionare più caselle testo contemporaneamente. Le caselle selezionate mostrano un bordo evidenziato.
+Attualmente il formato e fisso A5 (aspect ratio 1:1.414, HiddenPrintNode usa 1748x2480px).
 
-2. **Drag di gruppo**: Quando più caselle sono selezionate, trascinandone una si muovono tutte insieme mantenendo le posizioni relative.
+Aggiungere un selettore formato nella sidebar di `PrintDesignStep` e propagare le dimensioni a `HiddenPrintNode`:
 
-3. **Undo/Redo**: Ctrl+Z per annullare, Ctrl+Shift+Z (o Ctrl+Y) per ripristinare. Anche un bottone visibile nella toolbar. Funziona su tutte le modifiche: spostamenti, testo, stili, aggiunta/rimozione caselle.
+| Formato | Dimensioni mm | Pixel (300dpi) | Aspect ratio |
+|---------|--------------|----------------|--------------|
+| A5 | 148x210 | 1748x2480 | 1:1.414 |
+| 11x17 cm | 110x170 | 1299x2008 | 1:1.545 |
+| A6 | 105x148 | 1240x1748 | 1:1.410 |
+| Quadrato | 148x148 | 1748x1748 | 1:1 |
+
+- Nuovo campo `format` in `PrintDesignConfig` e nello stato di `PrintInvitationEditor`
+- Nuovo tipo `PaperFormat` con le opzioni sopra
+- La preview cambia `aspectRatio` in base al formato
+- `HiddenPrintNode` riceve `W` e `H` come props (non piu costanti hardcoded)
+- Default: A5 (retrocompatibile)
+
+### 2. Raggruppamento blocchi (Group/Ungroup)
+
+Aggiungere un concetto di "gruppo" persistente che lega piu blocchi:
+
+- Nuovo campo opzionale `groupId?: string` su `TextBlock`
+- Quando l'utente seleziona 2+ blocchi e preme "Raggruppa": tutti ricevono lo stesso `groupId`
+- Quando si clicca un blocco con `groupId`, automaticamente si selezionano tutti i blocchi dello stesso gruppo
+- Quando si trascina un blocco con gruppo, si muovono tutti i blocchi del gruppo
+- Bottone "Separa" (Ungroup): rimuove il `groupId` dai blocchi selezionati
+- I bottoni Raggruppa/Separa appaiono nel pannello multi-selezione (gia esistente, righe 882-938)
+
+### 3. Allineamento e distribuzione
+
+Quando 2+ blocchi sono selezionati, mostrare una toolbar con 6 azioni:
+
+- **Allinea a sinistra**: tutti i blocchi prendono il `min(x)` della selezione
+- **Centra orizzontalmente**: tutti i blocchi prendono la media di `x`
+- **Allinea a destra**: tutti prendono il `max(x)`
+- **Allinea in alto**: tutti prendono il `min(y)`
+- **Centra verticalmente**: tutti prendono la media di `y`
+- **Allinea in basso**: tutti prendono il `max(y)`
+- **Distribuisci orizzontalmente**: i blocchi vengono distribuiti equamente tra `min(x)` e `max(x)`
+- **Distribuisci verticalmente**: i blocchi vengono distribuiti equamente tra `min(y)` e `max(y)`
+
+Icone: `AlignLeft`, `AlignCenter`, `AlignRight`, `AlignStartVertical`, `AlignCenterVertical`, `AlignEndVertical` da Lucide. Per distribuzione: icone custom o `Rows3`/`Columns3`.
+
+UI: riga di bottoni compatti nel pannello multi-selezione, sopra i controlli font/colore/dimensione.
 
 ---
 
-### Piano tecnico
-
-#### 1. Undo/Redo — `PrintInvitationEditor.tsx`
-
-Implementare uno stack di history a livello del componente padre, dove già vivono `textBlocks`, `qrPosition`, `textColor`, ecc.
-
-- Nuovo hook custom `useUndoRedo<T>(initialState)` che gestisce `past[]`, `present`, `future[]`
-- Wrappare `textBlocks` con questo hook: ogni chiamata a `setTextBlocks` passa per `pushState()` che salva lo stato precedente nello stack
-- Stack limitato a ~50 entry per non consumare troppa memoria
-- Passare `canUndo`, `canRedo`, `undo()`, `redo()` come props a `PrintDesignStep`
-- Listener `useEffect` su `keydown` per `Ctrl+Z` / `Ctrl+Shift+Z`
-
-#### 2. Multi-selezione — `PrintDesignStep.tsx`
-
-- Cambiare `selectedBlockId: string | null` → `selectedBlockIds: Set<string>`
-- Click su un blocco: lo seleziona (deseleziona gli altri)
-- Shift+Click o Ctrl+Click: aggiunge/toglie dalla selezione
-- Click sullo sfondo: deseleziona tutto
-- Sidebar: mostra controlli per-blocco solo se un singolo blocco è selezionato; se più blocchi selezionati, mostra solo azioni comuni (colore, font, dimensione — applicate a tutti)
-- Bordo evidenziato su tutti i blocchi selezionati
-
-#### 3. Drag di gruppo — `PrintDesignStep.tsx`
-
-- Quando si inizia a trascinare un blocco che è parte della multi-selezione:
-  - Calcolare l'offset `(dx, dy)` dal punto di partenza
-  - Applicare lo stesso delta a tutti i blocchi selezionati
-  - `blockDragRef` salva le posizioni originali di tutti i blocchi selezionati, non solo uno
-- Se si trascina un blocco NON selezionato, prima deselezionare tutti e selezionare solo quello (comportamento standard)
-
-#### 4. UI bottoni Undo/Redo — `PrintDesignStep.tsx`
-
-- Due bottoni piccoli (icone `Undo2` e `Redo2` di Lucide) nella toolbar sopra la preview o nella sidebar
-- Disabilitati quando lo stack è vuoto
-- Tooltip con shortcut keyboard
-
 ### File da modificare
-- `src/components/print/PrintInvitationEditor.tsx` — hook undo/redo, keydown listener, passaggio props
-- `src/components/print/PrintDesignStep.tsx` — multi-selezione, drag di gruppo, bottoni undo/redo, sidebar adattiva
 
-### File da creare
-- Nessuno (logica undo/redo inline o come hook locale nel file editor)
+- **`src/components/print/PrintDesignStep.tsx`**
+  - Aggiungere `groupId` a `TextBlock`
+  - Selettore formato carta nella sidebar
+  - Logica gruppo: auto-seleziona blocchi dello stesso gruppo al click
+  - Bottoni Raggruppa/Separa nel pannello multi-selezione
+  - Toolbar allineamento/distribuzione (8 bottoni) nel pannello multi-selezione
+  - Prop `aspectRatio` dal formato scelto nella preview
+
+- **`src/components/print/PrintInvitationEditor.tsx`**
+  - Nuovo stato `paperFormat` + salvataggio/caricamento in `PrintDesignConfig`
+  - Passare formato a `PrintDesignStep` e `HiddenPrintNode`
+
+- **`src/components/print/HiddenPrintNode.tsx`**
+  - Ricevere `width`/`height` come props invece di costanti `W`/`H`
 
