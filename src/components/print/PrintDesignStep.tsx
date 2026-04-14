@@ -647,6 +647,10 @@ const PrintDesignStep = ({
     onTextBlocksChange(textBlocks.map(b => b.id === id ? { ...b, style } : b));
   };
 
+  const updateBlockFontSize = (id: string, fontSize: number) => {
+    onTextBlocksChange(textBlocks.map(b => b.id === id ? { ...b, fontSize } : b));
+  };
+
   const updateBlockFont = (id: string, font: FontStyle | undefined) => {
     onTextBlocksChange(textBlocks.map(b => b.id === id ? { ...b, fontOverride: font } : b));
   };
@@ -697,6 +701,9 @@ const PrintDesignStep = ({
   };
   const updateSelectedBlocksStyle = (style: TextBlockStyle) => {
     onTextBlocksChange(textBlocks.map(b => selectedBlockIds.has(b.id) ? { ...b, style } : b));
+  };
+  const updateSelectedBlocksFontSize = (fontSize: number) => {
+    onTextBlocksChange(textBlocks.map(b => selectedBlockIds.has(b.id) ? { ...b, fontSize } : b));
   };
 
   // ── Grouping ──
