@@ -316,6 +316,7 @@ const PrintDesignStep = ({
   const [isQrResizing, setIsQrResizing] = useState(false);
   const [isQrSelected, setIsQrSelected] = useState(false);
   const [draggingBlockId, setDraggingBlockId] = useState<string | null>(null);
+  const [previewZoom, setPreviewZoom] = useState(1);
   const [selectedBlockIds, setSelectedBlockIds] = useState<Set<string>>(new Set());
   const [isLassoing, setIsLassoing] = useState(false);
   const [lassoRect, setLassoRect] = useState<{x1: number; y1: number; x2: number; y2: number} | null>(null);
