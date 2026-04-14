@@ -63,6 +63,7 @@ interface OverlayCanvasEditorProps {
   onQrChange: (config: QROverlayConfig) => void;
   greetingConfig: GreetingOverlayConfig | null;
   onGreetingChange: (config: GreetingOverlayConfig | null) => void;
+  aspectRatio?: number;
 }
 
 const QR_COLOR_PRESETS = [
@@ -163,6 +164,7 @@ const OverlayCanvasEditor = ({
   onQrChange,
   greetingConfig,
   onGreetingChange,
+  aspectRatio,
 }: OverlayCanvasEditorProps) => {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [activeObject, setActiveObject] = useState<ActiveObject>("qr");
@@ -572,7 +574,7 @@ const OverlayCanvasEditor = ({
           style={{
             width: "100%",
             maxWidth: "500px",
-            aspectRatio: "1 / 1.414",
+            aspectRatio: aspectRatio ? `${aspectRatio}` : "0.707",
             touchAction: "none",
           }}
         >
