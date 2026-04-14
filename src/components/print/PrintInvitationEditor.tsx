@@ -144,6 +144,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
   const [qrPosition, setQrPosition] = useState<QrPosition>({ x: 42, y: 85, size: 15 });
   const [textColor, setTextColor] = useState('#1a1a1a');
   const [paperFormat, setPaperFormat] = useState<PaperFormat>('A5');
+  const [paperOrientation, setPaperOrientation] = useState<PaperOrientation>('portrait');
   const blocksUndo = useUndoRedo<TextBlock[]>([]);
   const textBlocks = blocksUndo.value;
   const setTextBlocks = blocksUndo.set;
