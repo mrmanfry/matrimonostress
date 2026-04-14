@@ -341,6 +341,36 @@ const OverlayCanvasEditor = ({
               />
             </div>
 
+            <div className="space-y-2">
+              <Label>Allineamento orizzontale</Label>
+              <div className="flex gap-1.5">
+                <Button
+                  variant={qrConfig.x <= 1 ? "default" : "outline"}
+                  size="sm"
+                  className="flex-1 text-xs"
+                  onClick={() => onQrChange({ ...qrConfig, x: 0 })}
+                >
+                  Sinistra
+                </Button>
+                <Button
+                  variant={Math.abs(qrConfig.x - (50 - qrConfig.width / 2)) < 2 ? "default" : "outline"}
+                  size="sm"
+                  className="flex-1 text-xs"
+                  onClick={() => onQrChange({ ...qrConfig, x: 50 - qrConfig.width / 2 })}
+                >
+                  Centro
+                </Button>
+                <Button
+                  variant={qrConfig.x >= 99 - qrConfig.width ? "default" : "outline"}
+                  size="sm"
+                  className="flex-1 text-xs"
+                  onClick={() => onQrChange({ ...qrConfig, x: 100 - qrConfig.width })}
+                >
+                  Destra
+                </Button>
+              </div>
+            </div>
+
             <div className="space-y-1">
               <Label>Dimensione</Label>
               <p className="text-sm text-muted-foreground">{Math.round(qrConfig.width)}%</p>
@@ -609,7 +639,7 @@ const OverlayCanvasEditor = ({
                 border:
                   activeObject === "qr"
                     ? "2px dashed hsl(var(--primary))"
-                    : "1px dashed hsl(var(--muted-foreground) / 0.4)",
+                    : "none",
               }}
             >
               <QRCodeSVG
@@ -654,7 +684,7 @@ const OverlayCanvasEditor = ({
                   border:
                     activeObject === "greeting"
                       ? "2px dashed hsl(var(--primary))"
-                      : "1px dashed hsl(var(--muted-foreground) / 0.4)",
+                      : "none",
                   minHeight: "1.5em",
                 }}
               >
