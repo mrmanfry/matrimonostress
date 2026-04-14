@@ -1108,20 +1108,97 @@ const PrintDesignStep = ({
               </div>
             </div>
 
-            {/* Per-block size */}
+            {/* Per-block font size — numeric slider */}
             <div className="space-y-1">
-              <Label className="text-xs">Dimensione</Label>
-              <Select value={singleSelectedBlock.style} onValueChange={(v) => updateBlockStyle(singleSelectedBlock.id, v as TextBlockStyle)}>
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(STYLE_LABELS) as TextBlockStyle[]).map(s => (
-                    <SelectItem key={s} value={s}>{STYLE_LABELS[s]}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label className="text-xs flex items-center justify-between">
+                <span>Dimensione</span>
+                <span className="text-muted-foreground">{getEffectiveFontSize(singleSelectedBlock)}px</span>
+              </Label>
+              <div className="flex items-center gap-2">
+                <Slider
+                  value={[getEffectiveFontSize(singleSelectedBlock)]}
+                  onValueChange={([v]) => updateBlockFontSize(singleSelectedBlock.id, v)}
+                  min={8}
+                  max={72}
+                  step={1}
+                  className="flex-1"
+                />
+                <Input
+                  type="number"
+                  min={8}
+                  max={72}
+                  value={getEffectiveFontSize(singleSelectedBlock)}
+                  onChange={(e) => {
+                    const v = Math.max(8, Math.min(72, parseInt(e.target.value) || 14));
+                    updateBlockFontSize(singleSelectedBlock.id, v);
+                  }}
+                  className="w-14 h-7 text-xs text-center"
+                  onClick={(e) => e.stopPropagation()}
+                />
+              </div>
             </div>
+
+            {/* Greeting-specific controls */}
+            {singleSelectedBlock.type === 'greeting' && (
+              <div className="space-y-2 pt-2 border-t border-border/50">
+                <div className="flex items-center gap-1">
+                  <Utensils className="w-3 h-3 text-primary" />
+                  <Label className="text-xs font-semibold text-primary">Impostazioni Saluto</Label>
+                </div>
+                {/* Greeting type */}
+                <div className="space-y-1">
+                  <Label className="text-xs">Formula di saluto</Label>
+                  <Select
+                    value={singleSelectedBlock.greetingType || 'informal'}
+                    onValueChange={(v) => {
+                      onTextBlocksChange(textBlocks.map(b => b.id === singleSelectedBlock.id
+                        ? { ...b, greetingType: v as GreetingType } : b));
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="informal">Informale (Caro/Cara/Cari)</SelectItem>
+                      <SelectItem value="formal">Formale (Gentile/Gentilissimi)</SelectItem>
+                      <SelectItem value="none">Nessuno (solo nomi)</SelectItem>
+                      <SelectItem value="custom">Personalizzato</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {/* Custom greeting input */}
+                {singleSelectedBlock.greetingType === 'custom' && (
+                  <div className="space-y-1">
+                    <Label className="text-xs">Saluto personalizzato</Label>
+                    <Input
+                      value={singleSelectedBlock.customGreeting || ''}
+                      onChange={(e) => {
+                        onTextBlocksChange(textBlocks.map(b => b.id === singleSelectedBlock.id
+                          ? { ...b, customGreeting: e.target.value } : b));
+                      }}
+                      className="h-7 text-xs"
+                      placeholder="Es. Carissimi"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
+                )}
+                {/* AKA toggle */}
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs" htmlFor="use-aka">Usa soprannome (AKA)</Label>
+                  <Switch
+                    id="use-aka"
+                    checked={singleSelectedBlock.useAka || false}
+                    onCheckedChange={(v) => {
+                      onTextBlocksChange(textBlocks.map(b => b.id === singleSelectedBlock.id
+                        ? { ...b, useAka: v } : b));
+                    }}
+                  />
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  💡 In stampa il saluto si adatta automaticamente al nucleo di ogni invitato
+                </p>
+              </div>
+            )}
 
             {/* Text input for selected block */}
             <div className="space-y-1">
