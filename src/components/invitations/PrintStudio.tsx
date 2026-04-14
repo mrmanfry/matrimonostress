@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, ArrowRight, Upload, X, Monitor, FileWarning } from "lucide-react";
@@ -20,6 +22,8 @@ import OverlayCanvasEditor, {
 } from "./OverlayCanvasEditor";
 import { type QROverlayConfig } from "./QRCanvasEditor";
 import { generatePrintPDFs } from "@/lib/printGeneratorEngine";
+import * as pdfjsLib from "pdfjs-dist";
+import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
 interface PrintStudioProps {
   open: boolean;
@@ -43,6 +47,8 @@ const DEFAULT_QR_CONFIG: QROverlayConfig = {
   color: "#000000",
   quietZone: true,
 };
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 const PrintStudio = ({ open, onOpenChange, weddingId }: PrintStudioProps) => {
   const { toast } = useToast();
@@ -127,10 +133,6 @@ const PrintStudio = ({ open, onOpenChange, weddingId }: PrintStudioProps) => {
 
   const rasterizePdfPreview = async (buffer: ArrayBuffer) => {
     try {
-      const pdfjsLib = await import("pdfjs-dist");
-      // Disable worker to avoid CDN/dynamic import issues in sandboxed environments
-      pdfjsLib.GlobalWorkerOptions.workerSrc = "";
-
       const loadingTask = pdfjsLib.getDocument({
         data: new Uint8Array(buffer),
         useWorkerFetch: false,
@@ -147,6 +149,7 @@ const PrintStudio = ({ open, onOpenChange, weddingId }: PrintStudioProps) => {
       const ctx = canvas.getContext("2d")!;
 
       await page.render({ canvasContext: ctx, viewport, canvas } as any).promise;
+      page.cleanup();
       setPreviewUrl(canvas.toDataURL("image/png"));
     } catch (err) {
       console.error("Error rasterizing PDF:", err);
@@ -424,6 +427,10 @@ const PrintStudio = ({ open, onOpenChange, weddingId }: PrintStudioProps) => {
           if (step === 4 && !isSuccess) e.preventDefault();
         }}
       >
+        <DialogTitle className="sr-only">Carica il tuo Design</DialogTitle>
+        <DialogDescription className="sr-only">
+          Carica un PDF o un'immagine del tuo invito, posiziona QR code e saluto dinamico e genera le versioni per i destinatari.
+        </DialogDescription>
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <div className="flex items-center gap-4">
