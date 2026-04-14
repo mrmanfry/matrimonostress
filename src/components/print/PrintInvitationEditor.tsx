@@ -301,6 +301,7 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
       textBlocks,
       qrPosition,
       textColor,
+      paperFormat,
     };
 
     await supabase
