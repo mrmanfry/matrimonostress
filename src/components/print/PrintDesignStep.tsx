@@ -1467,7 +1467,7 @@ const PrintDesignStep = ({
             </>
           )}
 
-          {/* Individual text blocks — each draggable */}
+          {/* Individual text blocks — each draggable + resizable */}
           {textBlocks.map((block) => {
             if (!block.value && block.type !== 'greeting') return null;
             const blockFont = block.fontOverride ? FONT_MAP[block.fontOverride] : fontFamily;
@@ -1475,6 +1475,7 @@ const PrintDesignStep = ({
             const { className, style } = getBlockPreviewStyle(block, blockFont, blockColor);
             const isSelected = selectedBlockIds.has(block.id);
             const isBeingDragged = draggingBlockId === block.id;
+            const hasWidth = block.widthPct && block.widthPct > 0;
 
             return (
               <div
@@ -1486,12 +1487,14 @@ const PrintDesignStep = ({
                   transform: 'translateX(-50%)',
                   cursor: isBeingDragged ? 'grabbing' : 'grab',
                   touchAction: 'none',
-                  maxWidth: '90%',
+                  width: hasWidth ? `${block.widthPct}%` : undefined,
+                  maxWidth: hasWidth ? undefined : '90%',
                   padding: isSelected ? '2px 4px' : undefined,
                 }}
                 onPointerDown={(e) => handleBlockPointerDown(e, block.id)}
                 onClick={(e) => {
                   e.stopPropagation();
+                  setIsQrSelected(false);
                   if (e.shiftKey || e.ctrlKey || e.metaKey) {
                     setSelectedBlockIds(prev => expandSelectionForGroups(new Set([...prev, block.id])));
                   } else {
@@ -1499,18 +1502,25 @@ const PrintDesignStep = ({
                   }
                 }}
               >
-                <p className={`pointer-events-none whitespace-nowrap ${className}`} style={style}>
+                <p className={`pointer-events-none ${hasWidth ? 'whitespace-normal break-words' : 'whitespace-nowrap'} ${className}`} style={style}>
                   {block.type === 'greeting' ? (
                     <>{block.value} <span className="font-semibold">Famiglia Rossi</span></>
                   ) : block.value}
                 </p>
+                {/* Resize handle — right edge */}
+                {isSelected && (
+                  <div
+                    className="absolute -right-1.5 top-1/2 -translate-y-1/2 w-3 h-6 bg-primary rounded-full cursor-ew-resize border-2 border-background shadow-sm z-20"
+                    onPointerDown={(e) => handleBlockResizeDown(e, block.id)}
+                  />
+                )}
               </div>
             );
           })}
 
           {/* QR Code overlay — draggable + resizable */}
           <div
-            className="absolute z-10"
+            className={`absolute z-10 ${isQrSelected ? 'ring-2 ring-primary/50 rounded' : ''}`}
             style={{
               left: `${qrPosition.x}%`,
               top: `${qrPosition.y}%`,
@@ -1526,7 +1536,7 @@ const PrintDesignStep = ({
               style={{
                 backgroundColor: '#ffffff',
                 padding: '8%',
-                border: '2px dashed hsl(var(--primary))',
+                border: isQrSelected ? '2px dashed hsl(var(--primary))' : 'none',
               }}
             >
               <QRCodeSVG
