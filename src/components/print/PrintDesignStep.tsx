@@ -1528,7 +1528,7 @@ const PrintDesignStep = ({
                   }
                 }}
               >
-                <p className={`pointer-events-none ${hasWidth ? 'whitespace-normal break-words' : 'whitespace-nowrap'} ${className}`} style={style}>
+                <p className={`pointer-events-none ${hasWidth ? 'whitespace-normal break-words' : 'whitespace-nowrap'} ${className}`} style={{ ...style, ...(hasWidth && block.lineHeight ? { lineHeight: block.lineHeight } : {}) }}>
                   {block.type === 'greeting' ? (
                     <>{block.value} <span className="font-semibold">Famiglia Rossi</span></>
                   ) : block.value}
