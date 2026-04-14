@@ -1002,7 +1002,51 @@ const PrintDesignStep = ({
                 <X className="w-3 h-3" />
               </Button>
             </div>
-            <p className="text-[10px] text-muted-foreground">Trascina un elemento per muoverli tutti insieme. Usa i controlli sotto per applicare stile a tutti.</p>
+            <p className="text-[10px] text-muted-foreground">Trascina un elemento per muoverli tutti insieme.</p>
+
+            {/* Alignment toolbar */}
+            <div className="space-y-1">
+              <Label className="text-xs">Allinea</Label>
+              <div className="flex flex-wrap gap-1">
+                <Button variant="outline" size="icon" className="h-7 w-7" onClick={alignLeft} title="Allinea a sinistra">
+                  <AlignLeft className="w-3.5 h-3.5" />
+                </Button>
+                <Button variant="outline" size="icon" className="h-7 w-7" onClick={alignCenterH} title="Centra orizzontalmente">
+                  <AlignCenter className="w-3.5 h-3.5" />
+                </Button>
+                <Button variant="outline" size="icon" className="h-7 w-7" onClick={alignRight} title="Allinea a destra">
+                  <AlignRight className="w-3.5 h-3.5" />
+                </Button>
+                <Button variant="outline" size="icon" className="h-7 w-7" onClick={alignTop} title="Allinea in alto">
+                  <AlignStartVertical className="w-3.5 h-3.5" />
+                </Button>
+                <Button variant="outline" size="icon" className="h-7 w-7" onClick={alignCenterV} title="Centra verticalmente">
+                  <AlignCenterVertical className="w-3.5 h-3.5" />
+                </Button>
+                <Button variant="outline" size="icon" className="h-7 w-7" onClick={alignBottom} title="Allinea in basso">
+                  <AlignEndVertical className="w-3.5 h-3.5" />
+                </Button>
+                <Button variant="outline" size="icon" className="h-7 w-7" onClick={distributeH} title="Distribuisci orizzontalmente" disabled={selectedBlockIds.size < 3}>
+                  <Columns3 className="w-3.5 h-3.5" />
+                </Button>
+                <Button variant="outline" size="icon" className="h-7 w-7" onClick={distributeV} title="Distribuisci verticalmente" disabled={selectedBlockIds.size < 3}>
+                  <Rows3 className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Group / Ungroup */}
+            <div className="flex gap-2">
+              {!selectedHaveGroup ? (
+                <Button variant="outline" size="sm" className="h-7 text-xs gap-1 flex-1" onClick={groupSelected}>
+                  <Group className="w-3.5 h-3.5" /> Raggruppa
+                </Button>
+              ) : (
+                <Button variant="outline" size="sm" className="h-7 text-xs gap-1 flex-1" onClick={ungroupSelected}>
+                  <Ungroup className="w-3.5 h-3.5" /> Separa
+                </Button>
+              )}
+            </div>
 
             <div className="space-y-1">
               <Label className="text-xs flex items-center gap-1"><Type className="w-3 h-3" /> Font (tutti)</Label>
