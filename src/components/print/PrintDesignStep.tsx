@@ -828,6 +828,21 @@ const PrintDesignStep = ({
           </div>
         </div>
 
+        {/* Paper format */}
+        <div className="space-y-2">
+          <Label>Formato carta</Label>
+          <Select value={paperFormat} onValueChange={(v) => onPaperFormatChange(v as PaperFormat)}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {(Object.keys(PAPER_FORMATS) as PaperFormat[]).map(f => (
+                <SelectItem key={f} value={f}>{PAPER_FORMATS[f].label} — {PAPER_FORMATS[f].mmLabel}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className="flex items-center justify-between">
           <Label htmlFor="safe-zone">Mostra margini di sicurezza</Label>
           <Switch
