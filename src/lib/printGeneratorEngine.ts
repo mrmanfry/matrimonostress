@@ -1,4 +1,6 @@
 import type { QROverlayConfig } from "@/components/invitations/QRCanvasEditor";
+import type { GreetingOverlayConfig } from "@/components/invitations/OverlayCanvasEditor";
+import { generateGreetingString, type MockParty } from "@/lib/greetingEngine";
 
 interface PartyTarget {
   partyId: string;
@@ -10,17 +12,10 @@ interface GenerationCallbacks {
   onProgress: (index: number, total: number, partyName: string) => void;
 }
 
-/**
- * Sanitize a filename for ZIP entry
- */
 function sanitizeFileName(name: string): string {
   return name.replace(/[^a-zA-Z0-9À-ÿ\s_-]/g, "").replace(/\s+/g, "_");
 }
 
-/**
- * Generate a QR code SVG string for a given URL and color.
- * Uses a simple QR generation approach via qrcode library.
- */
 async function generateQRSvgBytes(url: string, color: string, size: number): Promise<Uint8Array> {
   const QRCode = (await import("qrcode")).default;
   const svgString = await QRCode.toString(url, {
@@ -34,9 +29,41 @@ async function generateQRSvgBytes(url: string, color: string, size: number): Pro
 }
 
 /**
+ * Build a simple MockParty from displayName for greeting rendering.
+ * In a real scenario we'd pass full guest data; for now we parse displayName.
+ */
+function buildMockPartyFromName(displayName: string): MockParty {
+  const parts = displayName.split(" e ");
+  if (parts.length === 2) {
+    // Couple: "Marco Rossi e Giulia Bianchi"
+    const [first, ...lastParts1] = parts[0].trim().split(" ");
+    const [first2, ...lastParts2] = parts[1].trim().split(" ");
+    return {
+      isNucleo: false,
+      members: [
+        { name: first || parts[0], lastName: lastParts1.join(" ") || "." },
+        { name: first2 || parts[1], lastName: lastParts2.join(" ") || "." },
+      ],
+    };
+  }
+  if (displayName.startsWith("Famiglia ")) {
+    const familyName = displayName.replace("Famiglia ", "");
+    return {
+      isNucleo: true,
+      nucleusName: displayName,
+      members: [{ name: familyName, lastName: familyName }],
+    };
+  }
+  // Single
+  const [first, ...lastParts] = displayName.split(" ");
+  return {
+    isNucleo: false,
+    members: [{ name: first || displayName, lastName: lastParts.join(" ") || "." }],
+  };
+}
+
+/**
  * Main generation engine.
- * Receives template bytes (PDF or image), QR config, and list of parties.
- * Returns a Blob (ZIP if multiple, single PDF if one).
  */
 export async function generatePrintPDFs(
   templateBytes: ArrayBuffer,
@@ -44,9 +71,14 @@ export async function generatePrintPDFs(
   qrConfig: QROverlayConfig,
   parties: PartyTarget[],
   rsvpBaseUrl: string,
-  callbacks: GenerationCallbacks
+  callbacks: GenerationCallbacks,
+  greetingConfig?: GreetingOverlayConfig
 ): Promise<{ blob: Blob; fileName: string }> {
-  const { PDFDocument, rgb } = await import("pdf-lib");
+  const { PDFDocument, rgb, StandardFonts } = await import("pdf-lib");
+
+  // Pre-load a standard font for greeting text (custom font embedding is complex;
+  // we use Helvetica as a reliable fallback for PDF generation)
+  let greetingFont: Awaited<ReturnType<typeof PDFDocument.prototype.embedFont>> | null = null;
 
   const pdfBlobs: { name: string; blob: Blob }[] = [];
 
@@ -54,20 +86,16 @@ export async function generatePrintPDFs(
     const party = parties[i];
     callbacks.onProgress(i + 1, parties.length, party.displayName);
 
-    // Small delay to let UI update
     await new Promise((r) => setTimeout(r, 50));
 
     let pdfDoc: Awaited<ReturnType<typeof PDFDocument.load>>;
 
     if (templateType === "pdf") {
-      // Load original PDF
       pdfDoc = await PDFDocument.load(templateBytes);
     } else {
-      // Create new PDF with image
       pdfDoc = await PDFDocument.create();
       const imgBytes = new Uint8Array(templateBytes);
-      
-      // Detect image type
+
       let img;
       const header = Array.from(imgBytes.slice(0, 4)).map(b => b.toString(16)).join("");
       if (header.startsWith("89504e47")) {
@@ -75,16 +103,14 @@ export async function generatePrintPDFs(
       } else {
         img = await pdfDoc.embedJpg(imgBytes);
       }
-      
-      // A5 dimensions in points: 419.53 x 595.28
+
       const page = pdfDoc.addPage([419.53, 595.28]);
       const { width: pageW, height: pageH } = page.getSize();
-      
-      // Scale image to fill page
+
       const scale = Math.max(pageW / img.width, pageH / img.height);
       const scaledW = img.width * scale;
       const scaledH = img.height * scale;
-      
+
       page.drawImage(img, {
         x: (pageW - scaledW) / 2,
         y: (pageH - scaledH) / 2,
@@ -93,23 +119,18 @@ export async function generatePrintPDFs(
       });
     }
 
-    // Get the first page to inject QR
     const pages = pdfDoc.getPages();
     const page = pages[0];
     const { width: pageW, height: pageH } = page.getSize();
 
-    // Calculate QR position in PDF coordinates
-    // qrConfig uses percentage: x/y from top-left, width as % of page width
+    // --- QR Code ---
     const qrWidthPt = (qrConfig.width / 100) * pageW;
     const qrX = (qrConfig.x / 100) * pageW;
-    // PDF y-axis is bottom-up, so flip
     const qrY = pageH - (qrConfig.y / 100) * pageH - qrWidthPt;
 
-    // Generate QR code as SVG
     const rsvpUrl = `${rsvpBaseUrl}/${party.syncToken}`;
     const qrSvgBytes = await generateQRSvgBytes(rsvpUrl, qrConfig.color, Math.round(qrWidthPt));
 
-    // Draw quiet zone background if enabled
     if (qrConfig.quietZone) {
       const padding = qrWidthPt * 0.08;
       page.drawRectangle({
@@ -121,7 +142,6 @@ export async function generatePrintPDFs(
       });
     }
 
-    // Embed QR SVG as image (convert SVG to PNG via canvas for pdf-lib compatibility)
     const qrPngBytes = await svgToPng(qrSvgBytes, Math.round(qrWidthPt * 2));
     const qrImage = await pdfDoc.embedPng(qrPngBytes);
 
@@ -132,6 +152,50 @@ export async function generatePrintPDFs(
       height: qrWidthPt,
     });
 
+    // --- Greeting Text ---
+    if (greetingConfig) {
+      if (!greetingFont) {
+        greetingFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      } else {
+        // Re-embed for each new doc
+        greetingFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      }
+
+      const mockParty = buildMockPartyFromName(party.displayName);
+      const greeting = generateGreetingString({
+        greetingType: greetingConfig.greetingType,
+        customGreeting: greetingConfig.customGreeting,
+        useAka: greetingConfig.useAka,
+        party: mockParty,
+      });
+
+      if (greeting.full) {
+        const greetFontSize = greetingConfig.fontSize;
+        const greetWidthPt = (greetingConfig.width / 100) * pageW;
+        const greetX = (greetingConfig.x / 100) * pageW;
+        // PDF y is bottom-up; greeting y is from top
+        const greetY = pageH - (greetingConfig.y / 100) * pageH - greetFontSize;
+
+        // Parse color hex to RGB
+        const hex = greetingConfig.color.replace("#", "");
+        const r = parseInt(hex.substring(0, 2), 16) / 255;
+        const g = parseInt(hex.substring(2, 4), 16) / 255;
+        const b = parseInt(hex.substring(4, 6), 16) / 255;
+
+        // Center text within the greeting box
+        const textWidth = greetingFont.widthOfTextAtSize(greeting.full, greetFontSize);
+        const textX = greetX + Math.max(0, (greetWidthPt - textWidth) / 2);
+
+        page.drawText(greeting.full, {
+          x: textX,
+          y: greetY,
+          size: greetFontSize,
+          font: greetingFont,
+          color: rgb(r, g, b),
+        });
+      }
+    }
+
     const pdfBytes = await pdfDoc.save();
     const fileName = `Invito_${sanitizeFileName(party.displayName)}.pdf`;
     pdfBlobs.push({ name: fileName, blob: new Blob([pdfBytes as BlobPart], { type: "application/pdf" }) });
@@ -141,7 +205,6 @@ export async function generatePrintPDFs(
     return { blob: pdfBlobs[0].blob, fileName: pdfBlobs[0].name };
   }
 
-  // Bundle into ZIP
   const JSZip = (await import("jszip")).default;
   const zip = new JSZip();
 
