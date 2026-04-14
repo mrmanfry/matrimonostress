@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue } from
 "@/components/ui/select";
-import { Upload, ImageIcon, RotateCcw, GripVertical, QrCode, Plus, X, ChevronUp, ChevronDown, Type, Palette, MousePointer, Undo2, Redo2, Group, Ungroup, AlignHorizontalJustifyStart, AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, Columns3, Rows3, AlignLeft, AlignCenter, AlignRight } from "lucide-react";
+import { Upload, ImageIcon, RotateCcw, GripVertical, QrCode, Plus, Minus, X, ChevronUp, ChevronDown, Type, Palette, MousePointer, Undo2, Redo2, Group, Ungroup, AlignHorizontalJustifyStart, AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, Columns3, Rows3, AlignLeft, AlignCenter, AlignRight, ZoomIn } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
 import { QRCodeSVG } from "qrcode.react";
@@ -316,6 +316,7 @@ const PrintDesignStep = ({
   const [isQrResizing, setIsQrResizing] = useState(false);
   const [isQrSelected, setIsQrSelected] = useState(false);
   const [draggingBlockId, setDraggingBlockId] = useState<string | null>(null);
+  const [previewZoom, setPreviewZoom] = useState(1);
   const [selectedBlockIds, setSelectedBlockIds] = useState<Set<string>>(new Set());
   const [isLassoing, setIsLassoing] = useState(false);
   const [lassoRect, setLassoRect] = useState<{x1: number; y1: number; x2: number; y2: number} | null>(null);
@@ -1463,17 +1464,40 @@ const PrintDesignStep = ({
         )}
 
         <div
-          className="flex-1 flex items-center justify-center p-4 md:p-8"
+          className="flex-1 flex items-center justify-center p-4 md:p-8 relative"
           onPointerMove={handlePreviewPointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
+          onWheel={(e) => {
+            if (e.ctrlKey || e.metaKey) {
+              e.preventDefault();
+              setPreviewZoom(z => Math.max(0.5, Math.min(3, z - e.deltaY * 0.002)));
+            }
+          }}
       >
+        {/* Zoom controls */}
+        <div className="absolute bottom-3 right-3 z-30 flex items-center gap-1 bg-background/90 backdrop-blur-sm border border-border rounded-lg px-1 py-0.5 shadow-sm">
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setPreviewZoom(z => Math.max(0.5, z - 0.1))} title="Riduci zoom">
+            <Minus className="w-3.5 h-3.5" />
+          </Button>
+          <button
+            className="text-xs text-muted-foreground w-12 text-center hover:text-foreground transition-colors"
+            onClick={() => setPreviewZoom(1)}
+            title="Ripristina zoom"
+          >
+            {Math.round(previewZoom * 100)}%
+          </button>
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setPreviewZoom(z => Math.min(3, z + 0.1))} title="Aumenta zoom">
+            <Plus className="w-3.5 h-3.5" />
+          </Button>
+        </div>
+
         <div
           ref={previewRef}
           className="relative bg-white shadow-xl rounded-sm overflow-hidden select-none"
           style={{
             width: '100%',
-            maxWidth: '400px',
+            maxWidth: `${400 * previewZoom}px`,
             aspectRatio: `${getPaperDimensions(paperFormat, paperOrientation).w} / ${getPaperDimensions(paperFormat, paperOrientation).h}`,
             fontFamily,
             touchAction: 'none',
