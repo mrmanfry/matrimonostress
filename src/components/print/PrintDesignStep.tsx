@@ -75,6 +75,7 @@ export interface TextBlock {
   fontOverride?: FontStyle;
   colorOverride?: string;
   groupId?: string;
+  widthPct?: number; // % of canvas width — if set, text wraps
 }
 
 // --- Migration utility ---
@@ -311,13 +312,16 @@ const PrintDesignStep = ({
   const [isDragging, setIsDragging] = useState(false);
   const [isQrDragging, setIsQrDragging] = useState(false);
   const [isQrResizing, setIsQrResizing] = useState(false);
+  const [isQrSelected, setIsQrSelected] = useState(false);
   const [draggingBlockId, setDraggingBlockId] = useState<string | null>(null);
   const [selectedBlockIds, setSelectedBlockIds] = useState<Set<string>>(new Set());
   const [isLassoing, setIsLassoing] = useState(false);
   const [lassoRect, setLassoRect] = useState<{x1: number; y1: number; x2: number; y2: number} | null>(null);
+  const [resizingBlockId, setResizingBlockId] = useState<string | null>(null);
   const lassoStartRef = useRef<{startX: number; startY: number} | null>(null);
   const dragStartRef = useRef<{startX: number;startY: number;startTx: number;startTy: number;} | null>(null);
   const blockDragRef = useRef<{startX: number; startY: number; origPositions: Record<string, {x: number; y: number}>} | null>(null);
+  const blockResizeRef = useRef<{startX: number; origWidth: number; blockId: string} | null>(null);
   
   const qrDragRef = useRef<{startX: number; startY: number; origX: number; origY: number} | null>(null);
   const qrResizeRef = useRef<{startX: number; origSize: number} | null>(null);
