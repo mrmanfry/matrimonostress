@@ -451,10 +451,10 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
 
         const imgData = canvas.toDataURL('image/jpeg', 0.92);
 
-        const fmt = PAPER_FORMATS[paperFormat];
-        const mmW = fmt.w / 300 * 25.4;
-        const mmH = fmt.h / 300 * 25.4;
-        const pdf = new jsPDF({ orientation: mmH > mmW ? 'portrait' : 'landscape', unit: 'mm', format: [mmW, mmH] });
+        const dims = getPaperDimensions(paperFormat, paperOrientation);
+        const mmW = dims.w / 300 * 25.4;
+        const mmH = dims.h / 300 * 25.4;
+        const pdf = new jsPDF({ orientation: paperOrientation === 'landscape' ? 'landscape' : 'portrait', unit: 'mm', format: [Math.min(mmW, mmH), Math.max(mmW, mmH)] });
         pdf.addImage(imgData, 'JPEG', 0, 0, mmW, mmH);
 
         const fileName = `Invito_${sanitizeFileName(party.displayName)}.pdf`;
