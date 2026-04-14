@@ -721,6 +721,7 @@ const PrintDesignStep = ({
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
     setIsLassoing(true);
+    setIsQrSelected(false);
     lassoStartRef.current = { startX: e.clientX, startY: e.clientY };
     setLassoRect({ x1: x, y1: y, x2: x, y2: y });
     // Deselect unless holding shift
