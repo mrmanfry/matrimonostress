@@ -50,6 +50,12 @@ export interface GreetingResult {
   namePart: string;
 }
 
+function resolvePluralPrefix(adults: MockGuestMember[], greetingType: 'informal' | 'formal'): string {
+  const allFemale = adults.length > 0 && adults.every(m => resolveGender(m) === 'F');
+  if (greetingType === 'formal') return allFemale ? 'Gentilissime' : 'Gentilissimi';
+  return allFemale ? 'Care' : 'Cari';
+}
+
 export function generateGreetingString(opts: {
   greetingType: GreetingType;
   customGreeting?: string;
@@ -84,7 +90,11 @@ export function generateGreetingString(opts: {
   if (party.isNucleo || adults.length > 2) {
     const familyName = party.nucleusName
       || `Famiglia ${adults[0].lastName}`;
-    const prefix = greetingType === 'informal' ? 'Cari' : 'Gentilissimi';
+    // "Famiglia X" → always masculine plural (Italian convention)
+    const isFamiglia = familyName.trim().toLowerCase().startsWith('famiglia');
+    const prefix = isFamiglia
+      ? (greetingType === 'informal' ? 'Cari' : 'Gentilissimi')
+      : resolvePluralPrefix(adults, greetingType);
     return {
       full: `${prefix} ${familyName}`,
       prefix,
@@ -102,9 +112,8 @@ export function generateGreetingString(opts: {
     if (greetingType === 'formal') {
       prefix = 'Gentile';
     } else {
-      // informal
       if (gender === null) {
-        prefix = 'Gentile'; // fallback for unknown gender
+        prefix = 'Gentile';
       } else {
         prefix = gender === 'F' ? 'Cara' : 'Caro';
       }
@@ -125,7 +134,7 @@ export function generateGreetingString(opts: {
     return { full: `${prefix} ${familyName}`, prefix, namePart: familyName };
   }
 
-  const prefix = greetingType === 'informal' ? 'Cari' : 'Gentilissimi';
+  const prefix = resolvePluralPrefix(adults, greetingType);
   return { full: `${prefix} ${namePart}`, prefix, namePart };
 }
 

@@ -134,6 +134,18 @@ const STRESS_MOCKS: Record<string, { label: string; icon: React.ReactNode; party
       ],
     },
   },
+  femaleCouple: {
+    label: "Coppia F",
+    icon: <Users className="w-3.5 h-3.5" />,
+    party: {
+      isNucleo: true,
+      nucleusName: "Alessandra e Mariachiara",
+      members: [
+        { name: "Alessandra", lastName: "Conti", gender: "F" as const },
+        { name: "Mariachiara", lastName: "Conti", gender: "F" as const },
+      ],
+    },
+  },
   nucleus: {
     label: "Nucleo",
     icon: <Home className="w-3.5 h-3.5" />,
