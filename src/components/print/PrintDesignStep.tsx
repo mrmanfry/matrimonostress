@@ -1714,7 +1714,7 @@ const PrintDesignStep = ({
             if (!block.value && block.type !== 'greeting') return null;
             const blockFont = block.fontOverride ? FONT_MAP[block.fontOverride] : fontFamily;
             const blockColor = block.colorOverride || textColor;
-            const { className, style } = getBlockPreviewStyle(block, blockFont, blockColor);
+            const { className, style } = getBlockPreviewStyle(block, blockFont, blockColor, !!block.colorOverride);
             const isSelected = selectedBlockIds.has(block.id);
             const isBeingDragged = draggingBlockId === block.id;
             const hasWidth = block.widthPct && block.widthPct > 0;
