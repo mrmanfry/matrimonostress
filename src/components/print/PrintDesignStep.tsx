@@ -376,7 +376,7 @@ const PrintDesignStep = ({
     lassoStartRef.current = null;
   }, []);
 
-  // Keyboard shortcuts for undo/redo
+  // Keyboard shortcuts for undo/redo + arrow keys for selected blocks
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
@@ -387,10 +387,28 @@ const PrintDesignStep = ({
         e.preventDefault();
         onRedo();
       }
+      // Arrow keys to move selected blocks
+      if (selectedBlockIds.size > 0 && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        // Don't move if focus is on an input/textarea/select
+        const tag = (e.target as HTMLElement)?.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+        e.preventDefault();
+        const step = e.shiftKey ? 2 : 0.5;
+        const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
+        const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
+        onTextBlocksChange(textBlocks.map(b => {
+          if (!selectedBlockIds.has(b.id)) return b;
+          return {
+            ...b,
+            x: Math.max(2, Math.min(98, b.x + dx)),
+            y: Math.max(2, Math.min(98, b.y + dy)),
+          };
+        }));
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [onUndo, onRedo]);
+  }, [onUndo, onRedo, selectedBlockIds, textBlocks, onTextBlocksChange]);
 
   // Block drag — multi-select aware
   const handleBlockPointerDown = useCallback((e: React.PointerEvent, blockId: string) => {
@@ -1016,108 +1034,7 @@ const PrintDesignStep = ({
           </div>
         )}
 
-        {/* Multi-selection controls */}
-        {selectedBlockIds.size > 1 && (
-          <div className="space-y-3 pt-3 border-t border-primary/30 bg-primary/5 -mx-4 md:-mx-6 px-4 md:px-6 pb-3">
-            <div className="flex items-center gap-2">
-              <MousePointer className="w-4 h-4 text-primary" />
-              <h3 className="text-sm font-semibold text-primary">
-                {selectedBlockIds.size} elementi selezionati
-              </h3>
-              <Button variant="ghost" size="icon" className="h-5 w-5 ml-auto" onClick={() => setSelectedBlockIds(new Set())}>
-                <X className="w-3 h-3" />
-              </Button>
-            </div>
-            <p className="text-[10px] text-muted-foreground">Trascina un elemento per muoverli tutti insieme.</p>
-
-            {/* Alignment toolbar */}
-            <div className="space-y-1">
-              <Label className="text-xs">Allinea</Label>
-              <div className="flex flex-wrap gap-1">
-                <Button variant="outline" size="icon" className="h-7 w-7" onClick={alignLeft} title="Allinea a sinistra">
-                  <AlignLeft className="w-3.5 h-3.5" />
-                </Button>
-                <Button variant="outline" size="icon" className="h-7 w-7" onClick={alignCenterH} title="Centra orizzontalmente">
-                  <AlignCenter className="w-3.5 h-3.5" />
-                </Button>
-                <Button variant="outline" size="icon" className="h-7 w-7" onClick={alignRight} title="Allinea a destra">
-                  <AlignRight className="w-3.5 h-3.5" />
-                </Button>
-                <Button variant="outline" size="icon" className="h-7 w-7" onClick={alignTop} title="Allinea in alto">
-                  <AlignStartVertical className="w-3.5 h-3.5" />
-                </Button>
-                <Button variant="outline" size="icon" className="h-7 w-7" onClick={alignCenterV} title="Centra verticalmente">
-                  <AlignCenterVertical className="w-3.5 h-3.5" />
-                </Button>
-                <Button variant="outline" size="icon" className="h-7 w-7" onClick={alignBottom} title="Allinea in basso">
-                  <AlignEndVertical className="w-3.5 h-3.5" />
-                </Button>
-                <Button variant="outline" size="icon" className="h-7 w-7" onClick={distributeH} title="Distribuisci orizzontalmente" disabled={selectedBlockIds.size < 3}>
-                  <Columns3 className="w-3.5 h-3.5" />
-                </Button>
-                <Button variant="outline" size="icon" className="h-7 w-7" onClick={distributeV} title="Distribuisci verticalmente" disabled={selectedBlockIds.size < 3}>
-                  <Rows3 className="w-3.5 h-3.5" />
-                </Button>
-              </div>
-            </div>
-
-            {/* Group / Ungroup */}
-            <div className="flex gap-2">
-              {!selectedHaveGroup ? (
-                <Button variant="outline" size="sm" className="h-7 text-xs gap-1 flex-1" onClick={groupSelected}>
-                  <Group className="w-3.5 h-3.5" /> Raggruppa
-                </Button>
-              ) : (
-                <Button variant="outline" size="sm" className="h-7 text-xs gap-1 flex-1" onClick={ungroupSelected}>
-                  <Ungroup className="w-3.5 h-3.5" /> Separa
-                </Button>
-              )}
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-xs flex items-center gap-1"><Type className="w-3 h-3" /> Font (tutti)</Label>
-              <Select value="__bulk__" onValueChange={(v) => updateSelectedBlocksFont(v === '__global__' ? undefined : v as FontStyle)}>
-                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Cambia font..." /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__global__">Usa globale</SelectItem>
-                  {FONT_GROUPS.map((group) => (
-                    <SelectGroup key={group.label}>
-                      <SelectLabel>{group.label}</SelectLabel>
-                      {group.fonts.map((f) => (
-                        <SelectItem key={f.key} value={f.key}>
-                          <span style={{ fontFamily: FONT_MAP[f.key] }}>{f.label}</span>
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-xs flex items-center gap-1"><Palette className="w-3 h-3" /> Colore (tutti)</Label>
-              <div className="flex gap-1.5 flex-wrap items-center">
-                <button onClick={() => updateSelectedBlocksColor(undefined)} className="h-7 px-2 text-[10px] rounded border border-border">Globale</button>
-                {TEXT_COLOR_PRESETS.map((preset) => (
-                  <button key={preset.value} onClick={() => updateSelectedBlocksColor(preset.value)}
-                    className="w-7 h-7 rounded border-2 border-border" style={{ backgroundColor: preset.value }} title={preset.label} />
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-xs">Dimensione (tutti)</Label>
-              <Select value="__bulk__" onValueChange={(v) => updateSelectedBlocksStyle(v as TextBlockStyle)}>
-                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Cambia dimensione..." /></SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(STYLE_LABELS) as TextBlockStyle[]).map(s => (
-                    <SelectItem key={s} value={s}>{STYLE_LABELS[s]}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        )}
+        {/* Multi-selection controls moved to toolbar above preview */}
 
         {/* Editable text blocks */}
         <div className="space-y-2 pt-2 border-t border-border">
@@ -1247,10 +1164,166 @@ const PrintDesignStep = ({
 
       {/* Preview Area */}
       <div
-        className="flex-1 bg-muted/30 flex items-center justify-center p-4 md:p-8 overflow-auto"
-        onPointerMove={handlePreviewPointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
+        className="flex-1 bg-muted/30 flex flex-col overflow-auto"
+      >
+        {/* Word-style floating toolbar above canvas */}
+        {selectedBlockIds.size >= 1 && (
+          <div className="flex-shrink-0 bg-background border-b border-border px-3 py-1.5 flex flex-wrap items-center gap-1.5">
+            {/* Selection label */}
+            <span className="text-xs font-medium text-muted-foreground mr-1">
+              {selectedBlockIds.size === 1
+                ? (textBlocks.find(b => selectedBlockIds.has(b.id))?.label ?? 'Elemento')
+                : `${selectedBlockIds.size} elementi`}
+            </span>
+            <div className="w-px h-5 bg-border mx-0.5" />
+
+            {/* Font selector */}
+            <Select
+              value={selectedBlockIds.size === 1
+                ? (textBlocks.find(b => selectedBlockIds.has(b.id))?.fontOverride || '__global__')
+                : '__bulk__'}
+              onValueChange={(v) => {
+                const font = v === '__global__' ? undefined : v as FontStyle;
+                if (selectedBlockIds.size === 1) {
+                  const id = [...selectedBlockIds][0];
+                  updateBlockFont(id, font);
+                } else {
+                  updateSelectedBlocksFont(font);
+                }
+              }}
+            >
+              <SelectTrigger className="h-7 text-xs w-[130px] gap-1">
+                <Type className="w-3 h-3 flex-shrink-0" />
+                <SelectValue placeholder="Font..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__global__">Globale</SelectItem>
+                {FONT_GROUPS.map((group) => (
+                  <SelectGroup key={group.label}>
+                    <SelectLabel>{group.label}</SelectLabel>
+                    {group.fonts.map((f) => (
+                      <SelectItem key={f.key} value={f.key}>
+                        <span style={{ fontFamily: FONT_MAP[f.key] }}>{f.label}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Size selector */}
+            <Select
+              value={selectedBlockIds.size === 1
+                ? (textBlocks.find(b => selectedBlockIds.has(b.id))?.style || 'secondary')
+                : '__bulk__'}
+              onValueChange={(v) => {
+                if (selectedBlockIds.size === 1) {
+                  updateBlockStyle([...selectedBlockIds][0], v as TextBlockStyle);
+                } else {
+                  updateSelectedBlocksStyle(v as TextBlockStyle);
+                }
+              }}
+            >
+              <SelectTrigger className="h-7 text-xs w-[90px]">
+                <SelectValue placeholder="Dimensione" />
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.keys(STYLE_LABELS) as TextBlockStyle[]).map(s => (
+                  <SelectItem key={s} value={s}>{STYLE_LABELS[s]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <div className="w-px h-5 bg-border mx-0.5" />
+
+            {/* Color presets */}
+            {TEXT_COLOR_PRESETS.map((preset) => (
+              <button
+                key={preset.value}
+                onClick={() => {
+                  if (selectedBlockIds.size === 1) {
+                    updateBlockColor([...selectedBlockIds][0], preset.value);
+                  } else {
+                    updateSelectedBlocksColor(preset.value);
+                  }
+                }}
+                className="w-6 h-6 rounded border border-border hover:ring-1 hover:ring-primary/40 transition-all flex-shrink-0"
+                style={{ backgroundColor: preset.value }}
+                title={preset.label}
+              />
+            ))}
+            <button
+              onClick={() => {
+                if (selectedBlockIds.size === 1) {
+                  updateBlockColor([...selectedBlockIds][0], undefined);
+                } else {
+                  updateSelectedBlocksColor(undefined);
+                }
+              }}
+              className="h-6 px-1.5 text-[10px] rounded border border-border hover:bg-muted transition-colors flex-shrink-0"
+              title="Usa colore globale"
+            >
+              Auto
+            </button>
+
+            {selectedBlockIds.size > 1 && (
+              <>
+                <div className="w-px h-5 bg-border mx-0.5" />
+
+                {/* Alignment buttons */}
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={alignLeft} title="Allinea a sinistra">
+                  <AlignLeft className="w-3.5 h-3.5" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={alignCenterH} title="Centra orizzontalmente">
+                  <AlignCenter className="w-3.5 h-3.5" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={alignRight} title="Allinea a destra">
+                  <AlignRight className="w-3.5 h-3.5" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={alignTop} title="Allinea in alto">
+                  <AlignStartVertical className="w-3.5 h-3.5" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={alignCenterV} title="Centra verticalmente">
+                  <AlignCenterVertical className="w-3.5 h-3.5" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={alignBottom} title="Allinea in basso">
+                  <AlignEndVertical className="w-3.5 h-3.5" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={distributeH} title="Distribuisci orizzontalmente" disabled={selectedBlockIds.size < 3}>
+                  <Columns3 className="w-3.5 h-3.5" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={distributeV} title="Distribuisci verticalmente" disabled={selectedBlockIds.size < 3}>
+                  <Rows3 className="w-3.5 h-3.5" />
+                </Button>
+
+                <div className="w-px h-5 bg-border mx-0.5" />
+
+                {/* Group / Ungroup */}
+                {!selectedHaveGroup ? (
+                  <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={groupSelected}>
+                    <Group className="w-3.5 h-3.5" /> Raggruppa
+                  </Button>
+                ) : (
+                  <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={ungroupSelected}>
+                    <Ungroup className="w-3.5 h-3.5" /> Separa
+                  </Button>
+                )}
+              </>
+            )}
+
+            <div className="ml-auto">
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setSelectedBlockIds(new Set())} title="Deseleziona">
+                <X className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        <div
+          className="flex-1 flex items-center justify-center p-4 md:p-8"
+          onPointerMove={handlePreviewPointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
       >
         <div
           ref={previewRef}
@@ -1441,6 +1514,7 @@ const PrintDesignStep = ({
               onPointerDown={handleQrResizeDown}
             />
           </div>
+        </div>
         </div>
       </div>
     </div>
