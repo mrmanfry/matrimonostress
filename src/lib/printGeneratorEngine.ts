@@ -1,6 +1,68 @@
 import type { QROverlayConfig } from "@/components/invitations/QRCanvasEditor";
 import type { GreetingOverlayConfig } from "@/components/invitations/OverlayCanvasEditor";
 import { generateGreetingString, type MockParty } from "@/lib/greetingEngine";
+import type { FontStyle } from "@/components/print/PrintDesignStep";
+
+/**
+ * Map fontStyle keys to Google Fonts TTF URLs for PDF embedding.
+ * We fetch the regular (400) weight TTF file directly from Google Fonts CSS2 API.
+ */
+const GOOGLE_FONT_TTF_MAP: Partial<Record<FontStyle, string>> = {
+  garamond: "EB+Garamond",
+  cormorant: "Cormorant+Garamond",
+  playfair: "Playfair+Display",
+  lora: "Lora",
+  dancing: "Dancing+Script",
+  greatvibes: "Great+Vibes",
+  alex: "Alex+Brush",
+  pinyon: "Pinyon+Script",
+  lato: "Lato",
+  montserrat: "Montserrat",
+  josefin: "Josefin+Sans",
+  cinzel: "Cinzel",
+  philosopher: "Philosopher",
+  librebaskerville: "Libre+Baskerville",
+  raleway: "Raleway",
+  poppins: "Poppins",
+  merriweather: "Merriweather",
+  crimsontext: "Crimson+Text",
+  italiana: "Italiana",
+};
+
+/** Preview canvas reference width (matches CSS maxWidth in OverlayCanvasEditor) */
+const PREVIEW_CANVAS_REF_WIDTH = 500;
+/** Preview applies this scale factor to fontSize */
+const PREVIEW_FONT_SCALE = 0.4;
+
+/**
+ * Fetch a Google Font TTF and return its bytes for pdf-lib embedding.
+ * Returns null on failure so we can fallback to Helvetica.
+ */
+async function fetchGoogleFontBytes(fontStyle: FontStyle): Promise<ArrayBuffer | null> {
+  const fontName = GOOGLE_FONT_TTF_MAP[fontStyle];
+  if (!fontName) return null;
+
+  try {
+    // Request CSS with TTF user-agent trick
+    const cssUrl = `https://fonts.googleapis.com/css2?family=${fontName}&display=swap`;
+    const cssResp = await fetch(cssUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+    });
+    if (!cssResp.ok) return null;
+
+    const cssText = await cssResp.text();
+    // Extract first TTF/WOFF2 URL from the CSS
+    const urlMatch = cssText.match(/url\(([^)]+\.(?:woff2|ttf|otf))\)/);
+    if (!urlMatch) return null;
+
+    const fontResp = await fetch(urlMatch[1]);
+    if (!fontResp.ok) return null;
+
+    return await fontResp.arrayBuffer();
+  } catch {
+    return null;
+  }
+}
 
 interface PartyTarget {
   partyId: string;
