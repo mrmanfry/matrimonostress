@@ -15,7 +15,10 @@ import {
 } from "@/lib/printNameResolver";
 import PrintAudienceStep from "@/components/print/PrintAudienceStep";
 import PrintGenerationStep from "@/components/print/PrintGenerationStep";
-import QRCanvasEditor, { type QROverlayConfig } from "./QRCanvasEditor";
+import OverlayCanvasEditor, {
+  type GreetingOverlayConfig,
+} from "./OverlayCanvasEditor";
+import { type QROverlayConfig } from "./QRCanvasEditor";
 import { generatePrintPDFs } from "@/lib/printGeneratorEngine";
 
 interface PrintStudioProps {
@@ -29,7 +32,7 @@ const ACCEPTED_TYPES = ["application/pdf", "image/png", "image/jpeg", "image/jpg
 
 const STEPS = [
   { label: "Carica", number: 1 },
-  { label: "Posiziona QR", number: 2 },
+  { label: "Posiziona Overlay", number: 2 },
   { label: "Destinatari", number: 3 },
 ];
 
@@ -55,8 +58,9 @@ const PrintStudio = ({ open, onOpenChange, weddingId }: PrintStudioProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragOver, setIsDragOver] = useState(false);
 
-  // Step 2 — QR config
+  // Step 2 — QR + Greeting config
   const [qrConfig, setQrConfig] = useState<QROverlayConfig>(DEFAULT_QR_CONFIG);
+  const [greetingConfig, setGreetingConfig] = useState<GreetingOverlayConfig | null>(null);
 
   // Step 3 — Audience
   const [parties, setParties] = useState<PartyPrintTarget[]>([]);
@@ -84,8 +88,18 @@ const PrintStudio = ({ open, onOpenChange, weddingId }: PrintStudioProps) => {
       .single();
 
     if (data?.qr_overlay_config) {
-      const saved = data.qr_overlay_config as unknown as QROverlayConfig;
-      if (saved.x !== undefined) setQrConfig(saved);
+      const saved = data.qr_overlay_config as any;
+      // Load QR config
+      if (saved.qr) {
+        setQrConfig(saved.qr);
+      } else if (saved.x !== undefined) {
+        // Legacy format — direct QR config
+        setQrConfig(saved as QROverlayConfig);
+      }
+      // Load greeting config
+      if (saved.greeting) {
+        setGreetingConfig(saved.greeting as GreetingOverlayConfig);
+      }
     }
 
     if (data?.custom_pdf_template_url) {
@@ -196,10 +210,12 @@ const PrintStudio = ({ open, onOpenChange, weddingId }: PrintStudioProps) => {
 
   // Save QR config + upload template when advancing from step 2
   const saveConfig = async () => {
-    // Save QR config
+    // Save combined overlay config (QR + Greeting)
+    const overlayConfig: any = { qr: qrConfig };
+    if (greetingConfig) overlayConfig.greeting = greetingConfig;
     await supabase
       .from("weddings")
-      .update({ qr_overlay_config: qrConfig as any })
+      .update({ qr_overlay_config: overlayConfig })
       .eq("id", weddingId);
 
     // Upload template if it's a new file
@@ -328,7 +344,8 @@ const PrintStudio = ({ open, onOpenChange, weddingId }: PrintStudioProps) => {
             setCurrentName(name);
             setProgress((idx / total) * 100);
           },
-        }
+        },
+        greetingConfig ?? undefined,
       );
 
       // Trigger download
@@ -508,12 +525,14 @@ const PrintStudio = ({ open, onOpenChange, weddingId }: PrintStudioProps) => {
             </div>
           )}
 
-          {/* Step 2: QR Canvas */}
+          {/* Step 2: Overlay Canvas (QR + Greeting) */}
           {step === 2 && previewUrl && (
-            <QRCanvasEditor
+            <OverlayCanvasEditor
               previewImageUrl={previewUrl}
-              config={qrConfig}
-              onChange={setQrConfig}
+              qrConfig={qrConfig}
+              onQrChange={setQrConfig}
+              greetingConfig={greetingConfig}
+              onGreetingChange={setGreetingConfig}
             />
           )}
 
