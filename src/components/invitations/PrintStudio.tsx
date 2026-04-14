@@ -427,6 +427,10 @@ const PrintStudio = ({ open, onOpenChange, weddingId }: PrintStudioProps) => {
           if (step === 4 && !isSuccess) e.preventDefault();
         }}
       >
+        <DialogTitle className="sr-only">Carica il tuo Design</DialogTitle>
+        <DialogDescription className="sr-only">
+          Carica un PDF o un'immagine del tuo invito, posiziona QR code e saluto dinamico e genera le versioni per i destinatari.
+        </DialogDescription>
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <div className="flex items-center gap-4">
