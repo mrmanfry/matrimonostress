@@ -1401,28 +1401,27 @@ const PrintDesignStep = ({
               </SelectContent>
             </Select>
 
-            {/* Size selector */}
-            <Select
-              value={selectedBlockIds.size === 1
-                ? (textBlocks.find(b => selectedBlockIds.has(b.id))?.style || 'secondary')
-                : '__bulk__'}
-              onValueChange={(v) => {
-                if (selectedBlockIds.size === 1) {
-                  updateBlockStyle([...selectedBlockIds][0], v as TextBlockStyle);
-                } else {
-                  updateSelectedBlocksStyle(v as TextBlockStyle);
-                }
-              }}
-            >
-              <SelectTrigger className="h-7 text-xs w-[90px]">
-                <SelectValue placeholder="Dimensione" />
-              </SelectTrigger>
-              <SelectContent>
-                {(Object.keys(STYLE_LABELS) as TextBlockStyle[]).map(s => (
-                  <SelectItem key={s} value={s}>{STYLE_LABELS[s]}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {/* Font size — numeric slider in toolbar */}
+            <div className="flex items-center gap-1">
+              <Input
+                type="number"
+                min={8}
+                max={72}
+                value={selectedBlockIds.size === 1
+                  ? getEffectiveFontSize(textBlocks.find(b => selectedBlockIds.has(b.id))!)
+                  : 14}
+                onChange={(e) => {
+                  const v = Math.max(8, Math.min(72, parseInt(e.target.value) || 14));
+                  if (selectedBlockIds.size === 1) {
+                    updateBlockFontSize([...selectedBlockIds][0], v);
+                  } else {
+                    updateSelectedBlocksFontSize(v);
+                  }
+                }}
+                className="w-14 h-7 text-xs text-center"
+              />
+              <span className="text-[10px] text-muted-foreground">px</span>
+            </div>
 
             {/* Line height — only for blocks with widthPct (wrapped text) */}
             {singleSelectedBlock?.widthPct && singleSelectedBlock.widthPct > 0 && (
