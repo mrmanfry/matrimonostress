@@ -1287,6 +1287,36 @@ const PrintDesignStep = ({
               </>
             )}
 
+            {/* Text alignment — left/center/right */}
+            {selectedBlockIds.size >= 1 && (
+              <>
+                <div className="w-px h-5 bg-border mx-0.5" />
+                {(['left', 'center', 'right'] as const).map(align => {
+                  const icons = { left: 'AlignLeft', center: 'AlignCenter', right: 'AlignRight' };
+                  const labels = { left: 'Sinistra', center: 'Centro', right: 'Destra' };
+                  const currentAlign = singleSelectedBlock?.textAlign ?? 'center';
+                  return (
+                    <Button
+                      key={align}
+                      variant="ghost"
+                      size="icon"
+                      className={`h-7 w-7 ${selectedBlockIds.size === 1 && currentAlign === align ? 'bg-muted' : ''}`}
+                      title={`Allinea testo: ${labels[align]}`}
+                      onClick={() => {
+                        onTextBlocksChange(textBlocks.map(b =>
+                          selectedBlockIds.has(b.id) ? { ...b, textAlign: align } : b
+                        ));
+                      }}
+                    >
+                      {align === 'left' && <AlignLeft className="w-3.5 h-3.5" />}
+                      {align === 'center' && <AlignCenter className="w-3.5 h-3.5" />}
+                      {align === 'right' && <AlignRight className="w-3.5 h-3.5" />}
+                    </Button>
+                  );
+                })}
+              </>
+            )}
+
             <div className="w-px h-5 bg-border mx-0.5" />
 
             {/* Color presets */}
