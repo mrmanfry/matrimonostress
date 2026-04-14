@@ -143,6 +143,7 @@ const PrintStudio = ({ open, onOpenChange, weddingId }: PrintStudioProps) => {
       const pdf = await loadingTask.promise;
       const page = await pdf.getPage(1);
       const viewport = page.getViewport({ scale: 2 });
+      setTemplateAspectRatio(viewport.width / viewport.height);
 
       const canvas = document.createElement("canvas");
       canvas.width = viewport.width;
@@ -203,7 +204,14 @@ const PrintStudio = ({ open, onOpenChange, weddingId }: PrintStudioProps) => {
       await rasterizePdfPreview(buffer);
     } else {
       setTemplateType("image");
-      setPreviewUrl(URL.createObjectURL(file));
+      const objectUrl = URL.createObjectURL(file);
+      setPreviewUrl(objectUrl);
+      // Detect aspect ratio from image
+      const img = new Image();
+      img.onload = () => {
+        setTemplateAspectRatio(img.naturalWidth / img.naturalHeight);
+      };
+      img.src = objectUrl;
     }
   };
 
@@ -548,6 +556,7 @@ const PrintStudio = ({ open, onOpenChange, weddingId }: PrintStudioProps) => {
               onQrChange={setQrConfig}
               greetingConfig={greetingConfig}
               onGreetingChange={setGreetingConfig}
+              aspectRatio={templateAspectRatio}
             />
           )}
 
