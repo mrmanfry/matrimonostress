@@ -1258,7 +1258,7 @@ const PrintDesignStep = ({
           style={{
             width: '100%',
             maxWidth: '400px',
-            aspectRatio: `${PAPER_FORMATS[paperFormat].w} / ${PAPER_FORMATS[paperFormat].h}`,
+            aspectRatio: `${getPaperDimensions(paperFormat, paperOrientation).w} / ${getPaperDimensions(paperFormat, paperOrientation).h}`,
             fontFamily,
             touchAction: 'none',
           }}
