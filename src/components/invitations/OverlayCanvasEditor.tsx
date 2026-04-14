@@ -63,6 +63,7 @@ interface OverlayCanvasEditorProps {
   onQrChange: (config: QROverlayConfig) => void;
   greetingConfig: GreetingOverlayConfig | null;
   onGreetingChange: (config: GreetingOverlayConfig | null) => void;
+  aspectRatio?: number;
 }
 
 const QR_COLOR_PRESETS = [

@@ -63,6 +63,7 @@ const PrintStudio = ({ open, onOpenChange, weddingId }: PrintStudioProps) => {
   const templateBytesRef = useRef<ArrayBuffer | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [templateAspectRatio, setTemplateAspectRatio] = useState<number>(1 / 1.414);
 
   // Step 2 — QR + Greeting config
   const [qrConfig, setQrConfig] = useState<QROverlayConfig>(DEFAULT_QR_CONFIG);
