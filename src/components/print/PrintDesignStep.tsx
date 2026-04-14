@@ -557,6 +557,10 @@ const PrintDesignStep = ({
           }
         });
         setSelectedBlockIds(withinIds);
+        // Also select QR if its center falls within lasso
+        const qrCenterX = qrPosition.x + qrPosition.size / 2;
+        const qrCenterY = qrPosition.y + qrPosition.size / 2;
+        setIsQrSelected(qrCenterX >= lx1 && qrCenterX <= lx2 && qrCenterY >= ly1 && qrCenterY <= ly2);
       }
       return;
     }
