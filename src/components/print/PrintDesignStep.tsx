@@ -385,9 +385,12 @@ const PrintDesignStep = ({
     lassoStartRef.current = null;
   }, []);
 
-  // Keyboard shortcuts for undo/redo + arrow keys for selected blocks
+  // Keyboard shortcuts for undo/redo + arrow keys for selected blocks + copy/paste
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      const isInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+
       if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
         e.preventDefault();
         if (e.shiftKey) { onRedo(); } else { onUndo(); }
@@ -396,28 +399,74 @@ const PrintDesignStep = ({
         e.preventDefault();
         onRedo();
       }
-      // Arrow keys to move selected blocks
-      if (selectedBlockIds.size > 0 && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-        // Don't move if focus is on an input/textarea/select
-        const tag = (e.target as HTMLElement)?.tagName;
-        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+      // Ctrl+C — copy selected blocks
+      if ((e.ctrlKey || e.metaKey) && e.key === 'c' && !isInput && selectedBlockIds.size > 0) {
         e.preventDefault();
-        const step = e.shiftKey ? 2 : 0.5;
-        const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
-        const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
-        onTextBlocksChange(textBlocks.map(b => {
-          if (!selectedBlockIds.has(b.id)) return b;
-          return {
-            ...b,
-            x: Math.max(2, Math.min(98, b.x + dx)),
-            y: Math.max(2, Math.min(98, b.y + dy)),
-          };
+        setClipboardBlockIds([...selectedBlockIds]);
+      }
+
+      // Ctrl+V — paste copied blocks
+      if ((e.ctrlKey || e.metaKey) && e.key === 'v' && !isInput && clipboardBlockIds.length > 0) {
+        e.preventDefault();
+        const sourceBlocks = textBlocks.filter(b => clipboardBlockIds.includes(b.id));
+        if (sourceBlocks.length === 0) return;
+        const newBlocks: TextBlock[] = sourceBlocks.map(b => ({
+          ...b,
+          id: makeBlockId(),
+          x: Math.min(95, b.x + 3),
+          y: Math.min(95, b.y + 3),
+          groupId: undefined, // don't copy group membership
         }));
+        onTextBlocksChange([...textBlocks, ...newBlocks]);
+        setSelectedBlockIds(new Set(newBlocks.map(b => b.id)));
+      }
+
+      // Arrow keys to move selected blocks or QR
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        if (isInput) return;
+        
+        // Move QR if selected (and no text blocks selected)
+        if (isQrSelected && selectedBlockIds.size === 0) {
+          e.preventDefault();
+          const step = e.shiftKey ? 2 : 0.5;
+          const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
+          const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
+          onQrPositionChange({
+            ...qrPosition,
+            x: Math.max(0, Math.min(100 - qrPosition.size, qrPosition.x + dx)),
+            y: Math.max(0, Math.min(100 - qrPosition.size, qrPosition.y + dy)),
+          });
+          return;
+        }
+
+        if (selectedBlockIds.size > 0) {
+          e.preventDefault();
+          const step = e.shiftKey ? 2 : 0.5;
+          const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
+          const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
+          onTextBlocksChange(textBlocks.map(b => {
+            if (!selectedBlockIds.has(b.id)) return b;
+            return {
+              ...b,
+              x: Math.max(2, Math.min(98, b.x + dx)),
+              y: Math.max(2, Math.min(98, b.y + dy)),
+            };
+          }));
+          // Also move QR if it's selected alongside text blocks
+          if (isQrSelected) {
+            onQrPositionChange({
+              ...qrPosition,
+              x: Math.max(0, Math.min(100 - qrPosition.size, qrPosition.x + dx)),
+              y: Math.max(0, Math.min(100 - qrPosition.size, qrPosition.y + dy)),
+            });
+          }
+        }
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [onUndo, onRedo, selectedBlockIds, textBlocks, onTextBlocksChange]);
+  }, [onUndo, onRedo, selectedBlockIds, textBlocks, onTextBlocksChange, isQrSelected, qrPosition, onQrPositionChange, clipboardBlockIds]);
 
   // Block drag — multi-select aware
   const handleBlockPointerDown = useCallback((e: React.PointerEvent, blockId: string) => {
