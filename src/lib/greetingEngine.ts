@@ -87,16 +87,16 @@ export function generateGreetingString(opts: {
   }
 
   // Nucleus / large group (>2 adults or isNucleo flag)
-  if (party.isNucleo || adults.length > 2) {
+  if ((party.isNucleo || adults.length > 2) && adults.length > 1) {
     const familyName = party.nucleusName
       || `Famiglia ${adults[0].lastName}`;
     let prefix: string;
+    // "Famiglia X" is feminine → Cara/Gentile
+    const isFamiglia = familyName.toLowerCase().startsWith('famiglia');
     if (greetingType === 'formal') {
-      const allFemale = adults.every(m => resolveGender(m) === 'F');
-      prefix = allFemale ? 'Gentilissime' : 'Gentilissimi';
+      prefix = isFamiglia ? 'Gentile' : (adults.every(m => resolveGender(m) === 'F') ? 'Gentilissime' : 'Gentilissimi');
     } else {
-      const allFemale = adults.every(m => resolveGender(m) === 'F');
-      prefix = allFemale ? 'Care' : 'Cari';
+      prefix = isFamiglia ? 'Cara' : (adults.every(m => resolveGender(m) === 'F') ? 'Care' : 'Cari');
     }
     return {
       full: `${prefix} ${familyName}`,
@@ -131,8 +131,14 @@ export function generateGreetingString(opts: {
 
   // Couple with nucleus name: use it as source of truth
   if (party.isNucleo && party.nucleusName) {
-    const prefix = resolvePluralPrefix(adults, greetingType);
-    return { full: `${prefix} ${party.nucleusName}`, prefix, namePart: party.nucleusName };
+    const isFamiglia = party.nucleusName.toLowerCase().startsWith('famiglia');
+    let couplePrefix: string;
+    if (isFamiglia) {
+      couplePrefix = greetingType === 'formal' ? 'Gentile' : 'Cara';
+    } else {
+      couplePrefix = resolvePluralPrefix(adults, greetingType);
+    }
+    return { full: `${couplePrefix} ${party.nucleusName}`, prefix: couplePrefix, namePart: party.nucleusName };
   }
 
   const prefix = resolvePluralPrefix(adults, greetingType);
