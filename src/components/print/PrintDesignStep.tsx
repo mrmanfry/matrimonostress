@@ -1548,11 +1548,13 @@ const PrintDesignStep = ({
                 style={{ width: '100%', height: '100%' }}
               />
             </div>
-            {/* Resize handle */}
-            <div
-              className="absolute -right-1.5 -bottom-1.5 w-4 h-4 bg-primary rounded-full cursor-se-resize border-2 border-background shadow-sm z-20"
-              onPointerDown={handleQrResizeDown}
-            />
+            {/* Resize handle — only when selected */}
+            {isQrSelected && (
+              <div
+                className="absolute -right-1.5 -bottom-1.5 w-4 h-4 bg-primary rounded-full cursor-se-resize border-2 border-background shadow-sm z-20"
+                onPointerDown={handleQrResizeDown}
+              />
+            )}
           </div>
         </div>
         </div>
