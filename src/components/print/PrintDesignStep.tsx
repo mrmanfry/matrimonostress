@@ -1497,10 +1497,12 @@ const PrintDesignStep = ({
           className="relative bg-white shadow-xl rounded-sm overflow-hidden select-none"
           style={{
             width: '100%',
-            maxWidth: `${400 * previewZoom}px`,
+            maxWidth: '400px',
             aspectRatio: `${getPaperDimensions(paperFormat, paperOrientation).w} / ${getPaperDimensions(paperFormat, paperOrientation).h}`,
             fontFamily,
             touchAction: 'none',
+            transform: `scale(${previewZoom})`,
+            transformOrigin: 'center center',
           }}
           onClick={handlePreviewBgClick}
           onPointerDown={handlePreviewBgPointerDown}
