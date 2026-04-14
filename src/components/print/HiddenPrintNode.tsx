@@ -159,7 +159,13 @@ const HiddenPrintNode = ({
               top: `${block.y}%`,
               transform: 'translateX(-50%)',
               textAlign: 'center',
-              whiteSpace: 'nowrap',
+              ...(block.widthPct ? {
+                width: `${block.widthPct}%`,
+                whiteSpace: 'normal' as const,
+                wordWrap: 'break-word' as const,
+              } : {
+                whiteSpace: 'nowrap' as const,
+              }),
             }}
           >
             <p style={style}>

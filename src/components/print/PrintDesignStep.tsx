@@ -75,6 +75,7 @@ export interface TextBlock {
   fontOverride?: FontStyle;
   colorOverride?: string;
   groupId?: string;
+  widthPct?: number; // % of canvas width — if set, text wraps
 }
 
 // --- Migration utility ---
@@ -311,13 +312,16 @@ const PrintDesignStep = ({
   const [isDragging, setIsDragging] = useState(false);
   const [isQrDragging, setIsQrDragging] = useState(false);
   const [isQrResizing, setIsQrResizing] = useState(false);
+  const [isQrSelected, setIsQrSelected] = useState(false);
   const [draggingBlockId, setDraggingBlockId] = useState<string | null>(null);
   const [selectedBlockIds, setSelectedBlockIds] = useState<Set<string>>(new Set());
   const [isLassoing, setIsLassoing] = useState(false);
   const [lassoRect, setLassoRect] = useState<{x1: number; y1: number; x2: number; y2: number} | null>(null);
+  const [resizingBlockId, setResizingBlockId] = useState<string | null>(null);
   const lassoStartRef = useRef<{startX: number; startY: number} | null>(null);
   const dragStartRef = useRef<{startX: number;startY: number;startTx: number;startTy: number;} | null>(null);
   const blockDragRef = useRef<{startX: number; startY: number; origPositions: Record<string, {x: number; y: number}>} | null>(null);
+  const blockResizeRef = useRef<{startX: number; origWidth: number; blockId: string} | null>(null);
   
   const qrDragRef = useRef<{startX: number; startY: number; origX: number; origY: number} | null>(null);
   const qrResizeRef = useRef<{startX: number; origSize: number} | null>(null);
@@ -369,8 +373,10 @@ const PrintDesignStep = ({
     setIsQrResizing(false);
     setIsLassoing(false);
     setLassoRect(null);
+    setResizingBlockId(null);
     dragStartRef.current = null;
     blockDragRef.current = null;
+    blockResizeRef.current = null;
     qrDragRef.current = null;
     qrResizeRef.current = null;
     lassoStartRef.current = null;
@@ -449,9 +455,21 @@ const PrintDesignStep = ({
     e.stopPropagation();
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     setIsQrDragging(true);
+    setIsQrSelected(true);
     setSelectedBlockIds(new Set());
     qrDragRef.current = { startX: e.clientX, startY: e.clientY, origX: qrPosition.x, origY: qrPosition.y };
   }, [qrPosition.x, qrPosition.y]);
+
+  // Block resize
+  const handleBlockResizeDown = useCallback((e: React.PointerEvent, blockId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    const block = textBlocks.find(b => b.id === blockId);
+    if (!block) return;
+    setResizingBlockId(blockId);
+    blockResizeRef.current = { startX: e.clientX, origWidth: block.widthPct ?? 0, blockId };
+  }, [textBlocks]);
 
   // QR resize
   const handleQrResizeDown = useCallback((e: React.PointerEvent) => {
@@ -522,7 +540,14 @@ const PrintDesignStep = ({
       const newSize = Math.max(6, Math.min(35, qrResizeRef.current.origSize + dx));
       onQrPositionChange({ ...qrPosition, size: newSize });
     }
-  }, [draggingBlockId, isQrDragging, isQrResizing, isLassoing, lassoRect, qrPosition, onTextBlocksChange, onQrPositionChange, textBlocks]);
+
+    if (resizingBlockId && blockResizeRef.current) {
+      e.preventDefault();
+      const dx = ((e.clientX - blockResizeRef.current.startX) / rect.width) * 100;
+      const newW = Math.max(10, Math.min(95, blockResizeRef.current.origWidth + dx));
+      onTextBlocksChange(textBlocks.map(b => b.id === resizingBlockId ? { ...b, widthPct: newW } : b));
+    }
+  }, [draggingBlockId, isQrDragging, isQrResizing, isLassoing, lassoRect, qrPosition, onTextBlocksChange, onQrPositionChange, textBlocks, resizingBlockId]);
 
   const showGuideH = isDragging && Math.abs(imageTransform.y) < SNAP_THRESHOLD;
   const showGuideV = isDragging && Math.abs(imageTransform.x) < SNAP_THRESHOLD;
@@ -696,6 +721,7 @@ const PrintDesignStep = ({
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
     setIsLassoing(true);
+    setIsQrSelected(false);
     lassoStartRef.current = { startX: e.clientX, startY: e.clientY };
     setLassoRect({ x1: x, y1: y, x2: x, y2: y });
     // Deselect unless holding shift
@@ -1441,7 +1467,7 @@ const PrintDesignStep = ({
             </>
           )}
 
-          {/* Individual text blocks — each draggable */}
+          {/* Individual text blocks — each draggable + resizable */}
           {textBlocks.map((block) => {
             if (!block.value && block.type !== 'greeting') return null;
             const blockFont = block.fontOverride ? FONT_MAP[block.fontOverride] : fontFamily;
@@ -1449,6 +1475,7 @@ const PrintDesignStep = ({
             const { className, style } = getBlockPreviewStyle(block, blockFont, blockColor);
             const isSelected = selectedBlockIds.has(block.id);
             const isBeingDragged = draggingBlockId === block.id;
+            const hasWidth = block.widthPct && block.widthPct > 0;
 
             return (
               <div
@@ -1460,12 +1487,14 @@ const PrintDesignStep = ({
                   transform: 'translateX(-50%)',
                   cursor: isBeingDragged ? 'grabbing' : 'grab',
                   touchAction: 'none',
-                  maxWidth: '90%',
+                  width: hasWidth ? `${block.widthPct}%` : undefined,
+                  maxWidth: hasWidth ? undefined : '90%',
                   padding: isSelected ? '2px 4px' : undefined,
                 }}
                 onPointerDown={(e) => handleBlockPointerDown(e, block.id)}
                 onClick={(e) => {
                   e.stopPropagation();
+                  setIsQrSelected(false);
                   if (e.shiftKey || e.ctrlKey || e.metaKey) {
                     setSelectedBlockIds(prev => expandSelectionForGroups(new Set([...prev, block.id])));
                   } else {
@@ -1473,18 +1502,25 @@ const PrintDesignStep = ({
                   }
                 }}
               >
-                <p className={`pointer-events-none whitespace-nowrap ${className}`} style={style}>
+                <p className={`pointer-events-none ${hasWidth ? 'whitespace-normal break-words' : 'whitespace-nowrap'} ${className}`} style={style}>
                   {block.type === 'greeting' ? (
                     <>{block.value} <span className="font-semibold">Famiglia Rossi</span></>
                   ) : block.value}
                 </p>
+                {/* Resize handle — right edge */}
+                {isSelected && (
+                  <div
+                    className="absolute -right-1.5 top-1/2 -translate-y-1/2 w-3 h-6 bg-primary rounded-full cursor-ew-resize border-2 border-background shadow-sm z-20"
+                    onPointerDown={(e) => handleBlockResizeDown(e, block.id)}
+                  />
+                )}
               </div>
             );
           })}
 
           {/* QR Code overlay — draggable + resizable */}
           <div
-            className="absolute z-10"
+            className={`absolute z-10 ${isQrSelected ? 'ring-2 ring-primary/50 rounded' : ''}`}
             style={{
               left: `${qrPosition.x}%`,
               top: `${qrPosition.y}%`,
@@ -1500,7 +1536,7 @@ const PrintDesignStep = ({
               style={{
                 backgroundColor: '#ffffff',
                 padding: '8%',
-                border: '2px dashed hsl(var(--primary))',
+                border: isQrSelected ? '2px dashed hsl(var(--primary))' : 'none',
               }}
             >
               <QRCodeSVG
@@ -1512,11 +1548,13 @@ const PrintDesignStep = ({
                 style={{ width: '100%', height: '100%' }}
               />
             </div>
-            {/* Resize handle */}
-            <div
-              className="absolute -right-1.5 -bottom-1.5 w-4 h-4 bg-primary rounded-full cursor-se-resize border-2 border-background shadow-sm z-20"
-              onPointerDown={handleQrResizeDown}
-            />
+            {/* Resize handle — only when selected */}
+            {isQrSelected && (
+              <div
+                className="absolute -right-1.5 -bottom-1.5 w-4 h-4 bg-primary rounded-full cursor-se-resize border-2 border-background shadow-sm z-20"
+                onPointerDown={handleQrResizeDown}
+              />
+            )}
           </div>
         </div>
         </div>
