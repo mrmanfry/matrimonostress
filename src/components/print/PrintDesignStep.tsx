@@ -1746,9 +1746,15 @@ const PrintDesignStep = ({
                 }}
               >
                 <p className={`pointer-events-none ${hasWidth ? 'whitespace-normal break-words' : 'whitespace-nowrap'} ${className}`} style={{ ...style, ...(hasWidth && block.lineHeight ? { lineHeight: block.lineHeight } : {}) }}>
-                  {block.type === 'greeting' ? (
-                    <>{block.value} <span className="font-semibold">Famiglia Rossi</span></>
-                  ) : block.value}
+                  {block.type === 'greeting' ? (() => {
+                    const result = generateGreetingString({
+                      greetingType: block.greetingType || 'informal',
+                      customGreeting: block.customGreeting,
+                      useAka: block.useAka || false,
+                      party: DEFAULT_MOCK_PARTY,
+                    });
+                    return result.full;
+                  })() : block.value}
                 </p>
                 {/* Resize handle — right edge */}
                 {isSelected && (
