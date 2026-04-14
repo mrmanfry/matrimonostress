@@ -1536,13 +1536,14 @@ const PrintDesignStep = ({
             return (
               <div
                 key={block.id}
-                className={`absolute z-10 text-center ${isSelected ? 'ring-2 ring-primary/50 rounded' : ''} ${block.groupId && !isSelected ? 'ring-1 ring-primary/20 rounded' : ''}`}
+                className={`absolute z-10 ${isSelected ? 'ring-2 ring-primary/50 rounded' : ''} ${block.groupId && !isSelected ? 'ring-1 ring-primary/20 rounded' : ''}`}
                 style={{
                   left: `${block.x}%`,
                   top: `${block.y}%`,
                   transform: 'translateX(-50%)',
                   cursor: isBeingDragged ? 'grabbing' : 'grab',
                   touchAction: 'none',
+                  textAlign: block.textAlign || 'center',
                   width: hasWidth ? `${block.widthPct}%` : undefined,
                   maxWidth: hasWidth ? undefined : '90%',
                   padding: isSelected ? '2px 4px' : undefined,

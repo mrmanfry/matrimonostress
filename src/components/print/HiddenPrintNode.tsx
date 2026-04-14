@@ -158,7 +158,7 @@ const HiddenPrintNode = ({
               left: `${block.x}%`,
               top: `${block.y}%`,
               transform: 'translateX(-50%)',
-              textAlign: 'center',
+              textAlign: (block.textAlign || 'center') as any,
               ...(block.widthPct ? {
                 width: `${block.widthPct}%`,
                 whiteSpace: 'normal' as const,
