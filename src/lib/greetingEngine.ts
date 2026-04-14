@@ -131,8 +131,14 @@ export function generateGreetingString(opts: {
 
   // Couple with nucleus name: use it as source of truth
   if (party.isNucleo && party.nucleusName) {
-    const prefix = resolvePluralPrefix(adults, greetingType);
-    return { full: `${prefix} ${party.nucleusName}`, prefix, namePart: party.nucleusName };
+    const isFamiglia = party.nucleusName.toLowerCase().startsWith('famiglia');
+    let couplePrefix: string;
+    if (isFamiglia) {
+      couplePrefix = greetingType === 'formal' ? 'Gentile' : 'Cara';
+    } else {
+      couplePrefix = resolvePluralPrefix(adults, greetingType);
+    }
+    return { full: `${couplePrefix} ${party.nucleusName}`, prefix: couplePrefix, namePart: party.nucleusName };
   }
 
   const prefix = resolvePluralPrefix(adults, greetingType);
