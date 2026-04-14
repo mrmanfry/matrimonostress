@@ -49,7 +49,7 @@ export function resolveGreeting(party: PrintParty): string {
   const adults = party.guests.filter(g => !g.is_child);
   if (adults.length === 0) return 'Cari';
 
-  // Single guest: gender-aware
+  // Single guest without nucleus: gender-aware, first name only
   if (adults.length === 1 && !party.party_name) {
     const g = adults[0];
     const gender = guessGender(g.first_name);
@@ -58,12 +58,13 @@ export function resolveGreeting(party: PrintParty): string {
       : `Caro ${g.first_name}`;
   }
 
-  // Nucleus with party_name: always use it as source of truth
+  // Nucleus with party_name: use it as source of truth with correct prefix
   if (party.party_name) {
-    return `Cara ${party.party_name}`;
+    const prefix = resolvePluralPrefix(adults);
+    return `${prefix} ${party.party_name}`;
   }
 
-  // Fallback for multi-guest without party_name (shouldn't happen normally)
+  // Fallback for multi-guest without party_name
   const prefix = resolvePluralPrefix(adults);
   const names = adults.map(g => g.first_name);
   if (names.length === 2) {
