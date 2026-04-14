@@ -17,8 +17,8 @@ import { Upload, ImageIcon, RotateCcw, GripVertical, QrCode, Plus, X, ChevronUp,
 import { format, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
 import { QRCodeSVG } from "qrcode.react";
-import type { ImageTransform, EdgeStyle, QrPosition, PaperFormat } from "./PrintInvitationEditor";
-import { PAPER_FORMATS } from "./PrintInvitationEditor";
+import type { ImageTransform, EdgeStyle, QrPosition, PaperFormat, PaperOrientation } from "./PrintInvitationEditor";
+import { PAPER_FORMATS, getPaperDimensions } from "./PrintInvitationEditor";
 
 export type FontStyle =
 'garamond' |
@@ -177,6 +177,8 @@ interface PrintDesignStepProps {
   onRedo: () => void;
   paperFormat: PaperFormat;
   onPaperFormatChange: (format: PaperFormat) => void;
+  paperOrientation: PaperOrientation;
+  onPaperOrientationChange: (orientation: PaperOrientation) => void;
 }
 
 const TEXT_COLOR_PRESETS = [
@@ -294,6 +296,8 @@ const PrintDesignStep = ({
   onRedo,
   paperFormat,
   onPaperFormatChange,
+  paperOrientation,
+  onPaperOrientationChange,
 }: PrintDesignStepProps) => {
   const _weddingData = weddingDataProp ?? {
     partner1Name: '', partner2Name: '', weddingDate: '',
