@@ -138,8 +138,12 @@ export async function generatePrintPDFs(
 ): Promise<{ blob: Blob; fileName: string }> {
   const { PDFDocument, rgb, StandardFonts } = await import("pdf-lib");
 
-  // Pre-load a standard font for greeting text (custom font embedding is complex;
-  // we use Helvetica as a reliable fallback for PDF generation)
+  // Pre-fetch custom font bytes (once, reused across all PDFs)
+  let customFontBytes: ArrayBuffer | null = null;
+  if (greetingConfig) {
+    customFontBytes = await fetchGoogleFontBytes(greetingConfig.fontStyle);
+  }
+
   let greetingFont: Awaited<ReturnType<typeof PDFDocument.prototype.embedFont>> | null = null;
 
   const pdfBlobs: { name: string; blob: Blob }[] = [];
