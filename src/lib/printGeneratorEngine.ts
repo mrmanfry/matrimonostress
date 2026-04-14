@@ -223,10 +223,14 @@ export async function generatePrintPDFs(
 
     // --- Greeting Text ---
     if (greetingConfig) {
-      if (!greetingFont) {
-        greetingFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      // Embed font per-document (pdf-lib requires it per PDFDocument)
+      if (customFontBytes) {
+        try {
+          greetingFont = await pdfDoc.embedFont(customFontBytes);
+        } catch {
+          greetingFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+        }
       } else {
-        // Re-embed for each new doc
         greetingFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
       }
 
@@ -239,7 +243,9 @@ export async function generatePrintPDFs(
       });
 
       if (greeting.full) {
-        const greetFontSize = greetingConfig.fontSize;
+        // Scale fontSize to match preview proportions:
+        // Preview renders at fontSize * 0.4 px in a 500px-wide canvas
+        const greetFontSize = (greetingConfig.fontSize * PREVIEW_FONT_SCALE / PREVIEW_CANVAS_REF_WIDTH) * pageW;
         const greetWidthPt = (greetingConfig.width / 100) * pageW;
         const greetX = (greetingConfig.x / 100) * pageW;
         // PDF y is bottom-up; greeting y is from top
