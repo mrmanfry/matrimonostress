@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue } from
 "@/components/ui/select";
-import { Upload, ImageIcon, RotateCcw, GripVertical, QrCode, Plus, X, ChevronUp, ChevronDown, Type, Palette, MousePointer, Undo2, Redo2, Group, Ungroup, AlignLeft, AlignCenter, AlignRight, AlignStartVertical, AlignCenterVertical, AlignEndVertical, Columns3, Rows3 } from "lucide-react";
+import { Upload, ImageIcon, RotateCcw, GripVertical, QrCode, Plus, X, ChevronUp, ChevronDown, Type, Palette, MousePointer, Undo2, Redo2, Group, Ungroup, AlignHorizontalJustifyStart, AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, Columns3, Rows3 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
 import { QRCodeSVG } from "qrcode.react";
@@ -1270,25 +1270,29 @@ const PrintDesignStep = ({
               <>
                 <div className="w-px h-5 bg-border mx-0.5" />
 
-                {/* Alignment buttons */}
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={alignLeft} title="Allinea a sinistra">
-                  <AlignLeft className="w-3.5 h-3.5" />
+                {/* Alignment buttons — Horizontal (move X) */}
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={alignLeft} title="Allinea a sinistra (stessa X)">
+                  <AlignHorizontalJustifyStart className="w-3.5 h-3.5" />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={alignCenterH} title="Centra orizzontalmente">
-                  <AlignCenter className="w-3.5 h-3.5" />
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={alignCenterH} title="Centra orizzontalmente (stessa X)">
+                  <AlignHorizontalJustifyCenter className="w-3.5 h-3.5" />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={alignRight} title="Allinea a destra">
-                  <AlignRight className="w-3.5 h-3.5" />
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={alignRight} title="Allinea a destra (stessa X)">
+                  <AlignHorizontalJustifyEnd className="w-3.5 h-3.5" />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={alignTop} title="Allinea in alto">
-                  <AlignStartVertical className="w-3.5 h-3.5" />
+
+                {/* Alignment buttons — Vertical (move Y) */}
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={alignTop} title="Allinea in alto (stessa Y)">
+                  <AlignVerticalJustifyStart className="w-3.5 h-3.5" />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={alignCenterV} title="Centra verticalmente">
-                  <AlignCenterVertical className="w-3.5 h-3.5" />
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={alignCenterV} title="Centra verticalmente (stessa Y)">
+                  <AlignVerticalJustifyCenter className="w-3.5 h-3.5" />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={alignBottom} title="Allinea in basso">
-                  <AlignEndVertical className="w-3.5 h-3.5" />
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={alignBottom} title="Allinea in basso (stessa Y)">
+                  <AlignVerticalJustifyEnd className="w-3.5 h-3.5" />
                 </Button>
+
+                {/* Distribution */}
                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={distributeH} title="Distribuisci orizzontalmente" disabled={selectedBlockIds.size < 3}>
                   <Columns3 className="w-3.5 h-3.5" />
                 </Button>
