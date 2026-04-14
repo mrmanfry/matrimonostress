@@ -1464,17 +1464,40 @@ const PrintDesignStep = ({
         )}
 
         <div
-          className="flex-1 flex items-center justify-center p-4 md:p-8"
+          className="flex-1 flex items-center justify-center p-4 md:p-8 relative"
           onPointerMove={handlePreviewPointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
+          onWheel={(e) => {
+            if (e.ctrlKey || e.metaKey) {
+              e.preventDefault();
+              setPreviewZoom(z => Math.max(0.5, Math.min(3, z - e.deltaY * 0.002)));
+            }
+          }}
       >
+        {/* Zoom controls */}
+        <div className="absolute bottom-3 right-3 z-30 flex items-center gap-1 bg-background/90 backdrop-blur-sm border border-border rounded-lg px-1 py-0.5 shadow-sm">
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setPreviewZoom(z => Math.max(0.5, z - 0.1))} title="Riduci zoom">
+            <Minus className="w-3.5 h-3.5" />
+          </Button>
+          <button
+            className="text-xs text-muted-foreground w-12 text-center hover:text-foreground transition-colors"
+            onClick={() => setPreviewZoom(1)}
+            title="Ripristina zoom"
+          >
+            {Math.round(previewZoom * 100)}%
+          </button>
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setPreviewZoom(z => Math.min(3, z + 0.1))} title="Aumenta zoom">
+            <Plus className="w-3.5 h-3.5" />
+          </Button>
+        </div>
+
         <div
           ref={previewRef}
           className="relative bg-white shadow-xl rounded-sm overflow-hidden select-none"
           style={{
             width: '100%',
-            maxWidth: '400px',
+            maxWidth: `${400 * previewZoom}px`,
             aspectRatio: `${getPaperDimensions(paperFormat, paperOrientation).w} / ${getPaperDimensions(paperFormat, paperOrientation).h}`,
             fontFamily,
             touchAction: 'none',
