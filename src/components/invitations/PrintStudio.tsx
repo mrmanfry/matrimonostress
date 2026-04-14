@@ -144,7 +144,7 @@ const PrintStudio = ({ open, onOpenChange, weddingId }: PrintStudioProps) => {
       canvas.height = viewport.height;
       const ctx = canvas.getContext("2d")!;
 
-      await page.render({ canvasContext: ctx, viewport }).promise;
+      await page.render({ canvasContext: ctx, viewport, canvas } as any).promise;
       setPreviewUrl(canvas.toDataURL("image/png"));
     } catch (err) {
       console.error("Error rasterizing PDF:", err);
