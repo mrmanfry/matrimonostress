@@ -664,6 +664,8 @@ const PrintInvitationEditor = ({ open, onOpenChange, weddingId }: PrintInvitatio
           qrPosition={qrPosition}
           textColor={textColor}
           greeting={currentProcessingParty.greeting}
+          width={PAPER_FORMATS[paperFormat].w}
+          height={PAPER_FORMATS[paperFormat].h}
         />
       )}
     </>
