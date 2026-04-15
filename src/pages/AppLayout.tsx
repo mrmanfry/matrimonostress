@@ -22,6 +22,7 @@ import {
   Camera,
   Send,
   BookOpen,
+  HelpCircle,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
