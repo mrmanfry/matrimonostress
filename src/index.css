@@ -212,3 +212,32 @@ All colors MUST be HSL.
     background: transparent !important;
   }
 }
+
+/* Help Portal styles */
+.help-content ul, .help-content ol {
+  margin: 0.5rem 0;
+  padding-left: 1.5rem;
+}
+.help-content ul { list-style-type: disc; }
+.help-content ol { list-style-type: decimal; }
+.help-content li { margin-bottom: 0.25rem; }
+.help-content p { margin-bottom: 0.75rem; }
+.help-content strong { font-weight: 600; }
+
+.help-callout {
+  border-radius: 0.5rem;
+  padding: 0.875rem 1rem;
+  margin: 1rem 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+.help-callout-info {
+  background: hsl(var(--primary) / 0.08);
+  border-left: 3px solid hsl(var(--primary));
+  color: hsl(var(--foreground));
+}
+.help-callout-warning {
+  background: hsl(38 92% 50% / 0.1);
+  border-left: 3px solid hsl(38 92% 50%);
+  color: hsl(var(--foreground));
+}
