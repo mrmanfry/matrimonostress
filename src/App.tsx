@@ -37,6 +37,7 @@ import MemoriesReel from "./pages/MemoriesReel";
 import CameraPublic from "./pages/CameraPublic";
 import Invitations from "./pages/Invitations";
 import MassBooklet from "./pages/MassBooklet";
+import HelpCenter from "./pages/HelpCenter";
 import NotFound from "./pages/NotFound";
 
 const AppIndexRedirect = () => {
@@ -72,6 +73,8 @@ const App = () => (
             <Route path="/rsvp/:token" element={<RSVPPublic />} />
             <Route path="/save-the-date/:token" element={<RSVPPublic forceStdMode />} />
             <Route path="/camera/:token" element={<CameraPublic />} />
+            <Route path="/help" element={<HelpCenter />} />
+            <Route path="/help/:category/:article" element={<HelpCenter />} />
             {/* Vanity URLs with couple slug */}
             <Route path="/:coupleSlug/rsvp/:token" element={<RSVPPublic />} />
             <Route path="/:coupleSlug/save-the-date/:token" element={<RSVPPublic forceStdMode />} />
