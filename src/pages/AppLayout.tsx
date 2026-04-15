@@ -280,6 +280,14 @@ const AppLayoutInner = ({
         </SidebarContent>
 
         <SidebarFooter className="border-t border-border p-4">
+          <Button
+            variant="ghost"
+            className="w-full justify-start text-muted-foreground hover:text-foreground"
+            onClick={() => window.open("/help", "_blank")}
+          >
+            <HelpCircle className="w-5 h-5 mr-3" />
+            Guida
+          </Button>
           {weddingInfo && !(isPlannerMode && isOnCockpit) && (
             <div className="mb-3 p-3 bg-gradient-hero rounded-lg text-center">
               <div className="text-3xl font-bold text-accent-foreground">{weddingInfo.daysUntil}</div>
