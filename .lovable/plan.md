@@ -1,82 +1,129 @@
 
-## Piano: correggere definitivamente genere e nome stampato nei saluti
 
-### Problema reale individuato
-Il nome del nucleo ora viene preso correttamente, ma la logica attuale fa ancora un errore chiave:
+## Piano: Help Portal WedsApp — Ispirato alla Documentazione Lovable
 
-- in `src/lib/printNameResolver.ts` se esiste `party_name` restituisce sempre `Cara ${party_name}`
-- quindi sbaglia tutti i nuclei con:
-  - due femmine → deve essere `Care ...`
-  - gruppo misto / con almeno un uomo → deve essere `Cari ...`
-- inoltre il singolo senza nucleo in alcuni punti continua a usare anche il cognome nel nome stampato
+### Panoramica
 
-Questo spiega esattamente i casi che hai riportato:
-- `Alessandra e Mariachiara` → deve essere `Care`
-- `Filippo, Carolina e Leopoldo` → deve essere `Cari`
-- `Stefania, Angelo e Roberto` → deve essere `Cari`
-- `Roberto e Alejo` → deve essere `Cari`
-- `Pietro Dessì` singolo → deve diventare `Caro Pietro` e non usare il cognome nel saluto
+Creeremo un Help Center completo con layout Mintlify/Lovable-style: sidebar di navigazione a sinistra con sezioni espandibili, contenuto principale al centro, e "On this page" (table of contents) a destra. Sarà accessibile sia pubblicamente (`/help`) che dall'interno dell'app (link nella sidebar).
 
-### Regola finale da applicare
-Userò questa regola unica in tutto il flusso stampa:
+### Struttura del Portale
 
-- **1 adulto senza nucleo** → `Caro Nome` / `Cara Nome`
-- **nucleo con `party_name` valorizzato**:
-  - se tutti gli adulti sono femmine → `Care ${party_name}`
-  - altrimenti → `Cari ${party_name}`
-- il saluto del singolo deve usare **solo il nome**
-- il nome mostrato/stampato per il singolo va riallineato dove serve per evitare fallback col cognome
+```text
+/help                         → Home con card overview
+/help/:category/:article      → Articolo singolo
 
-### File da aggiornare
+Categorie:
+├── Primi Passi
+│   ├── Registrazione e Login
+│   ├── Onboarding e Creazione Matrimonio
+│   └── Unirsi a un Matrimonio (Codice Accesso)
+├── Dashboard
+│   └── Panoramica e Widget
+├── Invitati
+│   ├── Aggiungere Invitati
+│   ├── Import CSV e Smart Import
+│   ├── Nuclei Familiari (Party)
+│   ├── Gruppi e Filtri
+│   ├── Contact Sync (QR)
+│   └── Analisi e Funnel RSVP
+├── Fornitori
+│   ├── Gestione Fornitori
+│   ├── Voci di Spesa e Piano Pagamenti
+│   ├── Contratti e Documenti
+│   └── Appuntamenti
+├── Budget e Tesoreria
+│   ├── Budget Spreadsheet
+│   ├── Tesoreria e Flussi di Cassa
+│   ├── Modalità Calcolo (Planned/Expected/Confirmed)
+│   └── Contributori Finanziari
+├── Checklist
+│   ├── Gestione Task
+│   ├── Priorità, Deleghe e Dipendenze
+│   ├── Follow-Up e Promemoria
+│   └── Esportazione PDF
+├── Tavoli
+│   ├── Creare e Assegnare Tavoli
+│   ├── Drag & Drop e Conflitti
+│   └── Smart Grouper (AI)
+├── Catering
+│   ├── Diete e Preferenze
+│   ├── Menu Composer
+│   └── Esportazione
+├── Inviti e RSVP
+│   ├── Campagne Save the Date
+│   ├── Campagne RSVP
+│   ├── Design Integrato
+│   ├── Print Studio
+│   └── Libretto Messa
+├── Memories Reel
+│   ├── Configurazione Camera
+│   ├── Condivisione QR
+│   ├── Moderazione e Gallery
+│   └── Download e Upgrade
+├── Alloggi
+│   └── Gestione Hotel e Assegnazioni
+├── Timeline
+│   └── Programma del Giorno
+├── Calendario
+│   └── Vista Unificata
+├── Chat e Collaborazione
+│   ├── Chat Interna
+│   ├── Ruoli e Permessi
+│   └── Wedding Planner Mode
+├── Impostazioni
+│   ├── Dati Matrimonio
+│   ├── Team e Inviti
+│   └── Abbonamento
+└── Sito Web del Matrimonio
+    └── Generatore Sito
+```
 
-#### 1) `src/lib/printNameResolver.ts`
-Correggere `resolveGreeting()`:
-- non usare più sempre `Cara ${party.party_name}`
-- se `party_name` esiste:
-  - calcolare il prefisso da tutti gli adulti del nucleo
-  - `Care` se tutte donne
-  - `Cari` in ogni altro caso
-- mantenere il singolo gender-aware con solo `first_name`
+### Architettura Tecnica
 
-Correggere anche `resolveDisplayName()`:
-- per un singolo adulto restituire solo `first_name`
-- così evitiamo output tipo `Pietro Dessì` nei casi in cui non serve
+**1) Dati degli articoli** — File statico `src/data/helpArticles.ts`
+- Array di oggetti con `category`, `slug`, `title`, `description`, `content` (markdown-like JSX o stringhe con sezioni)
+- Nessun database necessario: contenuto statico, facilmente manutenibile
 
-#### 2) `src/lib/greetingEngine.ts`
-Allineare anche il motore preview del Print Studio:
-- oggi per `party.isNucleo || adults.length > 2` usa sempre `Cara ${nucleusName}`
-- va cambiato per usare la stessa regola:
-  - tutte donne → `Care`
-  - altrimenti → `Cari`
-- per il singolo deve restare `Caro/Cara Nome`
+**2) Componenti principali**
+- `src/pages/HelpCenter.tsx` — Layout con sidebar + contenuto + TOC
+- `src/pages/HelpArticle.tsx` — Pagina singolo articolo
+- `src/components/help/HelpSidebar.tsx` — Navigazione laterale con categorie espandibili
+- `src/components/help/HelpHome.tsx` — Grid di card per le categorie
+- `src/components/help/HelpTableOfContents.tsx` — "On this page" a destra
+- `src/components/help/HelpBreadcrumb.tsx` — Breadcrumb navigazione
 
-Questo serve a far combaciare anteprima e PDF.
+**3) Routing**
+- `<Route path="/help" element={<HelpCenter />} />`
+- `<Route path="/help/:category" element={<HelpCenter />} />`
+- `<Route path="/help/:category/:article" element={<HelpCenter />} />`
+- Queste route saranno **pubbliche** (fuori da `/app`)
+- Nella sidebar dell'app, un link "Guida" aprirà `/help` in un nuovo tab
 
-#### 3) Verifica dei due flussi
-Controllare che entrambi leggano il saluto già corretto dal resolver:
-- `src/components/invitations/PrintStudio.tsx`
-- `src/components/print/PrintInvitationEditor.tsx`
+**4) Design**
+- Stile Lovable/Mintlify: sfondo pulito, tipografia chiara, sidebar con icone per categoria
+- Responsive: su mobile la sidebar diventa un drawer/menu hamburger
+- Breadcrumb in alto, titolo articolo prominente, sezioni con anchor link
+- Card callout colorate per tip/warning (come i box verdi/gialli di Lovable docs)
+- Coerente col design system WedsApp esistente (shadcn/ui)
 
-Non serve cambiare il flusso dati se il resolver viene corretto bene, ma va verificato che non ci siano fallback che ricostruiscono il nome dal display.
+**5) Contenuto degli articoli**
+- Io conosco nel dettaglio ogni funzionalità dell'app, quindi scriverò contenuti accurati e completi per ogni sezione
+- Ogni articolo avrà: titolo, descrizione breve, sezioni con heading, tip/callout box, e link correlati
+- Circa 40-50 articoli totali che coprono l'intera app
 
-### Casi da verificare dopo il fix
-- `Alessandra e Mariachiara` → `Care Alessandra e Mariachiara`
-- `Filippo, Carolina e Leopoldo` → `Cari Filippo, Carolina e Leopoldo`
-- `Stefania, Angelo e Roberto` → `Cari Stefania, Angelo e Roberto`
-- `Roberto e Alejo` → `Cari Roberto e Alejo`
-- singola donna → `Cara Alessandra`
-- singolo uomo → `Caro Pietro`
+### Fasi di Implementazione
 
-### Impatto atteso
-Dopo questa correzione:
-- il nucleo continuerà a usare il suo nome come fonte di verità
-- il prefisso sarà finalmente corretto per femminile/maschile plurale
-- i singoli non porteranno più dietro il cognome nel saluto o nei fallback di stampa
-- preview e PDF torneranno coerenti
+| Fase | Descrizione |
+|------|------------|
+| 1 | Struttura routing, layout, sidebar, home con card |
+| 2 | Componente articolo con TOC e breadcrumb |
+| 3 | Data file con tutti i contenuti (batch da ~10 articoli per volta) |
+| 4 | Link nella sidebar dell'app + stile responsive mobile |
 
-### Dettaglio tecnico
-La causa è semplice e localizzata:
-- `printNameResolver.ts` ha un hardcode `Cara ${party.party_name}`
-- `greetingEngine.ts` ha lo stesso hardcode nel ramo nucleo/large group
+### Note
 
-Quindi il fix è mirato: sostituire quell’hardcode con una funzione condivisa di prefisso plurale basata sugli adulti effettivi del party.
+- Nessuna ricerca o AI per ora — navigazione manuale tra sezioni
+- Il contenuto sarà in italiano, coerente col tono dell'app
+- Non servono modifiche al database
+- I build errors attuali sono preesistenti e non correlati a questo lavoro
+
