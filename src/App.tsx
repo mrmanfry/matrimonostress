@@ -37,6 +37,7 @@ import MemoriesReel from "./pages/MemoriesReel";
 import CameraPublic from "./pages/CameraPublic";
 import Invitations from "./pages/Invitations";
 import MassBooklet from "./pages/MassBooklet";
+import HelpCenter from "./pages/HelpCenter";
 import NotFound from "./pages/NotFound";
 
 const AppIndexRedirect = () => {

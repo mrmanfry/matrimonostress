@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { getCategoryBySlug } from "@/data/helpArticles";
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -38,8 +39,7 @@ const HelpBreadcrumb = ({ categoryTitle, categorySlug, articleTitle }: Props) =>
                   className="cursor-pointer"
                   onClick={() => {
                     if (categorySlug) {
-                      const { helpCategories } = require("@/data/helpArticles");
-                      const cat = helpCategories.find((c: any) => c.slug === categorySlug);
+                      const cat = getCategoryBySlug(categorySlug);
                       if (cat?.articles[0]) {
                         navigate(`/help/${categorySlug}/${cat.articles[0].slug}`);
                       }
