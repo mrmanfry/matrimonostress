@@ -1,129 +1,106 @@
 
 
-## Piano: Help Portal WedsApp — Ispirato alla Documentazione Lovable
+## Piano: Redesign Sezione Guests — "Calm by default, loud by exception"
 
-### Panoramica
+### Obiettivo
+Trasformare `/app/guests` da pagina sovrastimolata ("rainbow UI") a interfaccia gerarchica e calma, applicando il Design System v1.0 che hai definito. Focus su riduzione del carico cognitivo per la coppia che gestisce 196 invitati.
 
-Creeremo un Help Center completo con layout Mintlify/Lovable-style: sidebar di navigazione a sinistra con sezioni espandibili, contenuto principale al centro, e "On this page" (table of contents) a destra. Sarà accessibile sia pubblicamente (`/help`) che dall'interno dell'app (link nella sidebar).
+### Strategia di approccio
+Procederò in **modalità chirurgica**: non riscrivo da zero, ma sostituisco i pattern visivi rumorosi con quelli "quiet" mantenendo intatta la logica di business (filtri, selezioni, party, RSVP, campagne). Niente modifiche al database, niente refactor della logica `useInvitationsData`/`Guests.tsx`.
 
-### Struttura del Portale
+Il DS completo (Tailwind tokens, fonts Inter/Fraunces, dark mode, ecc.) è un'iniziativa più grande. Per **questa iterazione** mi concentro solo sulla sezione Guests con un approccio "additivo": uso classi Tailwind già disponibili in modo disciplinato, senza stravolgere `tailwind.config.ts` o `index.css` (che impatterebbero tutta l'app).
 
-```text
-/help                         → Home con card overview
-/help/:category/:article      → Articolo singolo
+---
 
-Categorie:
-├── Primi Passi
-│   ├── Registrazione e Login
-│   ├── Onboarding e Creazione Matrimonio
-│   └── Unirsi a un Matrimonio (Codice Accesso)
-├── Dashboard
-│   └── Panoramica e Widget
-├── Invitati
-│   ├── Aggiungere Invitati
-│   ├── Import CSV e Smart Import
-│   ├── Nuclei Familiari (Party)
-│   ├── Gruppi e Filtri
-│   ├── Contact Sync (QR)
-│   └── Analisi e Funnel RSVP
-├── Fornitori
-│   ├── Gestione Fornitori
-│   ├── Voci di Spesa e Piano Pagamenti
-│   ├── Contratti e Documenti
-│   └── Appuntamenti
-├── Budget e Tesoreria
-│   ├── Budget Spreadsheet
-│   ├── Tesoreria e Flussi di Cassa
-│   ├── Modalità Calcolo (Planned/Expected/Confirmed)
-│   └── Contributori Finanziari
-├── Checklist
-│   ├── Gestione Task
-│   ├── Priorità, Deleghe e Dipendenze
-│   ├── Follow-Up e Promemoria
-│   └── Esportazione PDF
-├── Tavoli
-│   ├── Creare e Assegnare Tavoli
-│   ├── Drag & Drop e Conflitti
-│   └── Smart Grouper (AI)
-├── Catering
-│   ├── Diete e Preferenze
-│   ├── Menu Composer
-│   └── Esportazione
-├── Inviti e RSVP
-│   ├── Campagne Save the Date
-│   ├── Campagne RSVP
-│   ├── Design Integrato
-│   ├── Print Studio
-│   └── Libretto Messa
-├── Memories Reel
-│   ├── Configurazione Camera
-│   ├── Condivisione QR
-│   ├── Moderazione e Gallery
-│   └── Download e Upgrade
-├── Alloggi
-│   └── Gestione Hotel e Assegnazioni
-├── Timeline
-│   └── Programma del Giorno
-├── Calendario
-│   └── Vista Unificata
-├── Chat e Collaborazione
-│   ├── Chat Interna
-│   ├── Ruoli e Permessi
-│   └── Wedding Planner Mode
-├── Impostazioni
-│   ├── Dati Matrimonio
-│   ├── Team e Inviti
-│   └── Abbonamento
-└── Sito Web del Matrimonio
-    └── Generatore Sito
+### Modifiche concrete
+
+#### 1) `GuestSingleCard.tsx` — Refactor visivo
+- **Stato RSVP** → da `<GuestCampaignBadges compact>` a **dot 8px** accanto al nome (verde/rosso/giallo/grigio). Tooltip on hover per il dettaglio.
+- **Save the Date** → rimuovere il chip viola. Diventa testo `text-xs text-muted-foreground` sotto al nome ("Save the date inviato · 12 mar"), mostrato solo se presente.
+- **Gruppo** → da `<Badge variant="outline">` a **dot 6px colorato + testo grigio** (es. `• Enel` invece di chip pieno). Colore deterministico via hash del `group_name` su 8 tonalità.
+- **Alias "aka"** → integrato nel nome con virgolette: `Alberto "Albe" Rossi` invece di chip separato.
+- **Badge "Coppia"/"Bambino"/"+1"** → ridotti a icone piccole inline (Heart/Baby/Plus) in `text-muted-foreground`, senza fill.
+- **Telefono / conteggi** → restano come testo discreto, già abbastanza calmi.
+- **Bordi card** → `border` standard + hover `shadow-sm`. Niente shadow di default.
+
+#### 2) `GuestNucleoCard.tsx` — Stesso trattamento
+- Header nucleo: nome del party + dot RSVP aggregato (verde se tutti confermati, giallo se misto, grigio se nessuna risposta).
+- Strip colorata laterale (`getStatusStripColor`) → rimossa o ridotta a 2px sottile in colore desaturato.
+- Lista membri: ogni guest segue lo stesso pattern di `GuestSingleCard` (dot + nome + alias inline).
+- Badge "STD discrepancy" → sostituito con icona `AlertCircle` piccola + tooltip, niente background giallo.
+- Campaign badges aggregati nucleo → testo prosa ("Save the date inviato a 3 su 4") invece di chip multipli.
+
+#### 3) Nuovo componente `GuestStatusDot.tsx`
+Componente riusabile:
+```tsx
+<GuestStatusDot status="confirmed" size="sm" tooltip="Confermato il 12 mar" />
 ```
+- 4 stati: `confirmed` (verde), `declined` (rosso), `maybe` (giallo), `pending` (grigio)
+- Colori desaturati (non i Tailwind default a piena saturazione)
+- Dot circolare 8px con tooltip integrato
 
-### Architettura Tecnica
+#### 4) Nuovo componente `GroupDot.tsx`
+- Dot 6px + label
+- Hash deterministico del `group_name` → indice 0-7
+- Palette di 8 colori desaturati (Indigo, Rose, Teal, Amber, Cyan, Orange, Lime, Neutral)
 
-**1) Dati degli articoli** — File statico `src/data/helpArticles.ts`
-- Array di oggetti con `category`, `slug`, `title`, `description`, `content` (markdown-like JSX o stringhe con sezioni)
-- Nessun database necessario: contenuto statico, facilmente manutenibile
+#### 5) `Guests.tsx` (page) — Pulizia header e warning
+- **Banner "Hai N nuclei pronti..."** → ridotto a single-line discreto sopra la lista, con CTA testuale ("Invia inviti") invece di card colorata.
+- **Warning "44 senza telefono" / "1 non raggruppati"** → da chip gialli a **link testuali piccoli** (`text-xs text-muted-foreground`) con icona piccola, allineati orizzontalmente.
+- **CTA "+ Crea"** → unico bottone primario (viola brand) della pagina. Altri bottoni (Importa, Campagne, Analisi) → `variant="ghost"` o `variant="outline"`.
+- **Filtri** → invariati (già abbastanza puliti), solo verifica che usino `variant="outline"` non pieni.
 
-**2) Componenti principali**
-- `src/pages/HelpCenter.tsx` — Layout con sidebar + contenuto + TOC
-- `src/pages/HelpArticle.tsx` — Pagina singolo articolo
-- `src/components/help/HelpSidebar.tsx` — Navigazione laterale con categorie espandibili
-- `src/components/help/HelpHome.tsx` — Grid di card per le categorie
-- `src/components/help/HelpTableOfContents.tsx` — "On this page" a destra
-- `src/components/help/HelpBreadcrumb.tsx` — Breadcrumb navigazione
+#### 6) `GuestCampaignBadges.tsx` — Modalità "quiet"
+Aggiungere prop `variant="quiet"` (oltre a `compact`):
+- `quiet=true` → nessun background colorato, solo testo + icona piccola
+- Usato dentro le card guest per ridurre rumore
+- La versione "loud" resta disponibile per dashboard/analytics dove ha senso
 
-**3) Routing**
-- `<Route path="/help" element={<HelpCenter />} />`
-- `<Route path="/help/:category" element={<HelpCenter />} />`
-- `<Route path="/help/:category/:article" element={<HelpCenter />} />`
-- Queste route saranno **pubbliche** (fuori da `/app`)
-- Nella sidebar dell'app, un link "Guida" aprirà `/help` in un nuovo tab
+---
 
-**4) Design**
-- Stile Lovable/Mintlify: sfondo pulito, tipografia chiara, sidebar con icone per categoria
-- Responsive: su mobile la sidebar diventa un drawer/menu hamburger
-- Breadcrumb in alto, titolo articolo prominente, sezioni con anchor link
-- Card callout colorate per tip/warning (come i box verdi/gialli di Lovable docs)
-- Coerente col design system WedsApp esistente (shadcn/ui)
+### File toccati
 
-**5) Contenuto degli articoli**
-- Io conosco nel dettaglio ogni funzionalità dell'app, quindi scriverò contenuti accurati e completi per ogni sezione
-- Ogni articolo avrà: titolo, descrizione breve, sezioni con heading, tip/callout box, e link correlati
-- Circa 40-50 articoli totali che coprono l'intera app
+| File | Tipo | Modifica |
+|------|------|----------|
+| `src/components/guests/GuestStatusDot.tsx` | **nuovo** | Componente dot RSVP riusabile |
+| `src/components/guests/GroupDot.tsx` | **nuovo** | Componente dot gruppo deterministico |
+| `src/components/guests/GuestSingleCard.tsx` | edit | Refactor visivo "quiet" |
+| `src/components/guests/GuestNucleoCard.tsx` | edit | Refactor visivo "quiet" |
+| `src/components/guests/GuestCampaignBadges.tsx` | edit | Aggiunta variante `quiet` |
+| `src/pages/Guests.tsx` | edit | Pulizia header, warning testuali, CTA singolo |
 
-### Fasi di Implementazione
+**Non tocco**: logica di filtro, query Supabase, `Guests.tsx` business logic, party CRUD, RSVP campaigns, dialoghi, analytics dashboard, altre pagine app (Dashboard, Budget, ecc.).
 
-| Fase | Descrizione |
-|------|------------|
-| 1 | Struttura routing, layout, sidebar, home con card |
-| 2 | Componente articolo con TOC e breadcrumb |
-| 3 | Data file con tutti i contenuti (batch da ~10 articoli per volta) |
-| 4 | Link nella sidebar dell'app + stile responsive mobile |
+---
 
-### Note
+### Principi applicati (dal tuo DS)
+- ✅ Color encodes meaning (dot solo per stati reali)
+- ✅ Un solo CTA primario visibile per vista
+- ✅ Warning silenziosi se non urgenti
+- ✅ Massimo 6 colori per vista
+- ✅ Border 1px sottile, niente shadow di default
+- ✅ Niente chip colorati ripetuti su 196 card
+- ✅ Progressive disclosure (tooltip per dettagli)
 
-- Nessuna ricerca o AI per ora — navigazione manuale tra sezioni
-- Il contenuto sarà in italiano, coerente col tono dell'app
-- Non servono modifiche al database
-- I build errors attuali sono preesistenti e non correlati a questo lavoro
+---
+
+### Cosa **NON** include questo piano
+- ❌ Refactor globale `tailwind.config.ts` (impatto su tutta l'app)
+- ❌ Cambio font da Lato/EB Garamond a Inter/Fraunces (richiede caricamento font + audit globale)
+- ❌ Migrazione altre sezioni (Dashboard, Budget, Tables) — fuori scope
+- ❌ Dark mode (già non supportato strutturalmente in app)
+- ❌ Modifiche al DB o agli edge functions
+- ❌ KPI/analytics di adozione (può essere uno step successivo)
+
+Se vuoi procedere col DS completo (Sprint 1 Foundations del tuo doc) lo possiamo fare in un secondo piano dedicato dopo aver validato il pattern sulla sezione Guests.
+
+---
+
+### Verifica post-implementazione
+1. Aprire `/app/guests` con dataset reale (Ludovica & Filippo, 196 invitati)
+2. Contare colori unici visibili → target <6
+3. Verificare scroll fluidity (no layout shift dovuto a dot/icone)
+4. Test mobile 375px → card devono restare leggibili
+5. Tooltip RSVP funzionano on hover desktop e tap mobile
+6. Filtri e selezioni continuano a funzionare identici
 
