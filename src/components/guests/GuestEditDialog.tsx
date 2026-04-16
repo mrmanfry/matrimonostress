@@ -20,6 +20,7 @@ interface Guest {
   alias?: string;
   phone?: string;
   is_child: boolean;
+  child_age_group?: string | null;
   allow_plus_one?: boolean;
   menu_choice?: string;
   dietary_restrictions?: string;
@@ -54,6 +55,7 @@ export const GuestEditDialog = ({
   const [alias, setAlias] = useState("");
   const [phone, setPhone] = useState("");
   const [isChild, setIsChild] = useState(false);
+  const [childAgeGroup, setChildAgeGroup] = useState<"kid" | "infant">("kid");
   const [allowPlusOne, setAllowPlusOne] = useState(false);
   const [menuChoice, setMenuChoice] = useState<string | null>(null);
   const [dietaryRestrictions, setDietaryRestrictions] = useState("");
@@ -82,6 +84,7 @@ export const GuestEditDialog = ({
       setAlias(guest.alias || "");
       setPhone(guest.phone || "");
       setIsChild(guest.is_child);
+      setChildAgeGroup(guest.child_age_group === "infant" ? "infant" : "kid");
       setAllowPlusOne(guest.allow_plus_one || false);
       setMenuChoice(guest.menu_choice || null);
       setDietaryRestrictions(guest.dietary_restrictions || "");
@@ -119,6 +122,7 @@ export const GuestEditDialog = ({
         alias: alias.trim() || null,
         phone: phone.trim() || null,
         is_child: isChild,
+        child_age_group: isChild ? childAgeGroup : null,
         allow_plus_one: isChild ? false : allowPlusOne,
         menu_choice: menuChoice,
         dietary_restrictions: dietaryRestrictions.trim() || null,
@@ -340,18 +344,54 @@ export const GuestEditDialog = ({
             </div>
           )}
 
-          <div className="flex items-center justify-between py-2">
-            <Label htmlFor="is-child" className="cursor-pointer">
-              È un bambino?
-            </Label>
-            <Switch
-              id="is-child"
-              checked={isChild}
-              onCheckedChange={(checked) => {
-                setIsChild(checked);
-                if (checked) setAllowPlusOne(false);
-              }}
-            />
+          <div className="space-y-2 py-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="is-child" className="cursor-pointer">
+                È un bambino?
+              </Label>
+              <Switch
+                id="is-child"
+                checked={isChild}
+                onCheckedChange={(checked) => {
+                  setIsChild(checked);
+                  if (checked) setAllowPlusOne(false);
+                }}
+              />
+            </div>
+
+            {isChild && (
+              <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+                <Label className="text-xs font-medium text-muted-foreground">
+                  Fascia d'età (per il catering)
+                </Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setChildAgeGroup("kid")}
+                    className={`text-left px-3 py-2 rounded-md border text-sm transition-colors ${
+                      childAgeGroup === "kid"
+                        ? "border-primary bg-primary/10 text-foreground"
+                        : "border-border bg-background text-muted-foreground hover:border-primary/50"
+                    }`}
+                  >
+                    <div className="font-medium">Bambino</div>
+                    <div className="text-[11px] opacity-80">Menu bimbi</div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setChildAgeGroup("infant")}
+                    className={`text-left px-3 py-2 rounded-md border text-sm transition-colors ${
+                      childAgeGroup === "infant"
+                        ? "border-primary bg-primary/10 text-foreground"
+                        : "border-border bg-background text-muted-foreground hover:border-primary/50"
+                    }`}
+                  >
+                    <div className="font-medium">Sotto i 3 anni</div>
+                    <div className="text-[11px] opacity-80">No coperto</div>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {!isChild && !guest?.is_couple_member && (
