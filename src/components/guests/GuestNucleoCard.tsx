@@ -252,7 +252,12 @@ export const GuestNucleoCard = ({
                     <div className="flex items-center gap-2 min-w-0 flex-1">
                       <GuestStatusDot status={memberStatus} size="xs" />
                       <span className="text-xs sm:text-sm truncate">{memberName}</span>
-                      {guest.allow_plus_one && (
+                      {guest.plus_one_of_guest_id && hostNameById.get(guest.plus_one_of_guest_id) && (
+                        <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-muted text-muted-foreground flex-shrink-0">
+                          +1 di {hostNameById.get(guest.plus_one_of_guest_id)}
+                        </span>
+                      )}
+                      {guest.allow_plus_one && !guest.plus_one_of_guest_id && (
                         <Plus className="w-3 h-3 text-muted-foreground flex-shrink-0" />
                       )}
                       {guest.phone && !maskSensitiveData && (
