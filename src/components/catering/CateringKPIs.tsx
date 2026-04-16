@@ -1,5 +1,5 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { Users, Leaf, Wheat, AlertTriangle, Baby, HelpCircle } from "lucide-react";
+import { Users, Leaf, Wheat, AlertTriangle, HelpCircle } from "lucide-react";
 
 interface CateringGuest {
   id: string;
@@ -8,6 +8,7 @@ interface CateringGuest {
   menu_choice: string | null;
   dietary_restrictions: string | null;
   is_child: boolean;
+  child_age_group?: string | null;
   rsvp_status: string | null;
   table_name?: string;
 }
@@ -20,7 +21,9 @@ export const CateringKPIs = ({ guests }: CateringKPIsProps) => {
   const confirmed = guests.filter(g => g.rsvp_status === "confirmed");
   const totalConfirmed = confirmed.length;
   const adults = confirmed.filter(g => !g.is_child).length;
-  const children = confirmed.filter(g => g.is_child).length;
+  // Bambino "kid" = bambino normale (menu bimbi). NULL legacy → considerato kid.
+  const kids = confirmed.filter(g => g.is_child && g.child_age_group !== "infant").length;
+  const infants = confirmed.filter(g => g.is_child && g.child_age_group === "infant").length;
   const vegetarians = confirmed.filter(g => g.menu_choice === "vegetariano").length;
   const vegans = confirmed.filter(g => g.menu_choice === "vegano").length;
   const celiacs = confirmed.filter(g => g.menu_choice === "celiaco").length;
@@ -28,7 +31,13 @@ export const CateringKPIs = ({ guests }: CateringKPIsProps) => {
   const noPreference = confirmed.filter(g => !g.menu_choice && !g.dietary_restrictions?.trim()).length;
 
   const kpis = [
-    { label: "Confermati", value: totalConfirmed, sub: `${adults} adulti · ${children} bambini`, icon: Users, color: "text-primary" },
+    {
+      label: "Confermati",
+      value: totalConfirmed,
+      sub: `${adults} adulti · ${kids} bambini · ${infants} <3 anni`,
+      icon: Users,
+      color: "text-primary",
+    },
     { label: "Vegetariani", value: vegetarians, icon: Leaf, color: "text-green-600" },
     { label: "Vegani", value: vegans, icon: Leaf, color: "text-emerald-700" },
     { label: "Celiaci", value: celiacs, icon: Wheat, color: "text-amber-600" },

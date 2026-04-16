@@ -12,6 +12,8 @@ export interface CateringGuestRow {
   menu_choice: string | null;
   dietary_restrictions: string | null;
   is_child: boolean;
+  /** 'infant' = <3 anni (no coperto), 'kid' = bambino menu bimbi, null = retrocompatibilità → 'kid' */
+  child_age_group?: string | null;
   rsvp_status: string | null;
   table_name: string | null;
   party_name: string | null;
@@ -31,6 +33,13 @@ const dietLabel = (choice: string | null): string => {
     celiaco: "Celiaco",
   };
   return map[choice] || choice;
+};
+
+/** Restituisce il tipo effettivo per il catering: adulto / bimbo / infant (<3 anni) */
+export const getCateringTypeLabel = (g: { is_child: boolean; child_age_group?: string | null }) => {
+  if (!g.is_child) return { key: "adult", label: "Adulto" };
+  if (g.child_age_group === "infant") return { key: "infant", label: "<3 anni" };
+  return { key: "kid", label: "Bambino" };
 };
 
 export const CateringGuestTable = ({ guests, tables }: CateringGuestTableProps) => {
@@ -123,7 +132,7 @@ export const CateringGuestTable = ({ guests, tables }: CateringGuestTableProps) 
               <TableHead>Dieta</TableHead>
               <TableHead>Allergie</TableHead>
               <TableHead className="hidden lg:table-cell">Note</TableHead>
-              <TableHead className="w-[60px]">Tipo</TableHead>
+              <TableHead className="w-[90px]">Tipo</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -134,48 +143,54 @@ export const CateringGuestTable = ({ guests, tables }: CateringGuestTableProps) 
                 </TableCell>
               </TableRow>
             ) : (
-              filtered.map(g => (
-                <TableRow key={g.id}>
-                  <TableCell className="font-medium">
-                    {g.first_name} {g.last_name}
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell text-muted-foreground">
-                    {g.party_name || "-"}
-                  </TableCell>
-                  <TableCell>
-                    {g.table_name ? (
-                      <Badge variant="outline">{g.table_name}</Badge>
-                    ) : (
-                      <span className="text-muted-foreground text-xs">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {g.menu_choice ? (
-                      <Badge variant="secondary" className="text-xs">{dietLabel(g.menu_choice)}</Badge>
-                    ) : "-"}
-                  </TableCell>
-                  <TableCell>
-                    {g.dietary_restrictions?.trim() ? (
-                      <span className="text-xs flex items-center gap-1 text-destructive">
-                        <AlertTriangle className="w-3 h-3" />
-                        {g.dietary_restrictions}
-                      </span>
-                    ) : "-"}
-                  </TableCell>
-                  <TableCell className="hidden lg:table-cell text-xs text-muted-foreground max-w-[150px] truncate">
-                    {g.notes || "-"}
-                  </TableCell>
-                  <TableCell>
-                    {g.is_child ? (
-                      <Badge variant="outline" className="text-xs gap-1">
-                        <Baby className="w-3 h-3" /> Bimbo
-                      </Badge>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">Adulto</span>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))
+              filtered.map(g => {
+                const type = getCateringTypeLabel(g);
+                return (
+                  <TableRow key={g.id}>
+                    <TableCell className="font-medium">
+                      {g.first_name} {g.last_name}
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell text-muted-foreground">
+                      {g.party_name || "-"}
+                    </TableCell>
+                    <TableCell>
+                      {g.table_name ? (
+                        <Badge variant="outline">{g.table_name}</Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {g.menu_choice ? (
+                        <Badge variant="secondary" className="text-xs">{dietLabel(g.menu_choice)}</Badge>
+                      ) : "-"}
+                    </TableCell>
+                    <TableCell>
+                      {g.dietary_restrictions?.trim() ? (
+                        <span className="text-xs flex items-center gap-1 text-destructive">
+                          <AlertTriangle className="w-3 h-3" />
+                          {g.dietary_restrictions}
+                        </span>
+                      ) : "-"}
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell text-xs text-muted-foreground max-w-[150px] truncate">
+                      {g.notes || "-"}
+                    </TableCell>
+                    <TableCell>
+                      {type.key === "adult" ? (
+                        <span className="text-xs text-muted-foreground">Adulto</span>
+                      ) : (
+                        <Badge
+                          variant={type.key === "infant" ? "secondary" : "outline"}
+                          className="text-xs gap-1"
+                        >
+                          <Baby className="w-3 h-3" /> {type.label}
+                        </Badge>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
