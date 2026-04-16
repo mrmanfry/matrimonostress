@@ -102,10 +102,17 @@ export const GuestEditDialog = ({
 
     setLoading(true);
     try {
-      // Inferred Status Logic: if there's a response, STD must have been sent
-      const effectiveSaveTheDateSent = saveTheDateSent || (stdResponse && stdResponse !== null);
-      const effectiveFormalInviteSent = formalInviteSent || (rsvpStatus === 'confirmed' || rsvpStatus === 'declined');
-      
+      // Cascade reset: if user explicitly turned off STD, clear derived response.
+      // If user turned off Formal Invite, clear RSVP status (back to pending).
+      // The user's explicit toggle wins over previous "inferred" state.
+      const finalStdResponse = saveTheDateSent ? stdResponse : null;
+      const finalRsvpStatus = formalInviteSent ? rsvpStatus : "pending";
+
+      // Inferred Status (after cascade): a real response implies the campaign was sent
+      const effectiveSaveTheDateSent = saveTheDateSent || !!finalStdResponse;
+      const effectiveFormalInviteSent =
+        formalInviteSent || finalRsvpStatus === "confirmed" || finalRsvpStatus === "declined";
+
       const updateData: any = {
         first_name: firstName.trim(),
         last_name: lastName.trim(),
@@ -116,18 +123,25 @@ export const GuestEditDialog = ({
         menu_choice: menuChoice,
         dietary_restrictions: dietaryRestrictions.trim() || null,
         group_id: groupId,
-        // Campaign fields with inferred logic
-        save_the_date_sent_at: effectiveSaveTheDateSent ? (guest.save_the_date_sent_at || new Date().toISOString()) : null,
-        formal_invite_sent_at: effectiveFormalInviteSent ? (guest.formal_invite_sent_at || new Date().toISOString()) : null,
-        std_response: stdResponse,
-        rsvp_status: rsvpStatus,
+        // Campaign fields — preserve original timestamp if still active, else null
+        save_the_date_sent_at: effectiveSaveTheDateSent
+          ? guest.save_the_date_sent_at || new Date().toISOString()
+          : null,
+        formal_invite_sent_at: effectiveFormalInviteSent
+          ? guest.formal_invite_sent_at || new Date().toISOString()
+          : null,
+        std_response: finalStdResponse,
+        std_responded_at: finalStdResponse ? undefined : null,
+        rsvp_status: finalRsvpStatus,
+        rsvp_invitation_sent: effectiveFormalInviteSent
+          ? guest.rsvp_invitation_sent || new Date().toISOString()
+          : null,
       };
-      
-      // If resetting STD, also reset response date
-      if (!saveTheDateSent) {
-        updateData.std_responded_at = null;
-        updateData.std_response = null;
-      }
+
+      // Strip undefined keys (so we don't overwrite existing std_responded_at)
+      Object.keys(updateData).forEach(
+        (k) => updateData[k] === undefined && delete updateData[k],
+      );
 
       const { error } = await supabase
         .from("guests")
@@ -142,18 +156,46 @@ export const GuestEditDialog = ({
           .from("guests")
           .update({ group_id: groupId })
           .eq("party_id", guest.party_id)
-          .neq("id", guest.id); // Exclude current guest (already updated)
+          .neq("id", guest.id);
 
         if (cascadeError) {
           console.error("Errore propagazione gruppo", cascadeError);
           toast.warning("Dati salvati, ma errore nella propagazione al nucleo.");
+        }
+      }
+
+      // Campaign Cascading: if user toggled campaign states AND wants to apply to party,
+      // propagate the campaign reset to all party members.
+      // We only cascade campaign fields (not personal data) and only when the user
+      // explicitly opted-in via the switch.
+      if (hasParty && applyCampaignsToParty && guest.party_id) {
+        const campaignUpdate: any = {
+          save_the_date_sent_at: updateData.save_the_date_sent_at,
+          formal_invite_sent_at: updateData.formal_invite_sent_at,
+          std_response: updateData.std_response,
+          rsvp_status: updateData.rsvp_status,
+          rsvp_invitation_sent: updateData.rsvp_invitation_sent,
+        };
+        if (updateData.std_responded_at === null) {
+          campaignUpdate.std_responded_at = null;
+        }
+
+        const { error: campaignCascadeError } = await supabase
+          .from("guests")
+          .update(campaignUpdate)
+          .eq("party_id", guest.party_id)
+          .neq("id", guest.id);
+
+        if (campaignCascadeError) {
+          console.error("Errore propagazione stati campagne", campaignCascadeError);
+          toast.warning("Dati salvati, ma errore nella propagazione degli stati al nucleo.");
         } else {
-          toast.success("Gruppo applicato a tutto il nucleo!");
+          toast.success("Invitato e nucleo aggiornati!");
         }
       } else {
         toast.success("Invitato aggiornato!");
       }
-      
+
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
