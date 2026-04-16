@@ -7,7 +7,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/contexts/AuthContext";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   Users,
   Plus,
@@ -17,9 +16,7 @@ import {
   Smartphone,
   UserPlus,
   ChevronDown,
-  BarChart3,
   ChevronRight,
-  
   Send,
 } from "lucide-react";
 import {
@@ -34,7 +31,7 @@ import { SmartGrouperDialog } from "@/components/guests/SmartGrouperDialog";
 import { SmartImportDialog } from "@/components/guests/SmartImportDialog";
 import { ContactSyncDialog } from "@/components/guests/ContactSyncDialog";
 import { RSVPCampaignDialog } from "@/components/guests/RSVPCampaignDialog";
-import { GuestAnalyticsDashboard, AnalyticsFilterType } from "@/components/guests/GuestAnalyticsDashboard";
+import { GuestPulseBar } from "@/components/guests/GuestPulseBar";
 import { ImportDropdown } from "@/components/guests/ImportDropdown";
 import { GuestDiffDialog } from "@/components/guests/GuestDiffDialog";
 
@@ -116,7 +113,7 @@ const Guests = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterValues, setFilterValues] = useState<GuestFilterValues>(DEFAULT_FILTER_VALUES);
   const [funnelFilter, setFunnelFilter] = useState<string | null>(null); // draft, std_sent, invited, confirmed, declined
-  const [activeAnalyticsFilter, setActiveAnalyticsFilter] = useState<AnalyticsFilterType | null>(null);
+  
 
   // Helper to update individual filter values
   const handleFilterChange = (key: keyof GuestFilterValues, value: string) => {
@@ -126,7 +123,6 @@ const Guests = () => {
   const handleResetFilters = () => {
     setFilterValues(DEFAULT_FILTER_VALUES);
     setFunnelFilter(null);
-    setActiveAnalyticsFilter(null);
   };
   
   const [partyDialogOpen, setPartyDialogOpen] = useState(false);
@@ -139,8 +135,6 @@ const Guests = () => {
   const [singleGuestDialogOpen, setSingleGuestDialogOpen] = useState(false);
   const [rsvpCampaignOpen, setRsvpCampaignOpen] = useState(false);
   const [selectedPartiesForRSVP, setSelectedPartiesForRSVP] = useState<InviteParty[]>([]);
-  const [analyticsSheetOpen, setAnalyticsSheetOpen] = useState(false);
-  const [analyticsOpen, setAnalyticsOpen] = useState(false);
   
   
   // Selection state for multi-select
