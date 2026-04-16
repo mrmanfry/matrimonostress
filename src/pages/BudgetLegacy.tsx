@@ -70,6 +70,7 @@ export default function BudgetLegacy() {
   const [guestCounts, setGuestCounts] = useState<GuestCounts | null>(null);
   const [lineItemsMap, setLineItemsMap] = useState<Record<string, ExpenseLineItem[]>>({});
   const [expectedDetails, setExpectedDetails] = useState<ExpectedResult | null>(null);
+  const [nextPayment, setNextPayment] = useState<{ description: string; daysUntil: number } | null>(null);
 
   useEffect(() => {
     if (authState.status === "authenticated") {
