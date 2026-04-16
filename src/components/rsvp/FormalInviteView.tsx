@@ -21,6 +21,7 @@ interface GuestMember {
   id: string;
   first_name: string;
   last_name: string;
+  alias?: string | null;
   rsvp_status: string;
   menu_choice: string | null;
   dietary_restrictions: string | null;
@@ -211,22 +212,36 @@ export function FormalInviteView({
     });
   };
 
-  // Build a thank-you name that reflects the whole nucleus when applicable
+  // Sort members: adults first, then children; alphabetical by first name (italian locale)
+  const sortedMembers = [...members].sort((a, b) => {
+    if (a.is_child !== b.is_child) return a.is_child ? 1 : -1;
+    return (a.first_name || '').localeCompare(b.first_name || '', 'it', { sensitivity: 'base' });
+  });
+
+  // Resolve display name for a member: alias (AKA) if present, else first_name
+  const memberDisplayName = (m: GuestMember) => (m.alias?.trim() || m.first_name || '').trim();
+
+  // Build a thank-you name from confirmed members (alphabetical, AKA-aware)
   const buildThankYouName = () => {
-    if (isSingleGuest || !members || members.length <= 1) return displayName;
-    if (partyName?.toLowerCase().startsWith('famiglia')) return partyName;
-    const names = members.map((m) => m.first_name).filter(Boolean);
-    if (names.length === 0) return displayName;
-    if (names.length === 1) return names[0];
-    if (names.length === 2) return `${names[0]} e ${names[1]}`;
-    return `${names.slice(0, -1).join(', ')} e ${names[names.length - 1]}`;
+    const confirmed = sortedMembers.filter((m) => memberData[m.id]?.rsvpStatus === 'confirmed');
+    const names = confirmed.map(memberDisplayName).filter(Boolean);
+    // Re-sort by display name (alias may differ from first_name) keeping adults-first via sortedMembers order is acceptable;
+    // for the thank-you we want pure alphabetical of the displayed names
+    const sortedNames = [...names].sort((a, b) => a.localeCompare(b, 'it', { sensitivity: 'base' }));
+    if (sortedNames.length === 0) return displayName;
+    if (sortedNames.length === 1) return sortedNames[0];
+    if (sortedNames.length === 2) return `${sortedNames[0]} e ${sortedNames[1]}`;
+    return `${sortedNames.slice(0, -1).join(', ')} e ${sortedNames[sortedNames.length - 1]}`;
   };
 
   // Success state after submission
   if (submitted) {
-    const confirmedCount = members.filter(
+    const confirmedCount = sortedMembers.filter(
       (m) => memberData[m.id]?.rsvpStatus === 'confirmed'
     ).length;
+    const allDeclined = confirmedCount === 0 && sortedMembers.every(
+      (m) => memberData[m.id]?.rsvpStatus === 'declined'
+    );
 
     return (
       <div
