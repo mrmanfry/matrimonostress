@@ -112,11 +112,13 @@ export const GuestEditDialog = ({
 
     setLoading(true);
     try {
-      // Cascade reset: if user explicitly turned off STD, clear derived response.
-      // If user turned off Formal Invite, clear RSVP status (back to pending).
-      // The user's explicit toggle wins over previous "inferred" state.
-      const finalStdResponse = saveTheDateSent ? stdResponse : null;
-      const finalRsvpStatus = formalInviteSent ? rsvpStatus : "pending";
+      // Cascade reset: only when the user EXPLICITLY turns OFF a toggle that was ON.
+      // If a toggle was already OFF when the dialog opened (e.g. guest responded via public RSVP
+      // without a formal invite being marked as sent), DO NOT clobber existing responses.
+      const stdTurnedOff = initialSaveTheDateSent && !saveTheDateSent;
+      const formalTurnedOff = initialFormalInviteSent && !formalInviteSent;
+      const finalStdResponse = stdTurnedOff ? null : stdResponse;
+      const finalRsvpStatus = formalTurnedOff ? "pending" : rsvpStatus;
 
       // Inferred Status (after cascade): a real response implies the campaign was sent
       const effectiveSaveTheDateSent = saveTheDateSent || !!finalStdResponse;
