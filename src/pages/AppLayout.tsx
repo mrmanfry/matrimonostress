@@ -21,7 +21,6 @@ import {
   Hotel,
   Camera,
   Send,
-  Sparkles,
   BookOpen,
   HelpCircle,
 } from "lucide-react";
@@ -211,7 +210,6 @@ const AppLayoutInner = ({
     const allNav = [
       ...(isPlannerMode ? [{ name: "Cockpit", href: "/app/planner", icon: LayoutGrid }] : []),
       { name: "Dashboard", href: "/app/dashboard", icon: LayoutDashboard },
-      { name: "Insights", href: "/app/insights", icon: Sparkles },
       { name: "Invitati", href: "/app/guests", icon: Users },
       { name: "Campagne", href: "/app/invitations", icon: Send },
       { name: "Budget", href: "/app/budget", icon: Euro, hidden: isCollaborator && !activePermissions?.budget?.view },

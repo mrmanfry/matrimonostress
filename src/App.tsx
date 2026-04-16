@@ -38,7 +38,6 @@ import CameraPublic from "./pages/CameraPublic";
 import Invitations from "./pages/Invitations";
 import MassBooklet from "./pages/MassBooklet";
 import HelpCenter from "./pages/HelpCenter";
-import Insights from "./pages/Insights";
 import NotFound from "./pages/NotFound";
 
 const AppIndexRedirect = () => {
@@ -89,7 +88,6 @@ const App = () => (
             >
               <Route index element={<AppIndexRedirect />} />
               <Route path="dashboard" element={<Dashboard />} />
-              <Route path="insights" element={<Insights />} />
               <Route path="planner" element={<PlannerCockpit />} />
               <Route path="planner-calendar" element={<PlannerCalendarPage />} />
               <Route path="guests" element={<Guests />} />
