@@ -104,11 +104,7 @@ Deno.serve(async (req) => {
             .select("id, first_name, last_name, rsvp_status, menu_choice, dietary_restrictions, is_child, allow_plus_one, plus_one_name, plus_one_menu, save_the_date_sent_at, formal_invite_sent_at, std_response")
             .eq("party_id", guestData.party_id);
 
-          // Sort: adults first, then children. Within each group, alphabetical by first name.
-          partyMembers = (members || []).sort((a: any, b: any) => {
-            if (a.is_child !== b.is_child) return a.is_child ? 1 : -1;
-            return (a.first_name || "").localeCompare(b.first_name || "", "it");
-          });
+          partyMembers = members || [];
         } else {
           // SCENARIO B: Guest is a SINGLE (no party_id)
           console.log(`Guest ${guestData.id} is a single (no party_id) - creating virtual party`);
