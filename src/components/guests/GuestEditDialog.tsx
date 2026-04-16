@@ -73,6 +73,7 @@ export const GuestEditDialog = ({
   const [stdResponse, setStdResponse] = useState<string | null>(null);
   const [rsvpStatus, setRsvpStatus] = useState<string>("pending");
   const [showCampaignSection, setShowCampaignSection] = useState(false);
+  const [applyCampaignsToParty, setApplyCampaignsToParty] = useState(true);
 
   useEffect(() => {
     if (open && guest) {
