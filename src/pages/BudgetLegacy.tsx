@@ -9,7 +9,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { TrendingUp, ArrowRight, Search, X, AlertCircle } from "lucide-react";
+import { TrendingUp, ArrowRight, Search, X, AlertCircle, Wallet } from "lucide-react";
 import { LockedCard } from "@/components/ui/locked-card";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 import { CalculationModeToggle } from "@/components/ui/calculation-mode-toggle";
@@ -19,6 +19,8 @@ import { toast } from "sonner";
 import { BudgetSpreadsheet } from "@/components/budget/BudgetSpreadsheet";
 import { BudgetScenarioBar } from "@/components/budget/BudgetScenarioBar";
 import { calculateExpectedCounts, calculateTotalVendorStaff, type Guest as ExpectedGuest, type ExpectedResult } from "@/lib/expectedCalculator";
+import { SectionHeader } from "@/components/shared/SectionHeader";
+import { computeBudgetNextAction } from "@/lib/sectionNextActions";
 interface ExpenseItem {
   id: string;
   description: string;
@@ -68,6 +70,7 @@ export default function BudgetLegacy() {
   const [guestCounts, setGuestCounts] = useState<GuestCounts | null>(null);
   const [lineItemsMap, setLineItemsMap] = useState<Record<string, ExpenseLineItem[]>>({});
   const [expectedDetails, setExpectedDetails] = useState<ExpectedResult | null>(null);
+  const [nextPayment, setNextPayment] = useState<{ description: string; daysUntil: number } | null>(null);
 
   useEffect(() => {
     if (authState.status === "authenticated") {
@@ -134,10 +137,31 @@ export default function BudgetLegacy() {
         // Load payments
         const { data: paymentsData } = await supabase
           .from("payments")
-          .select("*")
+          .select("*, expense_items!inner(description, vendors(name))")
           .in("expense_item_id", itemIds);
 
         setPayments(paymentsData || []);
+
+        // Compute next unpaid payment
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+        const upcomingUnpaid = (paymentsData || [])
+          .filter((p: any) => p.status !== "Pagato" && p.due_date)
+          .map((p: any) => {
+            const due = new Date(p.due_date);
+            due.setHours(0, 0, 0, 0);
+            const daysUntil = Math.round(
+              (due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+            );
+            const vendorName =
+              (p as any).expense_items?.vendors?.name ||
+              (p as any).expense_items?.description ||
+              p.description;
+            return { description: `${vendorName} — ${p.description}`, daysUntil };
+          })
+          .sort((a, b) => a.daysUntil - b.daysUntil);
+
+        setNextPayment(upcomingUnpaid[0] || null);
       }
 
       setLineItemsMap(lineItemsData);
@@ -425,20 +449,40 @@ export default function BudgetLegacy() {
 
   return (
     <div className="container mx-auto p-4 md:p-6 space-y-4 md:space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold mb-2">Conto Economico</h1>
-          <p className="text-sm md:text-base text-muted-foreground">Vista strategica del budget e degli impegni finanziari</p>
-        </div>
-        <CalculationModeToggle 
-          value={globalMode}
-          onValueChange={handleModeChange}
-          breakdown={guestBreakdown}
-          plannedCounts={guestCounts?.planned}
-          expectedDetails={expectedDetails || undefined}
-        />
-      </div>
+      {/* Section Header v1 */}
+      <SectionHeader
+        icon={<Wallet className="w-6 h-6 md:w-8 md:h-8 flex-shrink-0" />}
+        title="Conto Economico"
+        metadata="Vista strategica del budget e degli impegni finanziari"
+        secondaryActions={
+          <CalculationModeToggle
+            value={globalMode}
+            onValueChange={handleModeChange}
+            breakdown={guestBreakdown}
+            plannedCounts={guestCounts?.planned}
+            expectedDetails={expectedDetails || undefined}
+          />
+        }
+        dataViz={
+          totalBudget > 0 || getTotalCommitment() > 0
+            ? {
+                type: "budget",
+                paid: getTotalPaid(),
+                committed: getTotalCommitment(),
+                total: totalBudget,
+                formatCurrency,
+              }
+            : undefined
+        }
+        nextAction={computeBudgetNextAction({
+          nextPaymentDaysUntil: nextPayment?.daysUntil ?? null,
+          nextPaymentDescription: nextPayment?.description ?? null,
+          totalBudget,
+          totalCommitted: getTotalCommitment(),
+          onPayNow: () => navigate("/app/treasury"),
+          onReviewBudget: () => navigate("/app/treasury"),
+        })}
+      />
 
       {/* Scenario Bar - Solo in modalità Pianificato */}
       {globalMode === 'planned' && guestCounts && (

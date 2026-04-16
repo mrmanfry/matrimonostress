@@ -6,6 +6,8 @@ import { useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InvitationsKPIs } from "@/components/invitations/InvitationsKPIs";
 import { useInvitationsData } from "@/hooks/useInvitationsData";
+import { SectionHeader } from "@/components/shared/SectionHeader";
+import { computeInvitationsNextAction } from "@/lib/sectionNextActions";
 import { RSVPCampaignDialog } from "@/components/guests/RSVPCampaignDialog";
 import PrintInvitationEditor from "@/components/print/PrintInvitationEditor";
 import PrintStudio from "@/components/invitations/PrintStudio";
@@ -141,16 +143,52 @@ const Invitations = () => {
 
   return (
     <div className="container mx-auto p-3 md:p-6 space-y-4 md:space-y-6 max-w-7xl">
-      {/* Header */}
-      <div>
-        <h1 className="text-xl md:text-3xl font-bold flex items-center gap-2">
-          <Send className="w-6 h-6 md:w-8 md:h-8 flex-shrink-0" />
-          <span>Campagne</span>
-        </h1>
-        <p className="text-muted-foreground text-sm mt-0.5">
-          Invia le partecipazioni, gestisci le pagine pubbliche e monitora le risposte
-        </p>
-      </div>
+      {/* Section Header v1 */}
+      {(() => {
+        const lastStdSentDate = parties
+          .flatMap((p) => p.guests.map((g) => g.save_the_date_sent_at))
+          .filter((d): d is string => !!d)
+          .sort()
+          .pop();
+        const stdSentDaysAgo = lastStdSentDate
+          ? Math.floor(
+              (Date.now() - new Date(lastStdSentDate).getTime()) /
+                (1000 * 60 * 60 * 24)
+            )
+          : null;
+
+        const nextAction = computeInvitationsNextAction({
+          partiesReadyToSendCount: partiesReadyToSend,
+          stdSent: campaignStats?.save_the_date.sent || 0,
+          stdResponded: campaignStats?.save_the_date.responded || 0,
+          stdSentDaysAgo,
+          formalInvitesSent: funnelStats.invited + funnelStats.confirmed + funnelStats.declined,
+          totalRegular: funnelStats.totalRegular,
+          onPrepareInvite: () => setRsvpCampaignOpen(true),
+          onRemindStd: () => setStdConfigDialogOpen(true),
+        });
+
+        return (
+          <SectionHeader
+            icon={<Send className="w-6 h-6 md:w-8 md:h-8 flex-shrink-0" />}
+            title="Campagne"
+            metadata="Invia le partecipazioni, gestisci le pagine pubbliche e monitora le risposte"
+            dataViz={{
+              type: "funnel",
+              stages: [
+                { label: "Destinatari", count: funnelStats.totalRegular },
+                {
+                  label: "Save the Date",
+                  count: campaignStats?.save_the_date.sent || 0,
+                },
+                { label: "Inviti formali", count: funnelStats.invited + funnelStats.confirmed + funnelStats.declined },
+                { label: "Confermati", count: funnelStats.confirmed },
+              ],
+            }}
+            nextAction={nextAction}
+          />
+        );
+      })()}
 
       {hasNoParties ? (
         <Card className="p-8 md:p-12">
@@ -193,6 +231,7 @@ const Invitations = () => {
               activeFilter={funnelFilter}
               onFilterChange={setFunnelFilter}
             />
+
 
             {/* Action Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
