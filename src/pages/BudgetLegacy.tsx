@@ -9,7 +9,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { TrendingUp, ArrowRight, Search, X, AlertCircle } from "lucide-react";
+import { TrendingUp, ArrowRight, Search, X, AlertCircle, Wallet } from "lucide-react";
 import { LockedCard } from "@/components/ui/locked-card";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 import { CalculationModeToggle } from "@/components/ui/calculation-mode-toggle";
@@ -19,6 +19,8 @@ import { toast } from "sonner";
 import { BudgetSpreadsheet } from "@/components/budget/BudgetSpreadsheet";
 import { BudgetScenarioBar } from "@/components/budget/BudgetScenarioBar";
 import { calculateExpectedCounts, calculateTotalVendorStaff, type Guest as ExpectedGuest, type ExpectedResult } from "@/lib/expectedCalculator";
+import { SectionHeader } from "@/components/shared/SectionHeader";
+import { computeBudgetNextAction } from "@/lib/sectionNextActions";
 interface ExpenseItem {
   id: string;
   description: string;
