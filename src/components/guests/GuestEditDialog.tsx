@@ -76,6 +76,9 @@ export const GuestEditDialog = ({
   const [rsvpStatus, setRsvpStatus] = useState<string>("pending");
   const [showCampaignSection, setShowCampaignSection] = useState(false);
   const [applyCampaignsToParty, setApplyCampaignsToParty] = useState(true);
+  // Initial campaign state (per detect user-driven toggle changes)
+  const [initialSaveTheDateSent, setInitialSaveTheDateSent] = useState(false);
+  const [initialFormalInviteSent, setInitialFormalInviteSent] = useState(false);
 
   useEffect(() => {
     if (open && guest) {
@@ -91,8 +94,12 @@ export const GuestEditDialog = ({
       setGroupId(guest.group_id || null);
       
       // Campaign fields
-      setSaveTheDateSent(!!guest.save_the_date_sent_at);
-      setFormalInviteSent(!!guest.formal_invite_sent_at);
+      const stdInit = !!guest.save_the_date_sent_at;
+      const formalInit = !!guest.formal_invite_sent_at;
+      setSaveTheDateSent(stdInit);
+      setFormalInviteSent(formalInit);
+      setInitialSaveTheDateSent(stdInit);
+      setInitialFormalInviteSent(formalInit);
       setStdResponse(guest.std_response || null);
       setRsvpStatus(guest.rsvp_status || "pending");
       setShowCampaignSection(false);
@@ -105,11 +112,13 @@ export const GuestEditDialog = ({
 
     setLoading(true);
     try {
-      // Cascade reset: if user explicitly turned off STD, clear derived response.
-      // If user turned off Formal Invite, clear RSVP status (back to pending).
-      // The user's explicit toggle wins over previous "inferred" state.
-      const finalStdResponse = saveTheDateSent ? stdResponse : null;
-      const finalRsvpStatus = formalInviteSent ? rsvpStatus : "pending";
+      // Cascade reset: only when the user EXPLICITLY turns OFF a toggle that was ON.
+      // If a toggle was already OFF when the dialog opened (e.g. guest responded via public RSVP
+      // without a formal invite being marked as sent), DO NOT clobber existing responses.
+      const stdTurnedOff = initialSaveTheDateSent && !saveTheDateSent;
+      const formalTurnedOff = initialFormalInviteSent && !formalInviteSent;
+      const finalStdResponse = stdTurnedOff ? null : stdResponse;
+      const finalRsvpStatus = formalTurnedOff ? "pending" : rsvpStatus;
 
       // Inferred Status (after cascade): a real response implies the campaign was sent
       const effectiveSaveTheDateSent = saveTheDateSent || !!finalStdResponse;
