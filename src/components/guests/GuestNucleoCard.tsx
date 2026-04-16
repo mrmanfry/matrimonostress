@@ -30,6 +30,7 @@ interface Guest {
   std_responded_at?: string | null;
   rsvp_status?: string | null;
   rsvp_invitation_sent?: string | null;
+  plus_one_of_guest_id?: string | null;
 }
 
 interface InviteParty {
