@@ -1189,59 +1189,45 @@ const Guests = () => {
         </Card>
       ) : (
         <>
-          {/* Navigation Banner to Campaigns */}
-          {parties.length > 0 && !maskGuestData && (
-            <Card 
-              className="p-3 cursor-pointer hover:shadow-md transition-all border-primary/20 bg-primary/5"
-              onClick={() => window.location.href = '/app/invitations'}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-sm">
-                  <Send className="w-4 h-4 text-primary" />
-                  <span>
-                    Hai <strong>{parties.length}</strong> nuclei pronti per ricevere l'invito
-                  </span>
-                </div>
-                <Button variant="ghost" size="sm" className="gap-1 text-primary">
-                  Vai alle Campagne
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
-              </div>
-            </Card>
-          )}
-          
-          {/* Compact Warnings */}
-          {(guestsWithoutPhone > 0 || ungroupedGuests.length > 0) && (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground px-1">
+          {/* Quiet status line: campaigns + warnings unified, prose-style */}
+          {(parties.length > 0 || guestsWithoutPhone > 0 || ungroupedGuests.length > 0) && !maskGuestData && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground px-1">
+              {parties.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => window.location.href = '/app/invitations'}
+                  className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                >
+                  <Send className="w-3 h-3" />
+                  <span><strong className="font-medium text-foreground">{parties.length}</strong> nuclei pronti per l'invito</span>
+                  <ChevronRight className="w-3 h-3" />
+                </button>
+              )}
+              {parties.length > 0 && (guestsWithoutPhone > 0 || ungroupedGuests.length > 0) && (
+                <span aria-hidden>·</span>
+              )}
               {guestsWithoutPhone > 0 && (
-                <span className="flex items-center gap-1">
-                  <AlertCircle className="w-3.5 h-3.5 text-orange-500" />
-                  <strong className="text-foreground">{guestsWithoutPhone}</strong> senza telefono
-                  <Button
-                    variant="link"
-                    className="p-0 h-auto text-sm"
-                    onClick={() => setContactSyncOpen(true)}
-                  >
-                    Sincronizza
-                  </Button>
-                </span>
+                <button
+                  type="button"
+                  onClick={() => setContactSyncOpen(true)}
+                  className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                >
+                  <AlertCircle className="w-3 h-3" />
+                  <span><strong className="font-medium text-foreground">{guestsWithoutPhone}</strong> senza telefono — Sincronizza</span>
+                </button>
               )}
               {guestsWithoutPhone > 0 && ungroupedGuests.length > 0 && (
-                <span className="text-border">·</span>
+                <span aria-hidden>·</span>
               )}
               {ungroupedGuests.length > 0 && (
-                <span className="flex items-center gap-1">
-                  <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
-                  <strong className="text-foreground">{ungroupedGuests.length}</strong> non raggruppati
-                  <Button
-                    variant="link"
-                    className="p-0 h-auto text-sm"
-                    onClick={() => setSmartGrouperOpen(true)}
-                  >
-                    <Sparkles className="w-3 h-3 mr-1" />
-                    Raggruppa
-                  </Button>
-                </span>
+                <button
+                  type="button"
+                  onClick={() => setSmartGrouperOpen(true)}
+                  className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                >
+                  <Sparkles className="w-3 h-3" />
+                  <span><strong className="font-medium text-foreground">{ungroupedGuests.length}</strong> non raggruppati — Raggruppa</span>
+                </button>
               )}
             </div>
           )}
