@@ -1,73 +1,53 @@
 
-## Piano: Section Header v1 unificato per /guests, /budget, /campaigns
+Confermato: niente backfill, +1 sempre adulto. Procedo con il piano.
 
-L'utente ha presentato un'analisi UX dettagliata. Voglio prima chiarire lo scope di questa implementazione perché è un progetto importante con molte decisioni architetturali ancora aperte.
+## Piano esecutivo
 
-## Cosa propongo di fare
-
-Implementare il pattern **Section Header v1** come componente condiviso e applicarlo alle 3 sezioni (`/guests`, `/budget`, `/campaigns` → in WedsApp è `/invitations`), con la logica `computeNextAction` deterministica.
-
-## Componente condiviso
-
-`src/components/shared/SectionHeader.tsx` con 4 elementi sempre nella stessa griglia:
-1. **Titolo + CTA primario**
-2. **Metadata line** (prosa grigia con numeri chiave)
-3. **Progress visualization** polimorfica (3 varianti: `stratified` / `budget` / `funnel`)
-4. **Next action card** opzionale, colorata per urgenza (viola/giallo/rosso)
-
-```ts
-type DataViz = 
-  | { type: 'stratified'; segments: { label, count, color }[] }
-  | { type: 'budget'; paid: number; committed: number; total: number }
-  | { type: 'funnel'; stages: { label, count, percentage }[] }
-
-type Urgency = 'low' | 'medium' | 'high'
+**1. Migration DB**
+```sql
+ALTER TABLE public.guests 
+  ADD COLUMN plus_one_of_guest_id UUID NULL 
+  REFERENCES public.guests(id) ON DELETE SET NULL;
+CREATE INDEX idx_guests_plus_one_of ON public.guests(plus_one_of_guest_id);
 ```
 
-## Applicazione per sezione
+**2. Edge function `rsvp-handler` — branch SUBMIT**
 
-**`/guests`** → stratified bar (confermati/attesa/rifiutati su 196), next action: "Invia inviti formali" se ci sono nuclei pronti, oppure "Sincronizza contatti" se molti senza telefono. Dati già disponibili da `useGuestMetrics` + `useInvitationsData`.
+Per ogni `member` aggiornato, dopo l'UPDATE del titolare:
 
-**`/budget` (BudgetLegacy)** → budget bar 2 colori (verde pagato + viola impegnato) su totale. Next action rossa: "Paga ora" se acconto in scadenza < 7 giorni. Richiede aggregazione da `expense_items` + `payments` (status='Pagato' vs total commitment).
+- **Se `member.rsvpStatus === 'confirmed'` e `plusOneName` non vuoto:**
+  - Cerca guest esistente con `plus_one_of_guest_id === member.id`
+  - **Non esiste** → INSERT:
+    ```
+    wedding_id, party_id (= titolare.party_id, garantito da ensure_party_for_rsvp)
+    first_name/last_name: split di plusOneName
+    rsvp_status: 'confirmed'
+    menu_choice: plusOneMenu
+    adults_count: 1, children_count: 0, is_child: false
+    allow_plus_one: false
+    plus_one_of_guest_id: member.id
+    ```
+  - **Esiste** → UPDATE nome/menu
 
-**`/invitations`** → funnel orizzontale (Destinatari → STD inviati → STD risposti → Inviti formali → Confermati). Dati già pronti in `useInvitationsData.funnelStats`. Next action viola: "Prepara invito" se ≥1 nucleo pronto.
+- **Se `plusOneName` vuoto/null o titolare `declined`:**
+  - DELETE guest con `plus_one_of_guest_id === member.id` (se esiste)
 
-## `computeNextAction` — state machine deterministica
+Vale sia per branch party che single (in single, `ensure_party_for_rsvp` ha già creato il party).
 
-Una funzione pura per sezione, regole if/else documentate (no AI), priorità top-down:
+**3. Adattamenti UI**
 
-```ts
-// guests
-if (partiesReadyToSend.length > 0) → "Invia inviti formali" (medium)
-else if (withoutPhone > 30%) → "Sincronizza contatti" (low)
-else if (confirmedRate > 80%) → "Assegna i tavoli" (low)
-else if (daysToWedding ≤ 30 && confirmedRate < 90%) → "Solleciti" (high)
+- `src/pages/Tables.tsx`: la generazione "virtual +1" (righe 167-235) e la conversione al drag (393-431, 504-540) restano come fallback solo per +1 **non ancora confermati** (titolare con `allow_plus_one=true` ma senza guest reale collegato via `plus_one_of_guest_id`).
+- `src/components/guests/GuestNucleoCard.tsx`: badge "+1 di [Nome titolare]" sui guest con `plus_one_of_guest_id` valorizzato.
+- `src/pages/Guests.tsx`: `confirmedPlusOnes` (~riga 961) basato su `COUNT(plus_one_of_guest_id IS NOT NULL)` invece di `plus_one_name`.
 
-// budget
-if (nextPayment.daysUntil ≤ 3) → "Paga ora" (high, rosso)
-else if (nextPayment.daysUntil ≤ 14) → "Prossima rata" (medium, giallo)
-else if (committed/total > 100%) → "Budget superato" (high)
+**4. Cosa NON tocco**
+- `useGuestMetrics`, `Catering.tsx`, `Treasury.tsx`, `expectedCalculator.ts` → leggono già `guests` e funzioneranno automaticamente
+- Form RSVP pubblico (`FormalInviteView`) → invariato
+- Token/URL esistenti → invariati
 
-// invitations
-if (partiesReadyToSend > 0) → "Prepara invito" (medium)
-else if (stdResponseRate < 50% && stdSentDaysAgo > 7) → "Sollecita STD" (medium)
-```
-
-## Decisioni che voglio chiarire prima di codare
-
-L'utente stesso ha sollevato 2 punti aperti che bloccano l'implementazione pulita. Ho bisogno di risposte prima di procedere.
-
-## File modificati
-
-- **NEW**: `src/components/shared/SectionHeader.tsx` (componente unificato)
-- **NEW**: `src/lib/sectionNextActions.ts` (3 funzioni `computeNextAction*`)
-- **MOD**: `src/pages/Guests.tsx` — sostituisce header attuale + KPI
-- **MOD**: `src/pages/BudgetLegacy.tsx` — aggiunge header in cima
-- **MOD**: `src/pages/Invitations.tsx` — sostituisce `InvitationsKPIs` con il nuovo header (o lo affianca)
-
-## Cosa NON faccio in questo step
-
-- ❌ Pagina `/insights` (giustamente bocciata)
-- ❌ Livello 3 "chart = filtro" su gruppi (è un'altra issue, separata)
-- ❌ Refactor del DB schema per `status: planned | committed | paid` (vedi domanda 2)
-- ❌ Modifiche a `/vendors`, `/tables`, `/timeline` (validiamo prima il pattern sui 3)
+**File modificati**
+- MIGRATION: nuova colonna + indice
+- `supabase/functions/rsvp-handler/index.ts`
+- `src/pages/Tables.tsx` (semplificazione virtual +1)
+- `src/components/guests/GuestNucleoCard.tsx` (badge)
+- `src/pages/Guests.tsx` (conteggio)
