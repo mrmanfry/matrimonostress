@@ -1,58 +1,66 @@
 
 
-## Piano: Fix immagini Cerimonia/Ricevimento nel preview RSVP
+L'utente conferma le tre fasce ma vuole semplificare l'approccio: niente "età precisa", solo tre tier funzionali. Aggiorno il piano di conseguenza.
 
-### Problema
-In `src/components/rsvp/FormalInviteView.tsx` (righe 357 e 413) le immagini di Cerimonia e Ricevimento usano:
+## Piano aggiornato: Fix Catering RSVP + 3 fasce semplici
 
-```tsx
-className="w-full max-w-md h-40 object-cover rounded-lg"
+### Le tre fasce (semplificate)
+- **Adulto** (default, `is_child = false`)
+- **Bambino** (`is_child = true`, `child_age_group = 'kid'`) — paga mezzo coperto / menu bimbi
+- **Sotto i 3 anni** (`is_child = true`, `child_age_group = 'infant'`) — non paga coperto
+
+Solo due valori in DB per `child_age_group`: `'infant'` o `'kid'` (NULL = retrocompatibilità → trattato come "kid").
+
+### Modifiche
+
+**1. Bug RSVP Catering (priorità massima)**
+
+`src/pages/Catering.tsx` riga 92-102 — invertire la priorità:
+```ts
+const deriveRsvpStatus = (guestRsvp, partyId) => {
+  if (isConfirmed(guestRsvp)) return "confirmed";
+  if (isDeclined(guestRsvp)) return "declined";
+  // solo se pending, eredita dal nucleo
+  if (partyId && partyStatusMap.has(partyId)) {
+    const ps = partyStatusMap.get(partyId)!;
+    if (isConfirmed(ps)) return "confirmed";
+    if (isDeclined(ps)) return "declined";
+  }
+  return "pending";
+};
 ```
+**Effetto**: Mariapaola (declined) sparisce dai confermati. Andrea/Bianca/Benedetta restano pending.
 
-- `h-40` = altezza fissa di 160px
-- `object-cover` = riempie il box ritagliando ciò che eccede
+**2. Migrazione DB**
+Aggiungere colonna `child_age_group TEXT` su `guests` (nullable, valori previsti: `'infant'` | `'kid'`).
 
-Risultato: con illustrazioni acquerello (come quella allegata, formato panoramico ~3:1) o con foto verticali, parti importanti del soggetto vengono **tagliate** in alto/basso o ai lati.
+**3. UI di editing**
+In `GuestEditDialog.tsx` (e `GuestDialog.tsx` per coerenza): quando `is_child = true`, mostrare un toggle/radio compatto con due opzioni:
+- ☐ Sotto i 3 anni (no coperto)
+- ☑ Bambino (menu bimbi)
 
-### Soluzione
-Sostituire l'altezza fissa con un **aspect ratio ragionevole** e cambiare strategia in base al contenuto:
+Default: "Bambino".
 
-**Opzione scelta**: `aspect-[16/10]` + `object-cover` con `object-center`, ma con altezza più generosa e `max-h` per evitare immagini troppo alte. Questo è il compromesso migliore perché:
-- Mostra meglio sia foto orizzontali (location reali) che illustrazioni acquerello
-- Mantiene un layout consistente tra Cerimonia e Ricevimento
-- Non rompe il design quando l'utente carica un'immagine quadrata o verticale
+**4. Visualizzazione Catering**
 
-Modifica concreta su entrambe le immagini:
-
-```tsx
-// Prima
-className="w-full max-w-md h-40 object-cover rounded-lg"
-
-// Dopo
-className="w-full max-w-md aspect-[16/10] object-cover object-center rounded-lg"
-```
-
-In alternativa, se l'utente preferisce **vedere l'immagine intera senza tagli** (più adatto per illustrazioni acquerello), userei `object-contain` con un background neutro:
-
-```tsx
-className="w-full max-w-md max-h-64 object-contain rounded-lg bg-stone-50"
-```
-
-### File toccati
 | File | Modifica |
 |------|----------|
-| `src/components/rsvp/FormalInviteView.tsx` | Righe 357 + 413: sostituire `h-40 object-cover` con `aspect-[16/10] object-cover object-center` |
+| `CateringGuestTable.tsx` | Colonna "Tipo": badge "Adulto" / "Bambino" / "<3 anni" |
+| `CateringKPIs.tsx` | KPI confermati: `X adulti · Y bambini · Z <3 anni` |
+| `CateringByTable.tsx` | Mostrare suddivisione per tavolo |
+| `CateringExportMenu.tsx` | Includere fascia in CSV/PDF |
 
-### Cosa NON tocco
-- Logica del componente, props, dati
-- `SaveTheDateView.tsx` (verifico se ha lo stesso problema durante l'implementazione e applico lo stesso fix se serve)
-- Altre sezioni del RSVP (hero, countdown, FAQ, ecc.)
+**5. Verifica Tables/Conteggi**
+Controllo `Tables.tsx` per assicurare che il filtro confermati usi la stessa logica corretta (priorità al guest singolo, non al nucleo).
 
-### Domanda prima di procedere
-Quale comportamento preferisci per le immagini?
+### File NON toccati
+- `rsvp-handler` edge function (i dati sono già corretti in DB)
+- Logica capacità tavoli (i bambini <3 occupano comunque un posto se in braccio? → da chiarire dopo, per ora niente impatto su capacità)
 
-1. **Crop intelligente** (`aspect-[16/10] object-cover`) — l'immagine riempie sempre il box mantenendo proporzioni, ma può tagliare i bordi su immagini molto verticali. Layout sempre uniforme.
-2. **Immagine intera** (`max-h-64 object-contain` + sfondo neutro) — mostra sempre tutta l'immagine senza tagli, ma può lasciare bande laterali su immagini molto larghe.
-
-Se non rispondi, vado con l'**opzione 1** (più moderna, layout uniforme, è lo standard per inviti digitali tipo Zola/The Knot).
+### Verifica post-implementazione
+1. Mariapaola Bianchi (declined) NON deve più apparire nel catering né nei tavoli come confermata
+2. Tavolo 17 nucleo Baglioni: solo 3 confermati (Luca, Elena Sofia, Ettore Amedeo)
+3. Andrea/Bianca/Benedetta/Sandra/Francesca: stato "pending"
+4. Modificando un bimbo esistente, posso scegliere "Sotto i 3 anni" o "Bambino"
+5. KPI catering mostra le tre categorie separate
 
