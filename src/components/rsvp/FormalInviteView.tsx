@@ -365,7 +365,7 @@ export function FormalInviteView({
 
             <div className="flex justify-center">
               {ceremonyImageUrl ?
-            <img src={ceremonyImageUrl} alt={ceremonyVenueName || "Cerimonia"} className="w-full max-w-md max-h-64 object-contain rounded-lg bg-stone-50" /> :
+            <img src={ceremonyImageUrl} alt={ceremonyVenueName || "Cerimonia"} className="w-full max-w-md aspect-[16/10] object-cover object-center rounded-lg" /> :
 
             <Church className="w-12 h-12 text-stone-400" />
             }
