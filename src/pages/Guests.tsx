@@ -1084,65 +1084,90 @@ const Guests = () => {
 
   return (
     <div className="container mx-auto p-3 md:p-6 space-y-4 md:space-y-6 max-w-7xl overflow-x-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0">
-          <h1 className="text-xl md:text-3xl font-bold flex items-center gap-2">
-            <Users className="w-6 h-6 md:w-8 md:h-8 flex-shrink-0" />
-            <span className="truncate">Invitati</span>
-            {allGuests.length > 0 && (
-              <span className="text-muted-foreground font-normal text-base md:text-xl">({allGuests.filter(g => !g.is_couple_member).length})</span>
-            )}
-          </h1>
-          <p className="text-muted-foreground text-sm mt-0.5 hidden md:block">
-            Organizza i tuoi invitati in nuclei familiari
-          </p>
-        </div>
+      {/* Section Header v1 */}
+      {(() => {
+        const regularCount = allGuests.filter(g => !g.is_couple_member).length;
+        const partiesReadyCount = parties.filter(p =>
+          p.guests.length > 0 &&
+          p.guests.some(g => g.phone && !g.is_couple_member) &&
+          !p.guests.some(g => g.formal_invite_sent_at)
+        ).length;
+        const confirmedRate = regularCount > 0 ? stats.confirmed / regularCount : 0;
 
-        {!isMobile && !hasNoGuests && canCreateGuests && (
-          <div className="flex gap-2">
-            <ImportDropdown
-              onSmartImport={() => setSmartImportOpen(true)}
-              onSmartDiff={() => setSmartDiffOpen(true)}
-              onDownloadTemplate={handleDownloadTemplate}
-              onCSVImport={handleCSVImport}
-              onExportCSV={handleExportCSV}
-              onExportCateringPDF={handleExportCateringPDF}
-              hasGuests={allGuests.length > 0}
-              hasConfirmedGuests={confirmedGuests.length > 0}
-            />
-            <Button
-              onClick={() => window.location.href = '/app/invitations'}
-              variant="outline"
-            >
-              <Send className="w-4 h-4 mr-2" />
-              Campagne
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Crea
-                  <ChevronDown className="w-4 h-4 ml-1" />
+        const nextAction = !maskGuestData ? computeGuestsNextAction({
+          partiesReadyToSendCount: partiesReadyCount,
+          guestsWithoutPhoneCount: guestsWithoutPhone,
+          totalRegularGuests: regularCount,
+          confirmedRate,
+          daysToWedding: null,
+          onSendInvites: () => window.location.href = '/app/invitations',
+          onSyncContacts: () => setContactSyncOpen(true),
+          onAssignTables: () => window.location.href = '/app/tables',
+          onSendReminders: () => window.location.href = '/app/invitations',
+        }) : undefined;
+
+        return (
+          <SectionHeader
+            icon={<Users className="w-6 h-6 md:w-8 md:h-8 flex-shrink-0" />}
+            title="Invitati"
+            count={regularCount}
+            metadata="Organizza i tuoi invitati in nuclei familiari"
+            dataViz={regularCount > 0 ? {
+              type: "stratified",
+              total: stats.confirmed + stats.pending + stats.declined,
+              segments: [
+                { label: "Confermati", count: stats.confirmed, colorClass: "bg-emerald-500" },
+                { label: "In attesa", count: stats.pending, colorClass: "bg-amber-400" },
+                { label: "Rifiutati", count: stats.declined, colorClass: "bg-red-500" },
+              ],
+            } : undefined}
+            nextAction={nextAction}
+            secondaryActions={!isMobile && !hasNoGuests && canCreateGuests ? (
+              <>
+                <ImportDropdown
+                  onSmartImport={() => setSmartImportOpen(true)}
+                  onSmartDiff={() => setSmartDiffOpen(true)}
+                  onDownloadTemplate={handleDownloadTemplate}
+                  onCSVImport={handleCSVImport}
+                  onExportCSV={handleExportCSV}
+                  onExportCateringPDF={handleExportCateringPDF}
+                  hasGuests={allGuests.length > 0}
+                  hasConfirmedGuests={confirmedGuests.length > 0}
+                />
+                <Button
+                  onClick={() => window.location.href = '/app/invitations'}
+                  variant="outline"
+                >
+                  <Send className="w-4 h-4 mr-2" />
+                  Campagne
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setSingleGuestDialogOpen(true)}>
-                  <UserPlus className="w-4 h-4 mr-2" />
-                  Crea Contatto
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => {
-                  setEditingParty(undefined);
-                  setPartyDialogOpen(true);
-                }}>
-                  <Users className="w-4 h-4 mr-2" />
-                  Crea Nucleo
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        )}
-      </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Crea
+                      <ChevronDown className="w-4 h-4 ml-1" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => setSingleGuestDialogOpen(true)}>
+                      <UserPlus className="w-4 h-4 mr-2" />
+                      Crea Contatto
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => {
+                      setEditingParty(undefined);
+                      setPartyDialogOpen(true);
+                    }}>
+                      <Users className="w-4 h-4 mr-2" />
+                      Crea Nucleo
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            ) : undefined}
+          />
+        );
+      })()}
 
       {/* Empty State */}
       {hasNoGuests ? (
