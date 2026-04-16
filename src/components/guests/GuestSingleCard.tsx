@@ -1,14 +1,12 @@
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Switch } from "@/components/ui/switch";
-import { Phone, Edit, UserPlus, Baby, UserPlus2, Heart, Tag } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Phone, Edit, UserPlus, Baby, Plus, Heart } from "lucide-react";
 import { useState } from "react";
 import { GuestEditDialog } from "./GuestEditDialog";
-import { GuestCampaignBadges } from "./GuestCampaignBadges";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
+import { GuestStatusDot, deriveGuestStatus } from "./GuestStatusDot";
+import { GroupDot } from "./GroupDot";
 
 interface Guest {
   id: string;
@@ -27,7 +25,6 @@ interface Guest {
   unique_rsvp_token?: string;
   group_id?: string | null;
   group_name?: string | null;
-  // Wedding CRM fields
   save_the_date_sent_at?: string | null;
   formal_invite_sent_at?: string | null;
   std_response?: string | null;
@@ -46,6 +43,23 @@ interface GuestSingleCardProps {
   readOnly?: boolean;
 }
 
+function formatShortDate(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString("it-IT", { day: "numeric", month: "short" });
+}
+
+/** Build the short RSVP/invite status line, prose-style. */
+function buildStatusLine(guest: Guest): string | null {
+  if (guest.rsvp_status === "confirmed") return "Confermato";
+  if (guest.rsvp_status === "declined") return "Rifiutato";
+  if (guest.formal_invite_sent_at) {
+    return `Invito inviato · ${formatShortDate(guest.formal_invite_sent_at)}`;
+  }
+  if (guest.save_the_date_sent_at) {
+    return `Save the date · ${formatShortDate(guest.save_the_date_sent_at)}`;
+  }
+  return null;
+}
+
 export const GuestSingleCard = ({
   guest,
   selected,
@@ -57,43 +71,30 @@ export const GuestSingleCard = ({
   readOnly = false,
 }: GuestSingleCardProps) => {
   const [guestEditDialogOpen, setGuestEditDialogOpen] = useState(false);
-  const [togglingPlusOne, setTogglingPlusOne] = useState(false);
-  
-  const displayName = maskSensitiveData 
-    ? `${guest.first_name} ${guest.last_name.charAt(0)}.`
-    : `${guest.first_name} ${guest.last_name}`;
 
-  const handleEditClick = () => {
-    setGuestEditDialogOpen(true);
-  };
+  // Name with alias inline (journalistic convention: Alberto "Albe" Rossi)
+  const lastName = maskSensitiveData ? `${guest.last_name.charAt(0)}.` : guest.last_name;
+  const showAlias = guest.alias && !maskSensitiveData;
+  const displayName = showAlias
+    ? `${guest.first_name} "${guest.alias}" ${lastName}`
+    : `${guest.first_name} ${lastName}`;
 
-  const handleGuestUpdateSuccess = () => {
-    onGuestUpdate?.();
-  };
+  const status = deriveGuestStatus({
+    rsvpStatus: guest.rsvp_status,
+    stdResponse: guest.std_response,
+  });
+  const statusLine = buildStatusLine(guest);
 
-  const handleTogglePlusOne = async (checked: boolean) => {
-    setTogglingPlusOne(true);
-    try {
-      const { error } = await supabase
-        .from("guests")
-        .update({ allow_plus_one: checked })
-        .eq("id", guest.id);
-
-      if (error) throw error;
-      
-      toast.success(checked ? "+1 abilitato" : "+1 disabilitato");
-      onGuestUpdate?.();
-    } catch (error: any) {
-      toast.error("Errore nell'aggiornamento");
-    } finally {
-      setTogglingPlusOne(false);
-    }
-  };
+  const handleGuestUpdateSuccess = () => onGuestUpdate?.();
 
   return (
-    <Card className={`p-3 md:p-4 hover:shadow-md transition-all ${selected ? 'ring-2 ring-primary' : ''} ${guest.is_couple_member ? 'border-pink-200 dark:border-pink-900/50 bg-pink-50/30 dark:bg-pink-950/10' : ''}`}>
+    <Card
+      className={`p-3 md:p-4 transition-shadow hover:shadow-sm ${
+        selected ? "ring-2 ring-primary" : ""
+      } ${guest.is_couple_member ? "bg-muted/30" : ""}`}
+    >
       <div className="flex items-start gap-2 md:gap-3">
-        {/* Checkbox - hidden for couple members and readOnly */}
+        {/* Checkbox */}
         {!guest.is_couple_member && !readOnly && (
           <Checkbox
             checked={selected}
@@ -102,68 +103,95 @@ export const GuestSingleCard = ({
           />
         )}
 
-        {/* Content */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2 mb-2">
+          {/* Name row */}
+          <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5 md:gap-2 flex-wrap">
-                {guest.is_couple_member && (
-                  <Heart className="w-4 h-4 text-pink-500 fill-pink-500 flex-shrink-0" />
-                )}
-                <h3 className="font-semibold truncate text-sm md:text-base">{displayName}</h3>
-                {/* Alias Badge */}
-                {guest.alias && !maskSensitiveData && (
-                  <span className="text-xs font-normal text-muted-foreground bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full border">
-                    aka "{guest.alias}"
-                  </span>
+              <div className="flex items-center gap-2 min-w-0">
+                {/* RSVP status dot — pre-attentive signal */}
+                {!guest.is_couple_member && (
+                  <GuestStatusDot
+                    status={status}
+                    size="sm"
+                    tooltip={statusLine ?? "Nessuna risposta"}
+                  />
                 )}
                 {guest.is_couple_member && (
-                  <Badge className="text-xs bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300 border-0">
-                    Sposo/a
-                  </Badge>
+                  <Heart className="w-3.5 h-3.5 text-rose-400 fill-rose-400 flex-shrink-0" />
                 )}
+                <h3 className="font-medium text-sm md:text-[15px] truncate">{displayName}</h3>
+
+                {/* Inline icons (no fills) */}
                 {guest.is_child && (
-                  <Badge variant="outline" className="text-xs">
-                    <Baby className="w-3 h-3 mr-1" />
-                    Bambino
-                  </Badge>
+                  <TooltipProvider delayDuration={300}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Baby className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                      </TooltipTrigger>
+                      <TooltipContent>Bambino</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 )}
                 {guest.allow_plus_one && !guest.is_couple_member && (
-                  <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
-                    <UserPlus2 className="w-3 h-3 mr-1" />
-                    +1
-                  </Badge>
-                )}
-                {guest.group_name && !guest.is_couple_member && (
-                  <Badge variant="outline" className="text-xs gap-1 bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/20 dark:border-blue-700 dark:text-blue-300">
-                    <Tag className="w-3 h-3" />
-                    {guest.group_name}
-                  </Badge>
+                  <TooltipProvider delayDuration={300}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Plus className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                      </TooltipTrigger>
+                      <TooltipContent>Accompagnatore (+1)</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 )}
               </div>
-              {/* Campaign Badges - Couple members always show as confirmed */}
+
+              {/* Metadata line: status + group + phone, all in muted prose */}
               {!guest.is_couple_member && (
-                <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground flex-wrap">
-                  <GuestCampaignBadges 
-                    saveTheDateSentAt={guest.save_the_date_sent_at}
-                    formalInviteSentAt={guest.formal_invite_sent_at}
-                    stdResponse={guest.std_response as 'likely_yes' | 'likely_no' | 'unsure' | null | undefined}
-                    rsvpStatus={guest.rsvp_status}
-                    compact
-                  />
+                <div className="flex items-center gap-x-2 gap-y-0.5 mt-1 text-xs text-muted-foreground flex-wrap">
+                  {statusLine && <span>{statusLine}</span>}
+                  {guest.group_name && (
+                    <>
+                      {statusLine && <span aria-hidden>·</span>}
+                      <GroupDot groupName={guest.group_name} />
+                    </>
+                  )}
+                  {guest.phone && !maskSensitiveData && (
+                    <>
+                      {(statusLine || guest.group_name) && <span aria-hidden>·</span>}
+                      <span className="inline-flex items-center gap-1">
+                        <Phone className="w-3 h-3" />
+                        {guest.phone}
+                      </span>
+                    </>
+                  )}
+                  {!guest.phone && !maskSensitiveData && (
+                    <>
+                      {(statusLine || guest.group_name) && <span aria-hidden>·</span>}
+                      <span className="inline-flex items-center gap-1 text-amber-600/80 dark:text-amber-400/80">
+                        <Phone className="w-3 h-3" />
+                        Numero mancante
+                      </span>
+                    </>
+                  )}
                 </div>
+              )}
+              {guest.is_couple_member && (
+                <p className="text-xs text-muted-foreground mt-0.5">Confermato</p>
               )}
             </div>
 
-            {/* Actions - hidden in readOnly */}
+            {/* Actions */}
             {!readOnly && (
-              <div className="flex gap-1 flex-shrink-0">
+              <div className="flex gap-0.5 flex-shrink-0">
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8"
-                  onClick={handleEditClick}
-                  title={guest.is_couple_member ? "Modifica preferenze alimentari" : "Modifica dettagli invitato"}
+                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                  onClick={() => setGuestEditDialogOpen(true)}
+                  title={
+                    guest.is_couple_member
+                      ? "Modifica preferenze alimentari"
+                      : "Modifica dettagli invitato"
+                  }
                 >
                   <Edit className="w-4 h-4" />
                 </Button>
@@ -171,7 +199,7 @@ export const GuestSingleCard = ({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8"
+                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
                     onClick={() => onAddToParty(guest.id)}
                     title="Aggiungi a nucleo"
                   >
@@ -181,41 +209,9 @@ export const GuestSingleCard = ({
               </div>
             )}
           </div>
-
-          {/* Contact Info - Hidden for couple members and when masked */}
-          {!guest.is_couple_member && !maskSensitiveData && (
-            <div className="flex items-center gap-2 text-sm">
-              {guest.phone ? (
-                <div className="flex items-center gap-1 text-muted-foreground">
-                  <Phone className="w-3 h-3" />
-                  <span>{guest.phone}</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-1 text-orange-600">
-                  <Phone className="w-3 h-3" />
-                  <span className="text-xs">(Numero mancante)</span>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Plus One Toggle & Person count */}
-          <div className="flex items-center justify-between mt-3 pt-2 border-t">
-            <div className="text-xs text-muted-foreground">
-              {guest.is_couple_member ? (
-                <span className="text-pink-600 dark:text-pink-400">Confermato</span>
-              ) : (
-                guest.is_child ? '0 Adulti, 1 Bambino' : '1 Adulto, 0 Bambini'
-              )}
-            </div>
-            {!guest.is_child && !guest.is_couple_member && guest.allow_plus_one && (
-              <span className="text-xs text-muted-foreground">+1 permesso</span>
-            )}
-          </div>
         </div>
       </div>
 
-      {/* Guest Edit Dialog */}
       <GuestEditDialog
         open={guestEditDialogOpen}
         onOpenChange={setGuestEditDialogOpen}
