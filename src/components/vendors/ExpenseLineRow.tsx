@@ -25,7 +25,7 @@ interface ExpenseLineItem {
 
 interface ExpenseLineRowProps {
   lineItem: ExpenseLineItem;
-  calculationMode: 'planned' | 'actual' | 'expected';
+  calculationMode: 'planned' | 'confirmed' | 'expected';
   plannedAdults: number;
   plannedChildren: number;
   plannedStaff: number;

@@ -378,7 +378,7 @@ export function ExpenseSpreadsheetTab({
     }
   };
 
-  const calculateLineTotal = (line: ExpenseLineItem, mode: 'planned' | 'actual' | 'expected'): number => {
+  const calculateLineTotal = (line: ExpenseLineItem, mode: 'planned' | 'confirmed' | 'expected'): number => {
     let quantity = 0;
 
     if (line.quantity_type === 'fixed') {
@@ -393,6 +393,7 @@ export function ExpenseSpreadsheetTab({
         } else if (mode === 'expected') {
           return type === 'adults' ? expectedAdults : type === 'children' ? expectedChildren : expectedStaff;
         } else {
+          // confirmed
           return type === 'adults' ? actualAdults : type === 'children' ? actualChildren : actualStaff;
         }
       };
@@ -428,7 +429,7 @@ export function ExpenseSpreadsheetTab({
 
   const calculateTotals = () => {
     const planned = lineItems.reduce((sum, line) => sum + calculateLineTotal(line, 'planned'), 0);
-    const actual = lineItems.reduce((sum, line) => sum + calculateLineTotal(line, 'actual'), 0);
+    const actual = lineItems.reduce((sum, line) => sum + calculateLineTotal(line, 'confirmed'), 0);
     return { planned, actual };
   };
 
@@ -564,9 +565,9 @@ export function ExpenseSpreadsheetTab({
             </div>
           )}
 
-          {globalMode === 'actual' && (
+          {globalMode === 'confirmed' && (
             <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900 rounded-lg p-4">
-              <p className="text-sm font-medium mb-2">Invitati Confermati (da RSVP):</p>
+              <p className="text-sm font-medium mb-2">Invitati Confermati (da RSVP, sposi inclusi):</p>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                 <div>
                   <span className="text-muted-foreground">Adulti:</span>
