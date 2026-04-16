@@ -18,6 +18,12 @@ export const CateringExportMenu = ({ guests }: CateringExportMenuProps) => {
       return;
     }
 
+    const typeLabel = (g: { is_child: boolean; child_age_group?: string | null }) => {
+      if (!g.is_child) return "Adulto";
+      if (g.child_age_group === "infant") return "<3 anni";
+      return "Bambino";
+    };
+
     // Header
     const headers = ["Nome", "Cognome", "Nucleo", "Tavolo", "Dieta", "Allergie/Intolleranze", "Note", "Tipo"];
     const rows = confirmed.map(g => [
@@ -28,7 +34,7 @@ export const CateringExportMenu = ({ guests }: CateringExportMenuProps) => {
       g.menu_choice || "",
       g.dietary_restrictions || "",
       g.notes || "",
-      g.is_child ? "Bambino" : "Adulto",
+      typeLabel(g),
     ]);
 
     // Aggregate section
@@ -37,7 +43,8 @@ export const CateringExportMenu = ({ guests }: CateringExportMenuProps) => {
     const cel = confirmed.filter(g => g.menu_choice === "celiaco").length;
     const allerg = confirmed.filter(g => g.dietary_restrictions?.trim()).length;
     const adults = confirmed.filter(g => !g.is_child).length;
-    const children = confirmed.filter(g => g.is_child).length;
+    const kids = confirmed.filter(g => g.is_child && g.child_age_group !== "infant").length;
+    const infants = confirmed.filter(g => g.is_child && g.child_age_group === "infant").length;
 
     // Build by-table summary
     const tableMap = new Map<string, number>();
@@ -52,7 +59,8 @@ export const CateringExportMenu = ({ guests }: CateringExportMenuProps) => {
     csv += "RIEPILOGO\n";
     csv += `Totale Confermati,${confirmed.length}\n`;
     csv += `Adulti,${adults}\n`;
-    csv += `Bambini,${children}\n`;
+    csv += `Bambini (menu bimbi),${kids}\n`;
+    csv += `Sotto i 3 anni (no coperto),${infants}\n`;
     csv += `Vegetariani,${veg}\n`;
     csv += `Vegani,${vgn}\n`;
     csv += `Celiaci,${cel}\n`;

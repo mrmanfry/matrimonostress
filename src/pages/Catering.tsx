@@ -63,7 +63,7 @@ const Catering = () => {
       // Fetch guests (excluding couple members and staff)
       const { data: guestsData } = await supabase
         .from("guests")
-        .select("id, first_name, last_name, menu_choice, dietary_restrictions, is_child, rsvp_status, notes, party_id")
+        .select("id, first_name, last_name, menu_choice, dietary_restrictions, is_child, child_age_group, rsvp_status, notes, party_id")
         .eq("wedding_id", weddingId)
         .eq("is_staff", false);
 
@@ -89,25 +89,27 @@ const Catering = () => {
       const partyMap = new Map((parties || []).map(p => [p.id, p.party_name]));
       const partyStatusMap = new Map((parties || []).map(p => [p.id, p.rsvp_status as string]));
 
+      // Priorità al singolo ospite: il suo stato esplicito vince sempre.
+      // Solo se il guest è pending, eredita dal nucleo.
       const deriveRsvpStatus = (guestRsvp: string | null, partyId: string | null): string => {
+        if (isConfirmed(guestRsvp)) return "confirmed";
+        if (isDeclined(guestRsvp)) return "declined";
         if (partyId && partyStatusMap.has(partyId)) {
           const ps = partyStatusMap.get(partyId)!;
           if (isConfirmed(ps)) return "confirmed";
           if (isDeclined(ps)) return "declined";
-          return "pending";
         }
-        if (isConfirmed(guestRsvp)) return "confirmed";
-        if (isDeclined(guestRsvp)) return "declined";
         return "pending";
       };
 
-      const enriched: CateringGuestRow[] = (guestsData || []).map(g => ({
+      const enriched: CateringGuestRow[] = (guestsData || []).map((g: any) => ({
         id: g.id,
         first_name: g.first_name,
         last_name: g.last_name,
         menu_choice: g.menu_choice,
         dietary_restrictions: g.dietary_restrictions,
         is_child: g.is_child,
+        child_age_group: g.child_age_group ?? null,
         rsvp_status: deriveRsvpStatus(g.rsvp_status, g.party_id),
         notes: g.notes,
         table_name: assignMap.has(g.id) ? (tableMap.get(assignMap.get(g.id)!) || null) : null,
