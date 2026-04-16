@@ -76,6 +76,9 @@ export const GuestEditDialog = ({
   const [rsvpStatus, setRsvpStatus] = useState<string>("pending");
   const [showCampaignSection, setShowCampaignSection] = useState(false);
   const [applyCampaignsToParty, setApplyCampaignsToParty] = useState(true);
+  // Initial campaign state (per detect user-driven toggle changes)
+  const [initialSaveTheDateSent, setInitialSaveTheDateSent] = useState(false);
+  const [initialFormalInviteSent, setInitialFormalInviteSent] = useState(false);
 
   useEffect(() => {
     if (open && guest) {
@@ -91,8 +94,12 @@ export const GuestEditDialog = ({
       setGroupId(guest.group_id || null);
       
       // Campaign fields
-      setSaveTheDateSent(!!guest.save_the_date_sent_at);
-      setFormalInviteSent(!!guest.formal_invite_sent_at);
+      const stdInit = !!guest.save_the_date_sent_at;
+      const formalInit = !!guest.formal_invite_sent_at;
+      setSaveTheDateSent(stdInit);
+      setFormalInviteSent(formalInit);
+      setInitialSaveTheDateSent(stdInit);
+      setInitialFormalInviteSent(formalInit);
       setStdResponse(guest.std_response || null);
       setRsvpStatus(guest.rsvp_status || "pending");
       setShowCampaignSection(false);
