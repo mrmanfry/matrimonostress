@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Send, Smartphone, Printer, Users, ChevronRight, Upload, Palette, MessageSquare, Settings2, BarChart3 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,6 +6,8 @@ import { useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InvitationsKPIs } from "@/components/invitations/InvitationsKPIs";
 import { useInvitationsData } from "@/hooks/useInvitationsData";
+import { SectionHeader } from "@/components/shared/SectionHeader";
+import { computeInvitationsNextAction } from "@/lib/sectionNextActions";
 import { RSVPCampaignDialog } from "@/components/guests/RSVPCampaignDialog";
 import PrintInvitationEditor from "@/components/print/PrintInvitationEditor";
 import PrintStudio from "@/components/invitations/PrintStudio";
