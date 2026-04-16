@@ -113,6 +113,10 @@ export const GuestNucleoCard = ({
   const guestsWithPlusOne = party.guests.filter((g) => g.allow_plus_one).length;
   const groupName = party.guests.find((g) => g.group_name)?.group_name;
 
+  // Map host guest_id → first_name to render "+1 di X" badge for promoted +1 guests
+  const hostNameById = new Map<string, string>();
+  party.guests.forEach((g) => hostNameById.set(g.id, g.first_name));
+
   const stdDiscrepancy = useMemo(() => detectStdDiscrepancy(party.guests), [party.guests]);
 
   const nucleusCampaignStatus = useMemo(() => {
