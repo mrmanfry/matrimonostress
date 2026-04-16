@@ -11,6 +11,7 @@ import { CateringDietarySettings, type CateringConfig } from "@/components/cater
 import { CateringExportMenu } from "@/components/catering/CateringExportMenu";
 import { MenuComposer, type MenuData } from "@/components/catering/MenuComposer";
 import MenuCardEditor from "@/components/catering/MenuCardEditor";
+import DietaryRestrictionsTab from "@/components/catering/DietaryRestrictionsTab";
 import { Loader2, ChefHat, Printer } from "lucide-react";
 
 const DEFAULT_CONFIG: CateringConfig = {
@@ -156,6 +157,7 @@ const Catering = () => {
         <TabsList>
           <TabsTrigger value="riepilogo">Riepilogo</TabsTrigger>
           <TabsTrigger value="dettaglio">Dettaglio Ospiti</TabsTrigger>
+          <TabsTrigger value="restrizioni">Restrizioni</TabsTrigger>
           <TabsTrigger value="tavoli">Per Tavolo</TabsTrigger>
           <TabsTrigger value="menu">Menu</TabsTrigger>
           <TabsTrigger value="impostazioni">Impostazioni</TabsTrigger>
@@ -167,6 +169,10 @@ const Catering = () => {
 
         <TabsContent value="dettaglio">
           <CateringGuestTable guests={guests} tables={tableNames} />
+        </TabsContent>
+
+        <TabsContent value="restrizioni">
+          <DietaryRestrictionsTab guests={guests} />
         </TabsContent>
 
         <TabsContent value="tavoli">
