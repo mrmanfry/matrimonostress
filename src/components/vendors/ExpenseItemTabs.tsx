@@ -16,7 +16,7 @@ interface ExpenseItem {
   total_amount: number | null;
   amount_is_tax_inclusive: boolean;
   tax_rate: number | null;
-  calculation_mode: 'planned' | 'actual';
+  calculation_mode: 'planned' | 'confirmed' | 'expected';
   planned_adults: number;
   planned_children: number;
   planned_staff: number;

@@ -15,7 +15,7 @@ import { calculateExpectedCounts, calculateTotalVendorStaff } from "@/lib/expect
 interface ExpenseItem {
   id: string;
   description: string;
-  calculation_mode: 'planned' | 'actual' | 'expected';
+  calculation_mode: 'planned' | 'confirmed' | 'expected';
   planned_adults: number;
   planned_children: number;
   planned_staff: number;
@@ -49,7 +49,7 @@ export function ExpenseSpreadsheetTab({
 }: ExpenseSpreadsheetTabProps) {
   const [lineItems, setLineItems] = useState<ExpenseLineItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [globalMode, setGlobalMode] = useState<'planned' | 'actual' | 'expected'>('planned');
+  const [globalMode, setGlobalMode] = useState<'planned' | 'confirmed' | 'expected'>('planned');
   const [actualAdults, setActualAdults] = useState(0);
   const [actualChildren, setActualChildren] = useState(0);
   const [actualStaff, setActualStaff] = useState(0);
@@ -74,23 +74,25 @@ export function ExpenseSpreadsheetTab({
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) return;
 
-      const { data: userRole } = await supabase
-        .from("user_roles")
+      // Recupera il wedding_id dell'expense item (più affidabile che user_roles per planner multi-wedding)
+      const { data: itemRow } = await supabase
+        .from("expense_items")
         .select("wedding_id")
-        .eq("user_id", userData.user.id)
-        .single();
+        .eq("id", expenseItem.id)
+        .maybeSingle();
 
-      if (!userRole) return;
+      const weddingId = itemRow?.wedding_id;
+      if (!weddingId) return;
 
       const { data: weddingData } = await supabase
         .from("weddings")
         .select("calculation_mode, target_adults, target_children, target_staff")
-        .eq("id", userRole.wedding_id)
-        .single();
+        .eq("id", weddingId)
+        .maybeSingle();
 
       if (weddingData) {
         if (weddingData.calculation_mode) {
-          setGlobalMode(weddingData.calculation_mode as 'planned' | 'actual' | 'expected');
+          setGlobalMode(weddingData.calculation_mode as 'planned' | 'confirmed' | 'expected');
         }
         setWeddingTargets({
           adults: weddingData.target_adults || 100,
@@ -138,37 +140,44 @@ export function ExpenseSpreadsheetTab({
 
   const loadActualGuestCounts = async () => {
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) return;
-
-      const { data: userRole } = await supabase
-        .from("user_roles")
+      // Recupera wedding_id dall'expense item (più affidabile per planner)
+      const { data: itemRow } = await supabase
+        .from("expense_items")
         .select("wedding_id")
-        .eq("user_id", userData.user.id)
-        .single();
+        .eq("id", expenseItem.id)
+        .maybeSingle();
 
-      if (!userRole) return;
+      const weddingId = itemRow?.wedding_id;
+      if (!weddingId) return;
 
-      const { data: parties } = await supabase
-        .from("invite_parties")
-        .select("id, guests(*)")
-        .eq("wedding_id", userRole.wedding_id)
-        .eq("rsvp_status", "Confermato");
+      // Conta direttamente dalla tabella guests usando rsvp_status canonico ('confirmed')
+      // Sposi (is_couple_member) sono SEMPRE inclusi come adulti.
+      // Bambini "infant" (<3 anni) sono ESCLUSI (no coperto).
+      const { data: guests } = await supabase
+        .from("guests")
+        .select("is_child, is_staff, is_couple_member, rsvp_status, child_age_group")
+        .eq("wedding_id", weddingId);
 
       let adults = 0;
       let children = 0;
       let staff = 0;
 
-      parties?.forEach((party: any) => {
-        party.guests?.forEach((guest: any) => {
-          if (guest.is_staff) {
-            staff++;
-          } else if (guest.is_child) {
-            children++;
-          } else {
-            adults++;
-          }
-        });
+      guests?.forEach((g: any) => {
+        const isConfirmed =
+          g.is_couple_member ||
+          g.rsvp_status === 'confirmed' ||
+          g.rsvp_status === 'Confermato';
+
+        if (!isConfirmed) return;
+
+        if (g.is_staff) {
+          staff++;
+        } else if (g.is_child) {
+          // Escludi infant (<3 anni) dal conteggio pagante
+          if (g.child_age_group !== 'infant') children++;
+        } else {
+          adults++;
+        }
       });
 
       setActualAdults(adults);
@@ -181,32 +190,33 @@ export function ExpenseSpreadsheetTab({
 
   const loadExpectedGuestCounts = async () => {
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) return;
-
-      const { data: userRole } = await supabase
-        .from("user_roles")
+      const { data: itemRow } = await supabase
+        .from("expense_items")
         .select("wedding_id")
-        .eq("user_id", userData.user.id)
-        .single();
+        .eq("id", expenseItem.id)
+        .maybeSingle();
 
-      if (!userRole) return;
+      const weddingId = itemRow?.wedding_id;
+      if (!weddingId) return;
 
       const { data: guests } = await supabase
         .from("guests")
-        .select("id, is_child, is_staff, is_couple_member, save_the_date_sent_at, std_response, party_id, phone, allow_plus_one, plus_one_name, rsvp_status")
-        .eq("wedding_id", userRole.wedding_id);
+        .select("id, is_child, is_staff, is_couple_member, save_the_date_sent_at, std_response, party_id, phone, allow_plus_one, plus_one_name, rsvp_status, child_age_group")
+        .eq("wedding_id", weddingId);
 
       const { data: vendors } = await supabase
         .from("vendors")
         .select("staff_meals_count")
-        .eq("wedding_id", userRole.wedding_id);
+        .eq("wedding_id", weddingId);
 
       if (!guests) return;
 
       const vendorStaffTotal = calculateTotalVendorStaff(vendors || []);
-      const invitableGuests = guests.filter(g => !g.is_couple_member && !g.is_staff);
-      const expectedResult = calculateExpectedCounts(invitableGuests, guests, vendorStaffTotal);
+      // Includi sposi (mangiano!) ed escludi solo staff e infant (<3 anni, no coperto)
+      const cateringGuests = guests.filter(
+        (g: any) => !g.is_staff && !(g.is_child && g.child_age_group === 'infant')
+      );
+      const expectedResult = calculateExpectedCounts(cateringGuests, guests, vendorStaffTotal);
 
       setExpectedAdults(expectedResult.adults);
       setExpectedChildren(expectedResult.children);
@@ -368,7 +378,7 @@ export function ExpenseSpreadsheetTab({
     }
   };
 
-  const calculateLineTotal = (line: ExpenseLineItem, mode: 'planned' | 'actual' | 'expected'): number => {
+  const calculateLineTotal = (line: ExpenseLineItem, mode: 'planned' | 'confirmed' | 'expected'): number => {
     let quantity = 0;
 
     if (line.quantity_type === 'fixed') {
@@ -383,6 +393,7 @@ export function ExpenseSpreadsheetTab({
         } else if (mode === 'expected') {
           return type === 'adults' ? expectedAdults : type === 'children' ? expectedChildren : expectedStaff;
         } else {
+          // confirmed
           return type === 'adults' ? actualAdults : type === 'children' ? actualChildren : actualStaff;
         }
       };
@@ -418,7 +429,7 @@ export function ExpenseSpreadsheetTab({
 
   const calculateTotals = () => {
     const planned = lineItems.reduce((sum, line) => sum + calculateLineTotal(line, 'planned'), 0);
-    const actual = lineItems.reduce((sum, line) => sum + calculateLineTotal(line, 'actual'), 0);
+    const actual = lineItems.reduce((sum, line) => sum + calculateLineTotal(line, 'confirmed'), 0);
     return { planned, actual };
   };
 
@@ -554,9 +565,9 @@ export function ExpenseSpreadsheetTab({
             </div>
           )}
 
-          {globalMode === 'actual' && (
+          {globalMode === 'confirmed' && (
             <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900 rounded-lg p-4">
-              <p className="text-sm font-medium mb-2">Invitati Confermati (da RSVP):</p>
+              <p className="text-sm font-medium mb-2">Invitati Confermati (da RSVP, sposi inclusi):</p>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                 <div>
                   <span className="text-muted-foreground">Adulti:</span>
