@@ -957,8 +957,15 @@ const Guests = () => {
   const hybridList = filteredItems();
 
   // Calcola statistiche (riorganizzate per la nuova UI)
-  // Conta anche i +1 confermati (quelli con plus_one_name compilato)
-  const confirmedPlusOnes = allGuests.filter(g => g.plus_one_name && g.plus_one_name.trim() !== '').length;
+  // I +1 confermati sono ora guest reali con plus_one_of_guest_id valorizzato.
+  // Conteggio fallback su plus_one_name per +1 non ancora "promossi" (titolari senza guest reale collegato).
+  const promotedPlusOneHostIds = new Set(
+    allGuests.filter(g => (g as any).plus_one_of_guest_id).map(g => (g as any).plus_one_of_guest_id as string)
+  );
+  const legacyPlusOnes = allGuests.filter(
+    g => g.plus_one_name && g.plus_one_name.trim() !== '' && !promotedPlusOneHostIds.has(g.id)
+  ).length;
+  const confirmedPlusOnes = legacyPlusOnes; // legacy fallback for hosts whose +1 hasn't been promoted yet
   // +1 potenziali: hanno il permesso ma non ancora confermato il nome
   const potentialPlusOnes = allGuests.filter(g => g.allow_plus_one && (!g.plus_one_name || g.plus_one_name.trim() === '')).length;
   const totalGuests = allGuests.length + confirmedPlusOnes;
@@ -977,8 +984,10 @@ const Guests = () => {
     const party = parties.find(p => p.id === g.party_id);
     return party?.rsvp_status === 'Confermato';
   });
-  // Aggiungi i +1 confermati ai confermati
-  const confirmedPlusOnesCount = confirmedGuests.filter(g => g.plus_one_name && g.plus_one_name.trim() !== '').length;
+  // Aggiungi i +1 confermati ai confermati (legacy fallback)
+  const confirmedPlusOnesCount = confirmedGuests.filter(
+    g => g.plus_one_name && g.plus_one_name.trim() !== '' && !promotedPlusOneHostIds.has(g.id)
+  ).length;
   
   const pendingGuests = allGuests.filter(g => {
     const party = parties.find(p => p.id === g.party_id);
