@@ -49,6 +49,8 @@ import { generateCateringReport } from "@/utils/pdfHelpers";
 import { CSVImportDialog } from "@/components/guests/CSVImportDialog";
 import { generateCSVTemplate, downloadCSV, exportGuestsToCSV } from "@/utils/csvHelpers";
 import { matchesFunnelFilter } from "@/lib/nucleusStatusHelper";
+import { SectionHeader } from "@/components/shared/SectionHeader";
+import { computeGuestsNextAction } from "@/lib/sectionNextActions";
 
 
 interface Guest {
