@@ -752,6 +752,7 @@ export type Database = {
           phone: string | null
           plus_one_menu: string | null
           plus_one_name: string | null
+          plus_one_of_guest_id: string | null
           rsvp_invitation_sent: string | null
           rsvp_send_status: Database["public"]["Enums"]["send_status_enum"]
           rsvp_status: string | null
@@ -786,6 +787,7 @@ export type Database = {
           phone?: string | null
           plus_one_menu?: string | null
           plus_one_name?: string | null
+          plus_one_of_guest_id?: string | null
           rsvp_invitation_sent?: string | null
           rsvp_send_status?: Database["public"]["Enums"]["send_status_enum"]
           rsvp_status?: string | null
@@ -820,6 +822,7 @@ export type Database = {
           phone?: string | null
           plus_one_menu?: string | null
           plus_one_name?: string | null
+          plus_one_of_guest_id?: string | null
           rsvp_invitation_sent?: string | null
           rsvp_send_status?: Database["public"]["Enums"]["send_status_enum"]
           rsvp_status?: string | null
@@ -850,6 +853,13 @@ export type Database = {
             columns: ["party_id"]
             isOneToOne: false
             referencedRelation: "invite_parties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guests_plus_one_of_guest_id_fkey"
+            columns: ["plus_one_of_guest_id"]
+            isOneToOne: false
+            referencedRelation: "guests"
             referencedColumns: ["id"]
           },
           {

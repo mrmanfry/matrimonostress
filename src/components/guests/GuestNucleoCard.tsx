@@ -30,6 +30,7 @@ interface Guest {
   std_responded_at?: string | null;
   rsvp_status?: string | null;
   rsvp_invitation_sent?: string | null;
+  plus_one_of_guest_id?: string | null;
 }
 
 interface InviteParty {
@@ -111,6 +112,10 @@ export const GuestNucleoCard = ({
   const children = party.guests.filter((g) => g.is_child);
   const guestsWithPlusOne = party.guests.filter((g) => g.allow_plus_one).length;
   const groupName = party.guests.find((g) => g.group_name)?.group_name;
+
+  // Map host guest_id → first_name to render "+1 di X" badge for promoted +1 guests
+  const hostNameById = new Map<string, string>();
+  party.guests.forEach((g) => hostNameById.set(g.id, g.first_name));
 
   const stdDiscrepancy = useMemo(() => detectStdDiscrepancy(party.guests), [party.guests]);
 
@@ -247,7 +252,12 @@ export const GuestNucleoCard = ({
                     <div className="flex items-center gap-2 min-w-0 flex-1">
                       <GuestStatusDot status={memberStatus} size="xs" />
                       <span className="text-xs sm:text-sm truncate">{memberName}</span>
-                      {guest.allow_plus_one && (
+                      {guest.plus_one_of_guest_id && hostNameById.get(guest.plus_one_of_guest_id) && (
+                        <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-muted text-muted-foreground flex-shrink-0">
+                          +1 di {hostNameById.get(guest.plus_one_of_guest_id)}
+                        </span>
+                      )}
+                      {guest.allow_plus_one && !guest.plus_one_of_guest_id && (
                         <Plus className="w-3 h-3 text-muted-foreground flex-shrink-0" />
                       )}
                       {guest.phone && !maskSensitiveData && (

@@ -164,10 +164,13 @@ const Tables = () => {
     
     const { data } = await query;
     if (data) {
-      // Generate virtual +1 entries for guests with plus_one_name
+      // Generate virtual +1 entries for guests with plus_one_name (only if not already promoted)
       const realGuests: Guest[] = data;
+      const hostIdsWithRealPlusOne = new Set(
+        data.filter((g: any) => g.plus_one_of_guest_id).map((g: any) => g.plus_one_of_guest_id as string)
+      );
       const plusOneVirtuals: Guest[] = data
-        .filter(g => g.allow_plus_one && g.plus_one_name?.trim())
+        .filter(g => g.allow_plus_one && g.plus_one_name?.trim() && !hostIdsWithRealPlusOne.has(g.id))
         .map(g => {
           const nameParts = g.plus_one_name!.trim().split(/\s+/);
           const firstName = nameParts[0];
@@ -207,8 +210,11 @@ const Tables = () => {
       .select("*")
       .eq("wedding_id", weddingId);
     if (data) {
+      const hostIdsWithRealPlusOne = new Set(
+        data.filter((g: any) => g.plus_one_of_guest_id).map((g: any) => g.plus_one_of_guest_id as string)
+      );
       const plusOneVirtuals: Guest[] = data
-        .filter(g => g.allow_plus_one && g.plus_one_name?.trim())
+        .filter(g => g.allow_plus_one && g.plus_one_name?.trim() && !hostIdsWithRealPlusOne.has(g.id))
         .map(g => {
           const nameParts = g.plus_one_name!.trim().split(/\s+/);
           return {

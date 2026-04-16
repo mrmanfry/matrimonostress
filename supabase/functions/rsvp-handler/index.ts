@@ -366,6 +366,79 @@ Deno.serve(async (req) => {
           });
         }
 
+        // Helper: promote, update or remove a +1 as a real guest record
+        const syncPlusOneGuest = async (
+          hostId: string,
+          weddingId: string,
+          partyId: string | null,
+          rsvpStatus: string,
+          plusOneName: string | null | undefined,
+          plusOneMenu: string | null | undefined,
+        ) => {
+          const trimmedName = (plusOneName || "").trim();
+          const shouldExist = rsvpStatus === "confirmed" && trimmedName.length > 0;
+
+          // Find existing promoted +1
+          const { data: existingPlusOne } = await supabase
+            .from("guests")
+            .select("id")
+            .eq("plus_one_of_guest_id", hostId)
+            .maybeSingle();
+
+          if (!shouldExist) {
+            if (existingPlusOne?.id) {
+              await supabase.from("guests").delete().eq("id", existingPlusOne.id);
+              console.log(`Removed +1 guest ${existingPlusOne.id} for host ${hostId}`);
+            }
+            return;
+          }
+
+          // Split name
+          const nameParts = trimmedName.split(/\s+/);
+          const firstName = nameParts[0];
+          const lastName = nameParts.slice(1).join(" ") || "";
+
+          if (existingPlusOne?.id) {
+            await supabase
+              .from("guests")
+              .update({
+                first_name: firstName,
+                last_name: lastName,
+                menu_choice: plusOneMenu || null,
+                rsvp_status: "confirmed",
+              })
+              .eq("id", existingPlusOne.id);
+            console.log(`Updated +1 guest ${existingPlusOne.id} for host ${hostId}`);
+          } else {
+            const insertPayload: any = {
+              wedding_id: weddingId,
+              first_name: firstName,
+              last_name: lastName,
+              rsvp_status: "confirmed",
+              menu_choice: plusOneMenu || null,
+              adults_count: 1,
+              children_count: 0,
+              is_child: false,
+              allow_plus_one: false,
+              is_couple_member: false,
+              plus_one_of_guest_id: hostId,
+            };
+            if (partyId) insertPayload.party_id = partyId;
+
+            const { data: inserted, error: insertError } = await supabase
+              .from("guests")
+              .insert(insertPayload)
+              .select("id")
+              .single();
+
+            if (insertError) {
+              console.error(`Failed to insert +1 for host ${hostId}:`, insertError);
+            } else {
+              console.log(`Promoted +1 guest ${inserted?.id} for host ${hostId}`);
+            }
+          }
+        };
+
         // Update party status ONLY if guest has a real party_id
         if (validGuest.party_id) {
           await supabase
@@ -398,6 +471,16 @@ Deno.serve(async (req) => {
               .update(updateData)
               .eq("id", member.id)
               .eq("party_id", validGuest.party_id);
+
+            // Sync +1 promotion for this member
+            await syncPlusOneGuest(
+              member.id,
+              validGuest.wedding_id,
+              validGuest.party_id,
+              member.rsvpStatus,
+              member.plusOneName,
+              member.plusOneMenu,
+            );
           }
 
           // Log the RSVP submission
@@ -429,6 +512,23 @@ Deno.serve(async (req) => {
               .from("guests")
               .update(updateData)
               .eq("id", validGuest.id);
+
+            // Re-fetch party_id (ensure_party_for_rsvp trigger may have created one)
+            const { data: refreshedGuest } = await supabase
+              .from("guests")
+              .select("party_id")
+              .eq("id", validGuest.id)
+              .single();
+
+            // Sync +1 promotion for the single guest (host)
+            await syncPlusOneGuest(
+              validGuest.id,
+              validGuest.wedding_id,
+              refreshedGuest?.party_id || null,
+              member.rsvpStatus,
+              member.plusOneName,
+              member.plusOneMenu,
+            );
 
             console.log(`RSVP submitted for single guest ${validGuest.id} with status: ${member.rsvpStatus}`);
           }
