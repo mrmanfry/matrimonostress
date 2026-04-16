@@ -410,7 +410,7 @@ export function FormalInviteView({
 
             <div className="flex justify-center">
               {receptionImageUrl ?
-            <img src={receptionImageUrl} alt={receptionVenueName || "Ricevimento"} className="w-full max-w-md max-h-64 object-contain rounded-lg bg-stone-50" /> :
+            <img src={receptionImageUrl} alt={receptionVenueName || "Ricevimento"} className="w-full max-w-md aspect-[16/10] object-cover object-center rounded-lg" /> :
 
             <PartyPopper className="w-12 h-12 text-stone-400" />
             }
