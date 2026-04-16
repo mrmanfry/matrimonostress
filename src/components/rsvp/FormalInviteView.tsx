@@ -211,6 +211,17 @@ export function FormalInviteView({
     });
   };
 
+  // Build a thank-you name that reflects the whole nucleus when applicable
+  const buildThankYouName = () => {
+    if (isSingleGuest || !members || members.length <= 1) return displayName;
+    if (partyName?.toLowerCase().startsWith('famiglia')) return partyName;
+    const names = members.map((m) => m.first_name).filter(Boolean);
+    if (names.length === 0) return displayName;
+    if (names.length === 1) return names[0];
+    if (names.length === 2) return `${names[0]} e ${names[1]}`;
+    return `${names.slice(0, -1).join(', ')} e ${names[names.length - 1]}`;
+  };
+
   // Success state after submission
   if (submitted) {
     const confirmedCount = members.filter(
@@ -244,9 +255,9 @@ export function FormalInviteView({
           </div>
           
           <h1 className="font-cormorant text-4xl sm:text-5xl font-light">
-            Grazie {displayName}!
+            Grazie {buildThankYouName()}!
           </h1>
-          
+
           <p className="text-white/80 text-lg">
             {confirmedCount > 0 ?
             `${confirmedCount} person${confirmedCount > 1 ? 'e' : 'a'} confermat${confirmedCount > 1 ? 'e' : 'a'}.` :
