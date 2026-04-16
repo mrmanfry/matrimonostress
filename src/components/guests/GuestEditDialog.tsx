@@ -507,6 +507,28 @@ export const GuestEditDialog = ({
                     </Select>
                   </div>
 
+                  {/* Apply to whole party */}
+                  {hasParty && (
+                    <div className="flex items-center justify-between py-2 mt-3 px-2 rounded border border-orange-300/60 bg-background/60">
+                      <div className="flex items-center gap-2">
+                        <Users className="w-4 h-4 text-orange-600" />
+                        <div>
+                          <Label htmlFor="apply-campaigns-to-party" className="cursor-pointer text-sm font-medium">
+                            Applica a tutto il nucleo
+                          </Label>
+                          <p className="text-xs text-muted-foreground">
+                            Cambia gli stati per tutti i membri.
+                          </p>
+                        </div>
+                      </div>
+                      <Switch
+                        id="apply-campaigns-to-party"
+                        checked={applyCampaignsToParty}
+                        onCheckedChange={setApplyCampaignsToParty}
+                      />
+                    </div>
+                  )}
+
                   {/* Reset Button */}
                   <Button
                     type="button"
