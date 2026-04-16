@@ -1226,127 +1226,19 @@ const Guests = () => {
             </div>
           )}
 
-          {/* Analytics - Progressive Disclosure */}
-          {isMobile ? (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full"
-                onClick={() => setAnalyticsSheetOpen(true)}
-              >
-                <BarChart3 className="w-4 h-4 mr-2" />
-                Vedi Statistiche
-              </Button>
-              <Sheet open={analyticsSheetOpen} onOpenChange={setAnalyticsSheetOpen}>
-                <SheetContent side="bottom" className="h-[85vh] overflow-y-auto">
-                  <SheetHeader>
-                    <SheetTitle>Statistiche Invitati</SheetTitle>
-                  </SheetHeader>
-                  <div className="mt-4">
-                    <GuestAnalyticsDashboard 
-                      guests={allGuests} 
-                      parties={parties}
-                      vendorStaffTotal={vendorStaffCount}
-                      activeFilter={activeAnalyticsFilter}
-                      onClearFilter={handleResetFilters}
-                      onFilterClick={(filter: AnalyticsFilterType) => {
-                        setFilterValues(DEFAULT_FILTER_VALUES);
-                        setFunnelFilter(null);
-                        setActiveAnalyticsFilter(filter);
-                        switch (filter.type) {
-                          case 'rsvp':
-                            const rsvpMap = { confirmed: 'Confermato', pending: 'In attesa', declined: 'Rifiutato' };
-                            handleFilterChange('rsvpStatus', rsvpMap[filter.value] || 'all');
-                            break;
-                          case 'composition':
-                            if (filter.value === 'staff') handleFilterChange('staff', 'staff_only');
-                            else handleFilterChange('age', filter.value === 'children' ? 'children' : 'adults');
-                            break;
-                          case 'contact':
-                            handleFilterChange('contact', filter.value);
-                            break;
-                          case 'menu':
-                            handleFilterChange('menu', filter.value);
-                            break;
-                          case 'dietary':
-                            handleFilterChange('menu', 'dietary');
-                            break;
-                          case 'plusOne':
-                            handleFilterChange('plusOne', filter.value);
-                            break;
-                          case 'funnel':
-                            setFunnelFilter(filter.value);
-                            break;
-                          case 'group':
-                            handleFilterChange('group', filter.value);
-                            break;
-                          case 'std':
-                            handleFilterChange('stdStatus', filter.value);
-                            break;
-                        }
-                        setAnalyticsSheetOpen(false);
-                      }}
-                    />
-                  </div>
-                </SheetContent>
-              </Sheet>
-            </>
-          ) : (
-            <Collapsible open={analyticsOpen} onOpenChange={setAnalyticsOpen}>
-              <CollapsibleTrigger asChild>
-                <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground">
-                  <BarChart3 className="w-4 h-4" />
-                  Analisi Dettagliata
-                  <ChevronRight className={cn("w-4 h-4 transition-transform", analyticsOpen && "rotate-90")} />
-                </Button>
-              </CollapsibleTrigger>
-              <CollapsibleContent className="mt-2">
-                <GuestAnalyticsDashboard 
-                  guests={allGuests} 
-                  parties={parties}
-                  vendorStaffTotal={vendorStaffCount}
-                  activeFilter={activeAnalyticsFilter}
-                  onClearFilter={handleResetFilters}
-                  onFilterClick={(filter: AnalyticsFilterType) => {
-                    setFilterValues(DEFAULT_FILTER_VALUES);
-                    setFunnelFilter(null);
-                    setActiveAnalyticsFilter(filter);
-                    switch (filter.type) {
-                      case 'rsvp':
-                        const rsvpMap = { confirmed: 'Confermato', pending: 'In attesa', declined: 'Rifiutato' };
-                        handleFilterChange('rsvpStatus', rsvpMap[filter.value] || 'all');
-                        break;
-                      case 'composition':
-                        if (filter.value === 'staff') handleFilterChange('staff', 'staff_only');
-                        else handleFilterChange('age', filter.value === 'children' ? 'children' : 'adults');
-                        break;
-                      case 'contact':
-                        handleFilterChange('contact', filter.value);
-                        break;
-                      case 'menu':
-                        handleFilterChange('menu', filter.value);
-                        break;
-                      case 'dietary':
-                        handleFilterChange('menu', 'dietary');
-                        break;
-                      case 'plusOne':
-                        handleFilterChange('plusOne', filter.value);
-                        break;
-                      case 'funnel':
-                        setFunnelFilter(filter.value);
-                        break;
-                      case 'group':
-                        handleFilterChange('group', filter.value);
-                        break;
-                      case 'std':
-                        handleFilterChange('stdStatus', filter.value);
-                        break;
-                    }
-                  }}
-                />
-              </CollapsibleContent>
-            </Collapsible>
+          {/* Pulse Bar — overview essenziale + 1 CTA contestuale */}
+          {!maskGuestData && (
+            <GuestPulseBar
+              totalRegular={pendingGuests.length + confirmedGuests.length + declinedGuests.length}
+              confirmed={confirmedGuests.length + confirmedPlusOnesCount}
+              pending={pendingGuests.length}
+              declined={declinedGuests.length}
+              noPhoneCount={guestsWithoutPhone}
+              partiesReadyToSend={parties.filter(p => p.guests.some(g => g.phone) && p.rsvp_status === 'In attesa').length}
+              onSyncPhones={() => setContactSyncOpen(true)}
+              onSendInvites={() => window.location.href = '/app/invitations'}
+              onAddGuest={() => setSingleGuestDialogOpen(true)}
+            />
           )}
           {/* Filters - New Configurable Filter System */}
           <div className="space-y-3">
