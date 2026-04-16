@@ -254,7 +254,7 @@ export function FormalInviteView({
           </p>
           
           <p className="text-white/60 capitalize">
-            Ci vediamo il {dayOfWeek} {dayNumber} {monthName} {year}!
+            Ci vediamo {dayOfWeek} {dayNumber} {monthName} {year}!
           </p>
 
           {/* Couple Names */}
