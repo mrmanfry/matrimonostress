@@ -1,53 +1,46 @@
 
-Confermato: niente backfill, +1 sempre adulto. Procedo con il piano.
+## Piano: Ordinamento alfabetico membri RSVP + ringraziamento personalizzato con AKA
 
-## Piano esecutivo
+### Problema
+1. Nel form RSVP i membri del nucleo appaiono in ordine arbitrario (ordine DB). Devono essere: **adulti prima, bambini dopo, entrambi in ordine alfabetico per nome**.
+2. La schermata di ringraziamento post-submit dice "Grazie [nome del titolare del token]". Deve invece dire **"Grazie [AKA o nome] di tutti i membri confermati"**, in ordine alfabetico, usando l'`alias` (AKA) se presente, altrimenti il `first_name`.
+3. Anche se uno solo risponde dal proprio link WhatsApp ma conferma per tutto il nucleo, il ringraziamento deve elencare tutti gli AKA dei confermati.
 
-**1. Migration DB**
-```sql
-ALTER TABLE public.guests 
-  ADD COLUMN plus_one_of_guest_id UUID NULL 
-  REFERENCES public.guests(id) ON DELETE SET NULL;
-CREATE INDEX idx_guests_plus_one_of ON public.guests(plus_one_of_guest_id);
-```
+### Indagine necessaria
+Per implementare correttamente devo:
+1. Verificare in `rsvp-handler/index.ts` che il payload `members` includa l'`alias` di ciascun guest (oggi ritorna `first_name`, `last_name`, ecc. — non sono certo includa `alias`).
+2. Vedere `FormalInviteView.tsx` righe ~107-224 per capire come ordina oggi i membri e dove costruisce `buildThankYouName()`.
 
-**2. Edge function `rsvp-handler` — branch SUBMIT**
+### Cambiamenti previsti
 
-Per ogni `member` aggiornato, dopo l'UPDATE del titolare:
+**1. Edge function `rsvp-handler/index.ts`** (se serve)
+- Aggiungere `alias` al SELECT dei membri restituiti al frontend (probabilmente già selezionato con `*`, da verificare).
 
-- **Se `member.rsvpStatus === 'confirmed'` e `plusOneName` non vuoto:**
-  - Cerca guest esistente con `plus_one_of_guest_id === member.id`
-  - **Non esiste** → INSERT:
-    ```
-    wedding_id, party_id (= titolare.party_id, garantito da ensure_party_for_rsvp)
-    first_name/last_name: split di plusOneName
-    rsvp_status: 'confirmed'
-    menu_choice: plusOneMenu
-    adults_count: 1, children_count: 0, is_child: false
-    allow_plus_one: false
-    plus_one_of_guest_id: member.id
-    ```
-  - **Esiste** → UPDATE nome/menu
+**2. `src/components/rsvp/FormalInviteView.tsx`**
+- Ordinamento membri: prima del render delle card RSVP, ordinare `members` con:
+  ```ts
+  const sortedMembers = [...members].sort((a, b) => {
+    if (a.is_child !== b.is_child) return a.is_child ? 1 : -1; // adulti prima
+    return a.first_name.localeCompare(b.first_name, 'it'); // alfabetico italiano
+  });
+  ```
+  Applicare anche al rendering nelle sezioni cerimonia/ricevimento se elencano membri.
 
-- **Se `plusOneName` vuoto/null o titolare `declined`:**
-  - DELETE guest con `plus_one_of_guest_id === member.id` (se esiste)
+- `buildThankYouName()`: riscrivere per usare i **membri confermati** (non solo il titolare del token):
+  ```ts
+  const confirmed = sortedMembers.filter(m => memberData[m.id]?.rsvpStatus === 'confirmed');
+  const names = confirmed.map(m => m.alias?.trim() || m.first_name);
+  // Formattazione italiana: "A", "A e B", "A, B e C"
+  ```
+  Se nessuno conferma (tutti declined), mostrare un messaggio diverso ("Ci dispiace non vederti…").
 
-Vale sia per branch party che single (in single, `ensure_party_for_rsvp` ha già creato il party).
+**3. `src/pages/RSVPPublic.tsx`** — verificare che l'`alias` sia popolato per ogni member nel `memberData` iniziale (oggi non lo passa, ma `FormalInviteView` riceve `members` direttamente da `party.members`, quindi basta che la edge function lo includa).
 
-**3. Adattamenti UI**
+### Cosa NON cambia
+- Logica di submit, promozione +1, theme, deadline, gift, FAQ.
+- Form RSVP single guest (virtual party): l'ordinamento si applica anche lì naturalmente (1 solo membro).
+- Il +1 promosso (Gianna) non comparirà nel ringraziamento di Alessandro perché viene creato **dopo** il submit; ma comparirà nel suo prossimo accesso al link (se ne ha uno proprio) o resterà invisibile nel ringraziamento immediato — comportamento accettabile in v1.
 
-- `src/pages/Tables.tsx`: la generazione "virtual +1" (righe 167-235) e la conversione al drag (393-431, 504-540) restano come fallback solo per +1 **non ancora confermati** (titolare con `allow_plus_one=true` ma senza guest reale collegato via `plus_one_of_guest_id`).
-- `src/components/guests/GuestNucleoCard.tsx`: badge "+1 di [Nome titolare]" sui guest con `plus_one_of_guest_id` valorizzato.
-- `src/pages/Guests.tsx`: `confirmedPlusOnes` (~riga 961) basato su `COUNT(plus_one_of_guest_id IS NOT NULL)` invece di `plus_one_name`.
-
-**4. Cosa NON tocco**
-- `useGuestMetrics`, `Catering.tsx`, `Treasury.tsx`, `expectedCalculator.ts` → leggono già `guests` e funzioneranno automaticamente
-- Form RSVP pubblico (`FormalInviteView`) → invariato
-- Token/URL esistenti → invariati
-
-**File modificati**
-- MIGRATION: nuova colonna + indice
-- `supabase/functions/rsvp-handler/index.ts`
-- `src/pages/Tables.tsx` (semplificazione virtual +1)
-- `src/components/guests/GuestNucleoCard.tsx` (badge)
-- `src/pages/Guests.tsx` (conteggio)
+### File modificati
+- `src/components/rsvp/FormalInviteView.tsx` (ordinamento + buildThankYouName)
+- `supabase/functions/rsvp-handler/index.ts` (solo se `alias` non è già nel payload — da verificare in implementazione)
