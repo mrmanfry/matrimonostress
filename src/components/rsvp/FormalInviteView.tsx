@@ -239,9 +239,6 @@ export function FormalInviteView({
     const confirmedCount = sortedMembers.filter(
       (m) => memberData[m.id]?.rsvpStatus === 'confirmed'
     ).length;
-    const allDeclined = confirmedCount === 0 && sortedMembers.every(
-      (m) => memberData[m.id]?.rsvpStatus === 'declined'
-    );
 
     return (
       <div
@@ -520,7 +517,7 @@ export function FormalInviteView({
 
           {/* Member Cards */}
           <div className="space-y-4">
-            {members.map((member) => {
+            {sortedMembers.map((member) => {
               const data = memberData[member.id];
               const isExpanded = expandedMember === member.id || data?.rsvpStatus === 'confirmed';
               const isConfirmedStatus = data?.rsvpStatus === 'confirmed';
@@ -550,7 +547,7 @@ export function FormalInviteView({
                       </div>
                       <div>
                         <p className="font-medium text-stone-800">
-                          {member.first_name} {member.last_name}
+                          {memberDisplayName(member) || member.first_name} {member.last_name}
                         </p>
                         {member.is_child &&
                         <span className="text-xs text-stone-500">Bambino/a</span>
