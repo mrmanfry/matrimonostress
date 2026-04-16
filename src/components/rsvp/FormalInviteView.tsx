@@ -255,9 +255,9 @@ export function FormalInviteView({
           </div>
           
           <h1 className="font-cormorant text-4xl sm:text-5xl font-light">
-            Grazie {displayName}!
+            Grazie {buildThankYouName()}!
           </h1>
-          
+
           <p className="text-white/80 text-lg">
             {confirmedCount > 0 ?
             `${confirmedCount} person${confirmedCount > 1 ? 'e' : 'a'} confermat${confirmedCount > 1 ? 'e' : 'a'}.` :
