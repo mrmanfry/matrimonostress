@@ -101,7 +101,7 @@ Deno.serve(async (req) => {
 
           const { data: members } = await supabase
             .from("guests")
-            .select("id, first_name, last_name, rsvp_status, menu_choice, dietary_restrictions, is_child, allow_plus_one, plus_one_name, plus_one_menu, save_the_date_sent_at, formal_invite_sent_at, std_response")
+            .select("id, first_name, last_name, alias, rsvp_status, menu_choice, dietary_restrictions, is_child, allow_plus_one, plus_one_name, plus_one_menu, save_the_date_sent_at, formal_invite_sent_at, std_response")
             .eq("party_id", guestData.party_id);
 
           partyMembers = members || [];
@@ -127,6 +127,7 @@ Deno.serve(async (req) => {
             id: guestData.id,
             first_name: guestData.first_name,
             last_name: guestData.last_name,
+            alias: guestData.alias,
             rsvp_status: guestData.rsvp_status,
             menu_choice: guestData.menu_choice,
             dietary_restrictions: guestData.dietary_restrictions,
