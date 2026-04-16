@@ -192,6 +192,30 @@ export const GuestEditDialog = ({
         } else {
           toast.success("Invitato e nucleo aggiornati!");
         }
+
+        // Sync the party-level rsvp_status so cards/badges reflect the reset.
+        // Map guest rsvp_status → invite_parties.rsvp_status enum.
+        const partyRsvpStatus =
+          finalRsvpStatus === "confirmed"
+            ? "Confermato"
+            : finalRsvpStatus === "declined"
+              ? "Rifiutato"
+              : "In attesa";
+
+        const { error: partyUpdateError } = await supabase
+          .from("invite_parties")
+          .update({
+            rsvp_status: partyRsvpStatus,
+            // If we reset to pending, clear the "confirmed_by" reference
+            ...(finalRsvpStatus === "pending"
+              ? { confirmed_by_guest_id: null, last_updated_by_guest_id: null }
+              : {}),
+          })
+          .eq("id", guest.party_id);
+
+        if (partyUpdateError) {
+          console.error("Errore aggiornamento stato nucleo", partyUpdateError);
+        }
       } else {
         toast.success("Invitato aggiornato!");
       }
