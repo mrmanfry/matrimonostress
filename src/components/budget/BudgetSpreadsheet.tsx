@@ -125,7 +125,7 @@ export function BudgetSpreadsheet({ globalMode }: BudgetSpreadsheetProps) {
       // 5. Fetch guests con TUTTI i campi necessari per expectedCalculator
       const { data: guests, error: guestsError } = await supabase
         .from("guests")
-        .select("id, is_child, is_staff, rsvp_status, is_couple_member, save_the_date_sent_at, std_response, party_id, phone, allow_plus_one, plus_one_name")
+        .select("id, is_child, is_staff, rsvp_status, is_couple_member, save_the_date_sent_at, std_response, party_id, phone, allow_plus_one, plus_one_name, child_age_group")
         .eq("wedding_id", weddingId);
 
       if (guestsError) throw guestsError;
@@ -141,15 +141,18 @@ export function BudgetSpreadsheet({ globalMode }: BudgetSpreadsheetProps) {
       const allGuests = guests || [];
       const vendorStaffTotal = calculateTotalVendorStaff(vendors || []);
 
-      // Filtra non-couple, non-staff per il calcolo expected
-      const invitableGuests = allGuests.filter(g => !g.is_couple_member && !g.is_staff);
+      // Helper: bambini "infant" (<3 anni) NON pagano coperto/menu, escludili dai conteggi catering
+      const isPayingChild = (g: any) => g.is_child && g.child_age_group !== 'infant';
 
-      // Calcola conteggi expected usando la formula canonica
-      const expectedResult = calculateExpectedCounts(invitableGuests, allGuests, vendorStaffTotal);
+      // Includi gli sposi nei pasti (mangiano anche loro!). Escludi solo lo staff e i bimbi <3 anni.
+      const cateringGuests = allGuests.filter(g => !g.is_staff && !(g.is_child && g.child_age_group === 'infant'));
 
-      // Confirmed: RSVP confermato
-      const confirmedAdults = allGuests.filter(g => !g.is_child && !g.is_staff && !g.is_couple_member && isConfirmed(g.rsvp_status)).length;
-      const confirmedChildren = allGuests.filter(g => g.is_child && isConfirmed(g.rsvp_status)).length;
+      // Calcola conteggi expected usando la formula canonica (sposi inclusi)
+      const expectedResult = calculateExpectedCounts(cateringGuests, allGuests, vendorStaffTotal);
+
+      // Confirmed: RSVP confermato — sposi inclusi come adulti, infant esclusi
+      const confirmedAdults = allGuests.filter(g => !g.is_child && !g.is_staff && (g.is_couple_member || isConfirmed(g.rsvp_status))).length;
+      const confirmedChildren = allGuests.filter(g => isPayingChild(g) && isConfirmed(g.rsvp_status)).length;
       const confirmedStaff = allGuests.filter(g => g.is_staff && isConfirmed(g.rsvp_status)).length;
 
       // Breakdown per UI
