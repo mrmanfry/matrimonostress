@@ -64,7 +64,7 @@ export const GuestSingleCard = ({
   guest,
   selected,
   onToggleSelect,
-  onEdit,
+  onEdit: _onEdit,
   onAddToParty,
   onGuestUpdate,
   maskSensitiveData = false,
