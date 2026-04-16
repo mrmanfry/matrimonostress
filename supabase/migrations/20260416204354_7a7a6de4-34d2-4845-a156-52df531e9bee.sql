@@ -1,0 +1,2 @@
+ALTER TABLE public.guests ADD COLUMN IF NOT EXISTS child_age_group TEXT;
+COMMENT ON COLUMN public.guests.child_age_group IS 'Fascia età bambino: infant (<3 anni, no coperto) | kid (bambino, menu bimbi). NULL = retrocompatibilità (trattato come kid).';

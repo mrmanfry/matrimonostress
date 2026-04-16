@@ -733,6 +733,7 @@ export type Database = {
           alias: string | null
           allow_plus_one: boolean | null
           category: string | null
+          child_age_group: string | null
           children_count: number | null
           created_at: string
           dietary_restrictions: string | null
@@ -766,6 +767,7 @@ export type Database = {
           alias?: string | null
           allow_plus_one?: boolean | null
           category?: string | null
+          child_age_group?: string | null
           children_count?: number | null
           created_at?: string
           dietary_restrictions?: string | null
@@ -799,6 +801,7 @@ export type Database = {
           alias?: string | null
           allow_plus_one?: boolean | null
           category?: string | null
+          child_age_group?: string | null
           children_count?: number | null
           created_at?: string
           dietary_restrictions?: string | null
