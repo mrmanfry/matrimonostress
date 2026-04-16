@@ -354,7 +354,7 @@ export function FormalInviteView({
 
             <div className="flex justify-center">
               {ceremonyImageUrl ?
-            <img src={ceremonyImageUrl} alt={ceremonyVenueName || "Cerimonia"} className="w-full max-w-md h-40 object-cover rounded-lg" /> :
+            <img src={ceremonyImageUrl} alt={ceremonyVenueName || "Cerimonia"} className="w-full max-w-md max-h-64 object-contain rounded-lg bg-stone-50" /> :
 
             <Church className="w-12 h-12 text-stone-400" />
             }
@@ -410,7 +410,7 @@ export function FormalInviteView({
 
             <div className="flex justify-center">
               {receptionImageUrl ?
-            <img src={receptionImageUrl} alt={receptionVenueName || "Ricevimento"} className="w-full max-w-md h-40 object-cover rounded-lg" /> :
+            <img src={receptionImageUrl} alt={receptionVenueName || "Ricevimento"} className="w-full max-w-md max-h-64 object-contain rounded-lg bg-stone-50" /> :
 
             <PartyPopper className="w-12 h-12 text-stone-400" />
             }
