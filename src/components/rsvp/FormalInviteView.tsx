@@ -547,7 +547,7 @@ export function FormalInviteView({
                       </div>
                       <div>
                         <p className="font-medium text-stone-800">
-                          {memberDisplayName(member) || member.first_name} {member.last_name}
+                          {member.first_name} {member.last_name}
                         </p>
                         {member.is_child &&
                         <span className="text-xs text-stone-500">Bambino/a</span>
