@@ -979,28 +979,21 @@ const Guests = () => {
   const confirmedParties = parties.filter(p => p.rsvp_status === 'Confermato').length;
   const guestsWithPlusOneEnabled = allGuests.filter(g => g.allow_plus_one).length;
 
-  // Calcola stats RSVP (include +1 nei confermati)
-  const confirmedGuests = allGuests.filter(g => {
-    const party = parties.find(p => p.id === g.party_id);
-    return party?.rsvp_status === 'Confermato';
-  });
-  // Aggiungi i +1 confermati ai confermati (legacy fallback)
-  const confirmedPlusOnesCount = confirmedGuests.filter(
+  // Stats RSVP — Single Source of Truth: stato per-guest, mai per-nucleo.
+  // I +1 promossi sono già righe in `guests` quindi vengono contati naturalmente.
+  // I +1 legacy (plus_one_name senza promozione) ereditano lo stato dell'host.
+  const confirmedGuests = allGuests.filter(isGuestConfirmed);
+  const pendingGuests = allGuests.filter(isGuestPending);
+  const declinedGuests = allGuests.filter(isGuestDeclined);
+
+  // Legacy +1 confermati: host confermato che ha plus_one_name ma nessun guest promosso collegato
+  const legacyConfirmedPlusOnes = confirmedGuests.filter(
     g => g.plus_one_name && g.plus_one_name.trim() !== '' && !promotedPlusOneHostIds.has(g.id)
   ).length;
-  
-  const pendingGuests = allGuests.filter(g => {
-    const party = parties.find(p => p.id === g.party_id);
-    return !party || party.rsvp_status === 'In attesa';
-  });
-  const declinedGuests = allGuests.filter(g => {
-    const party = parties.find(p => p.id === g.party_id);
-    return party?.rsvp_status === 'Rifiutato';
-  });
 
   const stats = {
     total: allGuests.length + confirmedPlusOnes,
-    confirmed: confirmedGuests.length + confirmedPlusOnesCount,
+    confirmed: confirmedGuests.length + legacyConfirmedPlusOnes,
     pending: pendingGuests.length,
     declined: declinedGuests.length,
     plusOnes: confirmedPlusOnes,
