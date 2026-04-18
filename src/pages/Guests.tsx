@@ -983,14 +983,9 @@ const Guests = () => {
   const pendingGuests = allGuests.filter(isGuestPending);
   const declinedGuests = allGuests.filter(isGuestDeclined);
 
-  // Legacy +1 confermati: host confermato che ha plus_one_name ma nessun guest promosso collegato
-  const legacyConfirmedPlusOnes = confirmedGuests.filter(
-    g => g.plus_one_name && g.plus_one_name.trim() !== '' && !promotedPlusOneHostIds.has(g.id)
-  ).length;
-
   const stats = {
-    total: allGuests.length + confirmedPlusOnes,
-    confirmed: confirmedGuests.length + legacyConfirmedPlusOnes,
+    total: allGuests.length,
+    confirmed: confirmedGuests.length,
     pending: pendingGuests.length,
     declined: declinedGuests.length,
     plusOnes: confirmedPlusOnes,
