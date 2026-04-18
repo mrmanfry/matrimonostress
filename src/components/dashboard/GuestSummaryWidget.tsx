@@ -22,11 +22,13 @@ export function GuestSummaryWidget({ stats, onClick }: GuestSummaryWidgetProps) 
   const metrics = useGuestMetrics();
   const isMobile = useIsMobile();
 
-  // Pie chart data for RSVP - usando i dati unificati dal hook
+  // Pie chart data for RSVP — Single Source of Truth: useGuestMetrics
+  // (esclude sposi e staff, allineato con Invitati/Campagne/Catering).
+  // NB: usiamo ?? invece di || perché 0 è un valore valido.
   const rsvpChartData = [
-    { name: "Confermati", value: metrics.confirmedHeadCount || stats.guestsConfirmed, color: "#10b981" },
-    { name: "In attesa", value: metrics.pendingHeadCount || stats.guestsPending, color: "#3b82f6" },
-    { name: "Rifiutati", value: metrics.declinedHeadCount || stats.guestsDeclined, color: "#6b7280" },
+    { name: "Confermati", value: metrics.confirmedHeadCount ?? stats.guestsConfirmed, color: "#10b981" },
+    { name: "In attesa", value: metrics.pendingHeadCount ?? stats.guestsPending, color: "#3b82f6" },
+    { name: "Rifiutati", value: metrics.declinedHeadCount ?? stats.guestsDeclined, color: "#6b7280" },
   ];
 
   return (
