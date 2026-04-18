@@ -54,6 +54,10 @@ import { FunnelFilterBanner } from "@/components/guests/FunnelFilterBanner";
 import { SectionHeader } from "@/components/shared/SectionHeader";
 import { computeGuestsNextAction } from "@/lib/sectionNextActions";
 import { isGuestConfirmed, isGuestPending, isGuestDeclined } from "@/lib/rsvpHelpers";
+import { GuestsFunnelStrip } from "@/components/guests/v2/GuestsFunnelStrip";
+import { GuestsFilterBar } from "@/components/guests/v2/GuestsFilterBar";
+import { GuestsListView } from "@/components/guests/v2/GuestsListView";
+import { GuestsAnalyticsPanel } from "@/components/guests/v2/GuestsAnalyticsPanel";
 
 
 interface Guest {
