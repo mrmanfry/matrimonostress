@@ -89,9 +89,9 @@ export const GuestSingleCard = ({
 
   return (
     <Card
-      className={`p-3 md:p-4 transition-shadow hover:shadow-sm ${
-        selected ? "ring-2 ring-primary" : ""
-      } ${guest.is_couple_member ? "bg-muted/30" : ""}`}
+      className={`p-3 md:p-4 transition-shadow hover:shadow-sm border-paper-border bg-paper-surface ${
+        selected ? "ring-2 ring-paper-brand border-paper-brand" : ""
+      } ${guest.is_couple_member ? "bg-paper-surface-muted" : ""}`}
     >
       <div className="flex items-start gap-2 md:gap-3">
         {/* Checkbox */}
@@ -119,7 +119,7 @@ export const GuestSingleCard = ({
                 {guest.is_couple_member && (
                   <Heart className="w-3.5 h-3.5 text-rose-400 fill-rose-400 flex-shrink-0" />
                 )}
-                <h3 className="font-medium text-sm md:text-[15px] truncate">{displayName}</h3>
+                <h3 className="font-fraunces font-medium text-base md:text-[17px] tracking-tight text-paper-ink truncate">{displayName}</h3>
 
                 {/* Inline icons (no fills) */}
                 {guest.is_child && (

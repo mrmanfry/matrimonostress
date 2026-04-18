@@ -153,8 +153,8 @@ export const GuestNucleoCard = ({
 
   return (
     <Card
-      className={`relative overflow-hidden transition-shadow hover:shadow-sm ${
-        selected ? "ring-2 ring-primary" : ""
+      className={`relative overflow-hidden transition-shadow hover:shadow-sm border-paper-border bg-paper-surface ${
+        selected ? "ring-2 ring-paper-brand border-paper-brand" : ""
       }`}
     >
       <div className="p-3 sm:p-4">
@@ -173,8 +173,8 @@ export const GuestNucleoCard = ({
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 min-w-0">
                   <GuestStatusDot status={nucleusStatus} size="sm" tooltip={statusLine ?? "Nessuna risposta"} />
-                  <Users className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-                  <h3 className="font-medium text-sm sm:text-[15px] truncate">{party.party_name}</h3>
+                  <Users className="w-3.5 h-3.5 text-paper-ink-3 flex-shrink-0" />
+                  <h3 className="font-fraunces font-medium text-base sm:text-[17px] tracking-tight text-paper-ink truncate">{party.party_name}</h3>
 
                   {guestsWithPlusOne > 0 && (
                     <TooltipProvider delayDuration={300}>
