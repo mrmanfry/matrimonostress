@@ -12,6 +12,7 @@ import {
   Clock,
   ChevronRight,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import type { FunnelStats } from "@/hooks/useInvitationsData";
 
@@ -22,6 +23,14 @@ interface InvitationsKPIsProps {
 }
 
 export function InvitationsKPIs({ stats, activeFilter, onFilterChange }: InvitationsKPIsProps) {
+  const navigate = useNavigate();
+
+  const handleCardClick = (cardId: string) => {
+    // Naviga a /app/guests con il filtro funnel applicato
+    navigate(`/app/guests?funnel=${cardId}`);
+    onFilterChange?.(cardId);
+  };
+
   const cards = [
     {
       id: "draft",
@@ -100,7 +109,7 @@ export function InvitationsKPIs({ stats, activeFilter, onFilterChange }: Invitat
                   isActive && "ring-2 ring-primary ring-offset-2 shadow-lg -translate-y-0.5",
                   card.borderColor
                 )}
-                onClick={() => onFilterChange?.(isActive ? null : card.id)}
+                onClick={() => handleCardClick(card.id)}
               >
                 <div className="flex items-start justify-between mb-1 md:mb-2">
                   <Icon className={cn("w-4 h-4 md:w-5 md:h-5", card.color)} />
