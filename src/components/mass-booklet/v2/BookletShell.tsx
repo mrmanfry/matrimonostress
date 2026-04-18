@@ -79,7 +79,7 @@ export default function BookletShell({
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[hsl(var(--paper-bg))] text-[hsl(var(--paper-ink))] font-inter">
+    <div className="min-h-[calc(100vh-1px)] flex flex-col bg-[hsl(var(--paper-bg))] text-[hsl(var(--paper-ink))] font-inter -m-0">
       {/* ─── Topbar ─── */}
       <header
         className="sticky top-0 z-40 h-14 flex items-center justify-between px-6 border-b border-[hsl(var(--paper-border))] bg-[hsl(var(--paper-surface))]"
