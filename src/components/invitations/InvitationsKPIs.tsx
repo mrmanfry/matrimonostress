@@ -12,6 +12,7 @@ import {
   Clock,
   ChevronRight,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import type { FunnelStats } from "@/hooks/useInvitationsData";
 
@@ -22,6 +23,14 @@ interface InvitationsKPIsProps {
 }
 
 export function InvitationsKPIs({ stats, activeFilter, onFilterChange }: InvitationsKPIsProps) {
+  const navigate = useNavigate();
+
+  const handleCardClick = (cardId: string) => {
+    // Naviga a /app/guests con il filtro funnel applicato
+    navigate(`/app/guests?funnel=${cardId}`);
+    onFilterChange?.(cardId);
+  };
+
   const cards = [
     {
       id: "draft",
