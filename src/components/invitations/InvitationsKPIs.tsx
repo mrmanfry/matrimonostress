@@ -61,7 +61,7 @@ export function InvitationsKPIs({ stats, activeFilter, onFilterChange }: Invitat
     },
     {
       id: "invited",
-      label: "Invito Inviato",
+      label: "In Attesa Risposta",
       value: stats.invited,
       icon: Mail,
       color: "text-blue-600",

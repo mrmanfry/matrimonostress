@@ -50,6 +50,7 @@ import { generateCateringReport } from "@/utils/pdfHelpers";
 import { CSVImportDialog } from "@/components/guests/CSVImportDialog";
 import { generateCSVTemplate, downloadCSV, exportGuestsToCSV } from "@/utils/csvHelpers";
 import { matchesFunnelFilter } from "@/lib/nucleusStatusHelper";
+import { FunnelFilterBanner } from "@/components/guests/FunnelFilterBanner";
 import { SectionHeader } from "@/components/shared/SectionHeader";
 import { computeGuestsNextAction } from "@/lib/sectionNextActions";
 import { isGuestConfirmed, isGuestPending, isGuestDeclined } from "@/lib/rsvpHelpers";
@@ -1427,6 +1428,18 @@ const Guests = () => {
               />
             )}
           </div>
+
+          {/* Funnel filter banner — visible quando si arriva da Campagne o si clicca una card del funnel */}
+          {funnelFilter && (
+            <FunnelFilterBanner
+              funnelFilter={funnelFilter}
+              visibleCount={hybridList.reduce((acc, item) => {
+                if (item.type === 'party') return acc + (item.data as InviteParty).guests.filter(g => !g.is_couple_member).length;
+                return acc + 1;
+              }, 0)}
+              onClear={() => setFunnelFilter(null)}
+            />
+          )}
 
           {/* Hybrid List - La Lista Ibrida (Nuclei + Singoli) */}
           {hybridList.length === 0 ? (
