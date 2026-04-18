@@ -1,61 +1,61 @@
 
 
-## Contesto aggiornato
+## Piano redesign sezione Invitati (paper design)
 
-Hai caricato `Libretti_messa-handoff.zip` (handoff completo del designer, presumibilmente con tutti i JSX referenziati nel `Libretti_messa.html` originale + asset). In chat mode non posso estrarre lo zip (richiede `code--exec`), quindi **l'estrazione è il primo step in default mode**.
+Stesso pattern del Libretto, ma **header invariato**: tengo il `SectionHeader` attuale di `Guests.tsx` (con KPI funnel, CTA primarie, ImportDropdown) così com'è. Reskin solo del corpo pagina.
 
-Il piano resta lo stesso del precedente — confermato dai default — ma ora con la sorgente completa invece dei soli token CSS.
+## Fase 1 — Estrazione handoff
 
-## Approccio (3 fasi)
+Estraggo `Libretti_messa-handoff-2.zip` in `/tmp/handoff2/` e mappo i JSX designer → componenti TS/TSX. Report di mapping prima di scrivere codice (cosa riuso, cosa adatto).
 
-### Fase 1 — Estrazione & inventario handoff
-1. Estraggo `Libretti_messa-handoff.zip` in `/tmp/handoff/`
-2. Inventario di tutto: JSX (icons, data, ui, app-shell, preview, library, editor, tweaks, main), eventuali asset (font, immagini, SVG), README/docs
-3. Mappo ogni componente designer → componente target nel nostro stack (TS/TSX + Tailwind + shadcn)
-4. **Report di mapping in chat prima di scrivere codice di produzione** (cosa riuso 1:1, cosa adatto, cosa scarto)
+## Fase 2 — Nuovi componenti `src/components/guests/v2/`
 
-### Fase 2 — Design tokens condivisi (globali, riusabili in tutta l'app)
-Aggiungo a `tailwind.config.ts` + `src/index.css`:
-- Palette "warm paper" (beige caldo, grigi caldi, accent viola `#8B5CF6`) come CSS vars HSL
-- Font family aggiuntive: `fraunces`, `instrument-serif`, `jetbrains-mono` (Inter è già coperta)
-- Eventuali shadow/radius/spacing custom dal designer
-- Asset font/immagini → `src/assets/` (con `lov-copy` dallo zip estratto)
+- **`GuestsFilterBar.tsx`** — search + filter chips paper-styled (sostituisce il chrome di `GuestFilters`, riusa la logica filtri esistente)
+- **`GuestsFunnelStrip.tsx`** — strip orizzontale 5 stati cliccabili (Da Lavorare / STD / In Attesa / Confermati / Rifiutati), versione compatta delle `FunnelKPICards`
+- **`GuestsListView.tsx`** — wrapper paper per `GuestNucleoCard`/`GuestSingleCard` (border caldi, `font-fraunces` sui nomi, bg `--paper-surface`)
+- **`GuestsAnalyticsPanel.tsx`** — versione paper-styled del pannello analytics (collapsible desktop + sheet mobile, come oggi)
 
-Token globali = la futura topbar e il design system sono pronti per estendersi a `/app/*`.
+## Fase 3 — Integrazione in `Guests.tsx`
 
-### Fase 3 — Rebuild Libretto Messa in split-screen
+Rewrite **solo del JSX layout** (righe ~1082-1648):
+- **Header**: invariato (`SectionHeader` attuale resta)
+- **Body**: nuovi componenti v2 al posto di `GuestFilters` + `FunnelFilterBanner` + lista inline
+- **Logica**: tutto invariato (loadData, handle*, filtering, RSVP campaigns, selezione, dialoghi)
 
 ```text
-┌─────────────────────────────────────────────────────────┐
-│ TOPBAR: ← back │ titolo │ status save │ esporta PDF/DOCX │
-├──────────────────────────────┬──────────────────────────┤
-│ EDITOR (accordion sezioni)   │ PREVIEW A5 LIVE          │
-│  • Setup • Rito • Letture    │  PDFViewer @react-pdf    │
-│  • Personalizzazioni • Stile │  con debounce 800ms      │
-└──────────────────────────────┴──────────────────────────┘
+┌──────────────────────────────────────────┐
+│ SectionHeader ATTUALE (invariato)        │  ← non si tocca
+├──────────────────────────────────────────┤
+│ GuestsFunnelStrip (5 chip cliccabili)    │  ← v2 paper
+│ GuestsFilterBar (search + filtri)        │  ← v2 paper
+│ GuestsAnalyticsPanel (collapsible)       │  ← v2 paper
+│ GuestsListView                           │  ← v2 paper
+│   ├─ GuestNucleoCard (reskin leggero)   │
+│   └─ GuestSingleCard (reskin leggero)   │
+│ SelectionToolbar (invariato)             │
+└──────────────────────────────────────────┘
 ```
 
-**Nuovi** in `src/components/mass-booklet/v2/`:
-- `BookletShell.tsx` — layout split + topbar
-- `BookletEditor.tsx` — accordion che orchestra i 5 BookletStep* esistenti
-- `BookletLivePreview.tsx` — `<PDFViewer>` con debounce
+## Cosa NON tocco (zero rischio)
 
-**Invariati** (zero rischio): `BookletPdfDocument.tsx`, tutti i `Pdf*.tsx`, `BookletStepSetup/Rite/Readings/Custom/Style.tsx`, `massBookletSchema.ts`, `bookletDocxExport.ts`, auto-save, validation, RPC.
+- `SectionHeader` di Guests (header attuale)
+- `loadData`, handlers CRUD/RSVP, filtering logic
+- Tutti i dialoghi (`RSVPCampaignDialog`, `GuestDialog`, `PartyDialog`, `CSVImportDialog`, `SmartImportDialog`, `SmartGrouperDialog`, `ContactSyncDialog`)
+- `nucleusStatusHelper`, `rsvpHelpers`, `guestAnalytics`, `useInvitationsData`, `useGuestMetrics`
+- `SelectionToolbar`, `GuestStatusDot`, `GuestCampaignBadges`
+- `AppLayout` topbar globale (già aggiornata)
+- Schema DB, edge functions
 
-**Mobile** (≤768px): fallback allo stepper attuale (lo split A5 non funziona, già coerente con il constraint `invitation-editor-mobile-access`).
+## Default applicati
 
-### Topbar globale (NON in questo PR)
-Pilotata prima dentro Libretto. Dopo la tua conferma, in un PR successivo la promuoviamo in `AppLayout.tsx`.
+1. **Reskin `GuestNucleoCard`/`GuestSingleCard`**: wrapper esterno + token swap leggero (border, bg, `font-fraunces` su nomi). No reskin profondo.
+2. **Funnel**: strip orizzontale compatta in alto.
+3. **Analytics**: collapsible desktop + sheet mobile (pattern attuale, solo restyle).
+4. **Mobile**: layout responsive mantenuto, mobile filters/sheet invariati.
 
-## Default applicati (dal piano precedente, già impliciti)
+## File toccati
 
-1. Stepper vecchio → **eliminato** dopo rebuild
-2. Preview live → **`<PDFViewer>` con debounce 800ms** (1:1 garantito)
-3. Topbar globale → **valutata dopo il pilot**
-
-## File toccati (stima)
-
-- **Nuovi**: `BookletShell.tsx`, `BookletEditor.tsx`, `BookletLivePreview.tsx` (in `src/components/mass-booklet/v2/`), eventuali asset in `src/assets/`
-- **Modificati**: `src/pages/MassBooklet.tsx` (rewrite layout, save logic invariata), `tailwind.config.ts`, `src/index.css`
-- **Invariati**: schema, PDF engine, DOCX export, step components, auto-save, RPC
+- **Nuovi**: `GuestsFilterBar.tsx`, `GuestsFunnelStrip.tsx`, `GuestsListView.tsx`, `GuestsAnalyticsPanel.tsx` in `src/components/guests/v2/`
+- **Modificati**: `src/pages/Guests.tsx` (solo JSX body, header e logica intatti); micro-ritocchi a `GuestNucleoCard.tsx` / `GuestSingleCard.tsx` per `font-fraunces` su nomi
+- **Invariati**: tutto il resto
 
