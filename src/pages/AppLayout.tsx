@@ -306,24 +306,47 @@ const AppLayoutInner = ({
       </Sidebar>
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-14 border-b border-border bg-card flex items-center px-4 gap-4">
-          <SidebarTrigger />
-          {isOnCockpit ? (
-            <div className="flex-1 text-center">
-              <h2 className="text-sm font-semibold">Cockpit Planner</h2>
-              <p className="text-xs text-muted-foreground">Panoramica matrimoni</p>
-            </div>
-          ) : weddingInfo ? (
-            <div className="flex-1 text-center">
-              <h2 className="text-sm font-semibold">
+        <header className="sticky top-0 z-40 h-16 border-b border-[hsl(var(--paper-border))] bg-[hsl(var(--paper-surface))] flex items-center px-6 gap-4">
+          {/* Left: sidebar trigger + brand */}
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <SidebarTrigger className="text-[hsl(var(--paper-ink-2))] hover:text-[hsl(var(--paper-ink))]" />
+            {isOnCockpit ? (
+              <div className="flex items-baseline gap-2 min-w-0">
+                <span className="font-fraunces text-base font-semibold text-[hsl(var(--paper-ink))] truncate">
+                  Cockpit Planner
+                </span>
+                <span className="text-xs uppercase tracking-wider text-[hsl(var(--paper-ink-3))] hidden sm:inline">
+                  Wedding Planner
+                </span>
+              </div>
+            ) : weddingInfo ? (
+              <div className="flex items-baseline gap-2 min-w-0">
+                <span className="font-fraunces text-base font-semibold text-[hsl(var(--paper-ink))] truncate">
+                  {weddingInfo.partner1} & {weddingInfo.partner2}
+                </span>
+                <span className="text-xs uppercase tracking-wider text-[hsl(var(--paper-ink-3))] hidden sm:inline">
+                  Wedding Planner
+                </span>
+              </div>
+            ) : null}
+          </div>
+
+          {/* Center: countdown */}
+          {weddingInfo && !isOnCockpit && (
+            <div className="hidden md:flex flex-col items-center text-center px-4">
+              <span className="font-fraunces text-base font-semibold text-[hsl(var(--paper-ink))] leading-tight">
                 {weddingInfo.partner1} & {weddingInfo.partner2}
-              </h2>
-              <p className="text-xs text-muted-foreground">
+              </span>
+              <span className="text-xs text-[hsl(var(--paper-ink-3))] leading-tight">
                 {weddingInfo.daysUntil} giorni al matrimonio
-              </p>
+              </span>
             </div>
-          ) : null}
-          <TrialBadge />
+          )}
+
+          {/* Right: trial badge */}
+          <div className="flex items-center gap-3 flex-1 justify-end">
+            <TrialBadge />
+          </div>
         </header>
         <SoftPaywallDialog />
 
