@@ -121,6 +121,20 @@ const Guests = () => {
   const [filterValues, setFilterValues] = useState<GuestFilterValues>(DEFAULT_FILTER_VALUES);
   const [funnelFilter, setFunnelFilter] = useState<string | null>(null); // draft, std_sent, invited, confirmed, declined
   const [activeAnalyticsFilter, setActiveAnalyticsFilter] = useState<AnalyticsFilterType | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Apply funnel filter from URL query param (e.g. coming from /app/invitations)
+  useEffect(() => {
+    const funnelParam = searchParams.get("funnel");
+    if (funnelParam && ["draft", "std_sent", "invited", "confirmed", "declined"].includes(funnelParam)) {
+      setFunnelFilter(funnelParam);
+      // Clean up the URL so refreshes don't keep re-applying
+      const next = new URLSearchParams(searchParams);
+      next.delete("funnel");
+      setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Helper to update individual filter values
   const handleFilterChange = (key: keyof GuestFilterValues, value: string) => {
