@@ -125,6 +125,8 @@ export const GuestEditDialog = ({
       const effectiveFormalInviteSent =
         formalInviteSent || finalRsvpStatus === "confirmed" || finalRsvpStatus === "declined";
 
+      const finalAllowPlusOne = isChild ? false : allowPlusOne;
+
       const updateData: any = {
         first_name: firstName.trim(),
         last_name: lastName.trim(),
@@ -132,7 +134,7 @@ export const GuestEditDialog = ({
         phone: phone.trim() || null,
         is_child: isChild,
         child_age_group: isChild ? childAgeGroup : null,
-        allow_plus_one: isChild ? false : allowPlusOne,
+        allow_plus_one: finalAllowPlusOne,
         menu_choice: menuChoice,
         dietary_restrictions: dietaryRestrictions.trim() || null,
         group_id: groupId,
@@ -150,6 +152,13 @@ export const GuestEditDialog = ({
           ? guest.rsvp_invitation_sent || new Date().toISOString()
           : null,
       };
+
+      // Se +1 è disabilitato, pulisci nome/menu legacy del +1 per evitare residui fantasma
+      // (l'host potrà reinserirlo dal RSVP quando vuole).
+      if (!finalAllowPlusOne) {
+        updateData.plus_one_name = null;
+        updateData.plus_one_menu = null;
+      }
 
       // Strip undefined keys (so we don't overwrite existing std_responded_at)
       Object.keys(updateData).forEach(

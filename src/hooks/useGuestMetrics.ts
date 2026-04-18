@@ -114,20 +114,16 @@ export function useGuestMetrics(): GuestMetrics {
   const adultsCount = regularGuests.filter(g => !g.is_child).length;
   const childrenCount = regularGuests.filter(g => g.is_child).length;
 
-  // Plus ones
-  // Promossi: guest reali con plus_one_of_guest_id valorizzato (Single Source of Truth).
-  // Legacy: host con plus_one_name compilato MA il cui +1 NON è ancora stato promosso a guest reale.
-  // Evita doppio conteggio escludendo gli host già "promossi".
+  // Plus ones — Single Source of Truth: solo i guest promossi (plus_one_of_guest_id valorizzato)
+  // contano come "confermati". Il campo `plus_one_name` da solo è solo un'intenzione storica
+  // dell'host e NON deve mai contare come conferma (evita fantasmi legacy quando si attiva/disattiva).
   const promotedPlusOneHostIds = new Set(
     guests
       .map(g => (g as any).plus_one_of_guest_id as string | null)
       .filter((id): id is string => !!id)
   );
   const plusOnesPotential = regularGuests.filter(g => g.allow_plus_one).length;
-  const legacyPlusOnesConfirmed = regularGuests.filter(
-    g => g.plus_one_name && g.plus_one_name.trim() !== "" && !promotedPlusOneHostIds.has(g.id)
-  ).length;
-  const plusOnesConfirmed = promotedPlusOneHostIds.size + legacyPlusOnesConfirmed;
+  const plusOnesConfirmed = promotedPlusOneHostIds.size;
 
   // RSVP Status conteggi per persona
   const confirmedGuests = regularGuests.filter(g => g.rsvp_status === "confirmed");
