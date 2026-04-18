@@ -957,20 +957,16 @@ const Guests = () => {
 
   const hybridList = filteredItems();
 
-  // Calcola statistiche (riorganizzate per la nuova UI)
-  // I +1 confermati sono ora guest reali con plus_one_of_guest_id valorizzato.
-  // Conteggio fallback su plus_one_name per +1 non ancora "promossi" (titolari senza guest reale collegato).
+  // Single Source of Truth per i +1: solo i guest "promossi" (con plus_one_of_guest_id) contano come confermati.
+  // Il campo legacy `plus_one_name` non viene più usato per il conteggio (residui fantasma vengono ignorati).
   const promotedPlusOneHostIds = new Set(
     allGuests.filter(g => (g as any).plus_one_of_guest_id).map(g => (g as any).plus_one_of_guest_id as string)
   );
-  const legacyPlusOnes = allGuests.filter(
-    g => g.plus_one_name && g.plus_one_name.trim() !== '' && !promotedPlusOneHostIds.has(g.id)
-  ).length;
-  const confirmedPlusOnes = legacyPlusOnes; // legacy fallback for hosts whose +1 hasn't been promoted yet
-  // +1 potenziali: hanno il permesso ma non ancora confermato il nome
-  const potentialPlusOnes = allGuests.filter(g => g.allow_plus_one && (!g.plus_one_name || g.plus_one_name.trim() === '')).length;
-  const totalGuests = allGuests.length + confirmedPlusOnes;
-  const totalAdults = allGuests.reduce((sum, g) => sum + (g.is_child ? 0 : 1), 0) + confirmedPlusOnes;
+  const confirmedPlusOnes = promotedPlusOneHostIds.size;
+  // +1 potenziali: hanno il permesso ma non ancora confermato (cioè non promosso)
+  const potentialPlusOnes = allGuests.filter(g => g.allow_plus_one && !promotedPlusOneHostIds.has(g.id)).length;
+  const totalGuests = allGuests.length;
+  const totalAdults = allGuests.reduce((sum, g) => sum + (g.is_child ? 0 : 1), 0);
   const totalChildren = allGuests.reduce((sum, g) => sum + (g.is_child ? 1 : 0), 0);
   
   // "Nuclei di Invito" = parties + ungrouped (ogni single è un nucleo di 1)
@@ -987,14 +983,9 @@ const Guests = () => {
   const pendingGuests = allGuests.filter(isGuestPending);
   const declinedGuests = allGuests.filter(isGuestDeclined);
 
-  // Legacy +1 confermati: host confermato che ha plus_one_name ma nessun guest promosso collegato
-  const legacyConfirmedPlusOnes = confirmedGuests.filter(
-    g => g.plus_one_name && g.plus_one_name.trim() !== '' && !promotedPlusOneHostIds.has(g.id)
-  ).length;
-
   const stats = {
-    total: allGuests.length + confirmedPlusOnes,
-    confirmed: confirmedGuests.length + legacyConfirmedPlusOnes,
+    total: allGuests.length,
+    confirmed: confirmedGuests.length,
     pending: pendingGuests.length,
     declined: declinedGuests.length,
     plusOnes: confirmedPlusOnes,
