@@ -22,7 +22,11 @@ export default {
 		},
 		fontFamily: {
 			cormorant: ['Cormorant Garamond', 'serif'],
-			playfair: ['Playfair Display', 'serif']
+			playfair: ['Playfair Display', 'serif'],
+			fraunces: ['Fraunces', 'Georgia', 'serif'],
+			'instrument-serif': ['Instrument Serif', 'Georgia', 'serif'],
+			'jetbrains-mono': ['JetBrains Mono', 'ui-monospace', 'monospace'],
+			inter: ['Inter', 'system-ui', 'sans-serif']
 		},
 		extend: {
 			colors: {
@@ -78,6 +82,19 @@ export default {
 					urgent: 'hsl(var(--status-urgent))',
 					overdue: 'hsl(var(--status-overdue))',
 					pending: 'hsl(var(--status-pending))'
+				},
+				paper: {
+					bg: 'hsl(var(--paper-bg))',
+					surface: 'hsl(var(--paper-surface))',
+					'surface-muted': 'hsl(var(--paper-surface-muted))',
+					border: 'hsl(var(--paper-border))',
+					'border-strong': 'hsl(var(--paper-border-strong))',
+					ink: 'hsl(var(--paper-ink))',
+					'ink-2': 'hsl(var(--paper-ink-2))',
+					'ink-3': 'hsl(var(--paper-ink-3))',
+					brand: 'hsl(var(--paper-brand))',
+					'brand-ink': 'hsl(var(--paper-brand-ink))',
+					'brand-tint': 'hsl(var(--paper-brand-tint))'
 				}
 			},
 			backgroundImage: {

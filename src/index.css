@@ -24,6 +24,7 @@
 @import url("https://fonts.googleapis.com/css2?family=Merriweather:wght@300;400;700&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=Crimson+Text:wght@400;600;700&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=Italiana&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap");
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -118,6 +119,25 @@ All colors MUST be HSL.
     --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
     --tracking-normal: 0em;
     --spacing: 0.25rem;
+
+    /* ─── Paper design system (warm, Linear-style) — used by Mass Booklet v2 ─── */
+    --paper-bg: 36 38% 96%;            /* #FAF7F2 */
+    --paper-surface: 0 0% 100%;        /* #FFFFFF */
+    --paper-surface-muted: 36 33% 94%; /* #F5F1EA */
+    --paper-border: 36 32% 87%;        /* #E8E1D4 */
+    --paper-border-strong: 36 28% 77%; /* #D4C9B5 */
+    --paper-ink: 24 14% 15%;           /* #2B2520 */
+    --paper-ink-2: 33 14% 31%;         /* #5B5245 */
+    --paper-ink-3: 33 11% 49%;         /* #8A8071 */
+    --paper-brand: 258 89% 66%;        /* #8B5CF6 */
+    --paper-brand-ink: 258 73% 56%;    /* #6D3FE0 */
+    --paper-brand-tint: 258 100% 96%;  /* #F3EEFF */
+    --paper-success: 142 71% 29%;      /* #15803D */
+    --paper-success-tint: 138 36% 93%; /* #E7F3EC */
+    --paper-warn: 30 87% 36%;          /* #B45309 */
+    --paper-warn-tint: 39 75% 92%;     /* #FBF0DF */
+    --paper-danger: 0 73% 41%;         /* #B91C1C */
+    --paper-danger-tint: 0 66% 95%;    /* #FBEAEA */
   }
 
   .dark {
