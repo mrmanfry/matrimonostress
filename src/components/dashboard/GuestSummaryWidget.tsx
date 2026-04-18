@@ -23,10 +23,10 @@ export function GuestSummaryWidget({ stats, onClick }: GuestSummaryWidgetProps) 
   const isMobile = useIsMobile();
 
   // Pie chart data for RSVP — Single Source of Truth: useGuestMetrics
-  // (esclude sposi e staff, allineato con Invitati/Campagne/Catering).
-  // NB: usiamo ?? invece di || perché 0 è un valore valido.
+  // Includiamo gli sposi (sempre confermati) per allineare con "Coperti Stimati".
+  // Totale confermati visualizzato = ospiti confermati + coppia.
   const rsvpChartData = [
-    { name: "Confermati", value: metrics.confirmedHeadCount ?? stats.guestsConfirmed, color: "#10b981" },
+    { name: "Confermati", value: (metrics.confirmedHeadCount ?? 0) + metrics.coupleCount, color: "#10b981" },
     { name: "In attesa", value: metrics.pendingHeadCount ?? stats.guestsPending, color: "#3b82f6" },
     { name: "Rifiutati", value: metrics.declinedHeadCount ?? stats.guestsDeclined, color: "#6b7280" },
   ];
