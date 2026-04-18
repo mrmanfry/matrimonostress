@@ -56,7 +56,7 @@ export function useGuestMetrics(): GuestMetrics {
       
       const { data, error } = await supabase
         .from("guests")
-        .select("id, is_child, is_staff, is_couple_member, rsvp_status, allow_plus_one, plus_one_name, adults_count, children_count")
+        .select("id, is_child, is_staff, is_couple_member, rsvp_status, allow_plus_one, plus_one_name, plus_one_of_guest_id, adults_count, children_count")
         .eq("wedding_id", weddingId);
       
       if (error) throw error;
@@ -115,8 +115,19 @@ export function useGuestMetrics(): GuestMetrics {
   const childrenCount = regularGuests.filter(g => g.is_child).length;
 
   // Plus ones
+  // Promossi: guest reali con plus_one_of_guest_id valorizzato (Single Source of Truth).
+  // Legacy: host con plus_one_name compilato MA il cui +1 NON è ancora stato promosso a guest reale.
+  // Evita doppio conteggio escludendo gli host già "promossi".
+  const promotedPlusOneHostIds = new Set(
+    guests
+      .map(g => (g as any).plus_one_of_guest_id as string | null)
+      .filter((id): id is string => !!id)
+  );
   const plusOnesPotential = regularGuests.filter(g => g.allow_plus_one).length;
-  const plusOnesConfirmed = regularGuests.filter(g => g.plus_one_name && g.plus_one_name.trim() !== "").length;
+  const legacyPlusOnesConfirmed = regularGuests.filter(
+    g => g.plus_one_name && g.plus_one_name.trim() !== "" && !promotedPlusOneHostIds.has(g.id)
+  ).length;
+  const plusOnesConfirmed = promotedPlusOneHostIds.size + legacyPlusOnesConfirmed;
 
   // RSVP Status conteggi per persona
   const confirmedGuests = regularGuests.filter(g => g.rsvp_status === "confirmed");

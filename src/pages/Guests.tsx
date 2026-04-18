@@ -51,6 +51,7 @@ import { generateCSVTemplate, downloadCSV, exportGuestsToCSV } from "@/utils/csv
 import { matchesFunnelFilter } from "@/lib/nucleusStatusHelper";
 import { SectionHeader } from "@/components/shared/SectionHeader";
 import { computeGuestsNextAction } from "@/lib/sectionNextActions";
+import { isGuestConfirmed, isGuestPending, isGuestDeclined } from "@/lib/rsvpHelpers";
 
 
 interface Guest {
