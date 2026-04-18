@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Cloud, CloudOff, Loader2, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -17,6 +18,9 @@ import BookletStepReadings from "@/components/mass-booklet/BookletStepReadings";
 import BookletStepCustom from "@/components/mass-booklet/BookletStepCustom";
 import BookletStepPreview from "@/components/mass-booklet/BookletStepPreview";
 import BookletStepStyle from "@/components/mass-booklet/BookletStepStyle";
+import BookletShell from "@/components/mass-booklet/v2/BookletShell";
+import BookletEditor from "@/components/mass-booklet/v2/BookletEditor";
+import BookletLivePreview from "@/components/mass-booklet/v2/BookletLivePreview";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
@@ -24,6 +28,7 @@ export default function MassBooklet() {
   const { authState } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   const weddingId =
     authState.status === "authenticated" ? authState.activeWeddingId : null;
 
@@ -32,10 +37,21 @@ export default function MassBooklet() {
     createDefaultBookletContent()
   );
   const [currentStep, setCurrentStep] = useState(1);
+  const [openSection, setOpenSection] = useState<string>("setup");
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [bookletId, setBookletId] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  const partner1 = useMemo(() => {
+    if (authState.status !== "authenticated") return "";
+    return authState.weddings?.find((w) => w.weddingId === weddingId)?.partner1Name || "";
+  }, [authState, weddingId]);
+
+  const partner2 = useMemo(() => {
+    if (authState.status !== "authenticated") return "";
+    return authState.weddings?.find((w) => w.weddingId === weddingId)?.partner2Name || "";
+  }, [authState, weddingId]);
 
   // ──── Load / create booklet ────
   useEffect(() => {
@@ -64,7 +80,6 @@ export default function MassBooklet() {
         setCurrentStep(data.current_step || 1);
         setBookletId(data.id);
       } else {
-        // new booklet — pre-populate from wedding data
         const { data: wed } = await supabase
           .from("weddings")
           .select("wedding_date")
@@ -97,14 +112,12 @@ export default function MassBooklet() {
     async (c: MassBookletContent, step: number) => {
       if (!weddingId) return;
 
-      // abort any pending save
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
 
       setSaveStatus("saving");
 
-      // sanitize text fields
       const sanitized: MassBookletContent = {
         ...c,
         church_name: sanitizeBookletText(c.church_name),
@@ -154,25 +167,25 @@ export default function MassBooklet() {
 
   // ──── Debounced auto-save on content change ────
   const scheduleAutoSave = useCallback(
-    (c: MassBookletContent) => {
+    (c: MassBookletContent, step: number) => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => saveToDb(c, currentStep), 3000);
+      debounceRef.current = setTimeout(() => saveToDb(c, step), 3000);
     },
-    [saveToDb, currentStep]
+    [saveToDb]
   );
 
   const handleContentChange = useCallback(
     (patch: Partial<MassBookletContent>) => {
       setContent((prev) => {
         const next = { ...prev, ...patch };
-        scheduleAutoSave(next);
+        scheduleAutoSave(next, currentStep);
         return next;
       });
     },
-    [scheduleAutoSave]
+    [scheduleAutoSave, currentStep]
   );
 
-  // ──── Step navigation (immediate save) ────
+  // ──── Step navigation (mobile fallback) ────
   const goToStep = useCallback(
     (step: number) => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -189,12 +202,28 @@ export default function MassBooklet() {
     navigate("/app/dashboard");
   }, [content, currentStep, saveToDb, navigate, toast]);
 
-  // ──── cleanup debounce on unmount ────
+  // cleanup
   useEffect(() => {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, []);
+
+  // ──── Section completion (drives the editor accordion check marks) ────
+  const completion = useMemo(
+    () => ({
+      setup: !!(content.church_name && content.priest_name && content.ceremony_date_text),
+      rito: !!content.rite_type,
+      letture: !!(
+        (content.readings.first_reading || content.readings.use_custom_first_reading) &&
+        (content.readings.psalm || content.readings.use_custom_psalm) &&
+        (content.readings.gospel || content.readings.use_custom_gospel)
+      ),
+      personalizzazioni: !!content.songs.entrance,
+      stile: true,
+    }),
+    [content]
+  );
 
   if (loading) {
     return (
@@ -204,68 +233,94 @@ export default function MassBooklet() {
     );
   }
 
-  return (
-    <div className="p-4 md:p-6 max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-xl font-bold">Libretto Messa</h1>
-          <div className="flex items-center gap-1.5 mt-1">
-            {saveStatus === "saving" && (
-              <span className="text-xs text-muted-foreground flex items-center gap-1">
-                <Loader2 className="w-3 h-3 animate-spin" /> Salvataggio...
-              </span>
-            )}
-            {saveStatus === "saved" && (
-              <span className="text-xs text-muted-foreground flex items-center gap-1">
-                <Cloud className="w-3 h-3" /> Salvato
-              </span>
-            )}
-            {saveStatus === "error" && (
-              <span className="text-xs text-destructive flex items-center gap-1">
-                <CloudOff className="w-3 h-3" /> Errore di salvataggio
-              </span>
-            )}
+  // ─── Mobile fallback: keep the legacy stepper (split-screen + A5 preview don't fit on mobile) ───
+  if (isMobile) {
+    return (
+      <div className="p-4 max-w-4xl mx-auto">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-xl font-bold">Libretto Messa</h1>
+            <div className="flex items-center gap-1.5 mt-1">
+              {saveStatus === "saving" && (
+                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Loader2 className="w-3 h-3 animate-spin" /> Salvataggio...
+                </span>
+              )}
+              {saveStatus === "saved" && (
+                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Cloud className="w-3 h-3" /> Salvato
+                </span>
+              )}
+              {saveStatus === "error" && (
+                <span className="text-xs text-destructive flex items-center gap-1">
+                  <CloudOff className="w-3 h-3" /> Errore di salvataggio
+                </span>
+              )}
+            </div>
           </div>
-        </div>
-        <Button variant="outline" size="sm" onClick={handleSaveAndExit} className="gap-1.5">
-          <LogOut className="w-3.5 h-3.5" /> Salva ed esci
-        </Button>
-      </div>
-
-      {/* Stepper */}
-      <BookletStepper currentStep={currentStep} onStepClick={goToStep} />
-
-      {/* Step content */}
-      {currentStep === 1 && <BookletStepSetup content={content} onChange={handleContentChange} />}
-      {currentStep === 2 && <BookletStepRite content={content} onChange={handleContentChange} />}
-      {currentStep === 3 && <BookletStepReadings content={content} onChange={handleContentChange} />}
-      {currentStep === 4 && <BookletStepCustom content={content} onChange={handleContentChange} />}
-      {currentStep === 5 && <BookletStepStyle content={content} onChange={handleContentChange} />}
-      {currentStep === 6 && (
-        <BookletStepPreview
-          content={content}
-          onGoToStep={goToStep}
-          partner1={authState.status === "authenticated" ? (authState.weddings?.find(w => w.weddingId === weddingId)?.partner1Name || "") : ""}
-          partner2={authState.status === "authenticated" ? (authState.weddings?.find(w => w.weddingId === weddingId)?.partner2Name || "") : ""}
-        />
-      )}
-
-      {/* Nav buttons */}
-      <div className="flex justify-between mt-8 max-w-2xl mx-auto">
-        <Button
-          variant="outline"
-          disabled={currentStep === 1}
-          onClick={() => goToStep(currentStep - 1)}
-        >
-          ← Indietro
-        </Button>
-        {currentStep < 6 && (
-          <Button onClick={() => goToStep(currentStep + 1)}>
-            Avanti →
+          <Button variant="outline" size="sm" onClick={handleSaveAndExit} className="gap-1.5">
+            <LogOut className="w-3.5 h-3.5" /> Esci
           </Button>
+        </div>
+
+        <BookletStepper currentStep={currentStep} onStepClick={goToStep} />
+
+        {currentStep === 1 && <BookletStepSetup content={content} onChange={handleContentChange} />}
+        {currentStep === 2 && <BookletStepRite content={content} onChange={handleContentChange} />}
+        {currentStep === 3 && (
+          <BookletStepReadings content={content} onChange={handleContentChange} />
         )}
+        {currentStep === 4 && (
+          <BookletStepCustom content={content} onChange={handleContentChange} />
+        )}
+        {currentStep === 5 && (
+          <BookletStepStyle content={content} onChange={handleContentChange} />
+        )}
+        {currentStep === 6 && (
+          <BookletStepPreview
+            content={content}
+            onGoToStep={goToStep}
+            partner1={partner1}
+            partner2={partner2}
+          />
+        )}
+
+        <div className="flex justify-between mt-8">
+          <Button
+            variant="outline"
+            disabled={currentStep === 1}
+            onClick={() => goToStep(currentStep - 1)}
+          >
+            ← Indietro
+          </Button>
+          {currentStep < 6 && (
+            <Button onClick={() => goToStep(currentStep + 1)}>Avanti →</Button>
+          )}
+        </div>
       </div>
-    </div>
+    );
+  }
+
+  // ─── Desktop: split-screen editor + live preview (v2) ───
+  return (
+    <BookletShell
+      content={content}
+      partner1={partner1}
+      partner2={partner2}
+      saveStatus={saveStatus}
+      onSaveAndExit={handleSaveAndExit}
+      editor={
+        <BookletEditor
+          content={content}
+          onChange={handleContentChange}
+          openSection={openSection}
+          onOpenChange={setOpenSection}
+          completion={completion}
+        />
+      }
+      preview={
+        <BookletLivePreview content={content} partner1={partner1} partner2={partner2} />
+      }
+    />
   );
 }
