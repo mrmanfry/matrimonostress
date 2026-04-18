@@ -54,6 +54,10 @@ import { FunnelFilterBanner } from "@/components/guests/FunnelFilterBanner";
 import { SectionHeader } from "@/components/shared/SectionHeader";
 import { computeGuestsNextAction } from "@/lib/sectionNextActions";
 import { isGuestConfirmed, isGuestPending, isGuestDeclined } from "@/lib/rsvpHelpers";
+import { GuestsFunnelStrip } from "@/components/guests/v2/GuestsFunnelStrip";
+import { GuestsFilterBar } from "@/components/guests/v2/GuestsFilterBar";
+import { GuestsListView } from "@/components/guests/v2/GuestsListView";
+import { GuestsAnalyticsPanel } from "@/components/guests/v2/GuestsAnalyticsPanel";
 
 
 interface Guest {
@@ -1269,221 +1273,143 @@ const Guests = () => {
             </div>
           )}
 
-          {/* Analytics - Progressive Disclosure */}
-          {isMobile ? (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full"
-                onClick={() => setAnalyticsSheetOpen(true)}
-              >
-                <BarChart3 className="w-4 h-4 mr-2" />
-                Vedi Statistiche
-              </Button>
-              <Sheet open={analyticsSheetOpen} onOpenChange={setAnalyticsSheetOpen}>
-                <SheetContent side="bottom" className="h-[85vh] overflow-y-auto">
-                  <SheetHeader>
-                    <SheetTitle>Statistiche Invitati</SheetTitle>
-                  </SheetHeader>
-                  <div className="mt-4">
-                    <GuestAnalyticsDashboard 
-                      guests={allGuests} 
-                      parties={parties}
-                      vendorStaffTotal={vendorStaffCount}
-                      activeFilter={activeAnalyticsFilter}
-                      onClearFilter={handleResetFilters}
-                      onFilterClick={(filter: AnalyticsFilterType) => {
-                        setFilterValues(DEFAULT_FILTER_VALUES);
-                        setFunnelFilter(null);
-                        setActiveAnalyticsFilter(filter);
-                        switch (filter.type) {
-                          case 'rsvp':
-                            const rsvpMap = { confirmed: 'Confermato', pending: 'In attesa', declined: 'Rifiutato' };
-                            handleFilterChange('rsvpStatus', rsvpMap[filter.value] || 'all');
-                            break;
-                          case 'composition':
-                            if (filter.value === 'staff') handleFilterChange('staff', 'staff_only');
-                            else handleFilterChange('age', filter.value === 'children' ? 'children' : 'adults');
-                            break;
-                          case 'contact':
-                            handleFilterChange('contact', filter.value);
-                            break;
-                          case 'menu':
-                            handleFilterChange('menu', filter.value);
-                            break;
-                          case 'dietary':
-                            handleFilterChange('menu', 'dietary');
-                            break;
-                          case 'plusOne':
-                            handleFilterChange('plusOne', filter.value);
-                            break;
-                          case 'funnel':
-                            setFunnelFilter(filter.value);
-                            break;
-                          case 'group':
-                            handleFilterChange('group', filter.value);
-                            break;
-                          case 'std':
-                            handleFilterChange('stdStatus', filter.value);
-                            break;
-                        }
-                        setAnalyticsSheetOpen(false);
-                      }}
-                    />
-                  </div>
-                </SheetContent>
-              </Sheet>
-            </>
-          ) : (
-            <Collapsible open={analyticsOpen} onOpenChange={setAnalyticsOpen}>
-              <CollapsibleTrigger asChild>
-                <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground">
-                  <BarChart3 className="w-4 h-4" />
-                  Analisi Dettagliata
-                  <ChevronRight className={cn("w-4 h-4 transition-transform", analyticsOpen && "rotate-90")} />
-                </Button>
-              </CollapsibleTrigger>
-              <CollapsibleContent className="mt-2">
-                <GuestAnalyticsDashboard 
-                  guests={allGuests} 
-                  parties={parties}
-                  vendorStaffTotal={vendorStaffCount}
-                  activeFilter={activeAnalyticsFilter}
-                  onClearFilter={handleResetFilters}
-                  onFilterClick={(filter: AnalyticsFilterType) => {
-                    setFilterValues(DEFAULT_FILTER_VALUES);
-                    setFunnelFilter(null);
-                    setActiveAnalyticsFilter(filter);
-                    switch (filter.type) {
-                      case 'rsvp':
-                        const rsvpMap = { confirmed: 'Confermato', pending: 'In attesa', declined: 'Rifiutato' };
-                        handleFilterChange('rsvpStatus', rsvpMap[filter.value] || 'all');
-                        break;
-                      case 'composition':
-                        if (filter.value === 'staff') handleFilterChange('staff', 'staff_only');
-                        else handleFilterChange('age', filter.value === 'children' ? 'children' : 'adults');
-                        break;
-                      case 'contact':
-                        handleFilterChange('contact', filter.value);
-                        break;
-                      case 'menu':
-                        handleFilterChange('menu', filter.value);
-                        break;
-                      case 'dietary':
-                        handleFilterChange('menu', 'dietary');
-                        break;
-                      case 'plusOne':
-                        handleFilterChange('plusOne', filter.value);
-                        break;
-                      case 'funnel':
-                        setFunnelFilter(filter.value);
-                        break;
-                      case 'group':
-                        handleFilterChange('group', filter.value);
-                        break;
-                      case 'std':
-                        handleFilterChange('stdStatus', filter.value);
-                        break;
-                    }
-                  }}
-                />
-              </CollapsibleContent>
-            </Collapsible>
-          )}
-          {/* Filters - New Configurable Filter System */}
-          <div className="space-y-3">
-            <div className="flex flex-col gap-2 sm:flex-row sm:gap-3 min-w-0">
-              <div className="flex-1 relative min-w-0">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder={maskGuestData ? "🔍 Ricerca disabilitata" : "🔍 Cerca invitati o nuclei..."}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 w-full"
-                  disabled={maskGuestData}
-                />
-              </div>
-
-              {!maskGuestData && parties.length > 0 && (
-                <Button
-                  onClick={() => window.location.href = '/app/invitations'}
-                  variant="outline"
-                  className="gap-2 w-full sm:w-auto sm:whitespace-nowrap"
-                >
-                  <Send className="w-4 h-4" />
-                  <span className="sm:hidden">Campagne</span>
-                  <span className="hidden sm:inline">Vai alle Campagne</span>
-                </Button>
-              )}
-            </div>
-
-            {/* Configurable Filters with Settings Cog */}
-            {wedding && (
-              <GuestFilters
-                weddingId={wedding.id}
-                values={filterValues}
-                onChange={handleFilterChange}
-                onReset={handleResetFilters}
-              />
-            )}
-          </div>
-
-          {/* Funnel filter banner — visible quando si arriva da Campagne o si clicca una card del funnel */}
-          {funnelFilter && (
-            <FunnelFilterBanner
-              funnelFilter={funnelFilter}
-              visibleCount={hybridList.reduce((acc, item) => {
-                if (item.type === 'party') return acc + (item.data as InviteParty).guests.filter(g => !g.is_couple_member).length;
-                return acc + 1;
-              }, 0)}
-              onClear={() => setFunnelFilter(null)}
-            />
-          )}
-
-          {/* Hybrid List - La Lista Ibrida (Nuclei + Singoli) */}
-          {hybridList.length === 0 ? (
-            <Card className="p-8">
-              <div className="text-center text-muted-foreground">
-                Nessun invitato trovato con i filtri applicati.
-              </div>
-            </Card>
-          ) : (
-            <div className={`space-y-3 ${isMobile ? 'pb-24' : ''}`}>
-              {hybridList.map((item) => {
-                if (item.type === 'party') {
-                  const party = item.data as InviteParty;
-                  return (
-                    <GuestNucleoCard
-                      key={`party-${party.id}`}
-                      party={party}
-                      selected={selectedPartyIds.has(party.id)}
-                      onToggleSelect={togglePartySelection}
-                      onEdit={handleEditParty}
-                      onGuestUpdate={loadData}
-                      maskSensitiveData={maskGuestData}
-                      readOnly={!canEditGuests}
-                    />
-                  );
-                } else {
-                  const guest = item.data as Guest;
-                  return (
-                    <GuestSingleCard
-                      key={`guest-${guest.id}`}
-                      guest={guest}
-                      selected={selectedGuestIds.has(guest.id)}
-                      onToggleSelect={toggleGuestSelection}
-                      onEdit={handleEditGuest}
-                      onAddToParty={handleAddGuestToParty}
-                      onGuestUpdate={loadData}
-                      maskSensitiveData={maskGuestData}
-                      readOnly={!canEditGuests}
-                    />
-                  );
+          {/* === V2 Paper Layout === */}
+          {(() => {
+            const handleAnalyticsFilterClick = (filter: AnalyticsFilterType) => {
+              setFilterValues(DEFAULT_FILTER_VALUES);
+              setFunnelFilter(null);
+              setActiveAnalyticsFilter(filter);
+              switch (filter.type) {
+                case 'rsvp': {
+                  const rsvpMap: Record<string, string> = { confirmed: 'Confermato', pending: 'In attesa', declined: 'Rifiutato' };
+                  handleFilterChange('rsvpStatus', rsvpMap[filter.value] || 'all');
+                  break;
                 }
-              })}
-            </div>
-          )}
+                case 'composition':
+                  if (filter.value === 'staff') handleFilterChange('staff', 'staff_only');
+                  else handleFilterChange('age', filter.value === 'children' ? 'children' : 'adults');
+                  break;
+                case 'contact':
+                  handleFilterChange('contact', filter.value);
+                  break;
+                case 'menu':
+                  handleFilterChange('menu', filter.value);
+                  break;
+                case 'dietary':
+                  handleFilterChange('menu', 'dietary');
+                  break;
+                case 'plusOne':
+                  handleFilterChange('plusOne', filter.value);
+                  break;
+                case 'funnel':
+                  setFunnelFilter(filter.value);
+                  break;
+                case 'group':
+                  handleFilterChange('group', filter.value);
+                  break;
+                case 'std':
+                  handleFilterChange('stdStatus', filter.value);
+                  break;
+              }
+              if (isMobile) setAnalyticsSheetOpen(false);
+            };
+
+            const stageLabels: Record<string, string> = {
+              draft: 'Bozze',
+              std_sent: 'Save the date',
+              invited: 'Invitati in attesa',
+              confirmed: 'Confermati',
+              declined: 'Rifiutati',
+            };
+
+            const visibleCount = hybridList.reduce((acc, item) => {
+              if (item.type === 'party') return acc + (item.data as InviteParty).guests.filter((g) => !g.is_couple_member).length;
+              return acc + 1;
+            }, 0);
+
+            return (
+              <>
+                {/* Funnel strip — paper editorial */}
+                <GuestsFunnelStrip
+                  guests={allGuests}
+                  activeStage={funnelFilter}
+                  onToggleStage={(s) => setFunnelFilter(s)}
+                />
+
+                {/* Analytics panel — collapsible (desktop) / sheet (mobile) */}
+                <GuestsAnalyticsPanel isMobile={isMobile}>
+                  <GuestAnalyticsDashboard
+                    guests={allGuests}
+                    parties={parties}
+                    vendorStaffTotal={vendorStaffCount}
+                    activeFilter={activeAnalyticsFilter}
+                    onClearFilter={handleResetFilters}
+                    onFilterClick={handleAnalyticsFilterClick}
+                  />
+                </GuestsAnalyticsPanel>
+
+                {/* Filter bar — paper search + active filter chip */}
+                <GuestsFilterBar
+                  searchQuery={searchQuery}
+                  onSearchChange={setSearchQuery}
+                  disabled={maskGuestData}
+                  onCampaigns={() => (window.location.href = '/app/invitations')}
+                  campaignsVisible={!maskGuestData && parties.length > 0}
+                  activeStageLabel={funnelFilter ? stageLabels[funnelFilter] ?? null : null}
+                  onClearStage={() => setFunnelFilter(null)}
+                >
+                  {wedding && (
+                    <GuestFilters
+                      weddingId={wedding.id}
+                      values={filterValues}
+                      onChange={handleFilterChange}
+                      onReset={handleResetFilters}
+                    />
+                  )}
+                </GuestsFilterBar>
+
+                {/* List — paper letter surface */}
+                <GuestsListView
+                  isEmpty={hybridList.length === 0}
+                  emptyMessage="Nessun invitato trovato con i filtri applicati."
+                  totalLabel={visibleCount > 0 ? `${visibleCount} ${visibleCount === 1 ? 'invitato' : 'invitati'}` : undefined}
+                  className={isMobile ? 'pb-24' : undefined}
+                >
+                  {hybridList.map((item) => {
+                    if (item.type === 'party') {
+                      const party = item.data as InviteParty;
+                      return (
+                        <GuestNucleoCard
+                          key={`party-${party.id}`}
+                          party={party}
+                          selected={selectedPartyIds.has(party.id)}
+                          onToggleSelect={togglePartySelection}
+                          onEdit={handleEditParty}
+                          onGuestUpdate={loadData}
+                          maskSensitiveData={maskGuestData}
+                          readOnly={!canEditGuests}
+                        />
+                      );
+                    }
+                    const guest = item.data as Guest;
+                    return (
+                      <GuestSingleCard
+                        key={`guest-${guest.id}`}
+                        guest={guest}
+                        selected={selectedGuestIds.has(guest.id)}
+                        onToggleSelect={toggleGuestSelection}
+                        onEdit={handleEditGuest}
+                        onAddToParty={handleAddGuestToParty}
+                        onGuestUpdate={loadData}
+                        maskSensitiveData={maskGuestData}
+                        readOnly={!canEditGuests}
+                      />
+                    );
+                  })}
+                </GuestsListView>
+              </>
+            );
+          })()}
 
           {/* Selection Toolbar - only for edit-capable users */}
           {canEditGuests && (
