@@ -320,7 +320,7 @@ export function GuestFilters({
       case "inviteStatus":
         return (
           <div className="space-y-1.5" key={filterId}>
-            <Label className="text-xs text-muted-foreground">Invito Formale</Label>
+            <Label className="text-xs text-muted-foreground">Invito Formale (storico)</Label>
             <Select
               value={values.inviteStatus}
               onValueChange={(v) => onChange("inviteStatus", v)}
@@ -330,8 +330,8 @@ export function GuestFilters({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tutti</SelectItem>
-                <SelectItem value="not_sent">Non inviato</SelectItem>
-                <SelectItem value="sent">Inviato</SelectItem>
+                <SelectItem value="not_sent">Mai inviato</SelectItem>
+                <SelectItem value="sent">Inviato (anche se già risposto)</SelectItem>
               </SelectContent>
             </Select>
           </div>
