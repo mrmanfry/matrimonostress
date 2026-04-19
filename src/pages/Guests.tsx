@@ -182,6 +182,35 @@ const Guests = () => {
   const [selectedGuestIds, setSelectedGuestIds] = useState<Set<string>>(new Set());
   const [selectedPartyIds, setSelectedPartyIds] = useState<Set<string>>(new Set());
 
+  // Detail panel selection (single, sticky right column / mobile sheet)
+  const [detailSelected, setDetailSelected] = useState<DetailSelection>(() => {
+    try {
+      const id = localStorage.getItem("inv_open");
+      const kind = localStorage.getItem("inv_openKind") as "party" | "guest" | null;
+      if (id && (kind === "party" || kind === "guest")) return { kind, id };
+    } catch {}
+    return null;
+  });
+
+  useEffect(() => {
+    try {
+      if (detailSelected) {
+        localStorage.setItem("inv_open", detailSelected.id);
+        localStorage.setItem("inv_openKind", detailSelected.kind);
+      } else {
+        localStorage.removeItem("inv_open");
+        localStorage.removeItem("inv_openKind");
+      }
+    } catch {}
+  }, [detailSelected]);
+
+  // Delete confirmation state for detail panel
+  const [pendingDelete, setPendingDelete] = useState<
+    | { kind: "party"; party: InviteParty }
+    | { kind: "guest"; guest: Guest }
+    | null
+  >(null);
+
   useEffect(() => {
     if (authState.status === "authenticated") {
       loadData();
