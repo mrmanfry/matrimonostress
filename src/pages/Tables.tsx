@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -92,6 +93,8 @@ type WeddingTargets = {
 };
 
 const Tables = () => {
+  const { authState } = useAuth();
+  const authWeddingId = authState.status === "authenticated" ? authState.activeWeddingId : null;
   const [weddingId, setWeddingId] = useState<string | null>(null);
   const [guests, setGuests] = useState<Guest[]>([]);
   const [allGuests, setAllGuests] = useState<Guest[]>([]);
@@ -112,8 +115,9 @@ const Tables = () => {
   const { groups: guestGroupsList, groupColorMap } = useGuestGroups(weddingId);
 
   useEffect(() => {
-    fetchWeddingData();
-  }, []);
+    if (authWeddingId) fetchWeddingData(authWeddingId);
+    else if (authState.status !== "loading") setLoading(false);
+  }, [authWeddingId, authState.status]);
 
   useEffect(() => {
     if (weddingId) {
@@ -121,15 +125,12 @@ const Tables = () => {
     }
   }, [showConfirmedOnly, weddingId]);
 
-  const fetchWeddingData = async () => {
+  const fetchWeddingData = async (activeWeddingId: string) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
       const { data: weddingData } = await supabase
         .from("weddings")
         .select("id, target_adults, target_children, target_staff")
-        .eq("created_by", user.id)
+        .eq("id", activeWeddingId)
         .maybeSingle();
 
       if (weddingData) {
