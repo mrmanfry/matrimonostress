@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,6 +58,17 @@ import { GuestsFunnelStrip } from "@/components/guests/v2/GuestsFunnelStrip";
 import { GuestsFilterBar } from "@/components/guests/v2/GuestsFilterBar";
 import { GuestsListView } from "@/components/guests/v2/GuestsListView";
 import { GuestsAnalyticsPanel } from "@/components/guests/v2/GuestsAnalyticsPanel";
+import { GuestsDetailPanel, DetailSelection } from "@/components/guests/v2/detail/GuestsDetailPanel";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 
 interface Guest {
@@ -107,6 +118,7 @@ const Guests = () => {
   const { authState, isCollaborator } = useAuth();
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
   
   // Determine if guest sensitive data should be masked
   const activePerms = authState.status === 'authenticated' ? authState.activePermissions : null;
