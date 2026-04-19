@@ -20,6 +20,7 @@ interface Props {
   onSaveAndExit: () => void;
   editor: ReactNode;
   preview: ReactNode;
+  stepperBar?: ReactNode;
 }
 
 /**
@@ -35,6 +36,7 @@ export default function BookletShell({
   onSaveAndExit,
   editor,
   preview,
+  stepperBar,
 }: Props) {
   const [exporting, setExporting] = useState<"pdf" | "docx" | null>(null);
 
@@ -144,6 +146,9 @@ export default function BookletShell({
           </button>
         </div>
       </header>
+
+      {/* ─── Stepper bar ─── */}
+      {stepperBar}
 
       {/* ─── Split body ─── */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 min-h-0">

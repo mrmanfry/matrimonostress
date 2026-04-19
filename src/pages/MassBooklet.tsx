@@ -21,6 +21,7 @@ import BookletStepStyle from "@/components/mass-booklet/BookletStepStyle";
 import BookletShell from "@/components/mass-booklet/v2/BookletShell";
 import BookletEditor from "@/components/mass-booklet/v2/BookletEditor";
 import BookletLivePreview from "@/components/mass-booklet/v2/BookletLivePreview";
+import BookletStepperBar from "@/components/mass-booklet/v2/BookletStepperBar";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
@@ -301,6 +302,10 @@ export default function MassBooklet() {
   }
 
   // ─── Desktop: split-screen editor + live preview (v2) ───
+  // Stepper is 0-indexed internally, but we persist 1-indexed for back-compat.
+  const stepIdx = Math.max(0, Math.min(5, currentStep - 1));
+  const setStepIdx = (i: number) => goToStep(i + 1);
+
   return (
     <BookletShell
       content={content}
@@ -308,13 +313,17 @@ export default function MassBooklet() {
       partner2={partner2}
       saveStatus={saveStatus}
       onSaveAndExit={handleSaveAndExit}
+      stepperBar={
+        <BookletStepperBar stepIdx={stepIdx} setStepIdx={setStepIdx} completion={completion} />
+      }
       editor={
         <BookletEditor
           content={content}
           onChange={handleContentChange}
-          openSection={openSection}
-          onOpenChange={setOpenSection}
-          completion={completion}
+          stepIdx={stepIdx}
+          setStepIdx={setStepIdx}
+          partner1={partner1}
+          partner2={partner2}
         />
       }
       preview={
