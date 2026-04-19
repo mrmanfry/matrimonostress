@@ -1,61 +1,59 @@
 
 
-## Piano redesign sezione Invitati (paper design)
+## Obiettivo
 
-Stesso pattern del Libretto, ma **header invariato**: tengo il `SectionHeader` attuale di `Guests.tsx` (con KPI funnel, CTA primarie, ImportDropdown) così com'è. Reskin solo del corpo pagina.
+Portare il `PartyDetail` / `GuestDetail` dal designer (`inv/detail.jsx`) come **pannello sticky a destra (460px)** in `/app/guests`, sostituendo l'apertura modale all'interazione "click sulla card". Tutte le azioni cablate ai flussi reali.
 
-## Fase 1 — Estrazione handoff
+## Layout pagina
 
-Estraggo `Libretti_messa-handoff-2.zip` in `/tmp/handoff2/` e mappo i JSX designer → componenti TS/TSX. Report di mapping prima di scrivere codice (cosa riuso, cosa adatto).
-
-## Fase 2 — Nuovi componenti `src/components/guests/v2/`
-
-- **`GuestsFilterBar.tsx`** — search + filter chips paper-styled (sostituisce il chrome di `GuestFilters`, riusa la logica filtri esistente)
-- **`GuestsFunnelStrip.tsx`** — strip orizzontale 5 stati cliccabili (Da Lavorare / STD / In Attesa / Confermati / Rifiutati), versione compatta delle `FunnelKPICards`
-- **`GuestsListView.tsx`** — wrapper paper per `GuestNucleoCard`/`GuestSingleCard` (border caldi, `font-fraunces` sui nomi, bg `--paper-surface`)
-- **`GuestsAnalyticsPanel.tsx`** — versione paper-styled del pannello analytics (collapsible desktop + sheet mobile, come oggi)
-
-## Fase 3 — Integrazione in `Guests.tsx`
-
-Rewrite **solo del JSX layout** (righe ~1082-1648):
-- **Header**: invariato (`SectionHeader` attuale resta)
-- **Body**: nuovi componenti v2 al posto di `GuestFilters` + `FunnelFilterBanner` + lista inline
-- **Logica**: tutto invariato (loadData, handle*, filtering, RSVP campaigns, selezione, dialoghi)
-
-```text
-┌──────────────────────────────────────────┐
-│ SectionHeader ATTUALE (invariato)        │  ← non si tocca
-├──────────────────────────────────────────┤
-│ GuestsFunnelStrip (5 chip cliccabili)    │  ← v2 paper
-│ GuestsFilterBar (search + filtri)        │  ← v2 paper
-│ GuestsAnalyticsPanel (collapsible)       │  ← v2 paper
-│ GuestsListView                           │  ← v2 paper
-│   ├─ GuestNucleoCard (reskin leggero)   │
-│   └─ GuestSingleCard (reskin leggero)   │
-│ SelectionToolbar (invariato)             │
-└──────────────────────────────────────────┘
+**Desktop ≥1024px**: split permanente
 ```
+┌──────────────────────────────────┬──────────────────────────────┐
+│ GuestsFilterBar + Lista nuclei   │ PartyDetail / GuestDetail    │
+│ (col 1fr)                        │ (col 460px, sticky top:80)   │
+└──────────────────────────────────┴──────────────────────────────┘
+```
+**Mobile <1024px**: lista full-width, detail si apre come **Sheet bottom (90vh)**.
 
-## Cosa NON tocco (zero rischio)
+## Componenti nuovi (`src/components/guests/v2/detail/`)
 
-- `SectionHeader` di Guests (header attuale)
-- `loadData`, handlers CRUD/RSVP, filtering logic
-- Tutti i dialoghi (`RSVPCampaignDialog`, `GuestDialog`, `PartyDialog`, `CSVImportDialog`, `SmartImportDialog`, `SmartGrouperDialog`, `ContactSyncDialog`)
-- `nucleusStatusHelper`, `rsvpHelpers`, `guestAnalytics`, `useInvitationsData`, `useGuestMetrics`
-- `SelectionToolbar`, `GuestStatusDot`, `GuestCampaignBadges`
-- `AppLayout` topbar globale (già aggiornata)
-- Schema DB, edge functions
+1. **`GuestsDetailPanel.tsx`** — wrapper sticky/sheet. Mostra PartyDetail, GuestDetail o DetailEmpty in base a `{kind, id}`.
+2. **`PartyDetailView.tsx`** — porta esatta del designer:
+   - Header: chip "NUCLEO · N MEMBRI" + nome serif + Badge stato + close
+   - **MEMBRI DEL NUCLEO**: card per membro (avatar iniziali, nome serif, status dot + menu)
+   - **PERCORSO**: 5 step (Bozza creata, STD inviato, Invito formale inviato, RSVP confermato, Tavolo assegnato)
+   - **STATO**: 3 tile serif (X/Y Confermati, X/Y Con telefono, N Bambini)
+   - **AZIONI**: Invia invito (primary), Sollecita RSVP, Modifica nucleo, Menù nucleo, Elimina
+3. **`GuestDetailView.tsx`** — porta del `GuestDetail` designer (header avatar + meta rows + percorso + stato + azioni)
+4. **`DetailEmpty.tsx`** — placeholder serif "Seleziona un nucleo…"
+5. **`PercorsoStepper.tsx`** — 5 step done/current/todo, riusato in entrambe le view
 
-## Default applicati
+## Integrazione `Guests.tsx`
 
-1. **Reskin `GuestNucleoCard`/`GuestSingleCard`**: wrapper esterno + token swap leggero (border, bg, `font-fraunces` su nomi). No reskin profondo.
-2. **Funnel**: strip orizzontale compatta in alto.
-3. **Analytics**: collapsible desktop + sheet mobile (pattern attuale, solo restyle).
-4. **Mobile**: layout responsive mantenuto, mobile filters/sheet invariati.
+- Stato unificato `selected = {kind: 'party'|'guest'|null, id: string|null}`
+- Layout: lista + detail in `<div className="grid lg:grid-cols-[1fr_460px] gap-5">`
+- **Click sulla card** = apre il pannello detail (NON più dialog edit)
+- **Icona ✏️ esistente** = continua ad aprire `GuestDialog` / `PartyDialog` per edit (rispetta view/edit pattern del project knowledge)
+- Stato selezione persistito in `localStorage` (`inv_open` + `inv_openKind`) come nel designer
+
+## Azioni cablate
+
+| Azione | Comportamento |
+|---|---|
+| Invia invito (party) | Naviga `/app/invitations?party=:id` |
+| Sollecita RSVP | Naviga `/app/invitations?reminder=:id&type=...` |
+| Modifica nucleo/invitato | Apre `PartyDialog` / `GuestDialog` esistente |
+| Menù nucleo | Naviga `/app/catering?party=:id` |
+| Elimina | AlertDialog conferma → supabase delete + toast + reload |
+| Click su membro nucleo | `setSelected({kind:'guest', id})` |
+
+## Cosa NON tocco
+
+Schema DB, RLS, edge functions, `SectionHeader`, `SelectionToolbar`, `GuestFilters`, `loadData`, RSVP campaigns, dialog di edit esistenti.
 
 ## File toccati
 
-- **Nuovi**: `GuestsFilterBar.tsx`, `GuestsFunnelStrip.tsx`, `GuestsListView.tsx`, `GuestsAnalyticsPanel.tsx` in `src/components/guests/v2/`
-- **Modificati**: `src/pages/Guests.tsx` (solo JSX body, header e logica intatti); micro-ritocchi a `GuestNucleoCard.tsx` / `GuestSingleCard.tsx` per `font-fraunces` su nomi
-- **Invariati**: tutto il resto
+- **Nuovi**: `src/components/guests/v2/detail/GuestsDetailPanel.tsx`, `PartyDetailView.tsx`, `GuestDetailView.tsx`, `DetailEmpty.tsx`, `PercorsoStepper.tsx`
+- **Modificati**: `src/pages/Guests.tsx` (layout split + click handler)
+- **Eventuale ritocco minimo**: `GuestNucleoCard.tsx` / `GuestSingleCard.tsx` per separare `onClick` (apri detail) da `onEdit` (apri dialog), se servono prop nuove
 
