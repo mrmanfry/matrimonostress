@@ -24,6 +24,8 @@ export default function BookletLivePreview({ content, partner1, partner2 }: Prop
   const lastUrlRef = useRef<string | null>(null);
   const cancelTokenRef = useRef(0);
 
+  const pageCount = useMemo(() => estimateBookletPages(content), [content]);
+
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {

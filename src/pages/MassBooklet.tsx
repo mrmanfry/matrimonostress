@@ -37,7 +37,6 @@ export default function MassBooklet() {
     createDefaultBookletContent()
   );
   const [currentStep, setCurrentStep] = useState(1);
-  const [openSection, setOpenSection] = useState<string>("setup");
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [bookletId, setBookletId] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);

@@ -8,7 +8,6 @@ import BookletStepStyle from "../BookletStepStyle";
 import BookletStepPreview from "../BookletStepPreview";
 import BookletStepHeader from "./BookletStepHeader";
 import ReadingsLibraryDrawer, { type ReadingSlot } from "./ReadingsLibraryDrawer";
-import liturgiaData from "@/data/liturgia.json";
 import { STEPS } from "./BookletStepperBar";
 import type { MassBookletContent } from "@/lib/massBookletSchema";
 
