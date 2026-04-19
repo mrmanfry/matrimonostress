@@ -805,20 +805,53 @@ const Tables = () => {
                 </TabsContent>
               </Tabs>
             ) : (
-              /* Desktop: Side-by-side layout */
-              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                <div className="lg:col-span-1">
-                  <GuestPool 
-                    guests={unassignedGuests} 
-                    allGuests={allGuests}
-                    assignments={assignments.map(a => ({ guest_id: a.guest_id }))}
-                    partyNames={partyNames}
-                  />
-                </div>
-                <div className="lg:col-span-3">
-                  <TableCanvas {...tableCanvasProps} />
-                </div>
-              </div>
+              /* Desktop: New Tavoli design — sidebar pool + grid + detail panel */
+              <TablesGridView
+                tables={tables.map(t => ({
+                  id: t.id,
+                  name: t.name,
+                  capacity: t.capacity,
+                  shape: t.shape,
+                  table_type: t.table_type,
+                }))}
+                guests={guests.map(g => ({
+                  id: g.id,
+                  first_name: g.first_name,
+                  last_name: g.last_name,
+                  group_id: g.group_id,
+                  party_id: g.party_id,
+                  category: g.category,
+                  is_child: g.is_child,
+                  dietary_restrictions: g.dietary_restrictions,
+                  menu_choice: g.menu_choice,
+                  is_plus_one: g.is_plus_one,
+                  plus_one_of_guest_id: g.plus_one_of_guest_id,
+                }))}
+                assignments={assignments}
+                groups={guestGroupsList}
+                groupColorMap={groupColorMap}
+                onRemove={(assignmentId) => {
+                  void supabase
+                    .from("table_assignments")
+                    .delete()
+                    .eq("id", assignmentId)
+                    .then(() => {
+                      if (weddingId) fetchAssignments(weddingId);
+                    });
+                }}
+                onAssign={async (guestId, tableId) => {
+                  // Use handleAssignToSeat without a fixed seat (next available position)
+                  const tableAssignments = assignments.filter(a => a.table_id === tableId);
+                  const usedSeats = new Set(tableAssignments.map(a => a.seat_position).filter(s => s != null) as number[]);
+                  const table = tables.find(t => t.id === tableId);
+                  if (!table) return;
+                  let nextSeat = 0;
+                  for (let i = 0; i < table.capacity; i++) {
+                    if (!usedSeats.has(i)) { nextSeat = i; break; }
+                  }
+                  await handleAssignToSeat(tableId, guestId, nextSeat);
+                }}
+              />
             )}
 
             <DragOverlay>
