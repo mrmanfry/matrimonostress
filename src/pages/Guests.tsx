@@ -44,6 +44,7 @@ import { GuestNucleoCard } from "@/components/guests/GuestNucleoCard";
 import { SelectionToolbar } from "@/components/guests/SelectionToolbar";
 
 import { GuestDialog } from "@/components/guests/GuestDialog";
+import { GuestEditDialog } from "@/components/guests/GuestEditDialog";
 
 import { cn } from "@/lib/utils";
 import { generateCateringReport } from "@/utils/pdfHelpers";
