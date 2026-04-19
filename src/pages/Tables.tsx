@@ -108,6 +108,7 @@ const Tables = () => {
   const [partyNames, setPartyNames] = useState<Record<string, string>>({});
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  const { groups: guestGroupsList, groupColorMap } = useGuestGroups(weddingId);
 
   useEffect(() => {
     fetchWeddingData();
