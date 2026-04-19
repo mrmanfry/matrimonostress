@@ -1336,17 +1336,12 @@ const Guests = () => {
                   onToggleStage={(s) => setFunnelFilter(s)}
                 />
 
-                {/* Analytics panel — collapsible (desktop) / sheet (mobile) */}
-                <GuestsAnalyticsPanel isMobile={isMobile}>
-                  <GuestAnalyticsDashboard
-                    guests={allGuests}
-                    parties={parties}
-                    vendorStaffTotal={vendorStaffCount}
-                    activeFilter={activeAnalyticsFilter}
-                    onClearFilter={handleResetFilters}
-                    onFilterClick={handleAnalyticsFilterClick}
-                  />
-                </GuestsAnalyticsPanel>
+                {/* Editorial "Analisi" panel — paper styled, ported from designer handoff */}
+                <GuestsAnalyticsPanel
+                  isMobile={isMobile}
+                  guests={allGuests as any}
+                  parties={parties as any}
+                />
 
                 {/* Filter bar — paper search + active filter chip */}
                 <GuestsFilterBar

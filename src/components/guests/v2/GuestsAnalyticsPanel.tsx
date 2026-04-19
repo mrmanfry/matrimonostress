@@ -72,9 +72,9 @@ export function GuestsAnalyticsPanel({ guests, parties, isMobile = false, trigge
     const adults = regular.filter((g) => !g.is_child).length;
     const children = regular.filter((g) => g.is_child).length;
     const withPhone = regular.filter((g) => !!g.phone).length;
-    const confirmed = regular.filter((g) => isGuestConfirmed(g.rsvp_status)).length;
-    const declined = regular.filter((g) => isGuestDeclined(g.rsvp_status)).length;
-    const pending = regular.filter((g) => isGuestPending(g.rsvp_status)).length;
+    const confirmed = regular.filter((g) => isGuestConfirmed(g)).length;
+    const declined = regular.filter((g) => isGuestDeclined(g)).length;
+    const pending = regular.filter((g) => isGuestPending(g)).length;
     const plusOnes = regular.filter((g) => !!g.allow_plus_one).length;
 
     const menus = { adulto: 0, bambino: 0, veg: 0, gluten: 0, nessuno: 0 };
