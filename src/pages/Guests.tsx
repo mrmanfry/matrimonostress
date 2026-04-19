@@ -1668,6 +1668,46 @@ const Guests = () => {
         }}
       />
 
+      {/* Detail panel — single guest edit bridge */}
+      <GuestEditDialog
+        open={editingDetailGuestOpen}
+        onOpenChange={(open) => {
+          setEditingDetailGuestOpen(open);
+          if (!open) setEditingDetailGuest(null);
+        }}
+        guest={editingDetailGuest as any}
+        weddingId={wedding?.id}
+        onSuccess={() => {
+          setEditingDetailGuestOpen(false);
+          setEditingDetailGuest(null);
+          loadData();
+        }}
+      />
+
+      {/* Detail panel — delete confirmation */}
+      <AlertDialog open={!!pendingDelete} onOpenChange={(open) => !open && setPendingDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {pendingDelete?.kind === 'party' ? 'Eliminare il nucleo?' : 'Eliminare l\'invitato?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingDelete?.kind === 'party'
+                ? `"${pendingDelete.party.party_name}" e tutti i suoi membri verranno eliminati definitivamente.`
+                : pendingDelete?.kind === 'guest'
+                ? `${pendingDelete.guest.first_name} ${pendingDelete.guest.last_name} verrà eliminato definitivamente.`
+                : ''}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Elimina
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 };
