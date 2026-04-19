@@ -1,4 +1,4 @@
-import { ArrowLeft, ChevronRight, Download, FileText, Heart, Loader2, LogOut } from "lucide-react";
+import { Download, FileText, Loader2, LogOut } from "lucide-react";
 import { ReactNode, useState } from "react";
 import { pdf } from "@react-pdf/renderer";
 import { toast } from "sonner";
