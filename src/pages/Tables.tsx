@@ -10,6 +10,9 @@ import { GuestPool } from "@/components/tables/GuestPool";
 import { TableCanvas } from "@/components/tables/TableCanvas";
 import { ConflictManager } from "@/components/tables/ConflictManager";
 import { SmartGrouperWizard } from "@/components/tables/SmartGrouperWizard";
+import { TablesGridView } from "@/components/tables/v2/TablesGridView";
+import { useGuestGroups } from "@/components/tables/v2/useGuestGroups";
+import { Stat } from "@/components/tables/v2/Stat";
 import { calculateTotalVendorStaff } from "@/lib/expectedCalculator";
 import { generateTableReport } from "@/utils/pdfHelpers";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -106,6 +109,7 @@ const Tables = () => {
   const [partyNames, setPartyNames] = useState<Record<string, string>>({});
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  const { groups: guestGroupsList, groupColorMap } = useGuestGroups(weddingId);
 
   useEffect(() => {
     fetchWeddingData();
@@ -698,38 +702,60 @@ const Tables = () => {
     showConfirmedOnly,
   };
 
+  const totalCap = tables.reduce((sum, t) => sum + t.capacity, 0);
+  const overbookedCount = tables.filter(t => {
+    const seated = assignments.filter(a => a.table_id === t.id).length;
+    return seated > t.capacity;
+  }).length;
+
   return (
     <div className="min-h-screen bg-background p-3 md:p-6">
-      <div className="max-w-7xl mx-auto space-y-4 md:space-y-6">
+      <div className="max-w-[1600px] mx-auto space-y-4 md:space-y-6">
         {/* Header */}
         <div className="flex flex-col gap-3">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold">Disposizione Tavoli</h1>
-            <p className="text-muted-foreground mt-1 text-sm">
-              {tables.length > 0 ? (
-                <>
-                  {tables.length} tavoli • {assignedCount}/{guests.length} ospiti seduti • {totalSeats - assignedCount} posti liberi
-                </>
-              ) : (
-                <>
-                  {guests.length} ospiti da assegnare • Clicca "Smart Planner AI" per iniziare
-                </>
+          <div className="flex items-end justify-between flex-wrap gap-3">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold" style={{ fontFamily: "var(--font-serif)" }}>
+                Disposizione Tavoli
+              </h1>
+              {tables.length > 0 && !isMobile && (
+                <div className="flex items-center gap-5 mt-3">
+                  <Stat label="Tavoli" value={tables.length} />
+                  <div className="w-px h-8 bg-border" />
+                  <Stat
+                    label="Ospiti seduti"
+                    value={`${assignedCount}/${guests.length}`}
+                    tone={assignedCount >= guests.length && guests.length > 0 ? "success" : "neutral"}
+                  />
+                  <div className="w-px h-8 bg-border" />
+                  <Stat label="Posti liberi" value={Math.max(0, totalCap - assignedCount)} />
+                  {overbookedCount > 0 && (
+                    <>
+                      <div className="w-px h-8 bg-border" />
+                      <Stat label="Conflitti" value={overbookedCount} tone="danger" />
+                    </>
+                  )}
+                </div>
               )}
-            </p>
+              {(tables.length === 0 || isMobile) && (
+                <p className="text-muted-foreground mt-1 text-sm">
+                  {tables.length > 0 ? (
+                    <>
+                      {tables.length} tavoli • {assignedCount}/{guests.length} ospiti seduti • {totalSeats - assignedCount} posti liberi
+                    </>
+                  ) : (
+                    <>
+                      {guests.length} ospiti da assegnare • Clicca "Smart Planner AI" per iniziare
+                    </>
+                  )}
+                </p>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {headerActions}
+              {secondaryActions}
+            </div>
           </div>
-
-          {/* Mobile: compact layout */}
-          {isMobile ? (
-            <div className="flex flex-wrap gap-2">
-              {headerActions}
-              {secondaryActions}
-            </div>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {headerActions}
-              {secondaryActions}
-            </div>
-          )}
         </div>
 
         {tables.length === 0 ? (
@@ -780,20 +806,53 @@ const Tables = () => {
                 </TabsContent>
               </Tabs>
             ) : (
-              /* Desktop: Side-by-side layout */
-              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                <div className="lg:col-span-1">
-                  <GuestPool 
-                    guests={unassignedGuests} 
-                    allGuests={allGuests}
-                    assignments={assignments.map(a => ({ guest_id: a.guest_id }))}
-                    partyNames={partyNames}
-                  />
-                </div>
-                <div className="lg:col-span-3">
-                  <TableCanvas {...tableCanvasProps} />
-                </div>
-              </div>
+              /* Desktop: New Tavoli design — sidebar pool + grid + detail panel */
+              <TablesGridView
+                tables={tables.map(t => ({
+                  id: t.id,
+                  name: t.name,
+                  capacity: t.capacity,
+                  shape: t.shape,
+                  table_type: t.table_type,
+                }))}
+                guests={guests.map(g => ({
+                  id: g.id,
+                  first_name: g.first_name,
+                  last_name: g.last_name,
+                  group_id: g.group_id,
+                  party_id: g.party_id,
+                  category: g.category,
+                  is_child: g.is_child,
+                  dietary_restrictions: g.dietary_restrictions,
+                  menu_choice: g.menu_choice,
+                  is_plus_one: g.is_plus_one,
+                  plus_one_of_guest_id: g.plus_one_of_guest_id,
+                }))}
+                assignments={assignments}
+                groups={guestGroupsList}
+                groupColorMap={groupColorMap}
+                onRemove={(assignmentId) => {
+                  void supabase
+                    .from("table_assignments")
+                    .delete()
+                    .eq("id", assignmentId)
+                    .then(() => {
+                      if (weddingId) fetchAssignments(weddingId);
+                    });
+                }}
+                onAssign={async (guestId, tableId) => {
+                  // Use handleAssignToSeat without a fixed seat (next available position)
+                  const tableAssignments = assignments.filter(a => a.table_id === tableId);
+                  const usedSeats = new Set(tableAssignments.map(a => a.seat_position).filter(s => s != null) as number[]);
+                  const table = tables.find(t => t.id === tableId);
+                  if (!table) return;
+                  let nextSeat = 0;
+                  for (let i = 0; i < table.capacity; i++) {
+                    if (!usedSeats.has(i)) { nextSeat = i; break; }
+                  }
+                  await handleAssignToSeat(tableId, guestId, nextSeat);
+                }}
+              />
             )}
 
             <DragOverlay>
