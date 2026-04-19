@@ -35,9 +35,11 @@ interface Guest {
 interface GuestSingleCardProps {
   guest: Guest;
   selected: boolean;
+  isOpen?: boolean;
   onToggleSelect: (guestId: string) => void;
   onEdit: (guestId: string) => void;
   onAddToParty: (guestId: string) => void;
+  onCardClick?: (guestId: string) => void;
   onGuestUpdate?: () => void;
   maskSensitiveData?: boolean;
   readOnly?: boolean;
@@ -63,9 +65,11 @@ function buildStatusLine(guest: Guest): string | null {
 export const GuestSingleCard = ({
   guest,
   selected,
+  isOpen = false,
   onToggleSelect,
   onEdit: _onEdit,
   onAddToParty,
+  onCardClick,
   onGuestUpdate,
   maskSensitiveData = false,
   readOnly = false,
@@ -91,7 +95,12 @@ export const GuestSingleCard = ({
     <Card
       className={`p-3 md:p-4 transition-shadow hover:shadow-sm border-paper-border bg-paper-surface ${
         selected ? "ring-2 ring-paper-brand border-paper-brand" : ""
-      } ${guest.is_couple_member ? "bg-paper-surface-muted" : ""}`}
+      } ${isOpen ? "ring-2 ring-paper-brand/60 border-paper-brand/60" : ""} ${guest.is_couple_member ? "bg-paper-surface-muted" : ""} ${onCardClick ? "cursor-pointer" : ""}`}
+      onClick={(e) => {
+        const target = e.target as HTMLElement;
+        if (target.closest('button, input, [role="checkbox"]')) return;
+        onCardClick?.(guest.id);
+      }}
     >
       <div className="flex items-start gap-2 md:gap-3">
         {/* Checkbox */}
