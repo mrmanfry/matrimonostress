@@ -1,4 +1,4 @@
-import { ArrowLeft, ChevronRight, Download, FileText, Heart, Loader2, LogOut } from "lucide-react";
+import { Download, FileText, Loader2, LogOut } from "lucide-react";
 import { ReactNode, useState } from "react";
 import { pdf } from "@react-pdf/renderer";
 import { toast } from "sonner";
@@ -82,32 +82,8 @@ export default function BookletShell({
     <div className="min-h-[calc(100vh-1px)] flex flex-col bg-[hsl(var(--paper-bg))] text-[hsl(var(--paper-ink))] font-inter -m-0">
       {/* ─── Topbar ─── */}
       <header
-        className="sticky top-0 z-40 h-14 flex items-center justify-between px-6 border-b border-[hsl(var(--paper-border))] bg-[hsl(var(--paper-surface))]"
+        className="sticky top-0 z-40 h-14 flex items-center justify-end px-6 border-b border-[hsl(var(--paper-border))] bg-[hsl(var(--paper-surface))]"
       >
-        <div className="flex items-center gap-4 min-w-0">
-          <button
-            type="button"
-            onClick={onSaveAndExit}
-            className="flex items-center gap-2 text-[hsl(var(--paper-ink-2))] hover:text-[hsl(var(--paper-ink))] transition"
-            aria-label="Torna alla dashboard"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
-          <div className="flex items-center gap-2 text-[hsl(var(--paper-brand-ink))]">
-            <Heart className="w-4 h-4" />
-            <span className="font-fraunces font-medium text-base text-[hsl(var(--paper-ink))]">
-              WedsApp
-            </span>
-          </div>
-          <div className="w-px h-5 bg-[hsl(var(--paper-border))]" />
-          <nav className="flex items-center gap-2 text-xs min-w-0">
-            <span className="text-[hsl(var(--paper-ink-3))] truncate">
-              {partner1 || "Sposo"} & {partner2 || "Sposa"}
-            </span>
-            <ChevronRight className="w-3 h-3 text-[hsl(var(--paper-ink-3))] flex-shrink-0" />
-            <span className="text-[hsl(var(--paper-ink))] font-medium">Libretto Messa</span>
-          </nav>
-        </div>
 
         <div className="flex items-center gap-3">
           {/* Save status pill */}
