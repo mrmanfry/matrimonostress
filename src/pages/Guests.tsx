@@ -1212,15 +1212,6 @@ const Guests = () => {
             title="Invitati"
             count={regularCount}
             metadata="Organizza i tuoi invitati in nuclei familiari"
-            dataViz={regularCount > 0 ? {
-              type: "stratified",
-              total: stats.confirmed + stats.pending + stats.declined,
-              segments: [
-                { label: "Confermati", count: stats.confirmed, colorClass: "bg-emerald-500" },
-                { label: "In attesa", count: stats.pending, colorClass: "bg-amber-400" },
-                { label: "Rifiutati", count: stats.declined, colorClass: "bg-red-500" },
-              ],
-            } : undefined}
             nextAction={nextAction}
             secondaryActions={!isMobile && !hasNoGuests && canCreateGuests ? (
               <>
