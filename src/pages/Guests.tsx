@@ -1448,45 +1448,66 @@ const Guests = () => {
                   )}
                 </GuestsFilterBar>
 
-                {/* List — paper letter surface */}
-                <GuestsListView
-                  isEmpty={hybridList.length === 0}
-                  emptyMessage="Nessun invitato trovato con i filtri applicati."
-                  totalLabel={visibleCount > 0 ? `${visibleCount} ${visibleCount === 1 ? 'invitato' : 'invitati'}` : undefined}
-                  className={isMobile ? 'pb-24' : undefined}
-                >
-                  {hybridList.map((item) => {
-                    if (item.type === 'party') {
-                      const party = item.data as InviteParty;
+                {/* List + Detail Panel split */}
+                <div className="grid lg:grid-cols-[1fr_460px] gap-5 items-start">
+                  <GuestsListView
+                    isEmpty={hybridList.length === 0}
+                    emptyMessage="Nessun invitato trovato con i filtri applicati."
+                    totalLabel={visibleCount > 0 ? `${visibleCount} ${visibleCount === 1 ? 'invitato' : 'invitati'}` : undefined}
+                    className={isMobile ? 'pb-24' : undefined}
+                  >
+                    {hybridList.map((item) => {
+                      if (item.type === 'party') {
+                        const party = item.data as InviteParty;
+                        return (
+                          <GuestNucleoCard
+                            key={`party-${party.id}`}
+                            party={party}
+                            selected={selectedPartyIds.has(party.id)}
+                            isOpen={detailSelected?.kind === 'party' && detailSelected.id === party.id}
+                            onToggleSelect={togglePartySelection}
+                            onEdit={handleEditParty}
+                            onCardClick={(pid) => setDetailSelected({ kind: 'party', id: pid })}
+                            onGuestUpdate={loadData}
+                            maskSensitiveData={maskGuestData}
+                            readOnly={!canEditGuests}
+                          />
+                        );
+                      }
+                      const guest = item.data as Guest;
                       return (
-                        <GuestNucleoCard
-                          key={`party-${party.id}`}
-                          party={party}
-                          selected={selectedPartyIds.has(party.id)}
-                          onToggleSelect={togglePartySelection}
-                          onEdit={handleEditParty}
+                        <GuestSingleCard
+                          key={`guest-${guest.id}`}
+                          guest={guest}
+                          selected={selectedGuestIds.has(guest.id)}
+                          isOpen={detailSelected?.kind === 'guest' && detailSelected.id === guest.id}
+                          onToggleSelect={toggleGuestSelection}
+                          onEdit={handleEditGuest}
+                          onAddToParty={handleAddGuestToParty}
+                          onCardClick={(gid) => setDetailSelected({ kind: 'guest', id: gid })}
                           onGuestUpdate={loadData}
                           maskSensitiveData={maskGuestData}
                           readOnly={!canEditGuests}
                         />
                       );
-                    }
-                    const guest = item.data as Guest;
-                    return (
-                      <GuestSingleCard
-                        key={`guest-${guest.id}`}
-                        guest={guest}
-                        selected={selectedGuestIds.has(guest.id)}
-                        onToggleSelect={toggleGuestSelection}
-                        onEdit={handleEditGuest}
-                        onAddToParty={handleAddGuestToParty}
-                        onGuestUpdate={loadData}
-                        maskSensitiveData={maskGuestData}
-                        readOnly={!canEditGuests}
-                      />
-                    );
-                  })}
-                </GuestsListView>
+                    })}
+                  </GuestsListView>
+
+                  <GuestsDetailPanel
+                    selected={detailSelected}
+                    onClose={() => setDetailSelected(null)}
+                    onSelect={setDetailSelected}
+                    parties={parties as any}
+                    allGuests={allGuests as any}
+                    onSendInvite={handleDetailSendInvite}
+                    onRemind={handleDetailRemind}
+                    onEditNucleus={handleDetailEditNucleus}
+                    onEditGuest={handleDetailEditGuest}
+                    onMenu={handleDetailMenu}
+                    onDeleteParty={(p) => setPendingDelete({ kind: 'party', party: p as any })}
+                    onDeleteGuest={(g) => setPendingDelete({ kind: 'guest', guest: g as any })}
+                  />
+                </div>
               </>
             );
           })()}
