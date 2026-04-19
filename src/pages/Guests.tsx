@@ -787,6 +787,50 @@ const Guests = () => {
     setPartyDialogOpen(true);
   };
 
+  // ===== Detail panel handlers =====
+  const [editingDetailGuest, setEditingDetailGuest] = useState<Guest | null>(null);
+  const [editingDetailGuestOpen, setEditingDetailGuestOpen] = useState(false);
+
+  const handleDetailSendInvite = (sel: { kind: "party" | "guest"; id: string }) => {
+    const params = sel.kind === "party" ? `party=${sel.id}` : `guest=${sel.id}`;
+    navigate(`/app/invitations?${params}`);
+  };
+  const handleDetailRemind = (sel: { kind: "party" | "guest"; id: string }) => {
+    const params = sel.kind === "party" ? `reminder=${sel.id}&type=party` : `reminder=${sel.id}&type=guest`;
+    navigate(`/app/invitations?${params}`);
+  };
+  const handleDetailEditNucleus = (party: InviteParty) => {
+    setEditingParty(party);
+    setPartyDialogOpen(true);
+  };
+  const handleDetailEditGuest = (guest: Guest) => {
+    setEditingDetailGuest(guest);
+    setEditingDetailGuestOpen(true);
+  };
+  const handleDetailMenu = (party: InviteParty) => {
+    navigate(`/app/catering?party=${party.id}`);
+  };
+  const handleConfirmDelete = async () => {
+    if (!pendingDelete) return;
+    try {
+      if (pendingDelete.kind === "party") {
+        await supabase.from("guests").delete().eq("party_id", pendingDelete.party.id);
+        const { error } = await supabase.from("invite_parties").delete().eq("id", pendingDelete.party.id);
+        if (error) throw error;
+        toast({ title: "Nucleo eliminato", description: `"${pendingDelete.party.party_name}" è stato rimosso.` });
+      } else {
+        const { error } = await supabase.from("guests").delete().eq("id", pendingDelete.guest.id);
+        if (error) throw error;
+        toast({ title: "Invitato eliminato", description: `${pendingDelete.guest.first_name} ${pendingDelete.guest.last_name} è stato rimosso.` });
+      }
+      setDetailSelected(null);
+      setPendingDelete(null);
+      await loadData();
+    } catch (e: any) {
+      toast({ title: "Errore", description: e.message, variant: "destructive" });
+    }
+  };
+
   // Filter logic for hybrid list
   const filteredItems = () => {
     let items: Array<{ type: 'single' | 'party'; data: Guest | InviteParty }> = [];
