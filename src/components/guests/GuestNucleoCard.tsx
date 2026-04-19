@@ -43,8 +43,10 @@ interface InviteParty {
 interface GuestNucleoCardProps {
   party: InviteParty;
   selected: boolean;
+  isOpen?: boolean;
   onToggleSelect: (partyId: string) => void;
   onEdit: (party: InviteParty) => void;
+  onCardClick?: (partyId: string) => void;
   onGuestUpdate?: () => void;
   maskSensitiveData?: boolean;
   readOnly?: boolean;
@@ -94,8 +96,10 @@ function buildNucleusStatusLine(party: InviteParty, nucleus: { saveTheDateSentAt
 export const GuestNucleoCard = ({
   party,
   selected,
+  isOpen = false,
   onToggleSelect,
   onEdit,
+  onCardClick,
   onGuestUpdate,
   maskSensitiveData = false,
   readOnly = false,
@@ -155,7 +159,12 @@ export const GuestNucleoCard = ({
     <Card
       className={`relative overflow-hidden transition-shadow hover:shadow-sm border-paper-border bg-paper-surface ${
         selected ? "ring-2 ring-paper-brand border-paper-brand" : ""
-      }`}
+      } ${isOpen ? "ring-2 ring-paper-brand/60 border-paper-brand/60" : ""} ${onCardClick ? "cursor-pointer" : ""}`}
+      onClick={(e) => {
+        const target = e.target as HTMLElement;
+        if (target.closest('button, input, [role="checkbox"]')) return;
+        onCardClick?.(party.id);
+      }}
     >
       <div className="p-3 sm:p-4">
         <div className="flex items-start gap-2 sm:gap-3">
