@@ -117,6 +117,62 @@ export type Database = {
           },
         ]
       }
+      ai_affinities: {
+        Row: {
+          created_at: string
+          guest_id_1: string
+          guest_id_2: string
+          id: string
+          score: number
+          wedding_id: string
+        }
+        Insert: {
+          created_at?: string
+          guest_id_1: string
+          guest_id_2: string
+          id?: string
+          score: number
+          wedding_id: string
+        }
+        Update: {
+          created_at?: string
+          guest_id_1?: string
+          guest_id_2?: string
+          id?: string
+          score?: number
+          wedding_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_affinities_guest_id_1_fkey"
+            columns: ["guest_id_1"]
+            isOneToOne: false
+            referencedRelation: "guests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_affinities_guest_id_2_fkey"
+            columns: ["guest_id_2"]
+            isOneToOne: false
+            referencedRelation: "guests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_affinities_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_affinities_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings_camera_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       camera_participants: {
         Row: {
           camera_id: string
@@ -744,6 +800,7 @@ export type Database = {
           is_child: boolean
           is_couple_member: boolean
           is_staff: boolean | null
+          is_vip: boolean | null
           last_name: string
           last_reminder_sent_at: string | null
           menu_choice: string | null
@@ -779,6 +836,7 @@ export type Database = {
           is_child?: boolean
           is_couple_member?: boolean
           is_staff?: boolean | null
+          is_vip?: boolean | null
           last_name: string
           last_reminder_sent_at?: string | null
           menu_choice?: string | null
@@ -814,6 +872,7 @@ export type Database = {
           is_child?: boolean
           is_couple_member?: boolean
           is_staff?: boolean | null
+          is_vip?: boolean | null
           last_name?: string
           last_reminder_sent_at?: string | null
           menu_choice?: string | null
