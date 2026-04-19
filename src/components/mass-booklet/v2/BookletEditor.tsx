@@ -1,115 +1,199 @@
-import { Church, ListChecks, BookOpen, Music, Palette } from "lucide-react";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+import { ArrowLeft, ArrowRight, BookOpen } from "lucide-react";
+import { useState } from "react";
 import BookletStepSetup from "../BookletStepSetup";
 import BookletStepRite from "../BookletStepRite";
 import BookletStepReadings from "../BookletStepReadings";
 import BookletStepCustom from "../BookletStepCustom";
 import BookletStepStyle from "../BookletStepStyle";
+import BookletStepPreview from "../BookletStepPreview";
+import BookletStepHeader from "./BookletStepHeader";
+import ReadingsLibraryDrawer, { type ReadingSlot } from "./ReadingsLibraryDrawer";
+import { STEPS } from "./BookletStepperBar";
 import type { MassBookletContent } from "@/lib/massBookletSchema";
 
 interface Props {
   content: MassBookletContent;
   onChange: (patch: Partial<MassBookletContent>) => void;
-  openSection: string;
-  onOpenChange: (id: string) => void;
-  completion: Record<string, boolean>;
+  stepIdx: number;
+  setStepIdx: (i: number) => void;
+  partner1: string;
+  partner2: string;
 }
 
-const SECTIONS = [
-  { id: "setup", label: "Setup", icon: Church, hint: "Chiesa, celebrante, ruoli" },
-  { id: "rito", label: "Rito", icon: ListChecks, hint: "Tipo di celebrazione" },
-  { id: "letture", label: "Letture", icon: BookOpen, hint: "Lettura, salmo, vangelo" },
-  { id: "personalizzazioni", label: "Personalizzazioni", icon: Music, hint: "Canti, preghiere, ringraziamenti" },
-  { id: "stile", label: "Stile", icon: Palette, hint: "Font, colori, copertina" },
-] as const;
+const STEP_HEADERS = {
+  setup: {
+    eyebrow: "Setup",
+    title: "Informazioni della cerimonia",
+    description:
+      "Dati di base che compaiono sulla copertina e nelle intestazioni. Compilazione guidata — non c'è nulla di libero, solo cose che servono davvero.",
+  },
+  rito: {
+    eyebrow: "Rito",
+    title: "Tipo di rito",
+    description:
+      "Questa scelta determina i blocchi che appariranno nel libretto. Puoi cambiarla dopo — nulla di quello che hai già scritto va perso.",
+  },
+  letture: {
+    eyebrow: "Letture",
+    title: "Liturgia della Parola",
+    description:
+      "Scegli dalla libreria i testi più comuni per un matrimonio, oppure inserisci un passo personalizzato concordato con il celebrante.",
+  },
+  personalizzazioni: {
+    eyebrow: "Personalizzazioni",
+    title: "Canti, preghiere e ringraziamenti",
+    description:
+      "Le parti che rendono il libretto tuo. Niente placeholder vuoti — quello che lasci in bianco non appare nel libretto.",
+  },
+  stile: {
+    eyebrow: "Stile",
+    title: "Scegli un tema",
+    description:
+      "Pochi controlli, decisioni già prese bene. Se vuoi intervenire sui dettagli, apri l'avanzato.",
+  },
+  anteprima: {
+    eyebrow: "Anteprima",
+    title: "Controlla ed esporta",
+    description:
+      "Un'ultima verifica prima di generare PDF e link digitale per gli invitati.",
+  },
+} as const;
 
 /**
- * Editor pane (left side of the split layout).
- * Wraps the existing BookletStep* components in an accordion so the user can
- * edit any section without losing context of the live preview on the right.
+ * Step-based editor pane (left side of the split layout).
+ * One step at a time, with a sticky-feeling footer nav (Indietro / Avanti).
+ * The Letture step delegates reading-picking to a right-side library drawer.
  */
 export default function BookletEditor({
   content,
   onChange,
-  openSection,
-  onOpenChange,
-  completion,
+  stepIdx,
+  setStepIdx,
+  partner1,
+  partner2,
 }: Props) {
+  const [drawerSlot, setDrawerSlot] = useState<ReadingSlot | null>(null);
+
+  const stepDef = STEPS[stepIdx];
+  const head = STEP_HEADERS[stepDef.id as keyof typeof STEP_HEADERS];
+
+  const openLibrary = (slot: ReadingSlot) => setDrawerSlot(slot);
+
+  const handlePick = (slot: ReadingSlot, id: string) => {
+    onChange({
+      readings: {
+        ...content.readings,
+        [slot]: id,
+        // turn off custom-text override when a library item is chosen
+        ...(slot === "first_reading" ? { use_custom_first_reading: false } : {}),
+        ...(slot === "psalm" ? { use_custom_psalm: false } : {}),
+        ...(slot === "second_reading" ? { use_custom_second_reading: false } : {}),
+        ...(slot === "gospel" ? { use_custom_gospel: false } : {}),
+      },
+    });
+    setDrawerSlot(null);
+  };
+
+  const isLast = stepIdx === STEPS.length - 1;
+  const isFirst = stepIdx === 0;
+
   return (
-    <div className="max-w-2xl mx-auto px-6 py-8 pb-24">
-      {/* Section heading */}
-      <div className="mb-6">
-        <div className="text-[11px] uppercase tracking-[0.18em] text-[hsl(var(--paper-ink-3))] mb-2">
-          Editor libretto
-        </div>
-        <h1 className="font-fraunces text-3xl font-medium text-[hsl(var(--paper-ink))] leading-tight">
-          Costruisci il tuo libretto
-        </h1>
-        <p className="mt-2 text-sm text-[hsl(var(--paper-ink-2))]">
-          Modifica una sezione alla volta. L'anteprima a destra si aggiorna automaticamente.
-        </p>
+    <div className="max-w-[680px] mx-auto px-9 py-8 pb-32">
+      <BookletStepHeader
+        step={head.eyebrow}
+        title={head.title}
+        description={head.description}
+      />
+
+      <div className="mt-6 space-y-5">
+        {stepDef.id === "setup" && <BookletStepSetup content={content} onChange={onChange} />}
+        {stepDef.id === "rito" && <BookletStepRite content={content} onChange={onChange} />}
+        {stepDef.id === "letture" && (
+          <ReadingsWithLibrary content={content} onChange={onChange} onOpenLibrary={openLibrary} />
+        )}
+        {stepDef.id === "personalizzazioni" && (
+          <BookletStepCustom content={content} onChange={onChange} />
+        )}
+        {stepDef.id === "stile" && <BookletStepStyle content={content} onChange={onChange} />}
+        {stepDef.id === "anteprima" && (
+          <BookletStepPreview
+            content={content}
+            partner1={partner1}
+            partner2={partner2}
+            onGoToStep={(s) => setStepIdx(s - 1)}
+          />
+        )}
       </div>
 
-      <Accordion
-        type="single"
-        collapsible
-        value={openSection}
-        onValueChange={(v) => onOpenChange(v || "setup")}
-        className="space-y-3"
-      >
-        {SECTIONS.map((s) => {
-          const Icon = s.icon;
-          const done = completion[s.id];
-          return (
-            <AccordionItem
-              key={s.id}
-              value={s.id}
-              className="rounded-xl border border-[hsl(var(--paper-border))] bg-[hsl(var(--paper-surface))] shadow-sm overflow-hidden data-[state=open]:shadow-md transition-shadow"
-            >
-              <AccordionTrigger className="hover:no-underline py-4 px-5 [&>svg]:text-[hsl(var(--paper-ink-3))]">
-                <div className="flex items-center gap-3 flex-1">
-                  <div
-                    className={`flex items-center justify-center w-9 h-9 rounded-lg flex-shrink-0 ${
-                      done
-                        ? "bg-[hsl(var(--paper-success-tint))] text-[hsl(var(--paper-success))]"
-                        : "bg-[hsl(var(--paper-surface-muted))] text-[hsl(var(--paper-ink-2))]"
-                    }`}
-                  >
-                    <Icon className="w-4 h-4" />
-                  </div>
-                  <div className="text-left">
-                    <div className="font-medium text-sm text-[hsl(var(--paper-ink))]">
-                      {s.label}
-                      {done && (
-                        <span className="ml-2 text-[10px] uppercase tracking-wider text-[hsl(var(--paper-success))] font-jetbrains-mono">
-                          ✓ ok
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-xs text-[hsl(var(--paper-ink-3))] mt-0.5">{s.hint}</div>
-                  </div>
-                </div>
-              </AccordionTrigger>
-              <AccordionContent className="px-5 pb-5 pt-2 border-t border-[hsl(var(--paper-border))]">
-                {s.id === "setup" && <BookletStepSetup content={content} onChange={onChange} />}
-                {s.id === "rito" && <BookletStepRite content={content} onChange={onChange} />}
-                {s.id === "letture" && (
-                  <BookletStepReadings content={content} onChange={onChange} />
-                )}
-                {s.id === "personalizzazioni" && (
-                  <BookletStepCustom content={content} onChange={onChange} />
-                )}
-                {s.id === "stile" && <BookletStepStyle content={content} onChange={onChange} />}
-              </AccordionContent>
-            </AccordionItem>
-          );
-        })}
-      </Accordion>
+      {/* Footer nav */}
+      <div className="mt-10 pt-5 border-t border-[hsl(var(--paper-border))] flex justify-between items-center">
+        <button
+          type="button"
+          disabled={isFirst}
+          onClick={() => setStepIdx(Math.max(0, stepIdx - 1))}
+          className="inline-flex items-center gap-1.5 h-9 px-3 text-sm text-[hsl(var(--paper-ink-2))] hover:text-[hsl(var(--paper-ink))] disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          {isFirst ? "Inizio" : STEPS[stepIdx - 1].label}
+        </button>
+        <button
+          type="button"
+          disabled={isLast}
+          onClick={() => setStepIdx(Math.min(STEPS.length - 1, stepIdx + 1))}
+          className="inline-flex items-center gap-1.5 h-9 px-4 rounded-md bg-[hsl(var(--paper-brand))] text-white text-sm font-medium hover:bg-[hsl(var(--paper-brand-ink))] disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {isLast ? "Fine" : STEPS[stepIdx + 1].label}
+          <ArrowRight className="w-3.5 h-3.5" />
+        </button>
+      </div>
+
+      <ReadingsLibraryDrawer
+        open={drawerSlot !== null}
+        slot={drawerSlot}
+        content={content}
+        onPick={handlePick}
+        onClose={() => setDrawerSlot(null)}
+      />
+    </div>
+  );
+}
+
+/* ─── Letture step wrapper ────────────────────────────────────────────────
+ * Re-renders the existing readings step but adds a small "Scegli dalla
+ * libreria" call-to-action above each slot. Until we redesign the inner
+ * step, this is the lightest-touch way to surface the library drawer. */
+function ReadingsWithLibrary({
+  content,
+  onChange,
+  onOpenLibrary,
+}: {
+  content: MassBookletContent;
+  onChange: (p: Partial<MassBookletContent>) => void;
+  onOpenLibrary: (slot: ReadingSlot) => void;
+}) {
+  const slots: { slot: ReadingSlot; label: string }[] = [
+    { slot: "first_reading", label: "Prima Lettura" },
+    { slot: "psalm", label: "Salmo Responsoriale" },
+    { slot: "second_reading", label: "Seconda Lettura" },
+    { slot: "gospel", label: "Vangelo" },
+  ];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-2">
+        {slots.map((s) => (
+          <button
+            key={s.slot}
+            type="button"
+            onClick={() => onOpenLibrary(s.slot)}
+            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-[hsl(var(--paper-border))] bg-[hsl(var(--paper-surface))] text-xs text-[hsl(var(--paper-ink-2))] hover:bg-[hsl(var(--paper-surface-muted))] hover:text-[hsl(var(--paper-ink))] transition-colors"
+          >
+            <BookOpen className="w-3 h-3" />
+            Scegli {s.label}
+          </button>
+        ))}
+      </div>
+      <BookletStepReadings content={content} onChange={onChange} />
     </div>
   );
 }

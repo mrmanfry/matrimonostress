@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { pdf } from "@react-pdf/renderer";
-import { FileText, Loader2, Minus, Plus } from "lucide-react";
+import { AlertTriangle, FileText, Loader2, Minus, Plus } from "lucide-react";
 import BookletPdfDocument from "../pdf/BookletPdfDocument";
+import { estimateBookletPages } from "./estimateBookletPages";
 import type { MassBookletContent } from "@/lib/massBookletSchema";
 
 interface Props {
@@ -22,6 +23,8 @@ export default function BookletLivePreview({ content, partner1, partner2 }: Prop
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastUrlRef = useRef<string | null>(null);
   const cancelTokenRef = useRef(0);
+
+  const pageCount = useMemo(() => estimateBookletPages(content), [content]);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -62,6 +65,14 @@ export default function BookletLivePreview({ content, partner1, partner2 }: Prop
         <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.14em] text-[hsl(var(--paper-ink-3))]">
           <FileText className="w-3.5 h-3.5" />
           <span>Anteprima live A5</span>
+          <span className="inline-flex items-center h-5 px-1.5 rounded bg-[hsl(var(--paper-surface-muted))] text-[hsl(var(--paper-ink-2))] normal-case tracking-normal font-jetbrains-mono">
+            {pageCount} pagine
+          </span>
+          {pageCount % 4 !== 0 && (
+            <span className="inline-flex items-center gap-1 h-5 px-1.5 rounded bg-[hsl(var(--paper-warn-tint))] text-[hsl(var(--paper-warn))] normal-case tracking-normal">
+              <AlertTriangle className="w-3 h-3" /> Non multiplo di 4
+            </span>
+          )}
           {generating && (
             <span className="flex items-center gap-1 normal-case tracking-normal text-[hsl(var(--paper-warn))]">
               <Loader2 className="w-3 h-3 animate-spin" /> Aggiorno…
