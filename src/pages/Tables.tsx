@@ -10,6 +10,8 @@ import { GuestPool } from "@/components/tables/GuestPool";
 import { TableCanvas } from "@/components/tables/TableCanvas";
 import { ConflictManager } from "@/components/tables/ConflictManager";
 import { SmartGrouperWizard } from "@/components/tables/SmartGrouperWizard";
+import { TablesGridView } from "@/components/tables/v2/TablesGridView";
+import { useGuestGroups } from "@/components/tables/v2/useGuestGroups";
 import { calculateTotalVendorStaff } from "@/lib/expectedCalculator";
 import { generateTableReport } from "@/utils/pdfHelpers";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
