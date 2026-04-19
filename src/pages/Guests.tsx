@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +44,7 @@ import { GuestNucleoCard } from "@/components/guests/GuestNucleoCard";
 import { SelectionToolbar } from "@/components/guests/SelectionToolbar";
 
 import { GuestDialog } from "@/components/guests/GuestDialog";
+import { GuestEditDialog } from "@/components/guests/GuestEditDialog";
 
 import { cn } from "@/lib/utils";
 import { generateCateringReport } from "@/utils/pdfHelpers";
@@ -58,6 +59,17 @@ import { GuestsFunnelStrip } from "@/components/guests/v2/GuestsFunnelStrip";
 import { GuestsFilterBar } from "@/components/guests/v2/GuestsFilterBar";
 import { GuestsListView } from "@/components/guests/v2/GuestsListView";
 import { GuestsAnalyticsPanel } from "@/components/guests/v2/GuestsAnalyticsPanel";
+import { GuestsDetailPanel, DetailSelection } from "@/components/guests/v2/detail/GuestsDetailPanel";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 
 interface Guest {
@@ -107,6 +119,7 @@ const Guests = () => {
   const { authState, isCollaborator } = useAuth();
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
   
   // Determine if guest sensitive data should be masked
   const activePerms = authState.status === 'authenticated' ? authState.activePermissions : null;
@@ -169,6 +182,35 @@ const Guests = () => {
   // Selection state for multi-select
   const [selectedGuestIds, setSelectedGuestIds] = useState<Set<string>>(new Set());
   const [selectedPartyIds, setSelectedPartyIds] = useState<Set<string>>(new Set());
+
+  // Detail panel selection (single, sticky right column / mobile sheet)
+  const [detailSelected, setDetailSelected] = useState<DetailSelection>(() => {
+    try {
+      const id = localStorage.getItem("inv_open");
+      const kind = localStorage.getItem("inv_openKind") as "party" | "guest" | null;
+      if (id && (kind === "party" || kind === "guest")) return { kind, id };
+    } catch {}
+    return null;
+  });
+
+  useEffect(() => {
+    try {
+      if (detailSelected) {
+        localStorage.setItem("inv_open", detailSelected.id);
+        localStorage.setItem("inv_openKind", detailSelected.kind);
+      } else {
+        localStorage.removeItem("inv_open");
+        localStorage.removeItem("inv_openKind");
+      }
+    } catch {}
+  }, [detailSelected]);
+
+  // Delete confirmation state for detail panel
+  const [pendingDelete, setPendingDelete] = useState<
+    | { kind: "party"; party: InviteParty }
+    | { kind: "guest"; guest: Guest }
+    | null
+  >(null);
 
   useEffect(() => {
     if (authState.status === "authenticated") {
@@ -744,6 +786,50 @@ const Guests = () => {
       guests: [guest],
     } as any);
     setPartyDialogOpen(true);
+  };
+
+  // ===== Detail panel handlers =====
+  const [editingDetailGuest, setEditingDetailGuest] = useState<Guest | null>(null);
+  const [editingDetailGuestOpen, setEditingDetailGuestOpen] = useState(false);
+
+  const handleDetailSendInvite = (sel: { kind: "party" | "guest"; id: string }) => {
+    const params = sel.kind === "party" ? `party=${sel.id}` : `guest=${sel.id}`;
+    navigate(`/app/invitations?${params}`);
+  };
+  const handleDetailRemind = (sel: { kind: "party" | "guest"; id: string }) => {
+    const params = sel.kind === "party" ? `reminder=${sel.id}&type=party` : `reminder=${sel.id}&type=guest`;
+    navigate(`/app/invitations?${params}`);
+  };
+  const handleDetailEditNucleus = (party: InviteParty) => {
+    setEditingParty(party);
+    setPartyDialogOpen(true);
+  };
+  const handleDetailEditGuest = (guest: Guest) => {
+    setEditingDetailGuest(guest);
+    setEditingDetailGuestOpen(true);
+  };
+  const handleDetailMenu = (party: InviteParty) => {
+    navigate(`/app/catering?party=${party.id}`);
+  };
+  const handleConfirmDelete = async () => {
+    if (!pendingDelete) return;
+    try {
+      if (pendingDelete.kind === "party") {
+        await supabase.from("guests").delete().eq("party_id", pendingDelete.party.id);
+        const { error } = await supabase.from("invite_parties").delete().eq("id", pendingDelete.party.id);
+        if (error) throw error;
+        toast({ title: "Nucleo eliminato", description: `"${pendingDelete.party.party_name}" è stato rimosso.` });
+      } else {
+        const { error } = await supabase.from("guests").delete().eq("id", pendingDelete.guest.id);
+        if (error) throw error;
+        toast({ title: "Invitato eliminato", description: `${pendingDelete.guest.first_name} ${pendingDelete.guest.last_name} è stato rimosso.` });
+      }
+      setDetailSelected(null);
+      setPendingDelete(null);
+      await loadData();
+    } catch (e: any) {
+      toast({ title: "Errore", description: e.message, variant: "destructive" });
+    }
   };
 
   // Filter logic for hybrid list
@@ -1363,45 +1449,66 @@ const Guests = () => {
                   )}
                 </GuestsFilterBar>
 
-                {/* List — paper letter surface */}
-                <GuestsListView
-                  isEmpty={hybridList.length === 0}
-                  emptyMessage="Nessun invitato trovato con i filtri applicati."
-                  totalLabel={visibleCount > 0 ? `${visibleCount} ${visibleCount === 1 ? 'invitato' : 'invitati'}` : undefined}
-                  className={isMobile ? 'pb-24' : undefined}
-                >
-                  {hybridList.map((item) => {
-                    if (item.type === 'party') {
-                      const party = item.data as InviteParty;
+                {/* List + Detail Panel split */}
+                <div className="grid lg:grid-cols-[1fr_460px] gap-5 items-start">
+                  <GuestsListView
+                    isEmpty={hybridList.length === 0}
+                    emptyMessage="Nessun invitato trovato con i filtri applicati."
+                    totalLabel={visibleCount > 0 ? `${visibleCount} ${visibleCount === 1 ? 'invitato' : 'invitati'}` : undefined}
+                    className={isMobile ? 'pb-24' : undefined}
+                  >
+                    {hybridList.map((item) => {
+                      if (item.type === 'party') {
+                        const party = item.data as InviteParty;
+                        return (
+                          <GuestNucleoCard
+                            key={`party-${party.id}`}
+                            party={party}
+                            selected={selectedPartyIds.has(party.id)}
+                            isOpen={detailSelected?.kind === 'party' && detailSelected.id === party.id}
+                            onToggleSelect={togglePartySelection}
+                            onEdit={handleEditParty}
+                            onCardClick={(pid) => setDetailSelected({ kind: 'party', id: pid })}
+                            onGuestUpdate={loadData}
+                            maskSensitiveData={maskGuestData}
+                            readOnly={!canEditGuests}
+                          />
+                        );
+                      }
+                      const guest = item.data as Guest;
                       return (
-                        <GuestNucleoCard
-                          key={`party-${party.id}`}
-                          party={party}
-                          selected={selectedPartyIds.has(party.id)}
-                          onToggleSelect={togglePartySelection}
-                          onEdit={handleEditParty}
+                        <GuestSingleCard
+                          key={`guest-${guest.id}`}
+                          guest={guest}
+                          selected={selectedGuestIds.has(guest.id)}
+                          isOpen={detailSelected?.kind === 'guest' && detailSelected.id === guest.id}
+                          onToggleSelect={toggleGuestSelection}
+                          onEdit={handleEditGuest}
+                          onAddToParty={handleAddGuestToParty}
+                          onCardClick={(gid) => setDetailSelected({ kind: 'guest', id: gid })}
                           onGuestUpdate={loadData}
                           maskSensitiveData={maskGuestData}
                           readOnly={!canEditGuests}
                         />
                       );
-                    }
-                    const guest = item.data as Guest;
-                    return (
-                      <GuestSingleCard
-                        key={`guest-${guest.id}`}
-                        guest={guest}
-                        selected={selectedGuestIds.has(guest.id)}
-                        onToggleSelect={toggleGuestSelection}
-                        onEdit={handleEditGuest}
-                        onAddToParty={handleAddGuestToParty}
-                        onGuestUpdate={loadData}
-                        maskSensitiveData={maskGuestData}
-                        readOnly={!canEditGuests}
-                      />
-                    );
-                  })}
-                </GuestsListView>
+                    })}
+                  </GuestsListView>
+
+                  <GuestsDetailPanel
+                    selected={detailSelected}
+                    onClose={() => setDetailSelected(null)}
+                    onSelect={setDetailSelected}
+                    parties={parties as any}
+                    allGuests={allGuests as any}
+                    onSendInvite={handleDetailSendInvite}
+                    onRemind={handleDetailRemind}
+                    onEditNucleus={handleDetailEditNucleus}
+                    onEditGuest={handleDetailEditGuest}
+                    onMenu={handleDetailMenu}
+                    onDeleteParty={(p) => setPendingDelete({ kind: 'party', party: p as any })}
+                    onDeleteGuest={(g) => setPendingDelete({ kind: 'guest', guest: g as any })}
+                  />
+                </div>
               </>
             );
           })()}
@@ -1561,6 +1668,46 @@ const Guests = () => {
           loadData();
         }}
       />
+
+      {/* Detail panel — single guest edit bridge */}
+      <GuestEditDialog
+        open={editingDetailGuestOpen}
+        onOpenChange={(open) => {
+          setEditingDetailGuestOpen(open);
+          if (!open) setEditingDetailGuest(null);
+        }}
+        guest={editingDetailGuest as any}
+        weddingId={wedding?.id}
+        onSuccess={() => {
+          setEditingDetailGuestOpen(false);
+          setEditingDetailGuest(null);
+          loadData();
+        }}
+      />
+
+      {/* Detail panel — delete confirmation */}
+      <AlertDialog open={!!pendingDelete} onOpenChange={(open) => !open && setPendingDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {pendingDelete?.kind === 'party' ? 'Eliminare il nucleo?' : 'Eliminare l\'invitato?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingDelete?.kind === 'party'
+                ? `"${pendingDelete.party.party_name}" e tutti i suoi membri verranno eliminati definitivamente.`
+                : pendingDelete?.kind === 'guest'
+                ? `${pendingDelete.guest.first_name} ${pendingDelete.guest.last_name} verrà eliminato definitivamente.`
+                : ''}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Elimina
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
     </div>
   );
