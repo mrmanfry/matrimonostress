@@ -122,13 +122,11 @@ export default function CameraPublic() {
 
       if (wed) setWedding(wed);
 
-      // Load participant count
-      const { count } = await supabase
-        .from("camera_participants" as any)
-        .select("*", { count: "exact", head: true })
-        .eq("camera_id", cam.id);
+      // Load participant count via secure RPC (anon-safe, no PII exposure)
+      const { data: countData } = await supabase
+        .rpc("get_camera_participant_count" as any, { p_token: token });
 
-      setParticipantCount(count || 0);
+      setParticipantCount((countData as number) || 0);
       setLoading(false);
     };
 
@@ -291,11 +289,11 @@ export default function CameraPublic() {
   const handleSaveEmail = async () => {
     if (!camera || !notifyEmail.trim()) return;
     try {
-      await supabase
-        .from("camera_participants" as any)
-        .update({ notify_email: notifyEmail.trim() })
-        .eq("camera_id", camera.id)
-        .eq("guest_fingerprint", fingerprint.current);
+      await supabase.rpc("update_camera_participant_email" as any, {
+        p_token: token,
+        p_fingerprint: fingerprint.current,
+        p_email: notifyEmail.trim(),
+      });
       setEmailSaved(true);
     } catch {
       // silent
