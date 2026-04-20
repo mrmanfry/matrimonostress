@@ -58,6 +58,8 @@ export default function VendorDetails() {
   );
   const [allocPaymentId, setAllocPaymentId] = React.useState<string | null>(null);
   const [allocMode, setAllocMode] = React.useState<'mark' | 'edit'>('mark');
+  // Calculation scenario — synced with /app/budget via weddings.calculation_mode
+  const [mode, setMode] = React.useState<ScenarioMode | null>(null);
 
   // Vendor + relations
   const { data, isLoading } = useQuery({
@@ -372,7 +374,31 @@ export default function VendorDetails() {
 
   const v = data.vendor;
   const st = statusById(v.status);
-  const totals = vendorTotals(data.items, data.lineItemsByExpenseItem, data.payments);
+  const activeMode: ScenarioMode = mode ?? data.defaultMode;
+  // Compute totals using the unified expense engine (same as /app/budget)
+  const committed = data.items.reduce((sum, it) => {
+    const lines = (data.lineItemsByExpenseItem[it.id] || []) as unknown as CalcLineItem[];
+    return sum + calculateExpenseAmount(it as unknown as CalcExpenseItem, lines, activeMode, data.guestCounts);
+  }, 0);
+  const paid = data.payments
+    .filter(p => isPaymentPaid(p.status))
+    .reduce((s, p) => s + Number(p.amount), 0);
+  const totals = {
+    committed,
+    paid,
+    remaining: Math.max(0, committed - paid),
+    pct: committed > 0 ? Math.min(100, (paid / committed) * 100) : 0,
+    hasVariable: data.items.some(it => (it.expense_type ?? '').toLowerCase() === 'variable'),
+  };
+
+  const handleModeChange = (m: ScenarioMode) => {
+    setMode(m);
+    if (!data.vendor.wedding_id) return;
+    // Persist on the wedding so Budget + VendorDetails stay in sync (fire-and-forget)
+    supabase.from('weddings').update({ calculation_mode: m }).eq('id', data.vendor.wedding_id).then(({ error }) => {
+      if (error) console.warn('Persist scenario failed', error);
+    });
+  };
 
   const sections: { id: ActiveSection; label: string; icon: React.ReactNode; count: number }[] = [
     { id: 'spese',        label: 'Spese & Pagamenti', icon: <Receipt size={14}/>,     count: data.items.length },
@@ -535,6 +561,11 @@ export default function VendorDetails() {
                   }
                 />
 
+                {/* Scenario selector — keeps numbers aligned with /app/budget */}
+                <div style={{ marginTop: -8, marginBottom: 14, display: 'flex', justifyContent: 'flex-end' }}>
+                  <ScenarioSelector mode={activeMode} onModeChange={handleModeChange} counts={data.guestCounts} />
+                </div>
+
                 {data.items.length === 0 ? (
                   <PaperEmpty
                     title="Nessuna spesa ancora"
@@ -550,6 +581,8 @@ export default function VendorDetails() {
                     items={data.items}
                     lineItemsByExpenseItem={data.lineItemsByExpenseItem}
                     payments={data.payments}
+                    mode={activeMode}
+                    guestCounts={data.guestCounts}
                     onUpdateItem={updateExpenseItem}
                     onDeleteItem={deleteExpenseItem}
                     onAddPayment={addPaymentRow}
@@ -706,10 +739,12 @@ const ExpensesList: React.FC<{
   items: DbExpenseItem[];
   lineItemsByExpenseItem: Record<string, DbLineItem[]>;
   payments: DbPayment[];
+  mode: ScenarioMode;
+  guestCounts: GuestCounts;
   onUpdateItem: (id: string, patch: { description?: string; total_amount?: number; fixed_amount?: number | null }) => void | Promise<void>;
   onDeleteItem: (id: string) => void | Promise<void>;
   onAddPayment: (expenseItemId: string) => void | Promise<void>;
-}> = ({ items, lineItemsByExpenseItem, payments, onUpdateItem, onDeleteItem, onAddPayment }) => {
+}> = ({ items, lineItemsByExpenseItem, payments, mode, guestCounts, onUpdateItem, onDeleteItem, onAddPayment }) => {
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [draftDesc, setDraftDesc] = React.useState('');
   const [draftTotal, setDraftTotal] = React.useState<string>('');
@@ -735,8 +770,8 @@ const ExpensesList: React.FC<{
   return (
     <PaperCard padding={0} style={{ overflow: 'hidden' }}>
       {items.map((it, i) => {
-        const lineItems = lineItemsByExpenseItem[it.id] || [];
-        const total = expenseItemTotal(it, lineItems);
+        const lineItems = (lineItemsByExpenseItem[it.id] || []) as unknown as CalcLineItem[];
+        const total = calculateExpenseAmount(it as unknown as CalcExpenseItem, lineItems, mode, guestCounts);
         const itemPayments = payments.filter(p => p.expense_item_id === it.id);
         const paid = itemPayments.filter(p => isPaymentPaid(p.status)).reduce((s, p) => s + Number(p.amount), 0);
         const isVariable = (it.expense_type ?? '').toLowerCase() === 'variable';
