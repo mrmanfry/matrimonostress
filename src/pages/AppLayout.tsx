@@ -213,7 +213,7 @@ const AppLayoutInner = ({
       { name: "Invitati", href: "/app/guests", icon: Users },
       { name: "Campagne", href: "/app/invitations", icon: Send },
       { name: "Budget", href: "/app/budget", icon: Euro, hidden: isCollaborator && !activePermissions?.budget?.view },
-      { name: "Tesoreria", href: "/app/treasury", icon: TrendingUp, hidden: isCollaborator && !activePermissions?.budget?.view },
+      
       { name: "Fornitori", href: "/app/vendors", icon: Package },
       { name: "Checklist", href: "/app/checklist", icon: CheckSquare },
       { name: "Messaggi", href: (isPlannerMode && isOnCockpit) ? "/app/inbox" : "/app/chat", icon: MessageCircle, badge: unreadCount },
