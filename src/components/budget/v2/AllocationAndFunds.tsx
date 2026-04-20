@@ -63,9 +63,12 @@ export function AllocationCard({ vendors }: AllocationProps) {
   );
 }
 
-interface FundsProps { contributors: UiContributor[]; }
+interface FundsProps {
+  contributors: UiContributor[];
+  onSelectContributor?: (c: UiContributor) => void;
+}
 
-export function FundsCard({ contributors }: FundsProps) {
+export function FundsCard({ contributors, onSelectContributor }: FundsProps) {
   const totalPaid = contributors.reduce((s, c) => s + c.paid, 0);
 
   return (
