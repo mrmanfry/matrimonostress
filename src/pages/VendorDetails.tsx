@@ -212,6 +212,57 @@ export default function VendorDetails() {
     queryClient.invalidateQueries({ queryKey: ['vendor-detail-v2'] });
   };
 
+  const updateExpenseItem = async (
+    itemId: string,
+    patch: { description?: string; total_amount?: number; fixed_amount?: number | null },
+  ) => {
+    const { error } = await supabase.from('expense_items').update(patch).eq('id', itemId);
+    if (error) { toast({ title: 'Errore', description: error.message, variant: 'destructive' }); return; }
+    toast({ title: 'Spesa aggiornata' });
+    queryClient.invalidateQueries({ queryKey: ['vendor-detail-v2'] });
+  };
+
+  const deleteExpenseItem = async (itemId: string) => {
+    if (!window.confirm('Eliminare questa spesa? Verranno cancellate anche tutte le rate collegate.')) return;
+    await supabase.from('payments').delete().eq('expense_item_id', itemId);
+    await supabase.from('expense_line_items').delete().eq('expense_item_id', itemId);
+    const { error } = await supabase.from('expense_items').delete().eq('id', itemId);
+    if (error) { toast({ title: 'Errore', description: error.message, variant: 'destructive' }); return; }
+    toast({ title: 'Spesa eliminata' });
+    queryClient.invalidateQueries({ queryKey: ['vendor-detail-v2'] });
+  };
+
+  const updatePayment = async (
+    paymentId: string,
+    patch: { description?: string; amount?: number; due_date?: string },
+  ) => {
+    const { error } = await supabase.from('payments').update(patch).eq('id', paymentId);
+    if (error) { toast({ title: 'Errore', description: error.message, variant: 'destructive' }); return; }
+    toast({ title: 'Rata aggiornata' });
+    queryClient.invalidateQueries({ queryKey: ['vendor-detail-v2'] });
+  };
+
+  const deletePayment = async (paymentId: string) => {
+    if (!window.confirm('Eliminare questa rata?')) return;
+    const { error } = await supabase.from('payments').delete().eq('id', paymentId);
+    if (error) { toast({ title: 'Errore', description: error.message, variant: 'destructive' }); return; }
+    toast({ title: 'Rata eliminata' });
+    queryClient.invalidateQueries({ queryKey: ['vendor-detail-v2'] });
+  };
+
+  const addPaymentRow = async (expenseItemId: string) => {
+    const { error } = await supabase.from('payments').insert([{
+      expense_item_id: expenseItemId,
+      description: 'Nuova rata',
+      amount: 0,
+      due_date: new Date().toISOString().slice(0, 10),
+      status: 'Da Pagare',
+    }]);
+    if (error) { toast({ title: 'Errore', description: error.message, variant: 'destructive' }); return; }
+    toast({ title: 'Rata aggiunta', description: 'Modificala per impostare importo e data.' });
+    queryClient.invalidateQueries({ queryKey: ['vendor-detail-v2'] });
+  };
+
   if (isLoading) {
     return (
       <div style={{ background: surface('muted'), minHeight: '100%', padding: 40 }}>
