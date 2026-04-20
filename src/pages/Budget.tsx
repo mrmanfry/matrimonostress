@@ -210,7 +210,7 @@ export default function Budget() {
           filter={filter}
           setFilter={setFilter}
           onOpenVendor={setOpenVendorId}
-          onMarkPaid={markPaymentPaid}
+          onMarkPaid={openMarkPaidDialog}
         />
 
         <div style={{ textAlign: 'center', color: 'hsl(var(--paper-ink-3))', fontSize: 12, paddingTop: 8 }}>
