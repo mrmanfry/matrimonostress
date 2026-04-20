@@ -17,6 +17,7 @@ import {
   ink, surface, border, brand, success, warn, FONT_SERIF, FONT_UI, FONT_MONO,
 } from '@/components/vendors/v2/PaperUI';
 import { PaperBadge, PaperCard } from '@/components/budget/v2/paperPrimitives';
+import { PaymentAllocationDialog } from '@/components/budget/v2/PaymentAllocationDialog';
 import { VendorFormModal, VendorFormValues } from '@/components/vendors/v2/VendorFormModal';
 import { ExpenseWizard, ExpenseWizardValues } from '@/components/vendors/v2/ExpenseWizard';
 import { VendorDocumentsWidget } from '@/components/vendors/widgets/VendorDocumentsWidget';
@@ -47,6 +48,8 @@ export default function VendorDetails() {
   const [activeSection, setActiveSection] = React.useState<ActiveSection>(
     (searchParams.get('tab') as ActiveSection) || 'spese',
   );
+  const [allocPaymentId, setAllocPaymentId] = React.useState<string | null>(null);
+  const [allocMode, setAllocMode] = React.useState<'mark' | 'edit'>('mark');
 
   // Vendor + relations
   const { data, isLoading } = useQuery({
@@ -122,6 +125,31 @@ export default function VendorDetails() {
         .eq('wedding_id', data!.vendor.wedding_id)
         .order('name');
       return cats || [];
+    },
+  });
+
+  // Contributors + allocations (for "chi paga cosa")
+  const { data: contributors = [] } = useQuery({
+    queryKey: ['vendor-contributors', data?.vendor?.wedding_id],
+    enabled: !!data?.vendor?.wedding_id,
+    queryFn: async () => {
+      const { data: rows } = await supabase
+        .from('financial_contributors')
+        .select('id, name')
+        .eq('wedding_id', data!.vendor.wedding_id);
+      return rows || [];
+    },
+  });
+  const paymentIds = React.useMemo(() => (data?.payments || []).map(p => p.id), [data?.payments]);
+  const { data: allocations = [] } = useQuery({
+    queryKey: ['vendor-allocations', paymentIds.join(',')],
+    enabled: paymentIds.length > 0,
+    queryFn: async () => {
+      const { data: rows } = await supabase
+        .from('payment_allocations')
+        .select('payment_id, contributor_id, amount')
+        .in('payment_id', paymentIds);
+      return rows || [];
     },
   });
 
@@ -201,15 +229,26 @@ export default function VendorDetails() {
   };
 
   const markPaymentPaid = async (paymentId: string, paid: boolean) => {
+    if (paid) {
+      // Open allocation dialog instead of straight update
+      setAllocMode('mark');
+      setAllocPaymentId(paymentId);
+      return;
+    }
     const { error } = await supabase
       .from('payments')
-      .update({
-        status: paid ? 'Pagato' : 'Da Pagare',
-        paid_on_date: paid ? new Date().toISOString().slice(0, 10) : null,
-      })
+      .update({ status: 'Da Pagare', paid_on_date: null })
       .eq('id', paymentId);
     if (error) { toast({ title: 'Errore', description: error.message, variant: 'destructive' }); return; }
+    // Also wipe allocations when un-paying
+    await supabase.from('payment_allocations').delete().eq('payment_id', paymentId);
     queryClient.invalidateQueries({ queryKey: ['vendor-detail-v2'] });
+    queryClient.invalidateQueries({ queryKey: ['vendor-allocations'] });
+  };
+
+  const editAllocation = (paymentId: string) => {
+    setAllocMode('edit');
+    setAllocPaymentId(paymentId);
   };
 
   const updateExpenseItem = async (
