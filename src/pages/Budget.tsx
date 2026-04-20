@@ -67,7 +67,7 @@ export default function Budget() {
         supabase.from('vendors').select('id, name, category_id, expense_categories(id, name)').eq('wedding_id', weddingId),
         supabase.from('expense_items').select('*, vendors(name, expense_categories(id, name)), expense_categories(id, name)').eq('wedding_id', weddingId),
         supabase.from('financial_contributors').select('id, name, contribution_target').eq('wedding_id', weddingId),
-        supabase.from('guests').select('rsvp_status, adults_count, children_count, is_staff, is_couple_member, allow_plus_one, plus_one_name').eq('wedding_id', weddingId),
+        supabase.from('guests').select('id, rsvp_status, adults_count, children_count, is_staff, is_couple_member, allow_plus_one, plus_one_name, plus_one_of_guest_id').eq('wedding_id', weddingId),
       ]);
 
       setBudget(Number(weddingRes.data?.total_budget || 0));
@@ -111,16 +111,25 @@ export default function Budget() {
 
       // Guest counts (for variable expense calculation)
       const guests = (guestsRes.data ?? []) as Array<{
+        id: string;
         rsvp_status: string | null; adults_count: number | null; children_count: number | null;
-        is_staff: boolean | null; is_couple_member: boolean | null; allow_plus_one: boolean | null; plus_one_name: string | null;
+        is_staff: boolean | null; is_couple_member: boolean | null; allow_plus_one: boolean | null;
+        plus_one_name: string | null; plus_one_of_guest_id: string | null;
       }>;
+      // If a +1 has its own guest row (plus_one_of_guest_id set), the host's textual
+      // `plus_one_name` must NOT be counted again — otherwise double-count.
+      const hostsWithMaterializedPlusOne = new Set(
+        guests.filter(g => g.plus_one_of_guest_id).map(g => g.plus_one_of_guest_id as string)
+      );
       const tally = (filterFn: (g: typeof guests[number]) => boolean) => {
         let adults = 0, children = 0, staff = 0;
         for (const g of guests) {
           if (!filterFn(g)) continue;
           if (g.is_staff) { staff += g.adults_count || 1; continue; }
           adults += g.adults_count || 1;
-          if (g.allow_plus_one && g.plus_one_name) adults += 1;
+          if (g.allow_plus_one && g.plus_one_name && !hostsWithMaterializedPlusOne.has(g.id)) {
+            adults += 1;
+          }
           children += g.children_count || 0;
         }
         return { adults, children, staff };
