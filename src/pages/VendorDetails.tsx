@@ -79,7 +79,10 @@ export default function VendorDetails() {
 
       const itemIds = (items || []).map(i => i.id);
       const { data: lineItems } = itemIds.length
-        ? await supabase.from('expense_line_items').select('*').in('expense_item_id', itemIds)
+        ? await supabase
+            .from('expense_line_items')
+            .select('id, expense_item_id, description, unit_price, quantity_type, quantity_fixed, quantity_limit, quantity_range, tax_rate, price_is_tax_inclusive, discount_percentage')
+            .in('expense_item_id', itemIds)
         : { data: [] as DbLineItem[] };
 
       const { data: payments } = itemIds.length
@@ -93,22 +96,55 @@ export default function VendorDetails() {
       const lineItemsByExpenseItem: Record<string, DbLineItem[]> = {};
       (lineItems || []).forEach((li: any) => { (lineItemsByExpenseItem[li.expense_item_id] ||= []).push(li); });
 
-      // Wedding date for wizard
+      // Wedding date + scenario + targets for unified expense calculation
       const { data: wedding } = await supabase
         .from('weddings')
-        .select('id, wedding_date, target_adults, target_children, calculation_mode')
+        .select('id, wedding_date, target_adults, target_children, target_staff, calculation_mode')
         .eq('id', vendor.wedding_id)
         .single();
 
-      // Confirmed guest count
-      const { data: confirmedGuests } = await supabase
-        .from('guests')
-        .select('id, is_child, is_staff, party_id, invite_parties!inner(rsvp_status)')
-        .eq('wedding_id', vendor.wedding_id)
-        .eq('invite_parties.rsvp_status', 'Confermato');
-      const confirmedCount = (confirmedGuests || []).filter((g: any) => !g.is_child && !g.is_staff).length;
+      // All guests + vendor staff (for expected/confirmed scenario counts) — same logic Budget uses
+      const [{ data: allGuests }, { data: allVendors }] = await Promise.all([
+        supabase
+          .from('guests')
+          .select('id, rsvp_status, children_count, is_staff, is_couple_member, allow_plus_one, plus_one_name, plus_one_of_guest_id')
+          .eq('wedding_id', vendor.wedding_id),
+        supabase
+          .from('vendors')
+          .select('staff_meals_count')
+          .eq('wedding_id', vendor.wedding_id),
+      ]);
 
-      const plannedCount = (wedding?.target_adults || 100) + (wedding?.target_children || 0);
+      const vendorStaffMeals = (allVendors || []).reduce(
+        (sum: number, v: any) => sum + Number(v.staff_meals_count || 0), 0,
+      );
+      const guests = (allGuests || []) as Array<any>;
+      const hostsWithMaterializedPlusOne = new Set(
+        guests.filter(g => g.plus_one_of_guest_id).map(g => g.plus_one_of_guest_id as string),
+      );
+      const tally = (filterFn: (g: any) => boolean) => {
+        let adults = 0, children = 0;
+        for (const g of guests) {
+          if (!filterFn(g)) continue;
+          if (g.is_staff) continue;
+          adults += 1;
+          if (g.allow_plus_one && g.plus_one_name && !hostsWithMaterializedPlusOne.has(g.id)) adults += 1;
+          children += g.children_count || 0;
+        }
+        return { adults, children, staff: vendorStaffMeals };
+      };
+      const guestCounts: GuestCounts = {
+        planned: {
+          adults: Number(wedding?.target_adults ?? 100),
+          children: Number(wedding?.target_children ?? 0),
+          staff: Number(wedding?.target_staff ?? vendorStaffMeals),
+        },
+        expected: tally(() => true),
+        confirmed: tally(g => isGuestConfirmed(g)),
+      };
+
+      const plannedCount = guestCounts.planned.adults + guestCounts.planned.children;
+      const confirmedCount = guestCounts.confirmed.adults + guestCounts.confirmed.children;
 
       return {
         vendor,
@@ -118,6 +154,8 @@ export default function VendorDetails() {
         wedding,
         guestsPlanned: plannedCount,
         guestsConfirmed: confirmedCount,
+        guestCounts,
+        defaultMode: ((wedding?.calculation_mode as ScenarioMode) || 'planned'),
       };
     },
   });
