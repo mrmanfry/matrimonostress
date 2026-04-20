@@ -1,24 +1,28 @@
-import { useState, useEffect } from "react";
-import { useAuth } from "@/contexts/AuthContext";
-import { LockedCard } from "@/components/ui/locked-card";
-import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { VendorDialog } from "@/components/vendors/VendorDialog";
-import { VendorExpensesDialog } from "@/components/vendors/VendorExpensesDialog";
-import { Plus, Phone, Mail, User, Trash2, Edit, Heart, Wallet, FileText, FileUp, Eye, Sparkles, ChevronRight } from "lucide-react";
-import { ContractUploadDialog } from "@/components/vendors/ContractUploadDialog";
-import { ContractReviewDialog } from "@/components/vendors/ContractReviewDialog";
-import ContractViewDialog from "@/components/vendors/ContractViewDialog";
-import { DocumentViewerDialog } from "@/components/vendors/DocumentViewerDialog";
-import { VendorDocumentsDialog } from "@/components/vendors/VendorDocumentsDialog";
-import { useToast } from "@/hooks/use-toast";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-interface Vendor {
+// New "Paper" Vendors list page — replaces the legacy implementation.
+// Mirrors the Fornitori.html prototype: hero header, status stats (filterable),
+// search/category filters, grid/list toggle, vendor cards with payment health.
+import * as React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Plus, Search, X, Grid3x3, List as ListIcon, Calendar, ChevronRight, Heart } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+import { LockedCard } from '@/components/ui/locked-card';
+import {
+  PaperButton, PaperInput, PaperSelect, PaperProgress, PaperEmpty,
+  ink, surface, border, brand, success, warn, FONT_SERIF, FONT_UI, FONT_MONO,
+} from '@/components/vendors/v2/PaperUI';
+import { PaperBadge, PaperCard } from '@/components/budget/v2/paperPrimitives';
+import { VendorFormModal, VendorFormValues } from '@/components/vendors/v2/VendorFormModal';
+import {
+  VENDOR_STATUSES, VendorStatusId, normalizeStatus, statusById,
+  fmtEUR, fmtDateShort, daysFromToday,
+  vendorTotals, nextPayment, isPaymentPaid, countsByStatus,
+  DbExpenseItem, DbLineItem, DbPayment, expenseItemTotal,
+} from '@/lib/vendorAggregates';
+
+interface VendorRow {
   id: string;
   name: string;
   contact_name: string | null;
@@ -28,770 +32,493 @@ interface Vendor {
   notes: string | null;
   category_id: string | null;
   wedding_id: string;
-  category_name?: string;
-  expenses_total?: number;
-  ragione_sociale?: string;
-  partita_iva_cf?: string;
-  indirizzo_sede_legale?: string;
-  iban?: string;
-  intestatario_conto?: string;
-  staff_meals_count?: number | null;
-  staff_dietary_notes?: string | null;
-  vendor_contracts?: Array<{
-    id: string;
-    analyzed_at: string;
-    ai_analysis: any;
-    file_path: string;
-  }>;
-  expense_items?: Array<{
-    total_amount: number;
-  }>;
+  indirizzo_sede_legale?: string | null;
+  category?: { name: string } | null;
+  expense_items?: DbExpenseItem[];
+  payments?: DbPayment[];
+  lineItemsByExpenseItem?: Record<string, DbLineItem[]>;
 }
-interface Category {
-  id: string;
-  name: string;
-}
-const statusConfig = {
-  evaluating: {
-    label: "In valutazione",
-    color: "bg-yellow-600"
-  },
-  booked: {
-    label: "Opzionato",
-    color: "bg-blue-600"
-  },
-  confirmed: {
-    label: "Confermato",
-    color: "bg-green-600"
-  },
-  rejected: {
-    label: "Rifiutato",
-    color: "bg-red-600"
-  }
-};
+
 const Vendors = () => {
   const navigate = useNavigate();
-  const { isPlanner, isCollaborator, authState } = useAuth();
+  const { isCollaborator, authState } = useAuth();
   const vendorCostsHidden = isCollaborator && authState.status === 'authenticated' && !authState.activePermissions?.vendor_costs?.view;
-  const [vendors, setVendors] = useState<Vendor[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [expensesDialogOpen, setExpensesDialogOpen] = useState(false);
-  const [contractUploadOpen, setContractUploadOpen] = useState(false);
-  const [contractViewOpen, setContractViewOpen] = useState(false);
-  const [contractReviewOpen, setContractReviewOpen] = useState(false);
-  const [documentViewerOpen, setDocumentViewerOpen] = useState(false);
-  const [documentsDialogOpen, setDocumentsDialogOpen] = useState(false);
-  const [selectedDocument, setSelectedDocument] = useState<{
-    path: string;
-    name: string;
-  } | null>(null);
-  const [analysisData, setAnalysisData] = useState<any>(null);
-  const [fileInfoData, setFileInfoData] = useState<any>(null);
-  const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
-  const [vendorDocuments, setVendorDocuments] = useState<Array<{
-    name: string;
-    path: string;
-  }>>([]);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [vendorToDelete, setVendorToDelete] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [categoryFilter, setCategoryFilter] = useState<string>("all");
-  const {
-    toast
-  } = useToast();
-  const [weddingData, setWeddingData] = useState<any>(null);
-  useEffect(() => {
-    loadData();
-  }, []);
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      const {
-        data: {
-          user
-        }
-      } = await supabase.auth.getUser();
-      if (!user) return;
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-      // Recupera il wedding_id dall'utente corrente tramite user_roles
-      const {
-        data: userRole
-      } = await supabase.from("user_roles").select("wedding_id").eq("user_id", user.id).single();
-      if (!userRole) {
-        toast({
-          title: "Errore",
-          description: "Non sei associato a nessun matrimonio",
-          variant: "destructive"
-        });
-        return;
-      }
+  const [search, setSearch] = React.useState('');
+  const [statusFilter, setStatusFilter] = React.useState<'all' | VendorStatusId>('all');
+  const [catFilter, setCatFilter] = React.useState<string>('all');
+  const [view, setView] = React.useState<'grid' | 'list'>('grid');
+  const [formOpen, setFormOpen] = React.useState(false);
+  const [editingVendor, setEditingVendor] = React.useState<VendorRow | null>(null);
 
-      // Recupera i dati del matrimonio
-      const {
-        data: wedding
-      } = await supabase.from("weddings").select("id, wedding_date").eq("id", userRole.wedding_id).single();
-      if (!wedding) return;
-      setWeddingData(wedding);
-      await Promise.all([loadVendors(wedding.id), loadCategories(wedding.id)]);
-    } catch (error) {
-      console.error("Error loading data:", error);
-      toast({
-        title: "Errore",
-        description: "Impossibile caricare i dati",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-  const loadVendors = async (weddingId: string) => {
-    // Import the centralized calculation library
-    const {
-      calculateExpenseAmount,
-      inferExpenseType,
-      resolveGuestCounts
-    } = await import("@/lib/expenseCalculations");
-    const {
-      calculateExpectedCounts,
-      calculateTotalVendorStaff
-    } = await import("@/lib/expectedCalculator");
-
-    // Load global calculation mode and wedding targets
-    const {
-      data: weddingData
-    } = await supabase.from('weddings').select('calculation_mode, target_adults, target_children, target_staff').eq('id', weddingId).single();
-    const globalMode = weddingData?.calculation_mode || 'planned';
-    const globalTargets = {
-      adults: weddingData?.target_adults || 100,
-      children: weddingData?.target_children || 0,
-      staff: weddingData?.target_staff || 0
-    };
-
-    // Load vendors with all expense data
-    const {
-      data,
-      error
-    } = await supabase.from("vendors").select(`
-        *,
-        category:expense_categories(name),
-        vendor_contracts(id, analyzed_at, ai_analysis, file_path),
-        expense_items(
-          id,
-          expense_type,
-          fixed_amount,
-          estimated_amount,
-          total_amount,
-          planned_adults,
-          planned_children,
-          planned_staff,
-          tax_rate,
-          amount_is_tax_inclusive
-        )
-      `).eq("wedding_id", weddingId).order("created_at", {
-      ascending: false
-    });
-    if (error) {
-      console.error("Error loading vendors:", error);
-      return;
-    }
-
-    // Load confirmed guest counts (for "confirmed" mode)
-    const {
-      data: parties
-    } = await supabase.from("invite_parties").select("id, guests(*)").eq("wedding_id", weddingId).eq("rsvp_status", "Confermato");
-    let actualAdults = 0;
-    let actualChildren = 0;
-    let actualStaff = 0;
-    parties?.forEach((party: any) => {
-      party.guests?.forEach((guest: any) => {
-        if (guest.is_staff) {
-          actualStaff++;
-        } else if (guest.is_child) {
-          actualChildren++;
-        } else {
-          actualAdults++;
-        }
-      });
-    });
-
-    // Load ALL guests for expected calculation (STD responses, +1 potentials, etc.)
-    const { data: allGuests } = await supabase
-      .from("guests")
-      .select("id, is_child, is_staff, save_the_date_sent_at, std_response, rsvp_status, party_id, phone, allow_plus_one, plus_one_name, is_couple_member")
-      .eq("wedding_id", weddingId);
-
-    const nonCoupleGuests = (allGuests || []).filter((g: any) => !g.is_couple_member);
-    const vendorStaffTotal = calculateTotalVendorStaff(
-      (data || []).map((v: any) => ({ staff_meals_count: v.staff_meals_count }))
-    );
-    const expectedResult = calculateExpectedCounts(nonCoupleGuests, allGuests || [], vendorStaffTotal);
-
-    // Load expense line items for all vendors
-    const allExpenseItemIds = data.flatMap((v: any) => v.expense_items?.map((item: any) => item.id) || []);
-    const {
-      data: lineItemsData
-    } = await supabase.from("expense_line_items").select("*").in("expense_item_id", allExpenseItemIds);
-    const lineItemsByExpenseItem = (lineItemsData || []).reduce((acc: any, item: any) => {
-      if (!acc[item.expense_item_id]) acc[item.expense_item_id] = [];
-      acc[item.expense_item_id].push(item);
-      return acc;
-    }, {});
-
-    // Calculate totals using centralized logic
-    setVendors(data.map((v: any) => ({
-      ...v,
-      category_name: v.category?.name || null,
-      expenses_total: v.expense_items?.reduce((sum: number, item: any) => {
-        const lineItems = lineItemsByExpenseItem[item.id] || [];
-        const hasLineItems = lineItems.length > 0;
-
-        // Infer expense type for legacy data
-        const expenseType = inferExpenseType(item, hasLineItems);
-        
-        // Resolve guest counts using global targets as fallback
-        const resolvedCounts = resolveGuestCounts(item, globalTargets);
-        
-        const guestCounts = {
-          planned: resolvedCounts,
-          expected: {
-            adults: expectedResult.adults,
-            children: expectedResult.children,
-            staff: expectedResult.staff + expectedResult.plusOnesConfirmed + expectedResult.plusOnesPotential
-          },
-          confirmed: {
-            adults: actualAdults,
-            children: actualChildren,
-            staff: actualStaff
-          }
-        };
-
-        // Use centralized calculation
-        const amount = calculateExpenseAmount({
-          ...item,
-          expense_type: expenseType,
-          estimated_amount: item.estimated_amount || null
-        }, lineItems, globalMode as 'planned' | 'expected' | 'confirmed', guestCounts);
-        return sum + amount;
-      }, 0) || 0
-    })));
-  };
-  const loadVendorDocuments = async (vendorId: string) => {
-    try {
-      if (!weddingData?.id) return;
-      const weddingId = weddingData.id;
-      const {
-        data,
-        error
-      } = await supabase.storage.from("vendor-contracts").list(`${weddingId}/${vendorId}`);
-      if (error) throw error;
-      if (data) {
-        setVendorDocuments(data.map(file => ({
-          name: file.name,
-          path: `${weddingId}/${vendorId}/${file.name}`
-        })));
-      } else {
-        setVendorDocuments([]);
-      }
-    } catch (error) {
-      console.error("Error loading vendor documents:", error);
-      setVendorDocuments([]);
-    }
-  };
-  const handleDeleteDocument = async (filePath: string) => {
-    try {
-      const {
-        error
-      } = await supabase.storage.from("vendor-contracts").remove([filePath]);
-      if (error) throw error;
-      toast({
-        title: "Documento eliminato",
-        description: "Il file è stato rimosso con successo"
-      });
-
-      // Refresh documents list
-      if (selectedVendor) {
-        await loadVendorDocuments(selectedVendor.id);
-      }
-    } catch (error: any) {
-      console.error("Delete error:", error);
-      toast({
-        title: "Errore eliminazione",
-        description: error.message,
-        variant: "destructive"
-      });
-    }
-  };
-  const loadCategories = async (weddingId: string) => {
-    const {
-      data,
-      error
-    } = await supabase.from("expense_categories").select("id, name").eq("wedding_id", weddingId).order("name");
-    if (error) {
-      console.error("Error loading categories:", error);
-      return;
-    }
-    setCategories(data || []);
-  };
-  const handleSaveVendor = async (vendor: Partial<Vendor>) => {
-    try {
-      const {
-        data: {
-          user
-        }
-      } = await supabase.auth.getUser();
-      if (!user) {
-        toast({
-          title: "Errore",
-          description: "Utente non autenticato",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      // Recupera il wedding_id dall'utente corrente tramite user_roles
-      const {
-        data: userRole,
-        error: roleError
-      } = await supabase.from("user_roles").select("wedding_id").eq("user_id", user.id).single();
-      if (roleError || !userRole) {
-        console.error("Error fetching user role:", roleError);
-        toast({
-          title: "Errore",
-          description: "Non sei associato a nessun matrimonio. Contatta l'organizzatore.",
-          variant: "destructive"
-        });
-        return;
-      }
-      const {
-        data: weddingData,
-        error: weddingError
-      } = await supabase.from("weddings").select("id").eq("id", userRole.wedding_id).single();
-      if (weddingError || !weddingData) {
-        console.error("Error fetching wedding:", weddingError);
-        toast({
-          title: "Errore",
-          description: "Matrimonio non trovato",
-          variant: "destructive"
-        });
-        return;
-      }
-      if (selectedVendor) {
-        const {
-          error
-        } = await supabase.from("vendors").update(vendor).eq("id", selectedVendor.id);
-        if (error) throw error;
-        toast({
-          title: "Fornitore aggiornato",
-          description: "Le modifiche sono state salvate"
-        });
-      } else {
-        const insertData = {
-          wedding_id: weddingData.id,
-          name: vendor.name,
-          contact_name: vendor.contact_name || null,
-          email: vendor.email || null,
-          phone: vendor.phone || null,
-          status: vendor.status || 'evaluating',
-          notes: vendor.notes || null,
-          category_id: vendor.category_id || null,
-          staff_meals_count: vendor.staff_meals_count || 0,
-          staff_dietary_notes: vendor.staff_dietary_notes || null
-        };
-        console.log("💾 Inserting vendor:", insertData);
-        const {
-          data: insertedData,
-          error
-        } = await supabase.from("vendors").insert([insertData]).select();
-        if (error) {
-          console.error("❌ Insert failed:", error);
-          throw error;
-        }
-        console.log("✅ Vendor inserted successfully:", insertedData);
-        toast({
-          title: "Fornitore aggiunto",
-          description: "Il fornitore è stato creato con successo"
-        });
-      }
-      await loadVendors(weddingData.id);
-      setDialogOpen(false);
-      setSelectedVendor(null);
-    } catch (error) {
-      console.error("Error saving vendor:", error);
-      toast({
-        title: "Errore",
-        description: "Impossibile salvare il fornitore",
-        variant: "destructive"
-      });
-    }
-  };
-  const handleDeleteVendor = async () => {
-    if (!vendorToDelete) return;
-    try {
-      const {
-        error
-      } = await supabase.from("vendors").delete().eq("id", vendorToDelete);
-      if (error) throw error;
-      toast({
-        title: "Fornitore eliminato",
-        description: "Il fornitore è stato rimosso"
-      });
-      setVendors(vendors.filter(v => v.id !== vendorToDelete));
-      setDeleteDialogOpen(false);
-      setVendorToDelete(null);
-    } catch (error) {
-      console.error("Error deleting vendor:", error);
-      toast({
-        title: "Errore",
-        description: "Impossibile eliminare il fornitore",
-        variant: "destructive"
-      });
-    }
-  };
-  const handleCreateCategory = async (name: string) => {
-    try {
-      const {
-        data: {
-          user
-        }
-      } = await supabase.auth.getUser();
-      if (!user) {
-        toast({
-          title: "Errore",
-          description: "Utente non autenticato",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      // Recupera il wedding_id dall'utente corrente tramite user_roles
-      const {
-        data: userRole,
-        error: roleError
-      } = await supabase.from("user_roles").select("wedding_id").eq("user_id", user.id).single();
-      if (roleError || !userRole) {
-        console.error("Error fetching user role:", roleError);
-        toast({
-          title: "Errore",
-          description: "Non sei associato a nessun matrimonio. Contatta l'organizzatore.",
-          variant: "destructive"
-        });
-        return;
-      }
-      const {
-        data: weddingData,
-        error: weddingError
-      } = await supabase.from("weddings").select("id").eq("id", userRole.wedding_id).single();
-      if (weddingError || !weddingData) {
-        console.error("Error fetching wedding:", weddingError);
-        toast({
-          title: "Errore",
-          description: "Matrimonio non trovato",
-          variant: "destructive"
-        });
-        return;
-      }
-      const {
-        error
-      } = await supabase.from("expense_categories").insert([{
-        wedding_id: weddingData.id,
-        name
-      }]);
-      if (error) throw error;
-      await loadCategories(weddingData.id);
-      toast({
-        title: "Categoria creata",
-        description: `La categoria "${name}" è stata aggiunta`
-      });
-    } catch (error) {
-      console.error("Error creating category:", error);
-      toast({
-        title: "Errore",
-        description: "Impossibile creare la categoria",
-        variant: "destructive"
-      });
-    }
-  };
-  const handleDeleteCategory = async (id: string) => {
-    try {
-      const {
-        error
-      } = await supabase.from("expense_categories").delete().eq("id", id);
-      if (error) throw error;
-      setCategories(categories.filter(c => c.id !== id));
-      toast({
-        title: "Categoria eliminata",
-        description: "La categoria è stata rimossa"
-      });
-    } catch (error) {
-      console.error("Error deleting category:", error);
-      toast({
-        title: "Errore",
-        description: "Impossibile eliminare la categoria",
-        variant: "destructive"
-      });
-    }
-  };
-  const filteredVendors = vendors.filter(vendor => {
-    const matchesSearch = searchQuery === "" || vendor.name.toLowerCase().includes(searchQuery.toLowerCase()) || vendor.contact_name?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === "all" || vendor.status === statusFilter;
-    const matchesCategory = categoryFilter === "all" || vendor.category_id === categoryFilter;
-    return matchesSearch && matchesStatus && matchesCategory;
+  // Resolve wedding id
+  const { data: weddingId } = useQuery({
+    queryKey: ['vendors-v2-wedding-id'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+      const { data: ur } = await supabase
+        .from('user_roles')
+        .select('wedding_id')
+        .eq('user_id', user.id)
+        .single();
+      return ur?.wedding_id || null;
+    },
   });
-  const statsByStatus = {
-    evaluating: vendors.filter(v => v.status === "evaluating").length,
-    booked: vendors.filter(v => v.status === "booked").length,
-    paid: vendors.filter(v => v.status === "paid").length,
-    excluded: vendors.filter(v => v.status === "excluded").length
+
+  // Load vendors + categories + expense aggregates
+  const { data, isLoading } = useQuery({
+    queryKey: ['vendors-v2', weddingId],
+    enabled: !!weddingId,
+    queryFn: async () => {
+      // 1. Vendors
+      const { data: vendors, error: vErr } = await supabase
+        .from('vendors')
+        .select('id, name, contact_name, email, phone, status, notes, category_id, wedding_id, indirizzo_sede_legale, category:expense_categories(name)')
+        .eq('wedding_id', weddingId!)
+        .order('created_at', { ascending: false });
+      if (vErr) throw vErr;
+
+      // 2. Categories
+      const { data: cats } = await supabase
+        .from('expense_categories')
+        .select('id, name')
+        .eq('wedding_id', weddingId!)
+        .order('name');
+
+      // 3. Expense items
+      const vendorIds = (vendors || []).map(v => v.id);
+      const { data: items } = vendorIds.length
+        ? await supabase
+            .from('expense_items')
+            .select('*')
+            .in('vendor_id', vendorIds)
+        : { data: [] as DbExpenseItem[] };
+
+      // 4. Line items
+      const itemIds = (items || []).map(i => i.id);
+      const { data: lineItems } = itemIds.length
+        ? await supabase
+            .from('expense_line_items')
+            .select('*')
+            .in('expense_item_id', itemIds)
+        : { data: [] as DbLineItem[] };
+
+      // 5. Payments
+      const { data: payments } = itemIds.length
+        ? await supabase
+            .from('payments')
+            .select('id, expense_item_id, description, amount, status, due_date, paid_on_date')
+            .in('expense_item_id', itemIds)
+        : { data: [] as DbPayment[] };
+
+      // Group line items + payments by vendor
+      const itemsByVendor: Record<string, DbExpenseItem[]> = {};
+      (items || []).forEach((it: any) => {
+        if (!it.vendor_id) return;
+        (itemsByVendor[it.vendor_id] ||= []).push(it);
+      });
+      const lineItemsByExpenseItem: Record<string, DbLineItem[]> = {};
+      (lineItems || []).forEach((li: any) => {
+        (lineItemsByExpenseItem[li.expense_item_id] ||= []).push(li);
+      });
+      const paymentsByExpenseItem: Record<string, DbPayment[]> = {};
+      (payments || []).forEach((p: any) => {
+        (paymentsByExpenseItem[p.expense_item_id] ||= []).push(p);
+      });
+
+      const enriched: VendorRow[] = (vendors || []).map((v: any) => {
+        const expense_items = itemsByVendor[v.id] || [];
+        const vendorPayments: DbPayment[] = expense_items.flatMap(it => paymentsByExpenseItem[it.id] || []);
+        return { ...v, expense_items, payments: vendorPayments, lineItemsByExpenseItem };
+      });
+
+      return { vendors: enriched, categories: cats || [] };
+    },
+  });
+
+  const vendors = data?.vendors || [];
+  const categories = data?.categories || [];
+
+  // Stats
+  const counts = countsByStatus(vendors);
+  const totalCommitted = vendors.reduce((s, v) => s + vendorTotals(v.expense_items || [], v.lineItemsByExpenseItem || {}, v.payments || []).committed, 0);
+  const totalPaid = vendors.reduce((s, v) => s + vendorTotals(v.expense_items || [], v.lineItemsByExpenseItem || {}, v.payments || []).paid, 0);
+  const confirmedCount = vendors.filter(v => normalizeStatus(v.status) === 'confirmed').length;
+
+  // Filtering
+  const filtered = vendors.filter(v => {
+    if (search && !(v.name || '').toLowerCase().includes(search.toLowerCase())) return false;
+    if (statusFilter !== 'all' && normalizeStatus(v.status) !== statusFilter) return false;
+    if (catFilter !== 'all' && v.category_id !== catFilter) return false;
+    return true;
+  });
+
+  // Save vendor (insert/update)
+  const handleSaveVendor = async (values: VendorFormValues, vendorId?: string) => {
+    if (!weddingId) return;
+    const payload = {
+      name: values.name.trim(),
+      category_id: values.category_id,
+      status: values.status,
+      contact_name: values.contact_name || null,
+      phone: values.phone || null,
+      email: values.email || null,
+      indirizzo_sede_legale: values.address || null,
+      notes: values.notes || null,
+    };
+    if (vendorId) {
+      const { error } = await supabase.from('vendors').update(payload).eq('id', vendorId);
+      if (error) { toast({ title: 'Errore', description: error.message, variant: 'destructive' }); return; }
+      toast({ title: 'Fornitore aggiornato' });
+    } else {
+      const { error } = await supabase.from('vendors').insert([{ ...payload, wedding_id: weddingId }]);
+      if (error) { toast({ title: 'Errore', description: error.message, variant: 'destructive' }); return; }
+      toast({ title: 'Fornitore aggiunto' });
+    }
+    queryClient.invalidateQueries({ queryKey: ['vendors-v2'] });
+    setEditingVendor(null);
   };
-  if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">
-        <Heart className="w-12 h-12 text-accent fill-accent animate-pulse" />
-      </div>;
+
+  if (isLoading) {
+    return (
+      <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Heart size={42} style={{ color: brand('base'), animation: 'pulse 1.4s infinite' }} className="fill-current"/>
+      </div>
+    );
   }
-  return <div className="container mx-auto p-6 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">Fornitori</h1>
-          <p className="text-muted-foreground">
-            Gestisci i fornitori del tuo matrimonio
-          </p>
-        </div>
-        <Button onClick={() => setDialogOpen(true)} size="lg">
-          <Plus className="w-4 h-4 mr-2" />
-          Aggiungi Fornitore
-        </Button>
-      </div>
 
-      {/* Statistics */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {Object.entries(statusConfig).map(([key, config]) => (
-          <Card key={key}>
-            <CardContent className="pt-6">
-              <div className="flex flex-col space-y-2">
-                <p className="text-sm text-muted-foreground">{config.label}</p>
-                <p className="text-3xl font-bold">
-                  {vendors.filter(v => v.status === key).length}
-                </p>
-                <div className={`h-2 w-full rounded-full ${config.color}`} />
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+  return (
+    <div style={{ background: surface('muted'), minHeight: '100%', padding: '8px 0 60px' }}>
+      <div style={{ maxWidth: 1320, margin: '0 auto', padding: '20px 24px' }}>
 
-      {/* Filters */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Cerca</label>
-              <Input placeholder="Nome fornitore o contatto..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 24, gap: 16, flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ fontSize: 11, color: ink(3), letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 6, fontFamily: FONT_UI, fontWeight: 600 }}>
+              Gestione fornitori
             </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Stato</label>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tutti</SelectItem>
-                  {Object.entries(statusConfig).map(([key, config]) => <SelectItem key={key} value={key}>
-                      {config.label}
-                    </SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Categoria</label>
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tutte</SelectItem>
-                  {categories.map(cat => <SelectItem key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Vendors Grid */}
-      {filteredVendors.length === 0 ? <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <p className="text-muted-foreground mb-4">
-              {searchQuery || statusFilter !== "all" || categoryFilter !== "all" ? "Nessun fornitore trovato con questi filtri" : "Nessun fornitore ancora. Inizia ad aggiungerne uno!"}
+            <h1 style={{
+              margin: 0, fontFamily: FONT_SERIF, fontWeight: 500, fontSize: 36,
+              color: ink(), letterSpacing: '-0.6px', lineHeight: 1.1,
+            }}>
+              I vostri fornitori
+            </h1>
+            <p style={{ margin: '8px 0 0', fontSize: 13, color: ink(2), maxWidth: 620, fontFamily: FONT_UI }}>
+              {vendors.length} contatti · {confirmedCount} confermati
+              {!vendorCostsHidden && <> · <span style={{ fontFamily: FONT_MONO }}>{fmtEUR(totalPaid)}</span> già versati su <span style={{ fontFamily: FONT_MONO }}>{fmtEUR(totalCommitted)}</span> impegnati.</>}
             </p>
-            {!searchQuery && statusFilter === "all" && categoryFilter === "all" && <Button onClick={() => setDialogOpen(true)}>
-                <Plus className="w-4 h-4 mr-2" />
-                Aggiungi Fornitore
-              </Button>}
-          </CardContent>
-        </Card> : <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredVendors.map(vendor => {
-        const hasContract = vendor.vendor_contracts && vendor.vendor_contracts.length > 0;
-        const contract = hasContract ? vendor.vendor_contracts[0] : null;
-        return <Card 
-                key={vendor.id} 
-                className="hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer group"
-                onClick={() => navigate(`/app/vendors/${vendor.id}`)}
+          </div>
+          <PaperButton variant="primary" iconLeft={<Plus size={14}/>} onClick={() => { setEditingVendor(null); setFormOpen(true); }}>
+            Nuovo fornitore
+          </PaperButton>
+        </div>
+
+        {/* Status stats — clickable as filters */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginBottom: 24 }}>
+          {VENDOR_STATUSES.map(s => {
+            const isActive = statusFilter === s.id;
+            return (
+              <button
+                key={s.id}
+                onClick={() => setStatusFilter(isActive ? 'all' : s.id)}
+                style={{
+                  textAlign: 'left', padding: '16px 18px',
+                  background: isActive ? brand('tint') : surface(),
+                  border: `1px solid ${isActive ? brand('base') : border()}`,
+                  borderRadius: 12, cursor: 'pointer', transition: 'all .15s',
+                  boxShadow: '0 1px 2px rgba(43,37,32,.04)',
+                }}
               >
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1 flex-1">
-                      <div className="flex items-center gap-2">
-                        <CardTitle className="text-lg group-hover:text-primary group-hover:underline transition-colors">{vendor.name}</CardTitle>
-                        <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                      </div>
-                      {vendor.category_name && <p className="text-sm text-muted-foreground">
-                          {vendor.category_name}
-                        </p>}
-                    </div>
-                    <Badge className={statusConfig[vendor.status as keyof typeof statusConfig]?.color || "bg-gray-600"}>
-                      {statusConfig[vendor.status as keyof typeof statusConfig]?.label || vendor.status}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {vendor.contact_name && <div className="flex items-center gap-2 text-sm">
-                      <User className="w-4 h-4 text-muted-foreground" />
-                      <span>{vendor.contact_name}</span>
-                    </div>}
-                  {vendor.email && <div className="flex items-center gap-2 text-sm">
-                      <Mail className="w-4 h-4 text-muted-foreground" />
-                      <span className="truncate">{vendor.email}</span>
-                    </div>}
-                  {vendor.phone && <div className="flex items-center gap-2 text-sm">
-                      <Phone className="w-4 h-4 text-muted-foreground" />
-                      <span>{vendor.phone}</span>
-                    </div>}
-                  
-                  {/* Total Expenses for Vendor */}
-                  {vendor.expenses_total !== undefined && <div className="border-t pt-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground">Totale Spese</span>
-                        {vendorCostsHidden ? (
-                          <LockedCard variant="inline" />
-                        ) : (
-                          <span className={`text-lg font-semibold ${vendor.expenses_total === 0 ? 'text-muted-foreground' : ''}`}>
-                            €{vendor.expenses_total.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
-                          </span>
-                        )}
-                      </div>
-                    </div>}
-                  
-                  {vendor.notes && <p className="text-sm text-muted-foreground border-t pt-3 line-clamp-2">
-                      {vendor.notes}
-                    </p>}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: 999, background: s.dot }}/>
+                  <span style={{ fontSize: 11, color: ink(3), letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 600, fontFamily: FONT_UI }}>{s.label}</span>
+                </div>
+                <div style={{ fontFamily: FONT_SERIF, fontSize: 28, fontWeight: 500, color: ink(), lineHeight: 1, letterSpacing: '-0.4px' }}>
+                  {counts[s.id] || 0}
+                </div>
+                <div style={{ fontSize: 12, color: ink(3), marginTop: 6, lineHeight: 1.4, fontFamily: FONT_UI }}>{s.desc}</div>
+              </button>
+            );
+          })}
+        </div>
 
-                  <div className="flex gap-2 pt-3 border-t" onClick={(e) => e.stopPropagation()}>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedVendor(vendor);
-                        setDialogOpen(true);
-                      }}
-                      className="flex-1"
-                    >
-                      <Edit className="w-4 h-4 mr-1" />
-                      Modifica
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setVendorToDelete(vendor.id);
-                        setDeleteDialogOpen(true);
-                      }}
-                      className="flex-1"
-                    >
-                      <Trash2 className="w-4 h-4 mr-1" />
-                      Elimina
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>;
-      })}
-        </div>}
+        {/* Filters bar */}
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 18, flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 280px', minWidth: 240, maxWidth: 360 }}>
+            <PaperInput
+              iconLeft={<Search size={14}/>}
+              placeholder="Cerca fornitore…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+          <PaperSelect
+            value={catFilter}
+            onChange={setCatFilter}
+            options={[{ value: 'all', label: 'Tutte le categorie' }, ...categories.map(c => ({ value: c.id, label: c.name }))]}
+            style={{ width: 220 }}
+          />
+          {statusFilter !== 'all' && (
+            <PaperButton variant="ghost" size="sm" iconLeft={<X size={12}/>} onClick={() => setStatusFilter('all')}>
+              Stato: {statusById(statusFilter).label}
+            </PaperButton>
+          )}
+          <div style={{ flex: 1 }}/>
+          <span style={{ fontSize: 13, color: ink(3), fontFamily: FONT_UI }}>{filtered.length} risultati</span>
+          <div style={{ display: 'inline-flex', border: `1px solid ${border(true)}`, borderRadius: 8, overflow: 'hidden' }}>
+            <button onClick={() => setView('grid')} style={segBtnStyle(view === 'grid')} title="Griglia">
+              <Grid3x3 size={14}/>
+            </button>
+            <button onClick={() => setView('list')} style={segBtnStyle(view === 'list')} title="Lista">
+              <ListIcon size={14}/>
+            </button>
+          </div>
+        </div>
 
-      {/* Dialogs */}
-      <VendorDialog open={dialogOpen} onOpenChange={open => {
-      setDialogOpen(open);
-      if (!open) setSelectedVendor(null);
-    }} vendor={selectedVendor} categories={categories} onSave={handleSaveVendor} onCreateCategory={handleCreateCategory} onDeleteCategory={handleDeleteCategory} />
+        {/* Grid / List */}
+        {filtered.length === 0 ? (
+          <PaperCard padding={40}>
+            <PaperEmpty
+              title={vendors.length === 0 ? 'Nessun fornitore ancora' : 'Nessun risultato'}
+              desc={vendors.length === 0
+                ? 'Aggiungi il primo fornitore: location, fotografo, catering…'
+                : 'Prova a modificare i filtri o la ricerca.'}
+              cta={vendors.length === 0 && (
+                <PaperButton variant="primary" iconLeft={<Plus size={14}/>} onClick={() => setFormOpen(true)}>
+                  Nuovo fornitore
+                </PaperButton>
+              )}
+            />
+          </PaperCard>
+        ) : view === 'grid' ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 14 }}>
+            {filtered.map(v => (
+              <VendorCard
+                key={v.id}
+                v={v}
+                vendorCostsHidden={vendorCostsHidden}
+                onOpen={() => navigate(`/app/vendors/${v.id}`)}
+                onEdit={() => { setEditingVendor(v); setFormOpen(true); }}
+              />
+            ))}
+          </div>
+        ) : (
+          <VendorTable
+            rows={filtered}
+            vendorCostsHidden={vendorCostsHidden}
+            onOpen={(id) => navigate(`/app/vendors/${id}`)}
+          />
+        )}
+      </div>
 
-      <VendorExpensesDialog open={expensesDialogOpen} onOpenChange={open => {
-      setExpensesDialogOpen(open);
-      if (!open) setSelectedVendor(null);
-    }} vendor={selectedVendor} />
-
-      {weddingData && selectedVendor && <>
-          <ContractUploadDialog open={contractUploadOpen} onOpenChange={setContractUploadOpen} vendorId={selectedVendor.id} weddingId={weddingData.id} weddingDate={weddingData.wedding_date} totalContract={selectedVendor.expenses_total || 0} onAnalysisComplete={(analysis, fileInfo) => {
-        setAnalysisData(analysis);
-        setFileInfoData(fileInfo);
-        setContractUploadOpen(false);
-        setContractReviewOpen(true);
-      }} />
-
-          {analysisData && fileInfoData && <ContractReviewDialog open={contractReviewOpen} onOpenChange={setContractReviewOpen} analysis={analysisData} fileInfo={fileInfoData} vendorId={selectedVendor.id} weddingId={weddingData.id} onSaveComplete={() => {
-        setContractReviewOpen(false);
-        setAnalysisData(null);
-        setFileInfoData(null);
-        if (weddingData) {
-          loadVendors(weddingData.id);
-        }
-        toast({
-          title: "Contratto salvato",
-          description: "Anagrafica e contratto aggiornati con successo."
-        });
-      }} />}
-
-          <ContractViewDialog open={contractViewOpen} onOpenChange={setContractViewOpen} vendor={selectedVendor} />
-
-          {selectedDocument && <DocumentViewerDialog open={documentViewerOpen} onOpenChange={setDocumentViewerOpen} filePath={selectedDocument.path} fileName={selectedDocument.name} />}
-
-          <VendorDocumentsDialog open={documentsDialogOpen} onOpenChange={setDocumentsDialogOpen} vendorName={selectedVendor?.name || ""} documents={vendorDocuments} analyzedContract={selectedVendor?.vendor_contracts?.[0]} onViewDocument={doc => {
-        setSelectedDocument(doc);
-        setDocumentViewerOpen(true);
-      }} onViewAnalysis={() => {
-        setContractViewOpen(true);
-      }} onAnalyzeDocument={doc => {
-        // For now, just open the contract upload dialog
-        // In future, we could pre-select the document
-        setContractUploadOpen(true);
-        setDocumentsDialogOpen(false);
-      }} onDeleteDocument={handleDeleteDocument} />
-        </>}
-
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Conferma Eliminazione</AlertDialogTitle>
-            <AlertDialogDescription>
-              Sei sicuro di voler eliminare questo fornitore? Questa azione non
-              può essere annullata.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Annulla</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteVendor}>
-              Elimina
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>;
+      <VendorFormModal
+        open={formOpen}
+        onClose={() => { setFormOpen(false); setEditingVendor(null); }}
+        vendor={editingVendor}
+        categories={categories}
+        onSave={handleSaveVendor}
+      />
+    </div>
+  );
 };
+
+const segBtnStyle = (active: boolean): React.CSSProperties => ({
+  height: 36, width: 38, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+  background: active ? brand('tint') : surface(),
+  color: active ? brand('ink') : ink(2),
+  border: 'none', cursor: 'pointer', borderRight: `1px solid ${border()}`,
+});
+
+// ─── Vendor Card ───
+const VendorCard: React.FC<{
+  v: VendorRow;
+  vendorCostsHidden: boolean;
+  onOpen: () => void;
+  onEdit: () => void;
+}> = ({ v, vendorCostsHidden, onOpen }) => {
+  const st = statusById(v.status);
+  const totals = vendorTotals(v.expense_items || [], v.lineItemsByExpenseItem || {}, v.payments || []);
+  const next = nextPayment(v.payments || []);
+
+  return (
+    <div
+      onClick={onOpen}
+      style={{
+        background: surface(), border: `1px solid ${border()}`,
+        borderRadius: 12, padding: 18, cursor: 'pointer',
+        transition: 'all .15s', boxShadow: '0 1px 2px rgba(43,37,32,.04)',
+        display: 'flex', flexDirection: 'column', gap: 14,
+      }}
+      onMouseEnter={e => { e.currentTarget.style.borderColor = border(true); e.currentTarget.style.boxShadow = '0 2px 4px rgba(43,37,32,.06), 0 8px 16px -8px rgba(43,37,32,.10)'; }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = border(); e.currentTarget.style.boxShadow = '0 1px 2px rgba(43,37,32,.04)'; }}
+    >
+      {/* Top row */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+        {v.category?.name ? (
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 6, height: 6, borderRadius: 2, background: st.dot }}/>
+            <span style={{ fontSize: 11, color: ink(3), letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 500, fontFamily: FONT_UI }}>
+              {v.category.name}
+            </span>
+          </div>
+        ) : <span/>}
+        <PaperBadge tone={st.tone === 'info' ? 'brand' : st.tone === 'warn' ? 'warn' : st.tone === 'success' ? 'success' : 'neutral'} size="sm">
+          <span style={{ width: 6, height: 6, borderRadius: 999, background: st.dot, display: 'inline-block' }}/>
+          {st.label}
+        </PaperBadge>
+      </div>
+
+      {/* Name */}
+      <div>
+        <h3 style={{
+          margin: 0, fontFamily: FONT_SERIF, fontWeight: 500, fontSize: 19,
+          color: ink(), letterSpacing: '-0.2px', lineHeight: 1.25,
+        }}>
+          {v.name}
+        </h3>
+        {v.contact_name && (
+          <div style={{ fontSize: 12, color: ink(3), marginTop: 4, fontFamily: FONT_UI }}>
+            {v.contact_name}
+          </div>
+        )}
+      </div>
+
+      {/* Money progress */}
+      {vendorCostsHidden ? (
+        <LockedCard variant="inline"/>
+      ) : totals.committed > 0 ? (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+            <span style={{ fontFamily: FONT_SERIF, fontSize: 20, fontWeight: 500, color: ink(), letterSpacing: '-0.2px' }}>
+              {fmtEUR(totals.committed)}
+              {totals.hasVariable && <span style={{ fontSize: 11, color: ink(3), marginLeft: 6, fontFamily: FONT_MONO }}>previsti</span>}
+            </span>
+            <span style={{ fontSize: 12, color: totals.paid >= totals.committed ? success() : ink(2), fontFamily: FONT_MONO }}>
+              {fmtEUR(totals.paid)} / {fmtEUR(totals.committed)}
+            </span>
+          </div>
+          <PaperProgress value={totals.pct} tone={totals.paid >= totals.committed ? 'success' : 'brand'}/>
+        </div>
+      ) : (
+        <div style={{ padding: '10px 12px', background: surface('muted'), borderRadius: 8, fontSize: 12, color: ink(3), textAlign: 'center', fontFamily: FONT_UI }}>
+          Nessuna spesa registrata
+        </div>
+      )}
+
+      {/* Footer: next payment */}
+      <div style={{ paddingTop: 10, borderTop: `1px solid ${border()}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+        {next && !vendorCostsHidden ? (
+          <>
+            <div style={{ fontSize: 12, color: ink(2), display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, fontFamily: FONT_UI }}>
+              <Calendar size={13} style={{ color: ink(3), flexShrink: 0 }}/>
+              <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {next.description} · <span style={{ fontFamily: FONT_MONO }}>{fmtDateShort(next.due_date)}</span>
+              </span>
+            </div>
+            <span style={{
+              fontFamily: FONT_MONO, fontSize: 12,
+              color: daysFromToday(next.due_date) <= 7 ? warn() : ink(2),
+              fontWeight: 500, flexShrink: 0,
+            }}>
+              {fmtEUR(Number(next.amount))}
+            </span>
+          </>
+        ) : (
+          <div style={{ fontSize: 12, color: ink(3), fontFamily: FONT_UI }}>
+            {normalizeStatus(v.status) === 'confirmed' && totals.committed > 0
+              ? 'Tutto pagato'
+              : normalizeStatus(v.status) === 'evaluating'
+                ? 'In attesa di preventivo'
+                : 'Apri scheda'}
+          </div>
+        )}
+        <ChevronRight size={14} style={{ color: ink(3), flexShrink: 0 }}/>
+      </div>
+    </div>
+  );
+};
+
+// ─── Table view ───
+const VendorTable: React.FC<{
+  rows: VendorRow[];
+  vendorCostsHidden: boolean;
+  onOpen: (id: string) => void;
+}> = ({ rows, vendorCostsHidden, onOpen }) => (
+  <PaperCard padding={0} style={{ overflow: 'hidden' }}>
+    <div style={{
+      display: 'grid', gridTemplateColumns: '1.6fr 1fr 1.2fr 1fr 40px',
+      padding: '10px 18px', background: surface('muted'), borderBottom: `1px solid ${border()}`,
+      fontSize: 11, color: ink(3), letterSpacing: '0.08em', textTransform: 'uppercase',
+      fontWeight: 600, fontFamily: FONT_UI,
+    }}>
+      <div>Fornitore</div>
+      <div>Categoria</div>
+      <div>Importo</div>
+      <div>Prossima scadenza</div>
+      <div/>
+    </div>
+    {rows.map((v, i) => {
+      const st = statusById(v.status);
+      const totals = vendorTotals(v.expense_items || [], v.lineItemsByExpenseItem || {}, v.payments || []);
+      const next = nextPayment(v.payments || []);
+      return (
+        <div
+          key={v.id}
+          onClick={() => onOpen(v.id)}
+          style={{
+            display: 'grid', gridTemplateColumns: '1.6fr 1fr 1.2fr 1fr 40px',
+            padding: '14px 18px', alignItems: 'center', gap: 16,
+            borderBottom: i < rows.length - 1 ? `1px solid ${border()}` : 'none',
+            cursor: 'pointer', transition: 'background .15s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = surface('muted'); }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+        >
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 500, color: ink(), fontFamily: FONT_UI }}>{v.name}</div>
+            <div style={{ fontSize: 12, color: ink(3), marginTop: 2, fontFamily: FONT_UI }}>{v.contact_name || '—'}</div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: ink(2), fontFamily: FONT_UI }}>
+            <span style={{ width: 6, height: 6, borderRadius: 2, background: st.dot }}/>
+            {v.category?.name || '—'}
+          </div>
+          <div>
+            {vendorCostsHidden ? <LockedCard variant="inline"/> : totals.committed > 0 ? (
+              <>
+                <div style={{ fontFamily: FONT_MONO, fontSize: 13, color: ink() }}>
+                  {fmtEUR(totals.paid)} / {fmtEUR(totals.committed)}
+                </div>
+                <PaperProgress value={totals.pct} tone={totals.paid >= totals.committed ? 'success' : 'brand'} height={4} style={{ marginTop: 4 }}/>
+              </>
+            ) : <span style={{ fontSize: 13, color: ink(3) }}>—</span>}
+          </div>
+          <div>
+            {next && !vendorCostsHidden ? (
+              <>
+                <div style={{ fontFamily: FONT_MONO, fontSize: 13, color: daysFromToday(next.due_date) <= 7 ? warn() : ink() }}>
+                  {fmtEUR(Number(next.amount))}
+                </div>
+                <div style={{ fontSize: 11, color: ink(3), marginTop: 2, fontFamily: FONT_UI }}>{fmtDateShort(next.due_date)}</div>
+              </>
+            ) : (
+              <PaperBadge
+                tone={st.tone === 'info' ? 'brand' : st.tone === 'warn' ? 'warn' : st.tone === 'success' ? 'success' : 'neutral'}
+                size="sm"
+              >
+                {st.label}
+              </PaperBadge>
+            )}
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <ChevronRight size={14} style={{ color: ink(3) }}/>
+          </div>
+        </div>
+      );
+    })}
+  </PaperCard>
+);
+
 export default Vendors;

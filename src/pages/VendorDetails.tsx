@@ -1,388 +1,641 @@
-import { useState } from "react";
-import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft, Phone, Mail, Building2, CreditCard, FileText, Pencil, CalendarCheck, ListTodo } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { VendorExpensesWidget } from "@/components/vendors/widgets/VendorExpensesWidget";
-import { VendorDocumentsWidget } from "@/components/vendors/widgets/VendorDocumentsWidget";
-import { VendorChecklistWidget } from "@/components/vendors/widgets/VendorChecklistWidget";
-import { VendorAppointmentsWidget } from "@/components/vendors/widgets/VendorAppointmentsWidget";
-import { VendorDialog } from "@/components/vendors/VendorDialog";
-import { VendorTaskDialog } from "@/components/vendors/VendorTaskDialog";
-import { useToast } from "@/hooks/use-toast";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { LockedCard } from "@/components/ui/locked-card";
+// New "Paper" Vendor Details page — 2-column layout (sticky profile + sections).
+// Reuses existing widgets for documents/appointments/checklist (they already work).
+// Spese & Pagamenti is rewritten with the new Paper look + ExpenseWizard.
+import * as React from 'react';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  ChevronLeft, Plus, Pencil, Phone, Mail, Home, Calendar as CalIcon,
+  FileText, ListChecks, StickyNote, Receipt, CheckCircle2, Info, Upload, Check,
+} from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+import {
+  PaperButton, PaperProgress, PaperEmpty, PaperSectionHeader, ContactLine, PaperAvatar,
+  ink, surface, border, brand, success, warn, FONT_SERIF, FONT_UI, FONT_MONO,
+} from '@/components/vendors/v2/PaperUI';
+import { PaperBadge, PaperCard } from '@/components/budget/v2/paperPrimitives';
+import { VendorFormModal, VendorFormValues } from '@/components/vendors/v2/VendorFormModal';
+import { ExpenseWizard, ExpenseWizardValues } from '@/components/vendors/v2/ExpenseWizard';
+import { VendorDocumentsWidget } from '@/components/vendors/widgets/VendorDocumentsWidget';
+import { VendorChecklistWidget } from '@/components/vendors/widgets/VendorChecklistWidget';
+import { VendorAppointmentsWidget } from '@/components/vendors/widgets/VendorAppointmentsWidget';
+import { VendorTaskDialog } from '@/components/vendors/VendorTaskDialog';
+import {
+  statusById, normalizeStatus, fmtEUR, fmtDate, fmtDateShort, daysFromToday,
+  vendorTotals, isPaymentPaid, expenseItemTotal, EXPENSE_KINDS,
+  DbExpenseItem, DbLineItem, DbPayment,
+} from '@/lib/vendorAggregates';
 
-const statusConfig = {
-  evaluating: { label: "In Valutazione", bg: "bg-yellow-100 text-yellow-800 border-yellow-200" },
-  contacted: { label: "Contattato", bg: "bg-blue-100 text-blue-800 border-blue-200" },
-  quotation_received: { label: "Preventivo Ricevuto", bg: "bg-purple-100 text-purple-800 border-purple-200" },
-  confirmed: { label: "Confermato", bg: "bg-green-100 text-green-800 border-green-200" },
-  rejected: { label: "Scartato", bg: "bg-red-100 text-red-800 border-red-200" },
-};
+type ActiveSection = 'spese' | 'documenti' | 'appuntamenti' | 'note';
 
 export default function VendorDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const initialTab = searchParams.get('tab') || 'expenses';
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [taskDialogOpen, setTaskDialogOpen] = useState(false);
-  const [taskDialogType, setTaskDialogType] = useState<"task" | "appointment">("task");
-  const queryClient = useQueryClient();
   const { toast } = useToast();
-  const isMobile = useIsMobile();
-  const { isPlanner, isCollaborator, authState } = useAuth();
+  const queryClient = useQueryClient();
+  const { isCollaborator, authState } = useAuth();
   const vendorCostsHidden = isCollaborator && authState.status === 'authenticated' && !authState.activePermissions?.vendor_costs?.view;
 
-  // Fetch vendor details
-  const { data: vendor, isLoading } = useQuery({
-    queryKey: ["vendor-details", id],
+  const [editOpen, setEditOpen] = React.useState(false);
+  const [wizardOpen, setWizardOpen] = React.useState(false);
+  const [taskOpen, setTaskOpen] = React.useState(false);
+  const [taskType, setTaskType] = React.useState<'task' | 'appointment'>('task');
+  const [activeSection, setActiveSection] = React.useState<ActiveSection>(
+    (searchParams.get('tab') as ActiveSection) || 'spese',
+  );
+
+  // Vendor + relations
+  const { data, isLoading } = useQuery({
+    queryKey: ['vendor-detail-v2', id],
+    enabled: !!id,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("vendors")
-        .select("*, expense_categories(name)")
-        .eq("id", id)
+      const { data: vendor, error } = await supabase
+        .from('vendors')
+        .select('*, expense_categories(name)')
+        .eq('id', id!)
         .single();
-      
       if (error) throw error;
-      return data;
+
+      const { data: items } = await supabase
+        .from('expense_items')
+        .select('*')
+        .eq('vendor_id', id!)
+        .order('created_at', { ascending: true });
+
+      const itemIds = (items || []).map(i => i.id);
+      const { data: lineItems } = itemIds.length
+        ? await supabase.from('expense_line_items').select('*').in('expense_item_id', itemIds)
+        : { data: [] as DbLineItem[] };
+
+      const { data: payments } = itemIds.length
+        ? await supabase
+            .from('payments')
+            .select('id, expense_item_id, description, amount, status, due_date, paid_on_date')
+            .in('expense_item_id', itemIds)
+            .order('due_date', { ascending: true })
+        : { data: [] as DbPayment[] };
+
+      const lineItemsByExpenseItem: Record<string, DbLineItem[]> = {};
+      (lineItems || []).forEach((li: any) => { (lineItemsByExpenseItem[li.expense_item_id] ||= []).push(li); });
+
+      // Wedding date for wizard
+      const { data: wedding } = await supabase
+        .from('weddings')
+        .select('id, wedding_date, target_adults, target_children, calculation_mode')
+        .eq('id', vendor.wedding_id)
+        .single();
+
+      // Confirmed guest count
+      const { data: confirmedGuests } = await supabase
+        .from('guests')
+        .select('id, is_child, is_staff, party_id, invite_parties!inner(rsvp_status)')
+        .eq('wedding_id', vendor.wedding_id)
+        .eq('invite_parties.rsvp_status', 'Confermato');
+      const confirmedCount = (confirmedGuests || []).filter((g: any) => !g.is_child && !g.is_staff).length;
+
+      const plannedCount = (wedding?.target_adults || 100) + (wedding?.target_children || 0);
+
+      return {
+        vendor,
+        items: (items || []) as DbExpenseItem[],
+        payments: (payments || []) as DbPayment[],
+        lineItemsByExpenseItem,
+        wedding,
+        guestsPlanned: plannedCount,
+        guestsConfirmed: confirmedCount,
+      };
     },
   });
 
-  // Fetch categories for the dialog
+  // Categories for edit modal
   const { data: categories = [] } = useQuery({
-    queryKey: ["expense-categories-for-vendor", vendor?.wedding_id],
+    queryKey: ['expense-categories-v2', data?.vendor?.wedding_id],
+    enabled: !!data?.vendor?.wedding_id,
     queryFn: async () => {
-      if (!vendor?.wedding_id) return [];
-      const { data, error } = await supabase
-        .from("expense_categories")
-        .select("id, name")
-        .eq("wedding_id", vendor.wedding_id)
-        .order("name");
-      if (error) throw error;
-      return data || [];
+      const { data: cats } = await supabase
+        .from('expense_categories')
+        .select('id, name')
+        .eq('wedding_id', data!.vendor.wedding_id)
+        .order('name');
+      return cats || [];
     },
-    enabled: !!vendor?.wedding_id,
   });
 
-  const handleSaveVendor = async (vendorData: any) => {
-    if (!vendor?.id) return;
-    
+  // Save edits
+  const handleSaveVendor = async (values: VendorFormValues) => {
+    if (!data?.vendor?.id) return;
     const { error } = await supabase
-      .from("vendors")
-      .update(vendorData)
-      .eq("id", vendor.id);
+      .from('vendors')
+      .update({
+        name: values.name.trim(),
+        category_id: values.category_id,
+        status: values.status,
+        contact_name: values.contact_name || null,
+        phone: values.phone || null,
+        email: values.email || null,
+        indirizzo_sede_legale: values.address || null,
+        notes: values.notes || null,
+      })
+      .eq('id', data.vendor.id);
+    if (error) { toast({ title: 'Errore', description: error.message, variant: 'destructive' }); return; }
+    toast({ title: 'Salvato', description: 'Profilo fornitore aggiornato' });
+    queryClient.invalidateQueries({ queryKey: ['vendor-detail-v2'] });
+  };
 
-    if (error) {
-      toast({
-        title: "Errore",
-        description: "Impossibile salvare le modifiche",
-        variant: "destructive",
-      });
-      throw error;
+  // Save expense from wizard → creates expense_items + payments
+  const handleSaveExpense = async (values: ExpenseWizardValues) => {
+    if (!data?.vendor?.id || !data?.vendor?.wedding_id) return;
+    const expensePayload: any = {
+      wedding_id: data.vendor.wedding_id,
+      vendor_id: data.vendor.id,
+      category_id: data.vendor.category_id || null,
+      description: values.description,
+      expense_type: values.kind === 'fixed' ? 'fixed' : 'variable',
+      amount_is_tax_inclusive: true,
+    };
+    if (values.kind === 'fixed') {
+      expensePayload.fixed_amount = values.total;
+      expensePayload.total_amount = values.total;
+    } else if (values.kind === 'per_person') {
+      expensePayload.estimated_amount = values.unit;
+      expensePayload.total_amount = values.computedTotal;
+      expensePayload.planned_adults = data.guestsPlanned;
+    } else { // per_unit
+      expensePayload.estimated_amount = values.unit;
+      expensePayload.total_amount = values.computedTotal;
     }
 
-    toast({
-      title: "Salvato",
-      description: "Profilo fornitore aggiornato",
-    });
+    const { data: insertedItem, error: itemErr } = await supabase
+      .from('expense_items')
+      .insert([expensePayload])
+      .select()
+      .single();
+    if (itemErr || !insertedItem) {
+      toast({ title: 'Errore', description: itemErr?.message || 'Salvataggio non riuscito', variant: 'destructive' });
+      return;
+    }
 
-    queryClient.invalidateQueries({ queryKey: ["vendor-details", id] });
-    setEditDialogOpen(false);
+    if (values.hasPayments && values.payments.length > 0) {
+      const paymentRows = values.payments.map(p => ({
+        expense_item_id: insertedItem.id,
+        description: p.description,
+        amount: p.amount,
+        due_date: p.due_date,
+        status: 'Da Pagare',
+      }));
+      const { error: payErr } = await supabase.from('payments').insert(paymentRows);
+      if (payErr) {
+        toast({ title: 'Spesa salvata, ma rate non create', description: payErr.message, variant: 'destructive' });
+      } else {
+        toast({ title: 'Spesa creata', description: `${values.payments.length} rate generate.` });
+      }
+    } else {
+      toast({ title: 'Spesa creata' });
+    }
+
+    queryClient.invalidateQueries({ queryKey: ['vendor-detail-v2'] });
   };
 
-  const handleCreateCategory = async (name: string) => {
-    if (!vendor?.wedding_id) return;
+  const markPaymentPaid = async (paymentId: string, paid: boolean) => {
     const { error } = await supabase
-      .from("expense_categories")
-      .insert({ name, wedding_id: vendor.wedding_id });
-    if (error) throw error;
-    queryClient.invalidateQueries({ queryKey: ["expense-categories-for-vendor"] });
-  };
-
-  const handleDeleteCategory = async (categoryId: string) => {
-    const { error } = await supabase
-      .from("expense_categories")
-      .delete()
-      .eq("id", categoryId);
-    if (error) throw error;
-    queryClient.invalidateQueries({ queryKey: ["expense-categories-for-vendor"] });
+      .from('payments')
+      .update({
+        status: paid ? 'Pagato' : 'Da Pagare',
+        paid_on_date: paid ? new Date().toISOString().slice(0, 10) : null,
+      })
+      .eq('id', paymentId);
+    if (error) { toast({ title: 'Errore', description: error.message, variant: 'destructive' }); return; }
+    queryClient.invalidateQueries({ queryKey: ['vendor-detail-v2'] });
   };
 
   if (isLoading) {
     return (
-      <div className="container mx-auto py-8 space-y-6">
-        <div className="h-32 bg-muted animate-pulse rounded-xl" />
-        <div className="h-96 bg-muted animate-pulse rounded-xl" />
+      <div style={{ background: surface('muted'), minHeight: '100%', padding: 40 }}>
+        <div style={{ maxWidth: 1320, margin: '0 auto', display: 'grid', gridTemplateColumns: '320px 1fr', gap: 32 }}>
+          <div style={{ height: 360, background: surface(), borderRadius: 12 }}/>
+          <div style={{ height: 480, background: surface(), borderRadius: 12 }}/>
+        </div>
       </div>
     );
   }
 
-  if (!vendor) {
+  if (!data?.vendor) {
     return (
-      <div className="container mx-auto py-16 text-center space-y-4">
-        <h1 className="text-2xl font-bold text-muted-foreground">Fornitore non trovato</h1>
-        <Button onClick={() => navigate("/app/vendors")} variant="outline">
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Torna ai Fornitori
-        </Button>
+      <div style={{ padding: 60, textAlign: 'center' }}>
+        <h1 style={{ fontFamily: FONT_SERIF, fontSize: 22, color: ink(2) }}>Fornitore non trovato</h1>
+        <PaperButton onClick={() => navigate('/app/vendors')} iconLeft={<ChevronLeft size={14}/>}>
+          Torna ai fornitori
+        </PaperButton>
       </div>
     );
   }
 
-  const status = vendor.status as keyof typeof statusConfig || "evaluating";
-  const statusInfo = statusConfig[status];
+  const v = data.vendor;
+  const st = statusById(v.status);
+  const totals = vendorTotals(data.items, data.lineItemsByExpenseItem, data.payments);
+
+  const sections: { id: ActiveSection; label: string; icon: React.ReactNode; count: number }[] = [
+    { id: 'spese',        label: 'Spese & Pagamenti', icon: <Receipt size={14}/>,     count: data.items.length },
+    { id: 'documenti',    label: 'Documenti',          icon: <FileText size={14}/>,    count: 0 },
+    { id: 'appuntamenti', label: 'Appuntamenti',       icon: <CalIcon size={14}/>,     count: 0 },
+    { id: 'note',         label: 'Note',               icon: <StickyNote size={14}/>,  count: v.notes ? 1 : 0 },
+  ];
+
+  const scrollTo = (s: ActiveSection) => {
+    setActiveSection(s);
+    const el = document.getElementById(`sec-${s}`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   return (
-    <div className="container mx-auto py-6 space-y-6 animate-in fade-in duration-500">
-      {/* Back Navigation */}
-      <Button
-        variant="ghost"
-        className="gap-2 pl-0 hover:bg-transparent text-muted-foreground hover:text-foreground"
-        onClick={() => navigate("/app/vendors")}
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Torna ai Fornitori
-      </Button>
+    <div style={{ background: surface('muted'), minHeight: '100%', padding: '8px 0 60px' }}>
+      <div style={{ maxWidth: 1320, margin: '0 auto', padding: '20px 24px' }}>
 
-      {/* Hero Card */}
-      <div className="bg-card rounded-xl shadow-sm border p-4 md:p-6 space-y-4 md:space-y-6">
-        <div className="flex flex-row gap-3 md:gap-6 items-start">
-          <Avatar className="w-14 h-14 md:w-24 md:h-24 border-4 border-primary/10 shrink-0">
-            <AvatarFallback className="bg-primary/10 text-primary text-lg md:text-2xl font-bold">
-              {vendor.name.substring(0, 2).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
+        {/* Back */}
+        <button
+          onClick={() => navigate('/app/vendors')}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13,
+            color: ink(2), background: 'transparent', border: 'none',
+            cursor: 'pointer', padding: '6px 0', marginBottom: 12, fontFamily: FONT_UI,
+          }}
+        >
+          <ChevronLeft size={14}/> Torna ai fornitori
+        </button>
 
-          <div className="flex-1 min-w-0 space-y-3 md:space-y-4">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <h1 className="text-xl md:text-3xl font-bold text-foreground truncate">{vendor.name}</h1>
-                <div className="flex flex-wrap gap-1.5 md:gap-2 mt-1.5 md:mt-2">
-                  {vendor.expense_categories?.name && (
-                    <Badge variant="secondary" className="bg-primary/10 text-primary text-xs">
-                      {vendor.expense_categories.name}
-                    </Badge>
-                  )}
-                  <Badge className={`border text-xs ${statusInfo.bg}`}>
-                    {statusInfo.label}
-                  </Badge>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(280px, 320px) 1fr',
+          gap: 32,
+        }}>
+
+          {/* === Left: profile === */}
+          <div style={{ position: 'sticky', top: 16, alignSelf: 'start', display: 'grid', gap: 14 }}>
+            <PaperCard padding={20}>
+              {v.expense_categories?.name && (
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: 2, background: st.dot }}/>
+                  <span style={{ fontSize: 11, color: ink(3), letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: FONT_UI }}>
+                    {v.expense_categories.name}
+                  </span>
                 </div>
+              )}
+              <h1 style={{
+                margin: 0, fontFamily: FONT_SERIF, fontWeight: 500, fontSize: 24,
+                color: ink(), letterSpacing: '-0.3px', lineHeight: 1.2,
+              }}>{v.name}</h1>
+              <div style={{ marginTop: 12 }}>
+                <PaperBadge
+                  tone={st.tone === 'info' ? 'brand' : st.tone === 'warn' ? 'warn' : st.tone === 'success' ? 'success' : 'neutral'}
+                  size="md"
+                >
+                  <span style={{ width: 7, height: 7, borderRadius: 999, background: st.dot, display: 'inline-block' }}/>
+                  {st.label}
+                </PaperBadge>
               </div>
-              {isMobile ? (
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="shrink-0 h-8 w-8"
-                  onClick={() => setEditDialogOpen(true)}
-                >
-                  <Pencil className="w-3.5 h-3.5" />
-                </Button>
-              ) : (
-                <Button
-                  variant="outline"
-                  onClick={() => setEditDialogOpen(true)}
-                >
-                  <Pencil className="w-4 h-4 mr-2" />
-                  Modifica Profilo
-                </Button>
-              )}
-            </div>
 
-            {/* Contact Information */}
-            <div className="flex flex-wrap gap-x-4 md:gap-x-6 gap-y-1.5 md:gap-y-2 text-sm text-muted-foreground">
-              {vendor.contact_name && (
-                <div className="flex items-center gap-1.5">
-                  <Building2 className="w-4 h-4 shrink-0" />
-                  {isMobile ? null : <span>{vendor.contact_name}</span>}
-                  {isMobile && <span className="truncate">{vendor.contact_name}</span>}
-                </div>
-              )}
-              {vendor.phone && (
-                <a
-                  href={`tel:${vendor.phone}`}
-                  className="flex items-center gap-1.5 hover:text-primary transition-colors"
-                >
-                  <Phone className="w-4 h-4 shrink-0" />
-                  {!isMobile && vendor.phone}
-                </a>
-              )}
-              {vendor.email && (
-                <a
-                  href={`mailto:${vendor.email}`}
-                  className="flex items-center gap-1.5 hover:text-primary transition-colors"
-                >
-                  <Mail className="w-4 h-4 shrink-0" />
-                  {!isMobile && vendor.email}
-                </a>
-              )}
-            </div>
-
-            {/* Financial Details - hidden on mobile */}
-            {!isMobile && (vendor.ragione_sociale || vendor.partita_iva_cf || vendor.iban) && (
-              <>
-                <Separator />
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                  {vendor.ragione_sociale && (
-                    <div>
-                      <p className="text-muted-foreground text-xs font-medium mb-1">Ragione Sociale</p>
-                      <p className="font-medium">{vendor.ragione_sociale}</p>
-                    </div>
-                  )}
-                  {vendor.partita_iva_cf && (
-                    <div>
-                      <p className="text-muted-foreground text-xs font-medium mb-1">P.IVA / C.F.</p>
-                      <p className="font-medium font-mono">{vendor.partita_iva_cf}</p>
-                    </div>
-                  )}
-                  {vendor.indirizzo_sede_legale && (
-                    <div>
-                      <p className="text-muted-foreground text-xs font-medium mb-1">Sede Legale</p>
-                      <p className="font-medium">{vendor.indirizzo_sede_legale}</p>
-                    </div>
-                  )}
-                  {vendor.iban && (
-                    <div>
-                      <p className="text-muted-foreground text-xs font-medium mb-1">IBAN</p>
-                      <p className="font-medium font-mono">{vendor.iban}</p>
-                    </div>
-                  )}
-                  {vendor.intestatario_conto && (
-                    <div>
-                      <p className="text-muted-foreground text-xs font-medium mb-1">Intestatario Conto</p>
-                      <p className="font-medium">{vendor.intestatario_conto}</p>
+              {/* Money summary */}
+              {!vendorCostsHidden && (
+                <div style={{ marginTop: 18, paddingTop: 18, borderTop: `1px solid ${border()}`, display: 'grid', gap: 10 }}>
+                  <Row label="Impegno totale" value={fmtEUR(totals.committed)} valueStyle={{ fontFamily: FONT_SERIF, fontSize: 18, fontWeight: 500, letterSpacing: '-0.2px' }}/>
+                  <Row label="Pagato"          value={fmtEUR(totals.paid)} valueColor={success()}/>
+                  <Row label="Residuo"         value={fmtEUR(totals.remaining)} valueColor={totals.remaining > 0 ? warn() : ink(3)}/>
+                  <PaperProgress value={totals.pct} tone={totals.pct >= 100 ? 'success' : 'brand'} showPct style={{ marginTop: 4 }}/>
+                  {totals.hasVariable && (
+                    <div style={{
+                      marginTop: 6, padding: '8px 10px',
+                      background: 'hsl(220 89% 95%)', border: '1px solid hsl(220 50% 88%)',
+                      borderRadius: 8, fontSize: 11, color: 'hsl(220 73% 41%)', lineHeight: 1.45,
+                      display: 'flex', gap: 6, fontFamily: FONT_UI,
+                    }}>
+                      <Info size={12} style={{ flexShrink: 0, marginTop: 2 }}/>
+                      <span>L'importo varia col numero di invitati confermati ({data.guestsConfirmed} su {data.guestsPlanned}).</span>
                     </div>
                   )}
                 </div>
-              </>
+              )}
+
+              {/* Contact */}
+              {(v.contact_name || v.phone || v.email || v.indirizzo_sede_legale) && (
+                <div style={{ marginTop: 18, paddingTop: 18, borderTop: `1px solid ${border()}` }}>
+                  <div style={{
+                    fontSize: 11, color: ink(3), letterSpacing: '0.1em',
+                    textTransform: 'uppercase', marginBottom: 10, fontWeight: 600, fontFamily: FONT_UI,
+                  }}>Referente</div>
+                  {v.contact_name && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                      <PaperAvatar name={v.contact_name} size={36}/>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: ink(), fontFamily: FONT_UI }}>{v.contact_name}</div>
+                      </div>
+                    </div>
+                  )}
+                  <div style={{ display: 'grid', gap: 6 }}>
+                    {v.phone                    && <ContactLine icon={<Phone size={13}/>} text={v.phone} href={`tel:${v.phone}`}/>}
+                    {v.email                    && <ContactLine icon={<Mail size={13}/>}  text={v.email} href={`mailto:${v.email}`}/>}
+                    {v.indirizzo_sede_legale    && <ContactLine icon={<Home size={13}/>}  text={v.indirizzo_sede_legale}/>}
+                  </div>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div style={{ marginTop: 18, paddingTop: 18, borderTop: `1px solid ${border()}`, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {!vendorCostsHidden && (
+                  <PaperButton variant="primary" iconLeft={<Plus size={14}/>} onClick={() => setWizardOpen(true)}>
+                    Nuova spesa
+                  </PaperButton>
+                )}
+                <PaperButton variant="secondary" iconLeft={<Pencil size={14}/>} onClick={() => setEditOpen(true)}>
+                  Modifica fornitore
+                </PaperButton>
+              </div>
+            </PaperCard>
+
+            {/* Section nav */}
+            <div style={{ display: 'grid', gap: 2 }}>
+              {sections.map(s => (
+                <button
+                  key={s.id}
+                  onClick={() => scrollTo(s.id)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
+                    background: activeSection === s.id ? brand('tint') : 'transparent',
+                    border: 'none', borderRadius: 8, cursor: 'pointer', textAlign: 'left',
+                    color: activeSection === s.id ? brand('ink') : ink(2),
+                    fontWeight: activeSection === s.id ? 500 : 400, fontSize: 13,
+                    transition: 'all .15s', fontFamily: FONT_UI,
+                  }}
+                >
+                  {s.icon}
+                  <span style={{ flex: 1 }}>{s.label}</span>
+                  {s.count > 0 && (
+                    <span style={{
+                      fontFamily: FONT_MONO, fontSize: 11, color: ink(3),
+                      background: surface(), border: `1px solid ${border()}`,
+                      borderRadius: 4, padding: '1px 6px',
+                    }}>{s.count}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* === Right: sections === */}
+          <div style={{ display: 'grid', gap: 28, minWidth: 0 }}>
+
+            {/* Spese & Pagamenti */}
+            {!vendorCostsHidden && (
+              <section id="sec-spese">
+                <PaperSectionHeader
+                  title="Spese & Pagamenti"
+                  action={
+                    <PaperButton variant="secondary" size="sm" iconLeft={<Plus size={14}/>} onClick={() => setWizardOpen(true)}>
+                      Nuova spesa
+                    </PaperButton>
+                  }
+                />
+
+                {data.items.length === 0 ? (
+                  <PaperEmpty
+                    title="Nessuna spesa ancora"
+                    desc="Aggiungi la prima voce quando ricevi il preventivo o firmi il contratto."
+                    cta={
+                      <PaperButton variant="primary" size="sm" iconLeft={<Plus size={14}/>} onClick={() => setWizardOpen(true)}>
+                        Aggiungi spesa
+                      </PaperButton>
+                    }
+                  />
+                ) : (
+                  <ExpensesList
+                    items={data.items}
+                    lineItemsByExpenseItem={data.lineItemsByExpenseItem}
+                    payments={data.payments}
+                  />
+                )}
+
+                {/* Payment timeline */}
+                <div style={{ marginTop: 24 }}>
+                  <SectionSubhead>Piano pagamenti</SectionSubhead>
+                  {data.payments.length === 0 ? (
+                    <div style={{
+                      padding: '14px 16px', background: surface(),
+                      border: `1px dashed ${border(true)}`, borderRadius: 10,
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      fontFamily: FONT_UI,
+                    }}>
+                      <div style={{ fontSize: 13, color: ink(2) }}>Nessun piano pagamenti definito</div>
+                      <PaperButton variant="secondary" size="sm" iconLeft={<Plus size={14}/>} onClick={() => setWizardOpen(true)}>
+                        Aggiungi rata
+                      </PaperButton>
+                    </div>
+                  ) : (
+                    <PaymentTimeline payments={data.payments} onTogglePaid={markPaymentPaid}/>
+                  )}
+                </div>
+              </section>
             )}
 
-            {/* Notes - hidden on mobile */}
-            {!isMobile && vendor.notes && (
-              <>
-                <Separator />
-                <div>
-                  <p className="text-muted-foreground text-xs font-medium mb-2">Note</p>
-                  <p className="text-sm whitespace-pre-wrap">{vendor.notes}</p>
-                </div>
-              </>
-            )}
+            {/* Documenti */}
+            <section id="sec-documenti">
+              <PaperSectionHeader title="Documenti"/>
+              <VendorDocumentsWidget vendorId={v.id} vendorName={v.name}/>
+            </section>
+
+            {/* Appuntamenti */}
+            <section id="sec-appuntamenti">
+              <PaperSectionHeader
+                title="Appuntamenti"
+                action={
+                  <PaperButton variant="secondary" size="sm" iconLeft={<Plus size={14}/>} onClick={() => { setTaskType('appointment'); setTaskOpen(true); }}>
+                    Nuovo
+                  </PaperButton>
+                }
+              />
+              <VendorAppointmentsWidget
+                vendorId={v.id} vendorName={v.name} weddingId={v.wedding_id}
+                onCreateAppointment={() => { setTaskType('appointment'); setTaskOpen(true); }}
+              />
+            </section>
+
+            {/* Checklist */}
+            <section>
+              <PaperSectionHeader
+                title="Checklist"
+                action={
+                  <PaperButton variant="secondary" size="sm" iconLeft={<Plus size={14}/>} onClick={() => { setTaskType('task'); setTaskOpen(true); }}>
+                    Nuova attività
+                  </PaperButton>
+                }
+              />
+              <VendorChecklistWidget vendorId={v.id} onCreateTask={() => { setTaskType('task'); setTaskOpen(true); }}/>
+            </section>
+
+            {/* Note */}
+            <section id="sec-note">
+              <PaperSectionHeader title="Note"/>
+              <div style={{
+                padding: '16px 18px', background: surface(),
+                border: `1px solid ${border()}`, borderRadius: 10,
+                fontSize: 13, color: ink(2), lineHeight: 1.6, whiteSpace: 'pre-wrap', fontFamily: FONT_UI,
+              }}>
+                {v.notes || <span style={{ color: ink(3) }}>Nessuna nota. Clicca "Modifica fornitore" per aggiungerne una.</span>}
+              </div>
+            </section>
           </div>
         </div>
       </div>
 
-      {/* Tabs */}
-      <Tabs defaultValue={vendorCostsHidden ? 'documents' : initialTab} className="w-full">
-        <TabsList className={`w-full border-b rounded-none bg-transparent h-auto p-0 ${isMobile ? 'justify-around' : 'justify-start space-x-8'}`}>
-          {!vendorCostsHidden && (
-            <TabsTrigger
-              value="expenses"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary py-3 px-0"
-            >
-              <CreditCard className="w-4 h-4 md:mr-2" />
-              <span className="hidden md:inline">Spese & Pagamenti</span>
-            </TabsTrigger>
-          )}
-          <TabsTrigger
-            value="documents"
-            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary py-3 px-0"
-          >
-            <FileText className="w-4 h-4 md:mr-2" />
-            <span className="hidden md:inline">Documenti</span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="appointments"
-            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary py-3 px-0"
-          >
-            <CalendarCheck className="w-4 h-4 md:mr-2" />
-            <span className="hidden md:inline">Appuntamenti</span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="checklist"
-            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary py-3 px-0"
-          >
-            <ListTodo className="w-4 h-4 md:mr-2" />
-            <span className="hidden md:inline">Checklist</span>
-          </TabsTrigger>
-        </TabsList>
-
-        <div className="mt-6 space-y-6">
-          {!vendorCostsHidden && (
-            <TabsContent value="expenses" className="mt-0 focus-visible:ring-0">
-              <VendorExpensesWidget vendorId={vendor.id} categoryId={vendor.category_id} />
-            </TabsContent>
-          )}
-
-          <TabsContent value="documents" className="mt-0 focus-visible:ring-0">
-            <VendorDocumentsWidget vendorId={vendor.id} vendorName={vendor.name} />
-          </TabsContent>
-
-          <TabsContent value="appointments" className="mt-0 focus-visible:ring-0">
-            <VendorAppointmentsWidget 
-              vendorId={vendor.id} 
-              vendorName={vendor.name}
-              weddingId={vendor.wedding_id}
-              onCreateAppointment={() => {
-                setTaskDialogType("appointment");
-                setTaskDialogOpen(true);
-              }}
-            />
-          </TabsContent>
-
-          <TabsContent value="checklist" className="mt-0 focus-visible:ring-0">
-            <VendorChecklistWidget 
-              vendorId={vendor.id}
-              onCreateTask={() => {
-                setTaskDialogType("task");
-                setTaskDialogOpen(true);
-              }}
-            />
-          </TabsContent>
-        </div>
-      </Tabs>
-
-      {/* Edit Vendor Dialog */}
-      <VendorDialog
-        open={editDialogOpen}
-        onOpenChange={setEditDialogOpen}
-        vendor={vendor ? {
-          id: vendor.id,
-          name: vendor.name,
-          contact_name: vendor.contact_name,
-          email: vendor.email,
-          phone: vendor.phone,
-          status: vendor.status || "evaluating",
-          notes: vendor.notes,
-          category_id: vendor.category_id,
-          staff_meals_count: vendor.staff_meals_count,
-          staff_vegan_count: vendor.staff_vegan_count,
-          staff_vegetarian_count: vendor.staff_vegetarian_count,
-          staff_gluten_free_count: vendor.staff_gluten_free_count,
-          staff_lactose_free_count: vendor.staff_lactose_free_count,
-          staff_dietary_notes: vendor.staff_dietary_notes,
-        } : null}
+      {/* Modals */}
+      <VendorFormModal
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        vendor={v}
         categories={categories}
         onSave={handleSaveVendor}
-        onCreateCategory={handleCreateCategory}
-        onDeleteCategory={handleDeleteCategory}
       />
 
-      {/* Task/Appointment Dialog */}
+      <ExpenseWizard
+        open={wizardOpen}
+        onClose={() => setWizardOpen(false)}
+        vendorName={v.name}
+        guestsPlanned={data.guestsPlanned}
+        guestsConfirmed={data.guestsConfirmed}
+        weddingDate={data.wedding?.wedding_date || null}
+        onSave={handleSaveExpense}
+      />
+
       <VendorTaskDialog
-        open={taskDialogOpen}
-        onOpenChange={setTaskDialogOpen}
-        vendorId={vendor.id}
-        vendorName={vendor.name}
-        weddingId={vendor.wedding_id}
-        defaultType={taskDialogType}
+        open={taskOpen}
+        onOpenChange={setTaskOpen}
+        vendorId={v.id}
+        vendorName={v.name}
+        weddingId={v.wedding_id}
+        defaultType={taskType}
       />
     </div>
   );
 }
+
+// ─── Helpers ───
+const SectionSubhead: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div style={{
+    fontSize: 11, color: ink(3), letterSpacing: '0.12em', textTransform: 'uppercase',
+    marginBottom: 12, fontWeight: 600, fontFamily: FONT_UI,
+  }}>{children}</div>
+);
+
+const Row: React.FC<{
+  label: string;
+  value: string;
+  valueColor?: string;
+  valueStyle?: React.CSSProperties;
+}> = ({ label, value, valueColor, valueStyle }) => (
+  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+    <span style={{ fontSize: 12, color: ink(3), fontFamily: FONT_UI }}>{label}</span>
+    <span style={{ fontFamily: FONT_MONO, fontSize: 13, color: valueColor || ink(), ...valueStyle }}>{value}</span>
+  </div>
+);
+
+const ExpensesList: React.FC<{
+  items: DbExpenseItem[];
+  lineItemsByExpenseItem: Record<string, DbLineItem[]>;
+  payments: DbPayment[];
+}> = ({ items, lineItemsByExpenseItem, payments }) => (
+  <PaperCard padding={0} style={{ overflow: 'hidden' }}>
+    {items.map((it, i) => {
+      const lineItems = lineItemsByExpenseItem[it.id] || [];
+      const total = expenseItemTotal(it, lineItems);
+      const itemPayments = payments.filter(p => p.expense_item_id === it.id);
+      const paid = itemPayments.filter(p => isPaymentPaid(p.status)).reduce((s, p) => s + Number(p.amount), 0);
+      const isVariable = (it.expense_type ?? '').toLowerCase() === 'variable';
+      return (
+        <div key={it.id} style={{
+          padding: '14px 18px', borderBottom: i < items.length - 1 ? `1px solid ${border()}` : 'none',
+          fontFamily: FONT_UI,
+        }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 20, alignItems: 'flex-start' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 14, color: ink(), fontWeight: 500 }}>{it.description}</span>
+                {isVariable && (
+                  <PaperBadge tone="brand" size="sm">Variabile</PaperBadge>
+                )}
+              </div>
+              {it.estimated_amount && isVariable && (
+                <div style={{ fontSize: 12, color: ink(3), marginTop: 4, fontFamily: FONT_MONO }}>
+                  {fmtEUR(Number(it.estimated_amount))} unitario
+                </div>
+              )}
+            </div>
+            <div style={{ textAlign: 'right', minWidth: 140 }}>
+              <div style={{
+                fontFamily: FONT_SERIF, fontSize: 18, fontWeight: 500,
+                color: ink(), letterSpacing: '-0.2px',
+              }}>
+                {fmtEUR(total)}
+              </div>
+              {paid > 0 && (
+                <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: success(), marginTop: 3 }}>
+                  {fmtEUR(paid)} pagati
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    })}
+  </PaperCard>
+);
+
+const PaymentTimeline: React.FC<{
+  payments: DbPayment[];
+  onTogglePaid: (id: string, paid: boolean) => void;
+}> = ({ payments, onTogglePaid }) => {
+  const sorted = [...payments].sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
+  return (
+    <div style={{ position: 'relative', paddingLeft: 22 }}>
+      <div style={{ position: 'absolute', left: 9, top: 8, bottom: 8, width: 1, background: border() }}/>
+      {sorted.map((p, i) => {
+        const paid = isPaymentPaid(p.status);
+        const days = daysFromToday(p.due_date);
+        const urgent = !paid && days >= 0 && days <= 7;
+        return (
+          <div key={p.id} style={{ position: 'relative', paddingBottom: i < sorted.length - 1 ? 20 : 0, fontFamily: FONT_UI }}>
+            <div style={{
+              position: 'absolute', left: -22, top: 3, width: 18, height: 18, borderRadius: 999,
+              background: paid ? success() : urgent ? warn() : surface(),
+              border: `2px solid ${paid ? success() : urgent ? warn() : border(true)}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              {paid && <Check size={10} style={{ color: '#fff' }}/>}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 13, color: ink(), fontWeight: 500 }}>{p.description}</div>
+                <div style={{ fontSize: 11, color: ink(3), marginTop: 3 }}>
+                  {fmtDate(p.due_date)}{!paid && days >= 0 && ` · tra ${days} giorni`}
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+                <div style={{ fontFamily: FONT_MONO, fontSize: 13, color: paid ? success() : ink(), fontWeight: 500 }}>
+                  {fmtEUR(Number(p.amount))}
+                </div>
+                <PaperButton
+                  variant={paid ? 'ghost' : 'secondary'}
+                  size="sm"
+                  iconLeft={paid ? <CheckCircle2 size={12}/> : undefined}
+                  onClick={() => onTogglePaid(p.id, !paid)}
+                >
+                  {paid ? 'Pagato' : 'Segna pagato'}
+                </PaperButton>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
