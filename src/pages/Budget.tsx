@@ -13,6 +13,7 @@ import { CashflowTimeline } from '@/components/budget/v2/CashflowTimeline';
 import { ExpensesTable, type FilterKey } from '@/components/budget/v2/ExpensesTable';
 import { VendorDrawer } from '@/components/budget/v2/VendorDrawer';
 import { PaymentAllocationDialog } from '@/components/budget/v2/PaymentAllocationDialog';
+import { ContributorDetailDrawer } from '@/components/budget/v2/ContributorDetailDrawer';
 
 import {
   buildVendors, buildTotals, buildContributors, upcomingPayments, nextPayment, allPayments,
@@ -40,6 +41,7 @@ export default function Budget() {
 
   const [filter, setFilter] = useState<FilterKey>('all');
   const [openVendorId, setOpenVendorId] = useState<string | null>(null);
+  const [openContributorId, setOpenContributorId] = useState<string | null>(null);
   const [allocPayment, setAllocPayment] = useState<UiPayment | null>(null);
   const [allocMode, setAllocMode] = useState<'mark' | 'edit'>('mark');
 
@@ -200,7 +202,10 @@ export default function Budget() {
 
         <div className="budget-grid-row">
           <AllocationCard vendors={uiVendors} />
-          <FundsCard contributors={uiContributors} />
+          <FundsCard
+            contributors={uiContributors}
+            onSelectContributor={(c) => setOpenContributorId(c.id)}
+          />
         </div>
 
         <CashflowTimeline upcoming={upcoming} />
@@ -236,6 +241,13 @@ export default function Budget() {
         contributors={uiContributors.map(c => ({ id: c.id, name: c.name }))}
         existingAllocations={existingAllocations}
         onSaved={loadAll}
+      />
+
+      <ContributorDetailDrawer
+        contributor={uiContributors.find(c => c.id === openContributorId) ?? null}
+        vendors={uiVendors}
+        allocations={allocations}
+        onClose={() => setOpenContributorId(null)}
       />
 
       <style>{`
