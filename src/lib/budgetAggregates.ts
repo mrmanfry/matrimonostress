@@ -239,24 +239,36 @@ export function nextPayment(vendors: UiVendor[], today = new Date()): UiPayment 
   return upcomingPayments(vendors).find(p => new Date(p.due).getTime() >= t) ?? null;
 }
 
-export function buildContributors(rows: DbContributor[], paymentsAll: UiPayment[]): UiContributor[] {
-  // We can't split per-contributor without payment_allocations; show targets and
-  // even-split paid amount as a sensible default. Real split is computed elsewhere.
-  const totalPaid = paymentsAll.filter(p => p.status === 'paid').reduce((s, p) => s + p.amount, 0);
+export interface DbAllocation {
+  contributor_id: string;
+  payment_id: string;
+  amount: number;
+}
+
+export function buildContributors(
+  rows: DbContributor[],
+  paymentsAll: UiPayment[],
+  allocations: DbAllocation[] = [],
+): UiContributor[] {
   const palette = ['#8B5CF6', '#B08A3E', '#1D4ED8', '#15803D', '#BE185D'];
+  // Index paid payments for O(1) lookup
+  const paidPaymentIds = new Set(paymentsAll.filter(p => p.status === 'paid').map(p => p.id));
+
+  // Real per-contributor paid amount based on payment_allocations
+  const paidByContributor = new Map<string, number>();
+  for (const a of allocations) {
+    if (!paidPaymentIds.has(a.payment_id)) continue;
+    paidByContributor.set(a.contributor_id, (paidByContributor.get(a.contributor_id) ?? 0) + Number(a.amount || 0));
+  }
+
   const validRows = rows.filter(r => (r.contribution_target ?? 0) > 0 || rows.length <= 4);
-  const totalTarget = validRows.reduce((s, r) => s + Number(r.contribution_target || 0), 0);
-  return validRows.map((r, i) => {
-    const target = Number(r.contribution_target || 0);
-    const share = totalTarget > 0 ? target / totalTarget : 1 / Math.max(1, validRows.length);
-    return {
-      id: r.id,
-      name: r.name,
-      target,
-      paid: Math.round(totalPaid * share),
-      color: palette[i % palette.length],
-    };
-  });
+  return validRows.map((r, i) => ({
+    id: r.id,
+    name: r.name,
+    target: Number(r.contribution_target || 0),
+    paid: Math.round(paidByContributor.get(r.id) ?? 0),
+    color: palette[i % palette.length],
+  }));
 }
 
 export function daysFromToday(iso: string, today = new Date()): number {
