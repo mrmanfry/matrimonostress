@@ -465,6 +465,9 @@ export default function VendorDetails() {
                     items={data.items}
                     lineItemsByExpenseItem={data.lineItemsByExpenseItem}
                     payments={data.payments}
+                    onUpdateItem={updateExpenseItem}
+                    onDeleteItem={deleteExpenseItem}
+                    onAddPayment={addPaymentRow}
                   />
                 )}
 
@@ -484,7 +487,12 @@ export default function VendorDetails() {
                       </PaperButton>
                     </div>
                   ) : (
-                    <PaymentTimeline payments={data.payments} onTogglePaid={markPaymentPaid}/>
+                    <PaymentTimeline
+                      payments={data.payments}
+                      onTogglePaid={markPaymentPaid}
+                      onUpdate={updatePayment}
+                      onDelete={deletePayment}
+                    />
                   )}
                 </div>
               </section>
