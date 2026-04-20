@@ -26,9 +26,17 @@ import { VendorAppointmentsWidget } from '@/components/vendors/widgets/VendorApp
 import { VendorTaskDialog } from '@/components/vendors/VendorTaskDialog';
 import {
   statusById, normalizeStatus, fmtEUR, fmtDate, fmtDateShort, daysFromToday,
-  vendorTotals, isPaymentPaid, expenseItemTotal, EXPENSE_KINDS,
+  isPaymentPaid, EXPENSE_KINDS,
   DbExpenseItem, DbLineItem, DbPayment,
 } from '@/lib/vendorAggregates';
+import {
+  calculateExpenseAmount,
+  type ExpenseItem as CalcExpenseItem,
+  type ExpenseLineItem as CalcLineItem,
+  type GuestCounts,
+} from '@/lib/expenseCalculations';
+import { isGuestConfirmed } from '@/lib/rsvpHelpers';
+import { ScenarioSelector, type ScenarioMode } from '@/components/budget/v2/ScenarioSelector';
 
 type ActiveSection = 'spese' | 'documenti' | 'appuntamenti' | 'note';
 
