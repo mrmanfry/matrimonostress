@@ -193,7 +193,7 @@ export default function Budget() {
           <NextPaymentCallout
             next={next}
             vendor={uiVendors.find(v => v.id === next.vendorId)}
-            onMarkPaid={() => markPaymentPaid(next)}
+            onMarkPaid={() => openMarkPaidDialog(next)}
             onOpenVendor={() => setOpenVendorId(next.vendorId)}
           />
         )}
@@ -221,8 +221,21 @@ export default function Budget() {
       <VendorDrawer
         vendor={openVendor}
         onClose={() => setOpenVendorId(null)}
-        onMarkPaid={markPaymentPaid}
+        onMarkPaid={openMarkPaidDialog}
         onOpenVendorPage={(id) => navigate(`/app/vendors/${id}`)}
+      />
+
+      <PaymentAllocationDialog
+        open={!!allocPayment}
+        onOpenChange={(v) => { if (!v) setAllocPayment(null); }}
+        mode={allocMode}
+        paymentId={allocPayment?.id ?? null}
+        paymentAmount={allocPayment?.amount ?? 0}
+        paymentDescription={allocPayment?.desc}
+        vendorName={allocVendor?.name}
+        contributors={uiContributors.map(c => ({ id: c.id, name: c.name }))}
+        existingAllocations={existingAllocations}
+        onSaved={loadAll}
       />
 
       <style>{`
