@@ -12,6 +12,7 @@ import { AllocationCard, FundsCard } from '@/components/budget/v2/AllocationAndF
 import { CashflowTimeline } from '@/components/budget/v2/CashflowTimeline';
 import { ExpensesTable, type FilterKey } from '@/components/budget/v2/ExpensesTable';
 import { VendorDrawer } from '@/components/budget/v2/VendorDrawer';
+import { PaymentAllocationDialog } from '@/components/budget/v2/PaymentAllocationDialog';
 
 import {
   buildVendors, buildTotals, buildContributors, upcomingPayments, nextPayment, allPayments,
@@ -39,6 +40,8 @@ export default function Budget() {
 
   const [filter, setFilter] = useState<FilterKey>('all');
   const [openVendorId, setOpenVendorId] = useState<string | null>(null);
+  const [allocPayment, setAllocPayment] = useState<UiPayment | null>(null);
+  const [allocMode, setAllocMode] = useState<'mark' | 'edit'>('mark');
 
   const weddingId = authState.status === 'authenticated' ? authState.activeWeddingId : '';
 
@@ -146,20 +149,17 @@ export default function Budget() {
   );
   const openVendor = uiVendors.find(v => v.id === openVendorId) ?? null;
 
-  async function markPaymentPaid(payment: UiPayment) {
-    try {
-      const { error } = await supabase
-        .from('payments')
-        .update({ status: 'Pagato', paid_on_date: new Date().toISOString().slice(0, 10) })
-        .eq('id', payment.id);
-      if (error) throw error;
-      toast.success('Pagamento registrato');
-      await loadAll();
-    } catch (err) {
-      console.error(err);
-      toast.error('Errore nel segnare il pagamento');
-    }
+  function openMarkPaidDialog(payment: UiPayment) {
+    setAllocPayment(payment);
+    setAllocMode(payment.status === 'paid' ? 'edit' : 'mark');
   }
+
+  const allocVendor = allocPayment ? uiVendors.find(v => v.id === allocPayment.vendorId) : null;
+  const existingAllocations = allocPayment
+    ? allocations
+        .filter(a => a.payment_id === allocPayment.id)
+        .map(a => ({ contributor_id: a.contributor_id, amount: Number(a.amount) }))
+    : [];
 
   if (loading) {
     return (
