@@ -2,6 +2,7 @@
 import * as React from 'react';
 import { PaperBadge, LegendDot, FONT_SERIF, FONT_UI, ink, surface, border, success, warn, brand } from './paperPrimitives';
 import { fmt, daysFromToday, type UiTotals, type UiPayment } from '@/lib/budgetAggregates';
+import { ScenarioSelector, type ScenarioMode } from './ScenarioSelector';
 
 interface HeroProps {
   partner1: string;
@@ -9,9 +10,22 @@ interface HeroProps {
   totals: UiTotals;
   next: UiPayment | null;
   vendorCount: number;
+  mode: ScenarioMode;
+  onModeChange: (m: ScenarioMode) => void;
+  guestCounts: {
+    planned: { adults: number; children: number; staff: number };
+    expected: { adults: number; children: number; staff: number };
+    confirmed: { adults: number; children: number; staff: number };
+  } | null;
 }
 
-export function BudgetHero({ partner1, partner2, totals: t, next, vendorCount }: HeroProps) {
+const SCENARIO_LABEL: Record<ScenarioMode, string> = {
+  planned: 'Pianificato',
+  expected: 'Lista invitati',
+  confirmed: 'Confermati',
+};
+
+export function BudgetHero({ partner1, partner2, totals: t, next, vendorCount, mode, onModeChange, guestCounts }: HeroProps) {
   const pctPaid = t.committed > 0 ? Math.round((t.paid / t.committed) * 100) : 0;
   const pctCommitted = t.budget > 0 ? Math.round((t.committed / t.budget) * 100) : 0;
   const pctPaidOfBudget = t.budget > 0 ? (t.paid / t.budget) * 100 : 0;
@@ -24,7 +38,7 @@ export function BudgetHero({ partner1, partner2, totals: t, next, vendorCount }:
       background: surface(),
       borderBottom: `1px solid ${border()}`,
     }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 40, marginBottom: 28 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 40, marginBottom: 28, flexWrap: 'wrap' }}>
         <div>
           <div style={{ fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: ink(3), marginBottom: 8, fontFamily: FONT_UI }}>
             Budget · {couple}
@@ -39,6 +53,9 @@ export function BudgetHero({ partner1, partner2, totals: t, next, vendorCount }:
             Vista strategica del budget, degli impegni firmati e dei pagamenti futuri.
           </p>
         </div>
+        <div style={{ marginTop: 4 }}>
+          <ScenarioSelector mode={mode} onModeChange={onModeChange} counts={guestCounts} />
+        </div>
       </div>
 
       <div style={{
@@ -46,7 +63,12 @@ export function BudgetHero({ partner1, partner2, totals: t, next, vendorCount }:
         borderTop: `1px solid ${border()}`, borderBottom: `1px solid ${border()}`,
       }}>
         <KPI label="Budget totale" value={fmt(t.budget)} sub="Tetto massimo prefissato" first />
-        <KPI label="Impegnato" value={fmt(t.committed)} sub={`${pctCommitted}% del budget · ${vendorCount} fornitori`} />
+        <KPI
+          label="Impegnato"
+          value={fmt(t.committed)}
+          sub={`${pctCommitted}% del budget · ${vendorCount} fornitori`}
+          hint={guestCounts ? `Calcolato su ${SCENARIO_LABEL[mode]} · ${guestCounts[mode].adults} adulti` : undefined}
+        />
         <KPI label="Già pagato" value={fmt(t.paid)} sub={`${pctPaid}% dell'impegno`} tone="success" />
         <KPI
           label="Da pagare"
@@ -78,8 +100,9 @@ export function BudgetHero({ partner1, partner2, totals: t, next, vendorCount }:
 interface KPIProps {
   label: string; value: string; sub: string;
   tone?: 'success' | 'warn'; first?: boolean; last?: boolean;
+  hint?: string;
 }
-function KPI({ label, value, sub, tone, first, last }: KPIProps) {
+function KPI({ label, value, sub, tone, first, last, hint }: KPIProps) {
   const color = tone === 'success' ? success() : tone === 'warn' ? warn() : ink();
   return (
     <div style={{
@@ -91,7 +114,18 @@ function KPI({ label, value, sub, tone, first, last }: KPIProps) {
       <div style={{
         fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase',
         color: ink(3), marginBottom: 8, fontFamily: FONT_UI,
-      }}>{label}</div>
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+      }}>
+        <span>{label}</span>
+        {hint && (
+          <span style={{
+            fontSize: 9.5, letterSpacing: '0.04em', textTransform: 'none',
+            color: ink(3), fontWeight: 500, fontStyle: 'italic',
+          }} title={hint}>
+            {hint}
+          </span>
+        )}
+      </div>
       <div style={{
         fontFamily: FONT_SERIF, fontWeight: 500, fontSize: 28, color,
         letterSpacing: -0.3, lineHeight: 1,

@@ -188,6 +188,9 @@ export default function Budget() {
         totals={totals}
         next={next}
         vendorCount={uiVendors.length}
+        mode={mode}
+        onModeChange={handleModeChange}
+        guestCounts={guestCounts}
       />
 
       <div style={{ maxWidth: 1320, margin: '0 auto', padding: '28px 40px 60px', display: 'grid', gap: 24 }}>
