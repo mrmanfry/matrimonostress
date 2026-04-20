@@ -614,6 +614,24 @@ export default function VendorDetails() {
         weddingId={v.wedding_id}
         defaultType={taskType}
       />
+
+      <PaymentAllocationDialog
+        open={!!allocPaymentId}
+        onOpenChange={(o) => { if (!o) setAllocPaymentId(null); }}
+        mode={allocMode}
+        paymentId={allocPaymentId}
+        paymentAmount={Number(data.payments.find(p => p.id === allocPaymentId)?.amount ?? 0)}
+        paymentDescription={data.payments.find(p => p.id === allocPaymentId)?.description}
+        vendorName={v.name}
+        contributors={contributors}
+        existingAllocations={allocations
+          .filter(a => a.payment_id === allocPaymentId)
+          .map(a => ({ contributor_id: a.contributor_id, amount: Number(a.amount) }))}
+        onSaved={async () => {
+          await queryClient.invalidateQueries({ queryKey: ['vendor-detail-v2'] });
+          await queryClient.invalidateQueries({ queryKey: ['vendor-allocations'] });
+        }}
+      />
     </div>
   );
 }
