@@ -7,6 +7,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ChevronLeft, Plus, Pencil, Phone, Mail, Home, Calendar as CalIcon,
   FileText, ListChecks, StickyNote, Receipt, CheckCircle2, Info, Upload, Check,
+  Trash2, X,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
