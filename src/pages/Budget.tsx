@@ -20,7 +20,7 @@ import {
   type DbVendor, type DbExpenseItem, type DbPayment, type DbContributor, type DbAllocation, type UiPayment,
 } from '@/lib/budgetAggregates';
 import type { ExpenseLineItem, GuestCounts } from '@/lib/expenseCalculations';
-import { isConfirmed, isPending, isDeclined } from '@/lib/rsvpHelpers';
+import { isGuestConfirmed, isGuestDeclined } from '@/lib/rsvpHelpers';
 
 export default function Budget() {
   const { authState } = useAuth();
@@ -127,8 +127,8 @@ export default function Budget() {
       };
       setGuestCounts({
         planned: tally(() => true),
-        expected: tally(g => !isDeclined(g.rsvp_status)),
-        confirmed: tally(g => isConfirmed(g.rsvp_status)),
+        expected: tally(g => !isGuestDeclined(g)),
+        confirmed: tally(g => isGuestConfirmed(g)),
       });
     } catch (err) {
       console.error('Budget load error', err);
