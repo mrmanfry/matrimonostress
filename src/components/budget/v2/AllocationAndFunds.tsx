@@ -96,7 +96,23 @@ export function FundsCard({ contributors, onSelectContributor }: FundsProps) {
           const pct = c.target > 0 ? (c.paid / c.target) * 100 : 0;
           const initials = c.name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
           return (
-            <div key={c.id} style={{ marginBottom: 18 }}>
+            <div
+              key={c.id}
+              role={onSelectContributor ? 'button' : undefined}
+              tabIndex={onSelectContributor ? 0 : -1}
+              onClick={onSelectContributor ? () => onSelectContributor(c) : undefined}
+              onKeyDown={onSelectContributor ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectContributor(c); } } : undefined}
+              style={{
+                marginBottom: 14,
+                padding: onSelectContributor ? '8px 10px' : 0,
+                margin: onSelectContributor ? '0 -10px 6px' : '0 0 18px',
+                borderRadius: 8,
+                cursor: onSelectContributor ? 'pointer' : 'default',
+                transition: 'background .15s',
+              }}
+              onMouseEnter={onSelectContributor ? (e) => { (e.currentTarget as HTMLDivElement).style.background = 'hsl(36 28% 95%)'; } : undefined}
+              onMouseLeave={onSelectContributor ? (e) => { (e.currentTarget as HTMLDivElement).style.background = 'transparent'; } : undefined}
+            >
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
                 <div style={{
                   width: 30, height: 30, borderRadius: 999,
