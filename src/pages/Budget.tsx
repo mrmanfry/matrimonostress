@@ -151,6 +151,15 @@ export default function Budget() {
   );
   const openVendor = uiVendors.find(v => v.id === openVendorId) ?? null;
 
+  function handleModeChange(m: 'planned' | 'expected' | 'confirmed') {
+    setMode(m);
+    if (!weddingId) return;
+    // Fire-and-forget persistence; no toast.
+    supabase.from('weddings').update({ calculation_mode: m }).eq('id', weddingId).then(({ error }) => {
+      if (error) console.warn('Persist scenario failed', error);
+    });
+  }
+
   function openMarkPaidDialog(payment: UiPayment) {
     setAllocPayment(payment);
     setAllocMode(payment.status === 'paid' ? 'edit' : 'mark');
