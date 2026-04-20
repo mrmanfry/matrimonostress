@@ -222,6 +222,13 @@ export default function Budget() {
       />
 
       <div style={{ maxWidth: 1320, margin: '0 auto', padding: '28px 40px 60px', display: 'grid', gap: 24 }}>
+        <ScenarioHeadcountBar
+          mode={mode}
+          weddingId={weddingId}
+          counts={guestCounts}
+          onPlannedSaved={loadAll}
+        />
+
         {next && (
           <NextPaymentCallout
             next={next}
