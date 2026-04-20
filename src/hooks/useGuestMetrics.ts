@@ -122,7 +122,9 @@ export function useGuestMetrics(): GuestMetrics {
       .map(g => (g as any).plus_one_of_guest_id as string | null)
       .filter((id): id is string => !!id)
   );
-  const plusOnesPotential = regularGuests.filter(g => g.allow_plus_one).length;
+  const plusOnesPotential = regularGuests.filter(
+    g => g.allow_plus_one && !promotedPlusOneHostIds.has(g.id)
+  ).length;
   const plusOnesConfirmed = promotedPlusOneHostIds.size;
 
   // RSVP Status conteggi per persona
