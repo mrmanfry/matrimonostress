@@ -7,6 +7,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ChevronLeft, Plus, Pencil, Phone, Mail, Home, Calendar as CalIcon,
   FileText, ListChecks, StickyNote, Receipt, CheckCircle2, Info, Upload, Check,
+  Trash2, X,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -208,6 +209,57 @@ export default function VendorDetails() {
       })
       .eq('id', paymentId);
     if (error) { toast({ title: 'Errore', description: error.message, variant: 'destructive' }); return; }
+    queryClient.invalidateQueries({ queryKey: ['vendor-detail-v2'] });
+  };
+
+  const updateExpenseItem = async (
+    itemId: string,
+    patch: { description?: string; total_amount?: number; fixed_amount?: number | null },
+  ) => {
+    const { error } = await supabase.from('expense_items').update(patch).eq('id', itemId);
+    if (error) { toast({ title: 'Errore', description: error.message, variant: 'destructive' }); return; }
+    toast({ title: 'Spesa aggiornata' });
+    queryClient.invalidateQueries({ queryKey: ['vendor-detail-v2'] });
+  };
+
+  const deleteExpenseItem = async (itemId: string) => {
+    if (!window.confirm('Eliminare questa spesa? Verranno cancellate anche tutte le rate collegate.')) return;
+    await supabase.from('payments').delete().eq('expense_item_id', itemId);
+    await supabase.from('expense_line_items').delete().eq('expense_item_id', itemId);
+    const { error } = await supabase.from('expense_items').delete().eq('id', itemId);
+    if (error) { toast({ title: 'Errore', description: error.message, variant: 'destructive' }); return; }
+    toast({ title: 'Spesa eliminata' });
+    queryClient.invalidateQueries({ queryKey: ['vendor-detail-v2'] });
+  };
+
+  const updatePayment = async (
+    paymentId: string,
+    patch: { description?: string; amount?: number; due_date?: string },
+  ) => {
+    const { error } = await supabase.from('payments').update(patch).eq('id', paymentId);
+    if (error) { toast({ title: 'Errore', description: error.message, variant: 'destructive' }); return; }
+    toast({ title: 'Rata aggiornata' });
+    queryClient.invalidateQueries({ queryKey: ['vendor-detail-v2'] });
+  };
+
+  const deletePayment = async (paymentId: string) => {
+    if (!window.confirm('Eliminare questa rata?')) return;
+    const { error } = await supabase.from('payments').delete().eq('id', paymentId);
+    if (error) { toast({ title: 'Errore', description: error.message, variant: 'destructive' }); return; }
+    toast({ title: 'Rata eliminata' });
+    queryClient.invalidateQueries({ queryKey: ['vendor-detail-v2'] });
+  };
+
+  const addPaymentRow = async (expenseItemId: string) => {
+    const { error } = await supabase.from('payments').insert([{
+      expense_item_id: expenseItemId,
+      description: 'Nuova rata',
+      amount: 0,
+      due_date: new Date().toISOString().slice(0, 10),
+      status: 'Da Pagare',
+    }]);
+    if (error) { toast({ title: 'Errore', description: error.message, variant: 'destructive' }); return; }
+    toast({ title: 'Rata aggiunta', description: 'Modificala per impostare importo e data.' });
     queryClient.invalidateQueries({ queryKey: ['vendor-detail-v2'] });
   };
 
@@ -413,6 +465,9 @@ export default function VendorDetails() {
                     items={data.items}
                     lineItemsByExpenseItem={data.lineItemsByExpenseItem}
                     payments={data.payments}
+                    onUpdateItem={updateExpenseItem}
+                    onDeleteItem={deleteExpenseItem}
+                    onAddPayment={addPaymentRow}
                   />
                 )}
 
@@ -432,7 +487,12 @@ export default function VendorDetails() {
                       </PaperButton>
                     </div>
                   ) : (
-                    <PaymentTimeline payments={data.payments} onTogglePaid={markPaymentPaid}/>
+                    <PaymentTimeline
+                      payments={data.payments}
+                      onTogglePaid={markPaymentPaid}
+                      onUpdate={updatePayment}
+                      onDelete={deletePayment}
+                    />
                   )}
                 </div>
               </section>
@@ -543,58 +603,158 @@ const ExpensesList: React.FC<{
   items: DbExpenseItem[];
   lineItemsByExpenseItem: Record<string, DbLineItem[]>;
   payments: DbPayment[];
-}> = ({ items, lineItemsByExpenseItem, payments }) => (
-  <PaperCard padding={0} style={{ overflow: 'hidden' }}>
-    {items.map((it, i) => {
-      const lineItems = lineItemsByExpenseItem[it.id] || [];
-      const total = expenseItemTotal(it, lineItems);
-      const itemPayments = payments.filter(p => p.expense_item_id === it.id);
-      const paid = itemPayments.filter(p => isPaymentPaid(p.status)).reduce((s, p) => s + Number(p.amount), 0);
-      const isVariable = (it.expense_type ?? '').toLowerCase() === 'variable';
-      return (
-        <div key={it.id} style={{
-          padding: '14px 18px', borderBottom: i < items.length - 1 ? `1px solid ${border()}` : 'none',
-          fontFamily: FONT_UI,
-        }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 20, alignItems: 'flex-start' }}>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: 14, color: ink(), fontWeight: 500 }}>{it.description}</span>
+  onUpdateItem: (id: string, patch: { description?: string; total_amount?: number; fixed_amount?: number | null }) => void | Promise<void>;
+  onDeleteItem: (id: string) => void | Promise<void>;
+  onAddPayment: (expenseItemId: string) => void | Promise<void>;
+}> = ({ items, lineItemsByExpenseItem, payments, onUpdateItem, onDeleteItem, onAddPayment }) => {
+  const [editingId, setEditingId] = React.useState<string | null>(null);
+  const [draftDesc, setDraftDesc] = React.useState('');
+  const [draftTotal, setDraftTotal] = React.useState<string>('');
+
+  const startEdit = (it: DbExpenseItem, total: number) => {
+    setEditingId(it.id);
+    setDraftDesc(it.description);
+    setDraftTotal(String(total));
+  };
+  const cancelEdit = () => { setEditingId(null); };
+  const saveEdit = async (it: DbExpenseItem) => {
+    const newTotal = Number(draftTotal);
+    const isVariable = (it.expense_type ?? '').toLowerCase() === 'variable';
+    const patch: any = { description: draftDesc.trim() || it.description };
+    if (!Number.isNaN(newTotal) && newTotal >= 0) {
+      patch.total_amount = newTotal;
+      if (!isVariable) patch.fixed_amount = newTotal;
+    }
+    await onUpdateItem(it.id, patch);
+    setEditingId(null);
+  };
+
+  return (
+    <PaperCard padding={0} style={{ overflow: 'hidden' }}>
+      {items.map((it, i) => {
+        const lineItems = lineItemsByExpenseItem[it.id] || [];
+        const total = expenseItemTotal(it, lineItems);
+        const itemPayments = payments.filter(p => p.expense_item_id === it.id);
+        const paid = itemPayments.filter(p => isPaymentPaid(p.status)).reduce((s, p) => s + Number(p.amount), 0);
+        const isVariable = (it.expense_type ?? '').toLowerCase() === 'variable';
+        const isEditing = editingId === it.id;
+
+        return (
+          <div key={it.id} style={{
+            padding: '14px 18px', borderBottom: i < items.length - 1 ? `1px solid ${border()}` : 'none',
+            fontFamily: FONT_UI,
+          }}>
+            {isEditing ? (
+              <div style={{ display: 'grid', gap: 10 }}>
+                <input
+                  type="text"
+                  value={draftDesc}
+                  onChange={e => setDraftDesc(e.target.value)}
+                  placeholder="Descrizione"
+                  style={{
+                    fontSize: 14, padding: '8px 10px', borderRadius: 6,
+                    border: `1px solid ${border(true)}`, background: surface(),
+                    color: ink(), fontFamily: FONT_UI, outline: 'none',
+                  }}
+                />
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={draftTotal}
+                    onChange={e => setDraftTotal(e.target.value)}
+                    placeholder="Importo €"
+                    style={{
+                      flex: 1, fontSize: 14, padding: '8px 10px', borderRadius: 6,
+                      border: `1px solid ${border(true)}`, background: surface(),
+                      color: ink(), fontFamily: FONT_MONO, outline: 'none',
+                    }}
+                  />
+                  <PaperButton variant="primary" size="sm" onClick={() => saveEdit(it)}>Salva</PaperButton>
+                  <PaperButton variant="ghost" size="sm" onClick={cancelEdit}>Annulla</PaperButton>
+                </div>
                 {isVariable && (
-                  <PaperBadge tone="brand" size="sm">Variabile</PaperBadge>
+                  <div style={{ fontSize: 11, color: ink(3) }}>
+                    Spesa variabile: l'importo viene ricalcolato automaticamente sugli invitati confermati.
+                  </div>
                 )}
               </div>
-              {it.estimated_amount && isVariable && (
-                <div style={{ fontSize: 12, color: ink(3), marginTop: 4, fontFamily: FONT_MONO }}>
-                  {fmtEUR(Number(it.estimated_amount))} unitario
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 20, alignItems: 'flex-start' }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 14, color: ink(), fontWeight: 500 }}>{it.description}</span>
+                    {isVariable && <PaperBadge tone="brand" size="sm">Variabile</PaperBadge>}
+                  </div>
+                  {it.estimated_amount && isVariable && (
+                    <div style={{ fontSize: 12, color: ink(3), marginTop: 4, fontFamily: FONT_MONO }}>
+                      {fmtEUR(Number(it.estimated_amount))} unitario
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                    <PaperButton variant="ghost" size="sm" iconLeft={<Pencil size={11}/>} onClick={() => startEdit(it, total)}>
+                      Modifica
+                    </PaperButton>
+                    <PaperButton variant="ghost" size="sm" iconLeft={<Plus size={11}/>} onClick={() => onAddPayment(it.id)}>
+                      Aggiungi rata
+                    </PaperButton>
+                    <PaperButton variant="ghost" size="sm" iconLeft={<Trash2 size={11}/>} onClick={() => onDeleteItem(it.id)}>
+                      Elimina
+                    </PaperButton>
+                  </div>
                 </div>
-              )}
-            </div>
-            <div style={{ textAlign: 'right', minWidth: 140 }}>
-              <div style={{
-                fontFamily: FONT_SERIF, fontSize: 18, fontWeight: 500,
-                color: ink(), letterSpacing: '-0.2px',
-              }}>
-                {fmtEUR(total)}
+                <div style={{ textAlign: 'right', minWidth: 140 }}>
+                  <div style={{
+                    fontFamily: FONT_SERIF, fontSize: 18, fontWeight: 500,
+                    color: ink(), letterSpacing: '-0.2px',
+                  }}>
+                    {fmtEUR(total)}
+                  </div>
+                  {paid > 0 && (
+                    <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: success(), marginTop: 3 }}>
+                      {fmtEUR(paid)} pagati
+                    </div>
+                  )}
+                </div>
               </div>
-              {paid > 0 && (
-                <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: success(), marginTop: 3 }}>
-                  {fmtEUR(paid)} pagati
-                </div>
-              )}
-            </div>
+            )}
           </div>
-        </div>
-      );
-    })}
-  </PaperCard>
-);
+        );
+      })}
+    </PaperCard>
+  );
+};
 
 const PaymentTimeline: React.FC<{
   payments: DbPayment[];
   onTogglePaid: (id: string, paid: boolean) => void;
-}> = ({ payments, onTogglePaid }) => {
+  onUpdate: (id: string, patch: { description?: string; amount?: number; due_date?: string }) => void | Promise<void>;
+  onDelete: (id: string) => void | Promise<void>;
+}> = ({ payments, onTogglePaid, onUpdate, onDelete }) => {
   const sorted = [...payments].sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
+  const [editingId, setEditingId] = React.useState<string | null>(null);
+  const [draftDesc, setDraftDesc] = React.useState('');
+  const [draftAmount, setDraftAmount] = React.useState('');
+  const [draftDate, setDraftDate] = React.useState('');
+
+  const startEdit = (p: DbPayment) => {
+    setEditingId(p.id);
+    setDraftDesc(p.description);
+    setDraftAmount(String(p.amount));
+    setDraftDate(p.due_date);
+  };
+  const cancelEdit = () => setEditingId(null);
+  const saveEdit = async (p: DbPayment) => {
+    const amt = Number(draftAmount);
+    await onUpdate(p.id, {
+      description: draftDesc.trim() || p.description,
+      amount: Number.isNaN(amt) ? Number(p.amount) : amt,
+      due_date: draftDate || p.due_date,
+    });
+    setEditingId(null);
+  };
+
   return (
     <div style={{ position: 'relative', paddingLeft: 22 }}>
       <div style={{ position: 'absolute', left: 9, top: 8, bottom: 8, width: 1, background: border() }}/>
@@ -602,6 +762,7 @@ const PaymentTimeline: React.FC<{
         const paid = isPaymentPaid(p.status);
         const days = daysFromToday(p.due_date);
         const urgent = !paid && days >= 0 && days <= 7;
+        const isEditing = editingId === p.id;
         return (
           <div key={p.id} style={{ position: 'relative', paddingBottom: i < sorted.length - 1 ? 20 : 0, fontFamily: FONT_UI }}>
             <div style={{
@@ -612,27 +773,81 @@ const PaymentTimeline: React.FC<{
             }}>
               {paid && <Check size={10} style={{ color: '#fff' }}/>}
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 13, color: ink(), fontWeight: 500 }}>{p.description}</div>
-                <div style={{ fontSize: 11, color: ink(3), marginTop: 3 }}>
-                  {fmtDate(p.due_date)}{!paid && days >= 0 && ` · tra ${days} giorni`}
+
+            {isEditing ? (
+              <div style={{ display: 'grid', gap: 8, padding: '4px 0' }}>
+                <input
+                  type="text"
+                  value={draftDesc}
+                  onChange={e => setDraftDesc(e.target.value)}
+                  placeholder="Descrizione rata"
+                  style={{
+                    fontSize: 13, padding: '6px 10px', borderRadius: 6,
+                    border: `1px solid ${border(true)}`, background: surface(),
+                    color: ink(), fontFamily: FONT_UI, outline: 'none',
+                  }}
+                />
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    type="date"
+                    value={draftDate}
+                    onChange={e => setDraftDate(e.target.value)}
+                    style={{
+                      flex: 1, fontSize: 13, padding: '6px 10px', borderRadius: 6,
+                      border: `1px solid ${border(true)}`, background: surface(),
+                      color: ink(), fontFamily: FONT_UI, outline: 'none',
+                    }}
+                  />
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={draftAmount}
+                    onChange={e => setDraftAmount(e.target.value)}
+                    placeholder="Importo €"
+                    style={{
+                      width: 130, fontSize: 13, padding: '6px 10px', borderRadius: 6,
+                      border: `1px solid ${border(true)}`, background: surface(),
+                      color: ink(), fontFamily: FONT_MONO, outline: 'none', textAlign: 'right',
+                    }}
+                  />
+                </div>
+                <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                  <PaperButton variant="ghost" size="sm" onClick={cancelEdit}>Annulla</PaperButton>
+                  <PaperButton variant="primary" size="sm" onClick={() => saveEdit(p)}>Salva</PaperButton>
                 </div>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-                <div style={{ fontFamily: FONT_MONO, fontSize: 13, color: paid ? success() : ink(), fontWeight: 500 }}>
-                  {fmtEUR(Number(p.amount))}
+            ) : (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 13, color: ink(), fontWeight: 500 }}>{p.description}</div>
+                  <div style={{ fontSize: 11, color: ink(3), marginTop: 3 }}>
+                    {fmtDate(p.due_date)}{!paid && days >= 0 && ` · tra ${days} giorni`}
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                    <PaperButton variant="ghost" size="sm" iconLeft={<Pencil size={11}/>} onClick={() => startEdit(p)}>
+                      Modifica
+                    </PaperButton>
+                    <PaperButton variant="ghost" size="sm" iconLeft={<Trash2 size={11}/>} onClick={() => onDelete(p.id)}>
+                      Elimina
+                    </PaperButton>
+                  </div>
                 </div>
-                <PaperButton
-                  variant={paid ? 'ghost' : 'secondary'}
-                  size="sm"
-                  iconLeft={paid ? <CheckCircle2 size={12}/> : undefined}
-                  onClick={() => onTogglePaid(p.id, !paid)}
-                >
-                  {paid ? 'Pagato' : 'Segna pagato'}
-                </PaperButton>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+                  <div style={{ fontFamily: FONT_MONO, fontSize: 13, color: paid ? success() : ink(), fontWeight: 500 }}>
+                    {fmtEUR(Number(p.amount))}
+                  </div>
+                  <PaperButton
+                    variant={paid ? 'ghost' : 'secondary'}
+                    size="sm"
+                    iconLeft={paid ? <CheckCircle2 size={12}/> : undefined}
+                    onClick={() => onTogglePaid(p.id, !paid)}
+                  >
+                    {paid ? 'Pagato' : 'Segna pagato'}
+                  </PaperButton>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         );
       })}
