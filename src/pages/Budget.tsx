@@ -14,6 +14,7 @@ import { ExpensesTable, type FilterKey } from '@/components/budget/v2/ExpensesTa
 import { VendorDrawer } from '@/components/budget/v2/VendorDrawer';
 import { PaymentAllocationDialog } from '@/components/budget/v2/PaymentAllocationDialog';
 import { ContributorDetailDrawer } from '@/components/budget/v2/ContributorDetailDrawer';
+import { ScenarioHeadcountBar } from '@/components/budget/v2/ScenarioHeadcountBar';
 
 import {
   buildVendors, buildTotals, buildContributors, upcomingPayments, nextPayment, allPayments,
@@ -123,12 +124,15 @@ export default function Budget() {
       const hostsWithMaterializedPlusOne = new Set(
         guests.filter(g => g.plus_one_of_guest_id).map(g => g.plus_one_of_guest_id as string)
       );
+      // Headcount tally — aligned with the guest list:
+      // each non-child non-staff record counts as 1 adult (regardless of any
+      // legacy adults_count > 1), plus any non-materialized textual +1.
       const tally = (filterFn: (g: typeof guests[number]) => boolean) => {
         let adults = 0, children = 0;
         for (const g of guests) {
           if (!filterFn(g)) continue;
           if (g.is_staff) continue;
-          adults += g.adults_count || 1;
+          adults += 1;
           if (g.allow_plus_one && g.plus_one_name && !hostsWithMaterializedPlusOne.has(g.id)) {
             adults += 1;
           }
@@ -218,6 +222,13 @@ export default function Budget() {
       />
 
       <div style={{ maxWidth: 1320, margin: '0 auto', padding: '28px 40px 60px', display: 'grid', gap: 24 }}>
+        <ScenarioHeadcountBar
+          mode={mode}
+          weddingId={weddingId}
+          counts={guestCounts}
+          onPlannedSaved={loadAll}
+        />
+
         {next && (
           <NextPaymentCallout
             next={next}
