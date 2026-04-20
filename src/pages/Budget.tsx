@@ -15,7 +15,7 @@ import { VendorDrawer } from '@/components/budget/v2/VendorDrawer';
 
 import {
   buildVendors, buildTotals, buildContributors, upcomingPayments, nextPayment, allPayments,
-  type DbVendor, type DbExpenseItem, type DbPayment, type DbContributor, type UiPayment,
+  type DbVendor, type DbExpenseItem, type DbPayment, type DbContributor, type DbAllocation, type UiPayment,
 } from '@/lib/budgetAggregates';
 import type { ExpenseLineItem, GuestCounts } from '@/lib/expenseCalculations';
 import { isConfirmed, isPending, isDeclined } from '@/lib/rsvpHelpers';
@@ -32,6 +32,7 @@ export default function Budget() {
   const [items, setItems] = useState<DbExpenseItem[]>([]);
   const [payments, setPayments] = useState<DbPayment[]>([]);
   const [contributors, setContributors] = useState<DbContributor[]>([]);
+  const [allocations, setAllocations] = useState<DbAllocation[]>([]);
   const [lineItemsMap, setLineItemsMap] = useState<Record<string, ExpenseLineItem[]>>({});
   const [guestCounts, setGuestCounts] = useState<GuestCounts | null>(null);
   const [mode, setMode] = useState<'planned' | 'expected' | 'confirmed'>('planned');
@@ -84,10 +85,23 @@ export default function Budget() {
         setLineItemsMap(map);
 
         const { data: pays } = await supabase.from('payments').select('*').in('expense_item_id', ids);
-        setPayments((pays ?? []) as unknown as DbPayment[]);
+        const paymentsData = (pays ?? []) as unknown as DbPayment[];
+        setPayments(paymentsData);
+
+        const paymentIds = paymentsData.map(p => p.id);
+        if (paymentIds.length > 0) {
+          const { data: allocs } = await supabase
+            .from('payment_allocations')
+            .select('contributor_id, payment_id, amount')
+            .in('payment_id', paymentIds);
+          setAllocations((allocs ?? []) as unknown as DbAllocation[]);
+        } else {
+          setAllocations([]);
+        }
       } else {
         setLineItemsMap({});
         setPayments([]);
+        setAllocations([]);
       }
 
       // Guest counts (for variable expense calculation)
@@ -127,8 +141,8 @@ export default function Budget() {
   const upcoming = useMemo(() => upcomingPayments(uiVendors), [uiVendors]);
   const next = useMemo(() => nextPayment(uiVendors), [uiVendors]);
   const uiContributors = useMemo(
-    () => buildContributors(contributors, allPayments(uiVendors)),
-    [contributors, uiVendors]
+    () => buildContributors(contributors, allPayments(uiVendors), allocations),
+    [contributors, uiVendors, allocations]
   );
   const openVendor = uiVendors.find(v => v.id === openVendorId) ?? null;
 

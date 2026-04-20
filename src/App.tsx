@@ -13,8 +13,7 @@ import Onboarding from "./pages/Onboarding";
 import AppLayout from "./pages/AppLayout";
 import Dashboard from "./pages/Dashboard";
 import Guests from "./pages/Guests";
-import BudgetLegacy from "./pages/BudgetLegacy";
-import Treasury from "./pages/Treasury";
+import Budget from "./pages/Budget";
 import Vendors from "./pages/Vendors";
 import VendorDetails from "./pages/VendorDetails";
 import Checklist from "./pages/Checklist";
@@ -91,8 +90,8 @@ const App = () => (
               <Route path="planner" element={<PlannerCockpit />} />
               <Route path="planner-calendar" element={<PlannerCalendarPage />} />
               <Route path="guests" element={<Guests />} />
-              <Route path="budget" element={<BudgetLegacy />} />
-              <Route path="treasury" element={<Treasury />} />
+              <Route path="budget" element={<Budget />} />
+              <Route path="treasury" element={<Navigate to="/app/budget" replace />} />
               <Route path="vendors" element={<Vendors />} />
               <Route path="vendors/:id" element={<VendorDetails />} />
               <Route path="checklist" element={<Checklist />} />
