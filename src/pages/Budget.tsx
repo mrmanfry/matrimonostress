@@ -63,8 +63,8 @@ export default function Budget() {
         contribRes,
         guestsRes,
       ] = await Promise.all([
-        supabase.from('weddings').select('total_budget, calculation_mode, partner1_name, partner2_name').eq('id', weddingId).maybeSingle(),
-        supabase.from('vendors').select('id, name, category_id, expense_categories(id, name)').eq('wedding_id', weddingId),
+        supabase.from('weddings').select('total_budget, calculation_mode, partner1_name, partner2_name, target_adults, target_children, target_staff').eq('id', weddingId).maybeSingle(),
+        supabase.from('vendors').select('id, name, category_id, expense_categories(id, name), staff_meals_count').eq('wedding_id', weddingId),
         supabase.from('expense_items').select('*, vendors(name, expense_categories(id, name)), expense_categories(id, name)').eq('wedding_id', weddingId),
         supabase.from('financial_contributors').select('id, name, contribution_target').eq('wedding_id', weddingId),
         supabase.from('guests').select('id, rsvp_status, adults_count, children_count, is_staff, is_couple_member, allow_plus_one, plus_one_name, plus_one_of_guest_id').eq('wedding_id', weddingId),
@@ -116,27 +116,33 @@ export default function Budget() {
         is_staff: boolean | null; is_couple_member: boolean | null; allow_plus_one: boolean | null;
         plus_one_name: string | null; plus_one_of_guest_id: string | null;
       }>;
-      // If a +1 has its own guest row (plus_one_of_guest_id set), the host's textual
-      // `plus_one_name` must NOT be counted again — otherwise double-count.
+      const vendorStaffMeals = (vendorsRes.data ?? []).reduce(
+        (sum, vendor: any) => sum + Number(vendor.staff_meals_count || 0),
+        0
+      );
       const hostsWithMaterializedPlusOne = new Set(
         guests.filter(g => g.plus_one_of_guest_id).map(g => g.plus_one_of_guest_id as string)
       );
       const tally = (filterFn: (g: typeof guests[number]) => boolean) => {
-        let adults = 0, children = 0, staff = 0;
+        let adults = 0, children = 0;
         for (const g of guests) {
           if (!filterFn(g)) continue;
-          if (g.is_staff) { staff += g.adults_count || 1; continue; }
+          if (g.is_staff) continue;
           adults += g.adults_count || 1;
           if (g.allow_plus_one && g.plus_one_name && !hostsWithMaterializedPlusOne.has(g.id)) {
             adults += 1;
           }
           children += g.children_count || 0;
         }
-        return { adults, children, staff };
+        return { adults, children, staff: vendorStaffMeals };
       };
       setGuestCounts({
-        planned: tally(() => true),
-        expected: tally(g => !isGuestDeclined(g)),
+        planned: {
+          adults: Number(weddingRes.data?.target_adults ?? 100),
+          children: Number(weddingRes.data?.target_children ?? 0),
+          staff: Number(weddingRes.data?.target_staff ?? vendorStaffMeals),
+        },
+        expected: tally(() => true),
         confirmed: tally(g => isGuestConfirmed(g)),
       });
     } catch (err) {
