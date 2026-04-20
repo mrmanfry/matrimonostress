@@ -2196,6 +2196,10 @@ export type Database = {
         Args: { p1_name: string; p2_name: string }
         Returns: string
       }
+      get_camera_participant_count: {
+        Args: { p_token: string }
+        Returns: number
+      }
       get_display_names: {
         Args: { user_ids: string[] }
         Returns: {
@@ -2222,7 +2226,12 @@ export type Database = {
         Returns: boolean
       }
       join_wedding_by_code: { Args: { p_access_code: string }; Returns: Json }
+      realtime_topic_wedding_access: { Args: never; Returns: boolean }
       unaccent: { Args: { "": string }; Returns: string }
+      update_camera_participant_email: {
+        Args: { p_email: string; p_fingerprint: string; p_token: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "co_planner" | "manager" | "guest" | "planner"
