@@ -18,8 +18,8 @@ interface Props {
 }
 
 const ITEMS: Array<{ id: ScenarioMode; label: string; hint: string }> = [
-  { id: 'planned', label: 'Pianificato', hint: 'Stima di partenza basata sui target del matrimonio' },
-  { id: 'expected', label: 'Lista invitati', hint: 'Tutti gli ospiti inseriti (esclusi i declinati)' },
+  { id: 'planned', label: 'Pianificato', hint: 'Stima manuale basata sui target del matrimonio' },
+  { id: 'expected', label: 'Lista invitati', hint: 'Tutti gli ospiti inseriti in lista, sposi inclusi' },
   { id: 'confirmed', label: 'Confermati', hint: 'Solo RSVP confermati' },
 ];
 
