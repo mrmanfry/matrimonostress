@@ -67,7 +67,7 @@ export default function Budget() {
         supabase.from('vendors').select('id, name, category_id, expense_categories(id, name)').eq('wedding_id', weddingId),
         supabase.from('expense_items').select('*, vendors(name, expense_categories(id, name)), expense_categories(id, name)').eq('wedding_id', weddingId),
         supabase.from('financial_contributors').select('id, name, contribution_target').eq('wedding_id', weddingId),
-        supabase.from('guests').select('rsvp_status, adults_count, children_count, is_staff, is_couple_member, allow_plus_one, plus_one_name').eq('wedding_id', weddingId),
+        supabase.from('guests').select('id, rsvp_status, adults_count, children_count, is_staff, is_couple_member, allow_plus_one, plus_one_name, plus_one_of_guest_id').eq('wedding_id', weddingId),
       ]);
 
       setBudget(Number(weddingRes.data?.total_budget || 0));
