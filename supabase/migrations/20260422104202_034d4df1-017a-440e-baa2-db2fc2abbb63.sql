@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS weddings_stripe_subscription_id_unique ON public.weddings (stripe_subscription_id) WHERE stripe_subscription_id IS NOT NULL;
