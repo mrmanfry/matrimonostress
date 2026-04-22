@@ -1,12 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Heart, Check, ArrowLeft, Lock, CreditCard, Loader2, PartyPopper } from "lucide-react";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { StripeEmbeddedCheckout } from "@/components/payments/StripeEmbeddedCheckout";
+import { PaymentTestModeBanner } from "@/components/payments/PaymentTestModeBanner";
 
 const benefits = [
   "Accesso illimitato a Checklist e Budget",
@@ -22,16 +25,16 @@ const Upgrade = () => {
   const [searchParams] = useSearchParams();
   const { status, daysLeft } = useSubscription();
   const { authState } = useAuth();
-  const [loading, setLoading] = useState(false);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [justActivated, setJustActivated] = useState(false);
 
   const isSuccess = searchParams.get("success") === "true";
   const isCanceled = searchParams.get("canceled") === "true";
 
-  // After successful checkout, poll check-subscription to sync DB
+  // After Stripe redirect to ?success=true, poll check-subscription so DB syncs
+  // even if the webhook is delayed.
   useEffect(() => {
     if (!isSuccess || authState.status !== "authenticated") return;
-
     let attempts = 0;
     const poll = async () => {
       attempts++;
@@ -53,22 +56,14 @@ const Upgrade = () => {
     }
   }, [isCanceled]);
 
-  const handleCheckout = async () => {
+  const checkoutBody = useMemo(
+    () => ({ weddingId: authState.status === "authenticated" ? authState.activeWeddingId : "" }),
+    [authState],
+  );
+
+  const handleCheckout = () => {
     if (authState.status !== "authenticated") return;
-    setLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("create-checkout", {
-        body: { weddingId: authState.activeWeddingId },
-      });
-      if (error) throw error;
-      if (data?.url) {
-        window.location.href = data.url;
-      }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Errore durante il checkout";
-      toast({ title: "Errore", description: msg, variant: "destructive" });
-      setLoading(false);
-    }
+    setCheckoutOpen(true);
   };
 
   // Success state
