@@ -8,6 +8,7 @@ import { useSubscription } from "@/hooks/useSubscription";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { getStripeEnvironment } from "@/lib/stripe";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 
@@ -21,12 +22,26 @@ export function SubscriptionTab() {
     if (authState.status !== "authenticated") return;
     setPortalLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("customer-portal");
+      // Ensure session is present so the auth header is forwarded to the edge function.
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) {
+        toast({ title: "Sessione scaduta", description: "Effettua di nuovo l'accesso.", variant: "destructive" });
+        return;
+      }
+      const { data, error } = await supabase.functions.invoke("customer-portal", {
+        body: {
+          weddingId: authState.activeWeddingId,
+          environment: getStripeEnvironment(),
+        },
+      });
       if (error) throw error;
       if (data?.url) {
         window.open(data.url, "_blank");
+      } else {
+        throw new Error("No portal URL returned");
       }
-    } catch {
+    } catch (err) {
+      console.error("[SubscriptionTab] portal error:", err);
       toast({ title: "Errore", description: "Impossibile aprire il portale di fatturazione.", variant: "destructive" });
     } finally {
       setPortalLoading(false);

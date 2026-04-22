@@ -1,13 +1,13 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
+import { type StripeEnv, createStripeClient, corsHeaders } from "../_shared/stripe.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
-
+/**
+ * Fallback verifier for Memories one-time unlocks.
+ * Called by the client when redirected back from Embedded Checkout, in case
+ * the payments-webhook event hasn't landed yet. Idempotent — safe to call
+ * multiple times. Uses Stripe via the Lovable connector gateway.
+ */
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -20,7 +20,8 @@ serve(async (req) => {
   );
 
   try {
-    const authHeader = req.headers.get("Authorization")!;
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) throw new Error("No authorization header");
     const token = authHeader.replace("Bearer ", "");
     const { data } = await supabaseAdmin.auth.getUser(token);
     const user = data.user;
@@ -28,16 +29,14 @@ serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const weddingId = body.weddingId;
+    const environment = (body.environment || "sandbox") as StripeEnv;
     if (!weddingId) throw new Error("weddingId is required");
 
-    const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
-      apiVersion: "2025-08-27.basil",
-    });
+    const stripe = createStripeClient(environment);
 
-    // Find completed checkout sessions for this wedding
+    // Look at recent paid sessions for this wedding (filter client-side by metadata)
     const sessions = await stripe.checkout.sessions.list({ limit: 50 });
 
-    // Find all paid sessions for this wedding, get the highest photo_limit
     let maxPhotoLimit = 0;
     for (const s of sessions.data) {
       if (
@@ -51,20 +50,22 @@ serve(async (req) => {
     }
 
     if (maxPhotoLimit > 0) {
-      // Get current limit to avoid downgrade
       const { data: cam } = await supabaseAdmin
         .from("disposable_cameras")
         .select("unlocked_photo_limit")
         .eq("wedding_id", weddingId)
         .maybeSingle();
 
-      const currentLimit = (cam as any)?.unlocked_photo_limit || 150;
+      const currentLimit =
+        (cam as { unlocked_photo_limit?: number } | null)?.unlocked_photo_limit ?? 150;
       const newLimit = Math.max(currentLimit, maxPhotoLimit);
 
-      await supabaseAdmin
-        .from("disposable_cameras")
-        .update({ unlocked_photo_limit: newLimit })
-        .eq("wedding_id", weddingId);
+      if (newLimit > currentLimit) {
+        await supabaseAdmin
+          .from("disposable_cameras")
+          .update({ unlocked_photo_limit: newLimit })
+          .eq("wedding_id", weddingId);
+      }
 
       return new Response(JSON.stringify({ unlocked: true, photo_limit: newLimit }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
