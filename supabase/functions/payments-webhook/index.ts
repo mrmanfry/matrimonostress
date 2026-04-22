@@ -6,6 +6,8 @@ const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
 );
+const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const log = (s: string, d?: unknown) => console.log(`[PAYMENTS-WEBHOOK] ${s}${d ? " - " + JSON.stringify(d) : ""}`);
 
@@ -57,14 +59,15 @@ const meta = (o: SObj): Record<string, string> => (o.metadata as Record<string, 
 
 async function handleCheckoutCompleted(session: SObj) {
   const m = meta(session);
-  const weddingId = m.weddingId || str(session.client_reference_id);
-  if (!weddingId) {
-    log("No weddingId on session", { id: str(session.id) });
-    return;
-  }
+  const sessionType = m.type;
 
-  // One-time memories unlock
-  if (session.mode === "payment" && m.type === "memories_unlock") {
+  // === Memories one-time unlock ===
+  if (session.mode === "payment" && sessionType === "memories_unlock") {
+    const weddingId = m.weddingId || str(session.client_reference_id);
+    if (!weddingId) {
+      log("No weddingId on memories_unlock session");
+      return;
+    }
     const photoLimit = parseInt(m.photo_limit || "0", 10);
     if (photoLimit > 0) {
       const { data: cam } = await supabase
@@ -83,10 +86,45 @@ async function handleCheckoutCompleted(session: SObj) {
     return;
   }
 
-  // Subscription checkout: subscription.created event will populate the rest
-  if (session.mode === "subscription") {
+  // === Planner subscription checkout ===
+  if (session.mode === "subscription" && sessionType === "planner_subscription") {
+    const userId = m.userId || str(session.client_reference_id);
+    if (!userId) {
+      log("No userId on planner subscription session");
+      return;
+    }
+    const tier = (m.tier || "solo").toLowerCase();
+    const slotLimit = parseInt(m.slotLimit || "1", 10);
     const customerId = str(session.customer);
     const subscriptionId = str(session.subscription);
+
+    await supabase.from("planner_subscriptions").upsert(
+      {
+        user_id: userId,
+        tier,
+        slot_limit: slotLimit,
+        subscription_status: "active",
+        stripe_customer_id: customerId,
+        stripe_subscription_id: subscriptionId,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id" },
+    );
+    log("Planner subscription bootstrap", { userId, tier });
+    return;
+  }
+
+  // === Couple subscription (default) ===
+  if (session.mode === "subscription") {
+    const weddingId = m.weddingId || str(session.client_reference_id);
+    if (!weddingId) {
+      log("No weddingId on couple subscription session");
+      return;
+    }
+    const customerId = str(session.customer);
+    const subscriptionId = str(session.subscription);
+    const payerUserId = m.userId;
+
     if (customerId && subscriptionId) {
       await supabase
         .from("weddings")
@@ -96,71 +134,126 @@ async function handleCheckoutCompleted(session: SObj) {
           stripe_subscription_id: subscriptionId,
         })
         .eq("id", weddingId);
-      log("Subscription bootstrap on checkout", { weddingId });
+      log("Couple subscription bootstrap", { weddingId });
+    }
+
+    // Trigger partner-unlock notification
+    if (payerUserId) {
+      try {
+        await fetch(`${supabaseUrl}/functions/v1/notify-partner-unlock`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${serviceRoleKey}`,
+          },
+          body: JSON.stringify({ weddingId, payerUserId }),
+        });
+      } catch (err) {
+        log("notify-partner-unlock invocation failed", err);
+      }
     }
   }
 }
 
 async function handleSubscriptionUpsert(sub: SObj) {
   const m = meta(sub);
-  const weddingId = m.weddingId;
-  if (!weddingId) {
-    log("No weddingId on subscription", { id: str(sub.id) });
-    return;
-  }
+  const subType = m.type;
   const periodEnd = num(sub.current_period_end);
   const stripeStatus = str(sub.status) || "active";
   const cancelAtPeriodEnd = sub.cancel_at_period_end === true;
 
-  // If user clicked cancel: keep `active` until current_period_end (grace period).
-  // Stripe still reports status="active" with cancel_at_period_end=true until the period ends,
-  // then fires customer.subscription.deleted, which we handle below.
-  const effectiveStatus = stripeStatus;
+  // Planner subscription update
+  if (subType === "planner_subscription" && m.userId) {
+    const tier = (m.tier || "solo").toLowerCase();
+    const slotLimit = parseInt(m.slotLimit || "1", 10);
+    await supabase
+      .from("planner_subscriptions")
+      .upsert(
+        {
+          user_id: m.userId,
+          tier,
+          slot_limit: slotLimit,
+          subscription_status: stripeStatus,
+          stripe_customer_id: str(sub.customer),
+          stripe_subscription_id: str(sub.id),
+          current_period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id" },
+      );
+    log("Planner subscription synced", { userId: m.userId, status: stripeStatus, cancelAtPeriodEnd });
+    return;
+  }
+
+  // Couple subscription update (default)
+  const weddingId = m.weddingId;
+  if (!weddingId) {
+    log("No weddingId on couple subscription event", { id: str(sub.id) });
+    return;
+  }
 
   await supabase
     .from("weddings")
     .update({
-      subscription_status: effectiveStatus,
+      subscription_status: stripeStatus,
       stripe_customer_id: str(sub.customer),
       stripe_subscription_id: str(sub.id),
       current_period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
     })
     .eq("id", weddingId);
-  log("Subscription synced", { weddingId, status: effectiveStatus, cancelAtPeriodEnd });
+  log("Couple subscription synced", { weddingId, status: stripeStatus, cancelAtPeriodEnd });
 }
 
 async function handleSubscriptionDeleted(sub: SObj) {
   const m = meta(sub);
-  const weddingId = m.weddingId;
-  if (!weddingId) return;
-  // Honor remaining paid period: only flip to canceled if current_period_end has passed.
+  const subType = m.type;
   const periodEnd = num(sub.current_period_end);
   const isStillInPeriod = periodEnd ? periodEnd * 1000 > Date.now() : false;
+  const newStatus = isStillInPeriod ? "active" : "canceled";
+
+  if (subType === "planner_subscription" && m.userId) {
+    await supabase
+      .from("planner_subscriptions")
+      .update({
+        subscription_status: newStatus,
+        current_period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
+      })
+      .eq("user_id", m.userId);
+    log("Planner subscription deleted", { userId: m.userId, isStillInPeriod });
+    return;
+  }
+
+  const weddingId = m.weddingId;
+  if (!weddingId) return;
   await supabase
     .from("weddings")
     .update({
-      subscription_status: isStillInPeriod ? "active" : "canceled",
+      subscription_status: newStatus,
       current_period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
     })
     .eq("id", weddingId);
-  log("Subscription deleted", { weddingId, isStillInPeriod });
+  log("Couple subscription deleted", { weddingId, isStillInPeriod });
 }
 
 async function handleInvoicePaid(invoice: SObj) {
   const subId = str(invoice.subscription);
   if (!subId) return;
-  // We don't have the full subscription here; rely on subscription.updated event
-  // but proactively bump period_end if invoice contains period info
   const lines = (invoice.lines as { data?: Array<{ period?: { end?: number } }> } | undefined)?.data ?? [];
   const periodEnd = lines[0]?.period?.end;
-  if (periodEnd) {
-    await supabase
-      .from("weddings")
-      .update({
-        subscription_status: "active",
-        current_period_end: new Date(periodEnd * 1000).toISOString(),
-      })
-      .eq("stripe_subscription_id", subId);
-    log("Invoice paid -> renewed", { subId });
-  }
+  if (!periodEnd) return;
+  const isoEnd = new Date(periodEnd * 1000).toISOString();
+
+  // Try couple
+  await supabase
+    .from("weddings")
+    .update({ subscription_status: "active", current_period_end: isoEnd })
+    .eq("stripe_subscription_id", subId);
+
+  // Try planner
+  await supabase
+    .from("planner_subscriptions")
+    .update({ subscription_status: "active", current_period_end: isoEnd })
+    .eq("stripe_subscription_id", subId);
+
+  log("Invoice paid -> renewed", { subId });
 }
