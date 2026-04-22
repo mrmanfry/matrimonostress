@@ -1259,6 +1259,48 @@ export type Database = {
           },
         ]
       }
+      planner_subscriptions: {
+        Row: {
+          created_at: string
+          current_period_end: string | null
+          id: string
+          slot_limit: number
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          subscription_status: string
+          tier: string
+          trial_ends_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_period_end?: string | null
+          id?: string
+          slot_limit?: number
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_status?: string
+          tier?: string
+          trial_ends_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_period_end?: string | null
+          id?: string
+          slot_limit?: number
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_status?: string
+          tier?: string
+          trial_ends_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -2043,6 +2085,8 @@ export type Database = {
           id: string
           is_date_tentative: boolean
           location: string | null
+          partner_unlocked_at: string | null
+          partner_unlocked_email: string | null
           partner1_name: string
           partner2_name: string
           print_design: Json | null
@@ -2083,6 +2127,8 @@ export type Database = {
           id?: string
           is_date_tentative?: boolean
           location?: string | null
+          partner_unlocked_at?: string | null
+          partner_unlocked_email?: string | null
           partner1_name: string
           partner2_name: string
           print_design?: Json | null
@@ -2123,6 +2169,8 @@ export type Database = {
           id?: string
           is_date_tentative?: boolean
           location?: string | null
+          partner_unlocked_at?: string | null
+          partner_unlocked_email?: string | null
           partner1_name?: string
           partner2_name?: string
           print_design?: Json | null
@@ -2191,6 +2239,10 @@ export type Database = {
         Returns: boolean
       }
       cleanup_expired_sync_tokens: { Args: never; Returns: undefined }
+      count_active_planner_weddings: {
+        Args: { p_user_id: string }
+        Returns: number
+      }
       generate_progress_token: { Args: never; Returns: string }
       generate_wedding_slug: {
         Args: { p1_name: string; p2_name: string }
@@ -2230,6 +2282,10 @@ export type Database = {
       unaccent: { Args: { "": string }; Returns: string }
       update_camera_participant_email: {
         Args: { p_email: string; p_fingerprint: string; p_token: string }
+        Returns: boolean
+      }
+      user_owns_couple_wedding: {
+        Args: { p_user_id: string }
         Returns: boolean
       }
     }
