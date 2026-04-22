@@ -158,6 +158,20 @@ const Upgrade = () => {
               Ti restano ancora <strong>{daysLeft}</strong> giorni di prova gratuita.
             </p>
           )}
+
+          <Card className="p-5 border-dashed border-2 bg-muted/30">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <h3 className="font-semibold">Sei un wedding planner?</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Gestisci più matrimoni? Scopri i piani dedicati ai professionisti.
+                </p>
+              </div>
+              <Button variant="outline" onClick={() => navigate("/app/upgrade/planner")}>
+                Vedi piani Planner
+              </Button>
+            </div>
+          </Card>
         </div>
       </main>
 

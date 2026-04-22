@@ -27,6 +27,7 @@ import ContactSync from "./pages/ContactSync";
 import RSVPPublic from "./pages/RSVPPublic";
 import Calendar from "./pages/Calendar";
 import Upgrade from "./pages/Upgrade";
+import UpgradePlanner from "./pages/UpgradePlanner";
 import PlannerCockpit from "./pages/PlannerCockpit";
 import PlannerCalendarPage from "./pages/PlannerCalendarPage";
 import Chat from "./pages/Chat";
@@ -107,6 +108,7 @@ const App = () => (
               <Route path="chat" element={<Chat />} />
               <Route path="inbox" element={<PlannerInbox />} />
               <Route path="upgrade" element={<Upgrade />} />
+              <Route path="upgrade/planner" element={<UpgradePlanner />} />
             </Route>
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

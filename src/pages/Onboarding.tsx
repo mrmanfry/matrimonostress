@@ -112,6 +112,51 @@ const Onboarding = () => {
       const user = authState.user;
       const finalDate = resolveDate();
 
+      // Guards: enforce "1 wedding per couple" and planner slot limits
+      if (userRole !== "wedding_planner") {
+        const { data: ownsCouple } = await supabase.rpc("user_owns_couple_wedding", {
+          p_user_id: user.id,
+        });
+        if (ownsCouple) {
+          toast({
+            title: "Hai già un matrimonio",
+            description: "Il piano Coppia copre 1 matrimonio. Per gestirne altri, passa al piano Planner.",
+            variant: "destructive",
+          });
+          setLoading(false);
+          navigate("/app/upgrade/planner");
+          return;
+        }
+      } else {
+        const [{ data: plannerSub }, { data: activeCount }] = await Promise.all([
+          supabase
+            .from("planner_subscriptions")
+            .select("slot_limit, subscription_status, trial_ends_at")
+            .eq("user_id", user.id)
+            .maybeSingle(),
+          supabase.rpc("count_active_planner_weddings", { p_user_id: user.id }),
+        ]);
+        const slotsUsed = (activeCount as number) || 0;
+        const limit = plannerSub?.slot_limit ?? 1;
+        const isActive =
+          plannerSub?.subscription_status === "active" ||
+          (plannerSub?.subscription_status === "trialing" &&
+            plannerSub?.trial_ends_at &&
+            new Date(plannerSub.trial_ends_at).getTime() > Date.now());
+        const effectiveLimit = isActive ? limit : 1;
+        if (slotsUsed >= effectiveLimit) {
+          toast({
+            title: "Limite slot raggiunto",
+            description: `Hai ${slotsUsed}/${effectiveLimit} matrimoni attivi. Aggiorna il piano per gestirne altri.`,
+            variant: "destructive",
+          });
+          setLoading(false);
+          navigate("/app/upgrade/planner");
+          return;
+        }
+      }
+
+
       const { data: weddingData, error: weddingError } = await supabase
         .from("weddings")
         .insert({

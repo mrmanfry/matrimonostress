@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 interface StripeEmbeddedCheckoutProps {
   /** Edge function name to call to create the checkout session. */
-  functionName: "create-checkout" | "unlock-photos";
+  functionName: "create-checkout" | "unlock-photos" | "create-planner-checkout";
   /** Body to pass to the edge function. weddingId is required. */
   body: Record<string, unknown>;
 }

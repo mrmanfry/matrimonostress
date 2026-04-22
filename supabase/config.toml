@@ -83,3 +83,9 @@ verify_jwt = false
 
 [functions.get-stripe-price]
 verify_jwt = false
+
+[functions.create-planner-checkout]
+verify_jwt = false
+
+[functions.notify-partner-unlock]
+verify_jwt = false

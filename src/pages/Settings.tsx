@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ShareProgressDialog } from "@/components/settings/ShareProgressDialog";
 import { SubscriptionTab } from "@/components/settings/SubscriptionTab";
+import { PlannerSubscriptionTab } from "@/components/settings/PlannerSubscriptionTab";
 import { CollaboratorPermissionsCard } from "@/components/settings/CollaboratorPermissionsCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { z } from "zod";
@@ -640,6 +641,7 @@ const Settings = () => {
         {/* TAB: Abbonamento */}
         <TabsContent value="subscription" className="space-y-6 mt-6">
           <SubscriptionTab />
+          <PlannerSubscriptionTab />
         </TabsContent>
 
         {/* TAB: Matrimonio */}
