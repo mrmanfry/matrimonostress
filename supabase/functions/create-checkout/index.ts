@@ -51,9 +51,13 @@ serve(async (req) => {
       client_reference_id: weddingId,
       line_items: [{ price: PREMIUM_PRICE_ID, quantity: 1 }],
       mode: "subscription",
+      allow_promotion_codes: true,
       success_url: `${origin}/app/upgrade?success=true`,
       cancel_url: `${origin}/app/upgrade?canceled=true`,
       metadata: { weddingId },
+      subscription_data: {
+        metadata: { weddingId },
+      },
     });
 
     return new Response(JSON.stringify({ url: session.url }), {
