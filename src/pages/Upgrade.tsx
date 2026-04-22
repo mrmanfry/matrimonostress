@@ -94,6 +94,7 @@ const Upgrade = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <PaymentTestModeBanner />
       <header className="h-14 border-b border-border flex items-center px-4">
         <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
           <ArrowLeft className="w-4 h-4 mr-2" />
@@ -109,9 +110,7 @@ const Upgrade = () => {
                 <Heart className="w-10 h-10 text-accent-foreground fill-accent-foreground" />
               </div>
             </div>
-            <h1 className="text-3xl font-bold font-serif">
-              Sblocca l'organizzazione perfetta
-            </h1>
+            <h1 className="text-3xl font-bold font-serif">Sblocca l'organizzazione perfetta</h1>
             <p className="text-muted-foreground text-lg">
               Passa a Premium e goditi il tuo matrimonio senza pensieri.
             </p>
@@ -139,19 +138,14 @@ const Upgrade = () => {
               className="w-full h-14 text-base gap-2"
               size="lg"
               onClick={handleCheckout}
-              disabled={loading}
             >
-              {loading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Lock className="w-4 h-4" />
-              )}
-              {loading ? "Reindirizzamento..." : "Paga in sicurezza con Stripe"}
+              <Lock className="w-4 h-4" />
+              Paga in sicurezza
             </Button>
 
             <div className="flex items-center justify-center gap-3 mt-3 text-xs text-muted-foreground">
               <CreditCard className="w-4 h-4" />
-              <span>Pagamento sicuro e criptato</span>
+              <span>Pagamento sicuro · Hai un codice promo? Inseriscilo al checkout</span>
             </div>
           </Card>
 
@@ -162,6 +156,17 @@ const Upgrade = () => {
           )}
         </div>
       </main>
+
+      <Dialog open={checkoutOpen} onOpenChange={setCheckoutOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[92vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Completa il pagamento</DialogTitle>
+          </DialogHeader>
+          {checkoutOpen && (
+            <StripeEmbeddedCheckout functionName="create-checkout" body={checkoutBody} />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
