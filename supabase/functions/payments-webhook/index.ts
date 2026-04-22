@@ -109,27 +109,41 @@ async function handleSubscriptionUpsert(sub: SObj) {
     return;
   }
   const periodEnd = num(sub.current_period_end);
+  const stripeStatus = str(sub.status) || "active";
+  const cancelAtPeriodEnd = sub.cancel_at_period_end === true;
+
+  // If user clicked cancel: keep `active` until current_period_end (grace period).
+  // Stripe still reports status="active" with cancel_at_period_end=true until the period ends,
+  // then fires customer.subscription.deleted, which we handle below.
+  const effectiveStatus = stripeStatus;
+
   await supabase
     .from("weddings")
     .update({
-      subscription_status: str(sub.status) || "active",
+      subscription_status: effectiveStatus,
       stripe_customer_id: str(sub.customer),
       stripe_subscription_id: str(sub.id),
       current_period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
     })
     .eq("id", weddingId);
-  log("Subscription synced", { weddingId, status: str(sub.status) });
+  log("Subscription synced", { weddingId, status: effectiveStatus, cancelAtPeriodEnd });
 }
 
 async function handleSubscriptionDeleted(sub: SObj) {
   const m = meta(sub);
   const weddingId = m.weddingId;
   if (!weddingId) return;
+  // Honor remaining paid period: only flip to canceled if current_period_end has passed.
+  const periodEnd = num(sub.current_period_end);
+  const isStillInPeriod = periodEnd ? periodEnd * 1000 > Date.now() : false;
   await supabase
     .from("weddings")
-    .update({ subscription_status: "canceled" })
+    .update({
+      subscription_status: isStillInPeriod ? "active" : "canceled",
+      current_period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
+    })
     .eq("id", weddingId);
-  log("Subscription canceled", { weddingId });
+  log("Subscription deleted", { weddingId, isStillInPeriod });
 }
 
 async function handleInvoicePaid(invoice: SObj) {

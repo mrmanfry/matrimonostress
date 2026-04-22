@@ -44,7 +44,9 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { TrialBadge } from "@/components/subscription/TrialBadge";
 import { Badge } from "@/components/ui/badge";
 import { SoftPaywallDialog } from "@/components/subscription/SoftPaywallDialog";
-import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
+import { HardPaywallScreen } from "@/components/subscription/HardPaywallScreen";
+import { SubscriptionProvider, useSubscriptionContext } from "@/contexts/SubscriptionContext";
+import { PaymentTestModeBanner } from "@/components/payments/PaymentTestModeBanner";
 import { WorkspaceSwitcher } from "@/components/workspace/WorkspaceSwitcher";
 import { ModeSwitcher } from "@/components/workspace/ModeSwitcher";
 
@@ -349,6 +351,8 @@ const AppLayoutInner = ({
           </div>
         </header>
         <SoftPaywallDialog />
+        <PaymentTestModeBanner />
+        <PaywallGuard pathname={location.pathname} />
 
         <main className="flex-1 overflow-auto">
           <Outlet />
@@ -356,6 +360,19 @@ const AppLayoutInner = ({
       </div>
     </div>
   );
+};
+
+/**
+ * Renders the hard paywall full-screen when the trial is expired,
+ * unless the user is already on /app/upgrade or /app/settings (where they
+ * need access to convert or manage their account).
+ */
+const PaywallGuard = ({ pathname }: { pathname: string }) => {
+  const { isReadOnly } = useSubscriptionContext();
+  if (!isReadOnly) return null;
+  const allowedPaths = ["/app/upgrade", "/app/settings"];
+  if (allowedPaths.some((p) => pathname.startsWith(p))) return null;
+  return <HardPaywallScreen />;
 };
 
 export default AppLayout;

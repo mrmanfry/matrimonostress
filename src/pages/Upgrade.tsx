@@ -63,6 +63,10 @@ const Upgrade = () => {
 
   const handleCheckout = () => {
     if (authState.status !== "authenticated") return;
+    if (status === "active") {
+      toast({ title: "Sei già Premium", description: "Il tuo abbonamento è già attivo." });
+      return;
+    }
     setCheckoutOpen(true);
   };
 

@@ -241,11 +241,23 @@ export default function MemoriesGallery({
           const isSelected = selected.has(photo.id);
 
           return (
-            <div key={photo.id} className="relative cursor-pointer group" onClick={() => handlePhotoClick(idx)}>
+            <div
+              key={photo.id}
+              className="relative cursor-pointer group"
+              onClick={() => isLocked ? scrollToUpgrade() : handlePhotoClick(idx)}
+            >
               {isLocked ? (
-                <div className="aspect-[3/4] rounded-lg bg-muted flex flex-col items-center justify-center">
-                  <Lock size={24} className="text-muted-foreground mb-2" />
-                  <p className="text-xs text-muted-foreground">Bloccata</p>
+                <div className="relative aspect-[3/4] rounded-lg overflow-hidden">
+                  <FilmFrame
+                    src={`${supabaseUrl}/storage/v1/object/public/camera-photos/${photo.file_path}`}
+                    guestName={photo.guest_name}
+                    timestamp={photo.created_at}
+                    className="blur-xl scale-110 pointer-events-none select-none"
+                  />
+                  <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center text-white">
+                    <Lock size={28} className="mb-2 drop-shadow" />
+                    <p className="text-xs font-medium drop-shadow">Sblocca per vedere</p>
+                  </div>
                 </div>
               ) : (
                 <>
