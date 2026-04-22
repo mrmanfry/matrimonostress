@@ -59,6 +59,7 @@ serve(async (req) => {
       client_reference_id: weddingId,
       line_items: [{ price: tierConfig.price_id, quantity: 1 }],
       mode: "payment",
+      allow_promotion_codes: true,
       success_url: `${origin}/app/memories?unlock=success`,
       cancel_url: `${origin}/app/memories?unlock=canceled`,
       metadata: {
