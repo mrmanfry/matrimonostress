@@ -78,5 +78,8 @@ verify_jwt = false
 [functions.cleanup-camera-photos]
 verify_jwt = false
 
-[functions.stripe-webhook]
+[functions.payments-webhook]
+verify_jwt = false
+
+[functions.get-stripe-price]
 verify_jwt = false

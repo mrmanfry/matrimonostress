@@ -1,12 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { type StripeEnv, createStripeClient, corsHeaders } from "../_shared/stripe.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -14,9 +8,6 @@ serve(async (req) => {
   }
 
   try {
-    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
-    if (!stripeKey) throw new Error("STRIPE_SECRET_KEY not set");
-
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
@@ -25,25 +16,43 @@ serve(async (req) => {
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("No authorization header");
-
     const token = authHeader.replace("Bearer ", "");
     const { data: userData, error: userError } = await supabaseAdmin.auth.getUser(token);
     if (userError) throw new Error(`Auth error: ${userError.message}`);
     const user = userData.user;
     if (!user?.email) throw new Error("User not authenticated");
 
-    const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
-    const customers = await stripe.customers.list({ email: user.email, limit: 1 });
-    if (customers.data.length === 0) throw new Error("No Stripe customer found");
+    const body = await req.json().catch(() => ({}));
+    const environment = (body.environment || "sandbox") as StripeEnv;
+    const weddingId = body.weddingId;
+
+    const stripe = createStripeClient(environment);
+
+    // Find customer by stored ID first, fallback to email lookup
+    let customerId: string | undefined;
+    if (weddingId) {
+      const { data: w } = await supabaseAdmin
+        .from("weddings")
+        .select("stripe_customer_id")
+        .eq("id", weddingId)
+        .maybeSingle();
+      customerId = (w as { stripe_customer_id?: string } | null)?.stripe_customer_id ?? undefined;
+    }
+    if (!customerId) {
+      const customers = await stripe.customers.list({ email: user.email, limit: 1 });
+      if (customers.data.length === 0) throw new Error("No customer found");
+      customerId = customers.data[0].id;
+    }
 
     const origin = req.headers.get("origin") || "https://matrimonostress.lovable.app";
     const portalSession = await stripe.billingPortal.sessions.create({
-      customer: customers.data[0].id,
+      customer: customerId,
       return_url: `${origin}/app/settings`,
     });
 
     return new Response(JSON.stringify({ url: portalSession.url }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 200,
     });
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
