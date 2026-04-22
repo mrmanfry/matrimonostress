@@ -1,12 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Heart, Check, ArrowLeft, Lock, CreditCard, Loader2, PartyPopper } from "lucide-react";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { StripeEmbeddedCheckout } from "@/components/payments/StripeEmbeddedCheckout";
+import { PaymentTestModeBanner } from "@/components/payments/PaymentTestModeBanner";
 
 const benefits = [
   "Accesso illimitato a Checklist e Budget",
@@ -22,16 +25,16 @@ const Upgrade = () => {
   const [searchParams] = useSearchParams();
   const { status, daysLeft } = useSubscription();
   const { authState } = useAuth();
-  const [loading, setLoading] = useState(false);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [justActivated, setJustActivated] = useState(false);
 
   const isSuccess = searchParams.get("success") === "true";
   const isCanceled = searchParams.get("canceled") === "true";
 
-  // After successful checkout, poll check-subscription to sync DB
+  // After Stripe redirect to ?success=true, poll check-subscription so DB syncs
+  // even if the webhook is delayed.
   useEffect(() => {
     if (!isSuccess || authState.status !== "authenticated") return;
-
     let attempts = 0;
     const poll = async () => {
       attempts++;
@@ -53,22 +56,14 @@ const Upgrade = () => {
     }
   }, [isCanceled]);
 
-  const handleCheckout = async () => {
+  const checkoutBody = useMemo(
+    () => ({ weddingId: authState.status === "authenticated" ? authState.activeWeddingId : "" }),
+    [authState],
+  );
+
+  const handleCheckout = () => {
     if (authState.status !== "authenticated") return;
-    setLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("create-checkout", {
-        body: { weddingId: authState.activeWeddingId },
-      });
-      if (error) throw error;
-      if (data?.url) {
-        window.location.href = data.url;
-      }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Errore durante il checkout";
-      toast({ title: "Errore", description: msg, variant: "destructive" });
-      setLoading(false);
-    }
+    setCheckoutOpen(true);
   };
 
   // Success state
@@ -99,6 +94,7 @@ const Upgrade = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <PaymentTestModeBanner />
       <header className="h-14 border-b border-border flex items-center px-4">
         <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
           <ArrowLeft className="w-4 h-4 mr-2" />
@@ -114,9 +110,7 @@ const Upgrade = () => {
                 <Heart className="w-10 h-10 text-accent-foreground fill-accent-foreground" />
               </div>
             </div>
-            <h1 className="text-3xl font-bold font-serif">
-              Sblocca l'organizzazione perfetta
-            </h1>
+            <h1 className="text-3xl font-bold font-serif">Sblocca l'organizzazione perfetta</h1>
             <p className="text-muted-foreground text-lg">
               Passa a Premium e goditi il tuo matrimonio senza pensieri.
             </p>
@@ -144,19 +138,14 @@ const Upgrade = () => {
               className="w-full h-14 text-base gap-2"
               size="lg"
               onClick={handleCheckout}
-              disabled={loading}
             >
-              {loading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Lock className="w-4 h-4" />
-              )}
-              {loading ? "Reindirizzamento..." : "Paga in sicurezza con Stripe"}
+              <Lock className="w-4 h-4" />
+              Paga in sicurezza
             </Button>
 
             <div className="flex items-center justify-center gap-3 mt-3 text-xs text-muted-foreground">
               <CreditCard className="w-4 h-4" />
-              <span>Pagamento sicuro e criptato</span>
+              <span>Pagamento sicuro · Hai un codice promo? Inseriscilo al checkout</span>
             </div>
           </Card>
 
@@ -167,6 +156,17 @@ const Upgrade = () => {
           )}
         </div>
       </main>
+
+      <Dialog open={checkoutOpen} onOpenChange={setCheckoutOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[92vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Completa il pagamento</DialogTitle>
+          </DialogHeader>
+          {checkoutOpen && (
+            <StripeEmbeddedCheckout functionName="create-checkout" body={checkoutBody} />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
