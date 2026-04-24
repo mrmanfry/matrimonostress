@@ -10,7 +10,7 @@ interface LogoProps {
 // Logo WedsApp: usa l'immagine ufficiale fornita dall'utente (anelli intrecciati + wordmark).
 // L'immagine include già il wordmark, quindi mostriamo solo l'immagine in dimensione adeguata.
 const LandingLogo = ({ size = "md", onDark = false }: LogoProps) => {
-  const h = size === "lg" ? 56 : size === "md" ? 44 : 36;
+  const h = size === "lg" ? 96 : size === "md" ? 72 : 56;
   return (
     <a
       href="/"
