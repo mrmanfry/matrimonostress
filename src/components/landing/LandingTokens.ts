@@ -1,0 +1,35 @@
+// Design tokens locali per la nuova landing (handoff Claude Design).
+// Mantenuti come oggetto JS perché tutto il prototipo usa stili inline
+// con queste variabili specifiche, isolate dal resto del design system.
+
+export const T = {
+  bg: '#FAF7F2',
+  bgDeep: '#F3EDE0',
+  surface: '#FFFFFF',
+  surfaceMuted: '#F5F1EA',
+  surfaceSunk: '#F0EADD',
+  border: '#E8E1D4',
+  borderStrong: '#D4C9B5',
+  ink: '#2B2520',
+  ink2: '#5B5245',
+  ink3: '#8A8071',
+  brand: '#8B5CF6',
+  brandInk: '#6D3FE0',
+  brandDeep: '#4C1D95',
+  brandTint: '#F3EEFF',
+  success: '#15803D',
+  successTint: '#E7F3EC',
+  warn: '#B45309',
+  warnTint: '#FBF0DF',
+  danger: '#B91C1C',
+  dangerTint: '#FBEAEA',
+  gold: '#B08A3E',
+  goldTint: '#F5EFE1',
+  goldBorder: '#E7D9BA',
+  shadowSm: '0 1px 2px rgba(43,37,32,.04), 0 1px 1px rgba(43,37,32,.03)',
+  shadow: '0 1px 2px rgba(43,37,32,.04), 0 8px 24px -12px rgba(43,37,32,.10)',
+  shadowLg: '0 2px 4px rgba(43,37,32,.04), 0 24px 48px -16px rgba(43,37,32,.14)',
+  fontUi: "'Inter', system-ui, sans-serif",
+  fontSerif: "'Fraunces', Georgia, serif",
+  fontMono: "'JetBrains Mono', ui-monospace, monospace",
+};
