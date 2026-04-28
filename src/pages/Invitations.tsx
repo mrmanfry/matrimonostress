@@ -14,6 +14,8 @@ import PrintStudio from "@/components/invitations/PrintStudio";
 import CampaignCard, { CampaignsConfig } from "@/components/settings/CampaignCard";
 import CampaignConfigDialog from "@/components/settings/CampaignConfigDialog";
 import { RSVPConfigDialog } from "@/components/settings/RSVPConfigDialog";
+import { BlockEditorModal } from "@/components/invitations/editor/BlockEditorModal";
+import type { PageKind } from "@/lib/invitationBlocks/types";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 const getDefaultCampaignsConfig = (): CampaignsConfig => ({
@@ -58,6 +60,7 @@ const Invitations = () => {
   const [stdConfigDialogOpen, setStdConfigDialogOpen] = useState(false);
   const [rsvpCampaignDialogOpen, setRsvpCampaignDialogOpen] = useState(false);
   const [rsvpConfigDialogOpen, setRsvpConfigDialogOpen] = useState(false);
+  const [blockEditorPage, setBlockEditorPage] = useState<PageKind | null>(null);
 
   const campaignsConfig: CampaignsConfig = rawCampaignsConfig || getDefaultCampaignsConfig();
 
@@ -305,6 +308,7 @@ const Invitations = () => {
                 onConfigure={() => setStdConfigDialogOpen(true)}
                 onPreview={() => handlePreviewCampaign("save_the_date")}
                 onToggleStatus={() => handleToggleCampaignStatus("save_the_date")}
+                onAdvancedEditor={() => setBlockEditorPage("std")}
               />
               
               <CampaignCard
@@ -314,6 +318,7 @@ const Invitations = () => {
                 onConfigure={() => setRsvpCampaignDialogOpen(true)}
                 onPreview={() => handlePreviewCampaign("rsvp")}
                 onToggleStatus={() => handleToggleCampaignStatus("rsvp")}
+                onAdvancedEditor={() => setBlockEditorPage("rsvp")}
               />
             </div>
 
@@ -489,6 +494,19 @@ const Invitations = () => {
         currentConfig={(wedding as any)?.rsvp_config || null}
         onSave={() => refetch()}
       />
+
+      {blockEditorPage && weddingId && (
+        <BlockEditorModal
+          open={!!blockEditorPage}
+          onOpenChange={(o) => !o && setBlockEditorPage(null)}
+          weddingId={weddingId}
+          pageKind={blockEditorPage}
+          partnerNames={partnerNames}
+          weddingDate={weddingDate}
+          primaryColor={campaignsConfig.theme.primary_color}
+          onSaved={() => refetch()}
+        />
+      )}
     </div>
   );
 };

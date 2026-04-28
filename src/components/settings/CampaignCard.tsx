@@ -10,7 +10,8 @@ import {
   Pause, 
   Eye,
   ImageIcon,
-  Users
+  Users,
+  LayoutPanelLeft
 } from "lucide-react";
 
 export interface FAQItem {
@@ -65,6 +66,7 @@ interface CampaignCardProps {
   onConfigure: () => void;
   onPreview: () => void;
   onToggleStatus: () => void;
+  onAdvancedEditor?: () => void;
 }
 
 const CampaignCard = ({
@@ -74,6 +76,7 @@ const CampaignCard = ({
   onConfigure,
   onPreview,
   onToggleStatus,
+  onAdvancedEditor,
 }: CampaignCardProps) => {
   const isSTD = type === "save_the_date";
   
@@ -167,6 +170,18 @@ const CampaignCard = ({
             <Eye className="w-4 h-4 mr-1" />
             Anteprima
           </Button>
+
+          {onAdvancedEditor && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onAdvancedEditor}
+              title="Editor a blocchi avanzato"
+            >
+              <LayoutPanelLeft className="w-4 h-4 mr-1" />
+              Layout
+            </Button>
+          )}
           
           {config.status !== "closed" && (
             <Button 
