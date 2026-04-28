@@ -512,7 +512,30 @@ export default function RSVPPublic({ forceStdMode }: RSVPPublicProps) {
     await handleSubmit(syntheticEvent);
   };
 
-  // Render the immersive formal invite view
+  // NEW BLOCK-BASED RENDER (behind feature flag, with safe legacy fallback).
+  // We fall back to the legacy view in two cases:
+  //   1) the flag is off, or
+  //   2) the form has just been submitted — the legacy view owns the thank-you screen and we
+  //      keep it as the single source of truth for that micro-flow until parity is verified.
+  if (USE_BLOCK_BASED_RENDERING && rsvpData.pageSchema && !submitted) {
+    return (
+      <PublicInvitationPage
+        schema={rsvpData.pageSchema}
+        pageKind="rsvp"
+        wedding={weddingForBlocks}
+        members={party.members}
+        memberData={memberData}
+        onMemberDataChange={setMemberData}
+        onSubmitRsvp={handleFormSubmit}
+        submitting={submitting}
+        isReadOnly={isReadOnly}
+        deadlineDate={config.deadline_date}
+        cateringConfig={rsvpData.cateringConfig || undefined}
+      />
+    );
+  }
+
+  // Render the immersive formal invite view (legacy fallback)
   return (
     <FormalInviteView
       coupleName={rsvpData.wedding.couple}
