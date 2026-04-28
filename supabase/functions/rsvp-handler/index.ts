@@ -331,6 +331,16 @@ Deno.serve(async (req) => {
         const faqsData = rsvpCampaign?.faqs || [];
         const giftInfoData = rsvpCampaign?.gift_info || null;
 
+        // Build (or read) the block-based page schemas. Lazy migration: if the couple has
+        // never saved the new editor, we synthesize an equivalent schema from legacy fields.
+        const pagesRaw: any = (campaignsConfig as any)?.pages || {};
+        const rsvpPageSchema = pagesRaw.rsvp && Array.isArray(pagesRaw.rsvp.blocks)
+          ? pagesRaw.rsvp
+          : buildLegacyRsvpSchema(campaignsConfig || {});
+        const stdPageSchema = pagesRaw.std && Array.isArray(pagesRaw.std.blocks)
+          ? pagesRaw.std
+          : buildLegacyStdSchema(campaignsConfig || {});
+
         console.log(`RSVP data fetched for guest ${guestData.id}, party: ${party.id}, faqs: ${faqsData.length}, giftEnabled: ${giftInfoData?.enabled}`);
 
         return new Response(JSON.stringify({
@@ -350,7 +360,9 @@ Deno.serve(async (req) => {
             lastUpdatedAt: party.last_updated_at,
           },
           wedding: {
-            couple: wedding ? `${wedding.partner1_name} & ${wedding.partner2_name}` : "",
+            couple: wedding ? `${wedding.partner1_name} ${wedding.partner2_name}` : "",
+            partner1Name: wedding?.partner1_name || "",
+            partner2Name: wedding?.partner2_name || "",
             date: wedding?.wedding_date || "",
             location: wedding?.location || null,
             ceremonyStartTime: wedding?.ceremony_start_time || null,
@@ -370,6 +382,9 @@ Deno.serve(async (req) => {
           giftInfo: giftInfoData,
           cateringConfig: wedding?.catering_config || null,
           isReadOnly,
+          // Block-based schemas (additive: legacy clients ignore these)
+          pageSchema: rsvpPageSchema,
+          stdPageSchema,
         }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
