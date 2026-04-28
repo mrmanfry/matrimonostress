@@ -5,7 +5,16 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { SaveTheDateView } from "@/components/rsvp/SaveTheDateView";
 import { FormalInviteView } from "@/components/rsvp/FormalInviteView";
+import { PublicInvitationPage } from "@/components/publicInvitation/PublicInvitationPage";
+import type { InvitationPageSchema } from "@/lib/invitationBlocks/types";
+import type { WeddingPublicData } from "@/components/publicInvitation/blocks/_shared";
 import type { FAQItem, GiftInfo } from "@/components/settings/CampaignCard";
+
+// Feature flag: when true, render the new block-based public invitation page.
+// Flip to false for an instant fallback to the legacy FormalInviteView / SaveTheDateView
+// (kept in the codebase as a safety net while the new renderer is being verified
+// against real production invites and QR codes).
+const USE_BLOCK_BASED_RENDERING = true;
 
 interface RSVPPublicProps {
   forceStdMode?: boolean;
@@ -53,6 +62,8 @@ interface RSVPData {
   };
   wedding: {
     couple: string;
+    partner1Name?: string;
+    partner2Name?: string;
     date: string;
     location?: string | null;
     ceremonyStartTime?: string | null;
@@ -76,6 +87,8 @@ interface RSVPData {
   giftInfo?: GiftInfo | null;
   cateringConfig?: any;
   isReadOnly: boolean;
+  pageSchema?: InvitationPageSchema | null;
+  stdPageSchema?: InvitationPageSchema | null;
 }
 
 export default function RSVPPublic({ forceStdMode }: RSVPPublicProps) {
@@ -419,6 +432,26 @@ export default function RSVPPublic({ forceStdMode }: RSVPPublicProps) {
 
   if (!rsvpData) return null;
 
+  // Build the canonical wedding data shape used by the new block renderer.
+  const weddingForBlocks: WeddingPublicData = {
+    partner1Name:
+      rsvpData.wedding.partner1Name ||
+      (rsvpData.wedding.couple?.split(/\s+&\s+|\s+e\s+|\s+/)[0] ?? ""),
+    partner2Name:
+      rsvpData.wedding.partner2Name ||
+      (rsvpData.wedding.couple?.split(/\s+&\s+|\s+e\s+|\s+/).slice(-1)[0] ?? ""),
+    weddingDate: rsvpData.wedding.date,
+    timezone: rsvpData.wedding.timezone || "Europe/Rome",
+    location: rsvpData.wedding.location,
+    ceremonyVenueName: rsvpData.wedding.ceremonyVenueName,
+    ceremonyVenueAddress: rsvpData.wedding.ceremonyVenueAddress,
+    ceremonyStartTime: rsvpData.wedding.ceremonyStartTime,
+    receptionVenueName: rsvpData.wedding.receptionVenueName,
+    receptionVenueAddress: rsvpData.wedding.receptionVenueAddress,
+    receptionStartTime: rsvpData.wedding.receptionStartTime,
+    theme: { primaryColor: rsvpData.theme?.primary_color || "#8B5E3C" },
+  };
+
   // Render Save The Date view if mode=std
   if (isStdMode) {
     // Use STD-specific config directly - edge function now properly separates configs
@@ -426,6 +459,26 @@ export default function RSVPPublic({ forceStdMode }: RSVPPublicProps) {
     const stdHeroImage = rsvpData.stdConfig?.hero_image_url || null;
     const stdWelcomeTitle = rsvpData.stdConfig?.welcome_title || "Save The Date!";
     const stdWelcomeText = rsvpData.stdConfig?.welcome_text || "Segnati questa data!";
+
+    // NEW BLOCK-BASED RENDER (behind feature flag, with safe legacy fallback)
+    if (USE_BLOCK_BASED_RENDERING && rsvpData.stdPageSchema) {
+      const guestDisplayName =
+        rsvpData.guest.alias?.trim() || rsvpData.guest.firstName || "";
+      return (
+        <PublicInvitationPage
+          schema={rsvpData.stdPageSchema}
+          pageKind="std"
+          wedding={weddingForBlocks}
+          guestDisplayName={guestDisplayName}
+          coupleName={rsvpData.wedding.couple}
+          weddingLocation={rsvpData.wedding.location}
+          ceremonyStartTime={rsvpData.wedding.ceremonyStartTime}
+          isPreview={isPreview}
+          isReadOnly={rsvpData.isReadOnly}
+          onSubmitStd={handleStdResponse}
+        />
+      );
+    }
 
     return (
       <SaveTheDateView
@@ -459,7 +512,30 @@ export default function RSVPPublic({ forceStdMode }: RSVPPublicProps) {
     await handleSubmit(syntheticEvent);
   };
 
-  // Render the immersive formal invite view
+  // NEW BLOCK-BASED RENDER (behind feature flag, with safe legacy fallback).
+  // We fall back to the legacy view in two cases:
+  //   1) the flag is off, or
+  //   2) the form has just been submitted — the legacy view owns the thank-you screen and we
+  //      keep it as the single source of truth for that micro-flow until parity is verified.
+  if (USE_BLOCK_BASED_RENDERING && rsvpData.pageSchema && !submitted) {
+    return (
+      <PublicInvitationPage
+        schema={rsvpData.pageSchema}
+        pageKind="rsvp"
+        wedding={weddingForBlocks}
+        members={party.members}
+        memberData={memberData}
+        onMemberDataChange={setMemberData}
+        onSubmitRsvp={handleFormSubmit}
+        submitting={submitting}
+        isReadOnly={isReadOnly}
+        deadlineDate={config.deadline_date}
+        cateringConfig={rsvpData.cateringConfig || undefined}
+      />
+    );
+  }
+
+  // Render the immersive formal invite view (legacy fallback)
   return (
     <FormalInviteView
       coupleName={rsvpData.wedding.couple}
