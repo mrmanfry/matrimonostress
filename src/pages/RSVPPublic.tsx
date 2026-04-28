@@ -432,6 +432,26 @@ export default function RSVPPublic({ forceStdMode }: RSVPPublicProps) {
 
   if (!rsvpData) return null;
 
+  // Build the canonical wedding data shape used by the new block renderer.
+  const weddingForBlocks: WeddingPublicData = {
+    partner1Name:
+      rsvpData.wedding.partner1Name ||
+      (rsvpData.wedding.couple?.split(/\s+&\s+|\s+e\s+|\s+/)[0] ?? ""),
+    partner2Name:
+      rsvpData.wedding.partner2Name ||
+      (rsvpData.wedding.couple?.split(/\s+&\s+|\s+e\s+|\s+/).slice(-1)[0] ?? ""),
+    weddingDate: rsvpData.wedding.date,
+    timezone: rsvpData.wedding.timezone || "Europe/Rome",
+    location: rsvpData.wedding.location,
+    ceremonyVenueName: rsvpData.wedding.ceremonyVenueName,
+    ceremonyVenueAddress: rsvpData.wedding.ceremonyVenueAddress,
+    ceremonyStartTime: rsvpData.wedding.ceremonyStartTime,
+    receptionVenueName: rsvpData.wedding.receptionVenueName,
+    receptionVenueAddress: rsvpData.wedding.receptionVenueAddress,
+    receptionStartTime: rsvpData.wedding.receptionStartTime,
+    theme: { primaryColor: rsvpData.theme?.primary_color || "#8B5E3C" },
+  };
+
   // Render Save The Date view if mode=std
   if (isStdMode) {
     // Use STD-specific config directly - edge function now properly separates configs
@@ -439,6 +459,26 @@ export default function RSVPPublic({ forceStdMode }: RSVPPublicProps) {
     const stdHeroImage = rsvpData.stdConfig?.hero_image_url || null;
     const stdWelcomeTitle = rsvpData.stdConfig?.welcome_title || "Save The Date!";
     const stdWelcomeText = rsvpData.stdConfig?.welcome_text || "Segnati questa data!";
+
+    // NEW BLOCK-BASED RENDER (behind feature flag, with safe legacy fallback)
+    if (USE_BLOCK_BASED_RENDERING && rsvpData.stdPageSchema) {
+      const guestDisplayName =
+        rsvpData.guest.alias?.trim() || rsvpData.guest.firstName || "";
+      return (
+        <PublicInvitationPage
+          schema={rsvpData.stdPageSchema}
+          pageKind="std"
+          wedding={weddingForBlocks}
+          guestDisplayName={guestDisplayName}
+          coupleName={rsvpData.wedding.couple}
+          weddingLocation={rsvpData.wedding.location}
+          ceremonyStartTime={rsvpData.wedding.ceremonyStartTime}
+          isPreview={isPreview}
+          isReadOnly={rsvpData.isReadOnly}
+          onSubmitStd={handleStdResponse}
+        />
+      );
+    }
 
     return (
       <SaveTheDateView
