@@ -62,6 +62,8 @@ interface RSVPData {
   };
   wedding: {
     couple: string;
+    partner1Name?: string;
+    partner2Name?: string;
     date: string;
     location?: string | null;
     ceremonyStartTime?: string | null;
@@ -85,6 +87,8 @@ interface RSVPData {
   giftInfo?: GiftInfo | null;
   cateringConfig?: any;
   isReadOnly: boolean;
+  pageSchema?: InvitationPageSchema | null;
+  stdPageSchema?: InvitationPageSchema | null;
 }
 
 export default function RSVPPublic({ forceStdMode }: RSVPPublicProps) {
