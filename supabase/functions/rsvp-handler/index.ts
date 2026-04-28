@@ -31,6 +31,132 @@ interface CampaignsConfig {
     show_countdown: boolean;
     show_powered_by: boolean;
   };
+  pages?: {
+    rsvp?: { version: number; blocks: any[] };
+    std?: { version: number; blocks: any[] };
+  };
+}
+
+// ---------- Lazy block-schema migration (Deno-side mirror of src/lib/invitationBlocks/migrations.ts) ----------
+// Keeps existing weddings working with zero DB migration: if `campaigns_config.pages.{rsvp|std}` is
+// missing, we synthesize an equivalent block schema from the legacy fields on the fly.
+
+const blkUid = () => {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return (crypto as any).randomUUID();
+  return `blk_${Math.random().toString(36).slice(2, 11)}`;
+};
+
+function buildLegacyRsvpSchema(cfg: any) {
+  const rsvp = (cfg && cfg.rsvp) || {};
+  const giftInfo = rsvp.gift_info || {};
+  const faqsRaw: Array<{ question?: string; answer?: string }> = Array.isArray(rsvp.faqs) ? rsvp.faqs : [];
+
+  const blocks: any[] = [
+    {
+      id: blkUid(), type: "cover", visible: true,
+      config: {
+        imageUrl: rsvp.hero_image_url || null,
+        title: "",
+        subtitle: null,
+        titleStyle: "stacked",
+      },
+    },
+    {
+      id: blkUid(), type: "ceremony", visible: true,
+      config: {
+        sectionTitle: "La Cerimonia",
+        imageUrl: rsvp.ceremony_image_url || null,
+        mapsButtonLabel: "Apri in Maps",
+      },
+    },
+    {
+      id: blkUid(), type: "reception", visible: true,
+      config: {
+        sectionTitle: "Il Ricevimento",
+        imageUrl: rsvp.reception_image_url || null,
+        mapsButtonLabel: "Apri in Maps",
+      },
+    },
+    {
+      id: blkUid(), type: "rsvp", visible: true,
+      config: {
+        title: (rsvp.welcome_title || "").trim() || "Conferma la tua Presenza",
+        welcomeMessage: (rsvp.welcome_text || "").trim() || "Per motivi organizzativi ti preghiamo di confermare la tua presenza.",
+        deadlineLabel: "Rispondi entro il",
+        childLabel: "Bambino/a",
+        confirmButtonText: "Conferma Presenza",
+        pendingHelperText: "Indica per ogni persona se sarà presente o meno",
+      },
+    },
+    {
+      id: blkUid(), type: "gift_registry",
+      visible: giftInfo.enabled !== false,
+      config: {
+        title: "La Lista Nozze",
+        decoration: { kind: "icon", iconName: "gift" },
+        message: giftInfo.message || "",
+        coupleNames: giftInfo.couple_names || "",
+        iban: giftInfo.iban || null,
+        bicSwift: giftInfo.bic_swift || null,
+        bankName: giftInfo.bank_name || null,
+        registryUrl: giftInfo.registry_url || null,
+        showCopyButton: true,
+      },
+    },
+    {
+      id: blkUid(), type: "faq",
+      visible: faqsRaw.length > 0,
+      config: {
+        title: "Info Utili",
+        items: faqsRaw.map((f) => ({ id: blkUid(), question: f.question || "", answer: f.answer || "" })),
+        expandBehavior: "single",
+      },
+    },
+    {
+      id: blkUid(), type: "footer", visible: true,
+      config: { showPoweredBy: true },
+    },
+  ];
+
+  return { version: 1, blocks };
+}
+
+function buildLegacyStdSchema(cfg: any) {
+  const std = (cfg && cfg.save_the_date) || {};
+  const blocks: any[] = [
+    {
+      id: blkUid(), type: "cover", visible: true,
+      config: {
+        imageUrl: std.hero_image_url || null,
+        title: "",
+        subtitle: null,
+        titleStyle: "stacked",
+      },
+    },
+    {
+      id: blkUid(), type: "std_message", visible: true,
+      config: {
+        label: (std.welcome_title || "").trim() || "Save The Date",
+        quote: (std.welcome_text || "").trim() || "Un capitolo d'amore ci aspetta, e vorremmo tu fossi parte di questa storia.",
+      },
+    },
+    {
+      id: blkUid(), type: "std_response", visible: true,
+      config: {
+        title: "Pensi di esserci?",
+        yesLabel: "Ci sarò",
+        maybeLabel: "Forse",
+        noLabel: "Non potrò",
+        helperText: "Non vincolante - ci aiuta a organizzarci!",
+        showCalendarButton: true,
+      },
+    },
+    {
+      id: blkUid(), type: "footer", visible: true,
+      config: { showPoweredBy: true },
+    },
+  ];
+  return { version: 1, blocks };
 }
 
 Deno.serve(async (req) => {
