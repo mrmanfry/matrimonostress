@@ -5,7 +5,16 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { SaveTheDateView } from "@/components/rsvp/SaveTheDateView";
 import { FormalInviteView } from "@/components/rsvp/FormalInviteView";
+import { PublicInvitationPage } from "@/components/publicInvitation/PublicInvitationPage";
+import type { InvitationPageSchema } from "@/lib/invitationBlocks/types";
+import type { WeddingPublicData } from "@/components/publicInvitation/blocks/_shared";
 import type { FAQItem, GiftInfo } from "@/components/settings/CampaignCard";
+
+// Feature flag: when true, render the new block-based public invitation page.
+// Flip to false for an instant fallback to the legacy FormalInviteView / SaveTheDateView
+// (kept in the codebase as a safety net while the new renderer is being verified
+// against real production invites and QR codes).
+const USE_BLOCK_BASED_RENDERING = true;
 
 interface RSVPPublicProps {
   forceStdMode?: boolean;
