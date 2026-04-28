@@ -494,6 +494,19 @@ const Invitations = () => {
         currentConfig={(wedding as any)?.rsvp_config || null}
         onSave={() => refetch()}
       />
+
+      {blockEditorPage && weddingId && (
+        <BlockEditorModal
+          open={!!blockEditorPage}
+          onOpenChange={(o) => !o && setBlockEditorPage(null)}
+          weddingId={weddingId}
+          pageKind={blockEditorPage}
+          partnerNames={partnerNames}
+          weddingDate={weddingDate}
+          primaryColor={campaignsConfig.theme.primary_color}
+          onSaved={() => refetch()}
+        />
+      )}
     </div>
   );
 };
