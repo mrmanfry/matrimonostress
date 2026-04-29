@@ -1,4 +1,5 @@
 import type { CoverBlock } from "@/lib/invitationBlocks/types";
+import { imagePositionToCss } from "@/lib/invitationBlocks/imagePosition";
 import { type WeddingPublicData, formatItalianDate } from "./_shared";
 
 interface Props {
