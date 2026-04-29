@@ -30,7 +30,7 @@ export function GiftRegistryBlockView({ block, wedding }: Props) {
               src={config.imageUrl}
               alt=""
               className="w-full max-w-md aspect-[16/10] object-cover rounded-lg"
-              style={{ objectPosition: `center ${config.imagePosition ?? "center"}` }}
+              style={{ objectPosition: `center ${imagePositionToCss(config.imagePosition)}` }}
             />
           ) : config.decoration.kind === "icon" ? (
             (() => {
