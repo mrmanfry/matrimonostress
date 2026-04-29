@@ -289,7 +289,7 @@ function RsvpInspector({ block, update }: BaseProps<RsvpBlock>) {
   );
 }
 
-function GiftRegistryInspector({ block, update }: BaseProps<GiftRegistryBlock>) {
+function GiftRegistryInspector({ block, update, weddingId }: BaseProps<GiftRegistryBlock>) {
   const c = block.config;
   return (
     <div className="space-y-3">
@@ -297,6 +297,13 @@ function GiftRegistryInspector({ block, update }: BaseProps<GiftRegistryBlock>) 
         <Label>Titolo</Label>
         <Input value={c.title} onChange={(e) => update({ title: e.target.value })} />
       </div>
+      <ImageField
+        label="Immagine sezione"
+        url={c.imageUrl ?? null}
+        onChange={(u) => update({ imageUrl: u })}
+        weddingId={weddingId}
+        prefix="gift-registry"
+      />
       <div className="space-y-1">
         <Label>Messaggio</Label>
         <Textarea

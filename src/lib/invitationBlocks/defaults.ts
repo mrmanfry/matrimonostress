@@ -93,6 +93,7 @@ export function makeGiftRegistryBlock(overrides: Partial<GiftRegistryBlock["conf
     visible: true,
     config: {
       title: "La Lista Nozze",
+      imageUrl: null,
       decoration: { kind: "icon", iconName: "gift" },
       message: "",
       coupleNames: "",

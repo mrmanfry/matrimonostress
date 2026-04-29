@@ -114,6 +114,7 @@ export interface GiftRegistryBlock extends BlockBase {
   type: "gift_registry";
   config: {
     title: string;
+    imageUrl: string | null;
     decoration: GiftDecoration;
     message: string;
     coupleNames: string;
