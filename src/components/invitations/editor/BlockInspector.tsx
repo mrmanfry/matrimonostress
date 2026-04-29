@@ -384,6 +384,7 @@ function GiftRegistryInspector({ block, update, weddingId }: BaseProps<GiftRegis
         <ImagePositionField
           value={c.imagePosition}
           onChange={(v) => update({ imagePosition: v })}
+          imageUrl={c.imageUrl}
         />
       )}
       <div className="space-y-1">
