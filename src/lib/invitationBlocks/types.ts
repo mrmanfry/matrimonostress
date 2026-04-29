@@ -36,8 +36,10 @@ interface BlockBase {
   style?: BlockStyleOverride;
 }
 
-// Vertical focal point for cropped images (object-position)
-export type ImagePosition = "top" | "center" | "bottom";
+// Vertical focal point for cropped images (object-position).
+// Number = percentage 0..100 (0 = top, 50 = center, 100 = bottom).
+// Strings kept for backward compat with previously saved blocks.
+export type ImagePosition = number | "top" | "center" | "bottom";
 
 // ---------- Helper structs ----------
 

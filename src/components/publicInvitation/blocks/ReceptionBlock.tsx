@@ -1,5 +1,6 @@
 import { PartyPopper, MapPin } from "lucide-react";
 import type { ReceptionBlock } from "@/lib/invitationBlocks/types";
+import { imagePositionToCss } from "@/lib/invitationBlocks/imagePosition";
 import { type WeddingPublicData, applyStyle, formatTime, getMapsLink } from "./_shared";
 
 interface Props {
@@ -27,7 +28,7 @@ export function ReceptionBlockView({ block, wedding }: Props) {
               src={config.imageUrl}
               alt={wedding.receptionVenueName || "Ricevimento"}
               className="w-full max-w-md aspect-[16/10] object-cover rounded-lg"
-              style={{ objectPosition: `center ${config.imagePosition ?? "center"}` }}
+              style={{ objectPosition: `center ${imagePositionToCss(config.imagePosition)}` }}
             />
           ) : (
             <PartyPopper className="w-12 h-12 text-stone-400" />

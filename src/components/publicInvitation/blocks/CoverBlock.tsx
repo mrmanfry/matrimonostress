@@ -1,4 +1,5 @@
 import type { CoverBlock } from "@/lib/invitationBlocks/types";
+import { imagePositionToCss } from "@/lib/invitationBlocks/imagePosition";
 import { type WeddingPublicData, formatItalianDate } from "./_shared";
 
 interface Props {
@@ -29,7 +30,7 @@ export function CoverBlockView({ block, wedding }: Props) {
           ? `url(${heroImageUrl})`
           : `linear-gradient(135deg, ${primaryColor}33 0%, ${primaryColor}11 100%)`,
         backgroundSize: "cover",
-        backgroundPosition: `center ${config.imagePosition ?? "center"}`,
+        backgroundPosition: `center ${imagePositionToCss(config.imagePosition)}`,
       }}
     >
       <div

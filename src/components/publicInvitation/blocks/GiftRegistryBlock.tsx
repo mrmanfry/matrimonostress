@@ -1,6 +1,7 @@
 import { Gift, Heart, Plane, Wine, ExternalLink, Copy } from "lucide-react";
 import { toast } from "sonner";
 import type { GiftRegistryBlock } from "@/lib/invitationBlocks/types";
+import { imagePositionToCss } from "@/lib/invitationBlocks/imagePosition";
 import { type WeddingPublicData, applyStyle } from "./_shared";
 
 interface Props {
@@ -29,7 +30,7 @@ export function GiftRegistryBlockView({ block, wedding }: Props) {
               src={config.imageUrl}
               alt=""
               className="w-full max-w-md aspect-[16/10] object-cover rounded-lg"
-              style={{ objectPosition: `center ${config.imagePosition ?? "center"}` }}
+              style={{ objectPosition: `center ${imagePositionToCss(config.imagePosition)}` }}
             />
           ) : config.decoration.kind === "icon" ? (
             (() => {

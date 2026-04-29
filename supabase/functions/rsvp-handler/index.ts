@@ -360,7 +360,7 @@ Deno.serve(async (req) => {
             lastUpdatedAt: party.last_updated_at,
           },
           wedding: {
-            couple: wedding ? `${wedding.partner1_name} ${wedding.partner2_name}` : "",
+            couple: wedding ? `${wedding.partner1_name} & ${wedding.partner2_name}` : "",
             partner1Name: wedding?.partner1_name || "",
             partner2Name: wedding?.partner2_name || "",
             date: wedding?.wedding_date || "",

@@ -152,8 +152,10 @@ export function FormalInviteView({
 }: FormalInviteViewProps) {
   const [expandedMember, setExpandedMember] = useState<string | null>(null);
 
-  // Parse couple names for display
-  const names = coupleName.split(/\s*[&e]\s*/i);
+  // Parse couple names for display.
+  // IMPORTANT: split only on '&' or the standalone word 'e' surrounded by spaces.
+  // Using `[&e]` (no anchors) would match the letter 'e' inside any name (e.g. "Ludovica").
+  const names = coupleName.split(/\s*&\s*|\s+e\s+/i);
   const name1 = names[0]?.trim() || "";
   const name2 = names[1]?.trim() || "";
 
