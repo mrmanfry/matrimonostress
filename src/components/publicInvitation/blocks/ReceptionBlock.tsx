@@ -1,5 +1,6 @@
 import { PartyPopper, MapPin } from "lucide-react";
 import type { ReceptionBlock } from "@/lib/invitationBlocks/types";
+import { imagePositionToCss } from "@/lib/invitationBlocks/imagePosition";
 import { type WeddingPublicData, applyStyle, formatTime, getMapsLink } from "./_shared";
 
 interface Props {
