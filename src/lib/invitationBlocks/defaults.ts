@@ -65,6 +65,7 @@ export function makeReceptionBlock(overrides: Partial<ReceptionBlock["config"]> 
     config: {
       sectionTitle: "Il Ricevimento",
       imageUrl: null,
+      imagePosition: "center",
       mapsButtonLabel: "Apri in Maps",
       ...overrides,
     },
