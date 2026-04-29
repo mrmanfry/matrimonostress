@@ -24,7 +24,13 @@ export function GiftRegistryBlockView({ block, wedding }: Props) {
         </h2>
 
         <div className="flex justify-center">
-          {config.decoration.kind === "icon" ? (
+          {config.imageUrl ? (
+            <img
+              src={config.imageUrl}
+              alt=""
+              className="w-full max-w-md aspect-[16/10] object-cover object-center rounded-lg"
+            />
+          ) : config.decoration.kind === "icon" ? (
             (() => {
               const Icon = ICONS[config.decoration.iconName] || Gift;
               return <Icon className="w-12 h-12 text-stone-400" />;
