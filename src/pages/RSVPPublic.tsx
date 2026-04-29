@@ -7,6 +7,10 @@ import { SaveTheDateView } from "@/components/rsvp/SaveTheDateView";
 import { FormalInviteView } from "@/components/rsvp/FormalInviteView";
 import { PublicInvitationPage } from "@/components/publicInvitation/PublicInvitationPage";
 import type { InvitationPageSchema } from "@/lib/invitationBlocks/types";
+import {
+  legacyRsvpToBlockSchema,
+  legacyStdToBlockSchema,
+} from "@/lib/invitationBlocks/migrations";
 import type { WeddingPublicData } from "@/components/publicInvitation/blocks/_shared";
 import type { FAQItem, GiftInfo } from "@/components/settings/CampaignCard";
 
