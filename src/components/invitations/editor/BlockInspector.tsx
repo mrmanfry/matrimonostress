@@ -204,6 +204,7 @@ function CoverInspector({ block, update, weddingId }: BaseProps<CoverBlock>) {
         <ImagePositionField
           value={block.config.imagePosition}
           onChange={(v) => update({ imagePosition: v })}
+          imageUrl={block.config.imageUrl}
         />
       )}
       <div className="space-y-1">
