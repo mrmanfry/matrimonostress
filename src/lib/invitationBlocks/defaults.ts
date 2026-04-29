@@ -33,6 +33,7 @@ export function makeCoverBlock(overrides: Partial<CoverBlock["config"]> = {}): C
     visible: true,
     config: {
       imageUrl: null,
+      imagePosition: "center",
       title: "",
       subtitle: null,
       titleStyle: "stacked",
