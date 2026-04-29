@@ -28,7 +28,7 @@ export function ReceptionBlockView({ block, wedding }: Props) {
               src={config.imageUrl}
               alt={wedding.receptionVenueName || "Ricevimento"}
               className="w-full max-w-md aspect-[16/10] object-cover rounded-lg"
-              style={{ objectPosition: `center ${config.imagePosition ?? "center"}` }}
+              style={{ objectPosition: `center ${imagePositionToCss(config.imagePosition)}` }}
             />
           ) : (
             <PartyPopper className="w-12 h-12 text-stone-400" />
