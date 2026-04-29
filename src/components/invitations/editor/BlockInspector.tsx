@@ -304,6 +304,7 @@ function ReceptionInspector({ block, update, weddingId }: BaseProps<ReceptionBlo
         <ImagePositionField
           value={block.config.imagePosition}
           onChange={(v) => update({ imagePosition: v })}
+          imageUrl={block.config.imageUrl}
         />
       )}
       <div className="space-y-1">
