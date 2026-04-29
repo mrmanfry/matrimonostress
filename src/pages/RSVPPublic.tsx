@@ -268,6 +268,26 @@ export default function RSVPPublic({ forceStdMode }: RSVPPublicProps) {
         giftInfo,
         cateringConfig: wedding.catering_config || null,
         isReadOnly: false,
+        pageSchema: (() => {
+          const pages = (campaignsRaw?.pages as any) || {};
+          const saved = pages.rsvp;
+          if (saved && Array.isArray(saved.blocks)) return saved as InvitationPageSchema;
+          return legacyRsvpToBlockSchema(campaignsRaw, {
+            partner1_name: wedding.partner1_name,
+            partner2_name: wedding.partner2_name,
+            wedding_date: wedding.wedding_date,
+          });
+        })(),
+        stdPageSchema: (() => {
+          const pages = (campaignsRaw?.pages as any) || {};
+          const saved = pages.std || pages.save_the_date;
+          if (saved && Array.isArray(saved.blocks)) return saved as InvitationPageSchema;
+          return legacyStdToBlockSchema(campaignsRaw, {
+            partner1_name: wedding.partner1_name,
+            partner2_name: wedding.partner2_name,
+            wedding_date: wedding.wedding_date,
+          });
+        })(),
       };
 
       setRsvpData(demoData);
