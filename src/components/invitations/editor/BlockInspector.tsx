@@ -172,6 +172,12 @@ function CoverInspector({ block, update, weddingId }: BaseProps<CoverBlock>) {
         weddingId={weddingId}
         prefix="cover"
       />
+      {block.config.imageUrl && (
+        <ImagePositionField
+          value={block.config.imagePosition}
+          onChange={(v) => update({ imagePosition: v })}
+        />
+      )}
       <div className="space-y-1">
         <Label>Titolo (lascia vuoto per usare i nomi degli sposi)</Label>
         <Input
