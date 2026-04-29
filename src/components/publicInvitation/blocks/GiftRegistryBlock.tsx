@@ -1,6 +1,7 @@
 import { Gift, Heart, Plane, Wine, ExternalLink, Copy } from "lucide-react";
 import { toast } from "sonner";
 import type { GiftRegistryBlock } from "@/lib/invitationBlocks/types";
+import { imagePositionToCss } from "@/lib/invitationBlocks/imagePosition";
 import { type WeddingPublicData, applyStyle } from "./_shared";
 
 interface Props {
