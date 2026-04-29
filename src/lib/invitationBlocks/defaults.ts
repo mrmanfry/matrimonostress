@@ -50,6 +50,7 @@ export function makeCeremonyBlock(overrides: Partial<CeremonyBlock["config"]> = 
     config: {
       sectionTitle: "La Cerimonia",
       imageUrl: null,
+      imagePosition: "center",
       mapsButtonLabel: "Apri in Maps",
       ...overrides,
     },
