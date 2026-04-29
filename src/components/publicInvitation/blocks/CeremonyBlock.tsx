@@ -26,7 +26,8 @@ export function CeremonyBlockView({ block, wedding }: Props) {
             <img
               src={config.imageUrl}
               alt={wedding.ceremonyVenueName || "Cerimonia"}
-              className="w-full max-w-md aspect-[16/10] object-cover object-center rounded-lg"
+              className="w-full max-w-md aspect-[16/10] object-cover rounded-lg"
+              style={{ objectPosition: `center ${config.imagePosition ?? "center"}` }}
             />
           ) : (
             <Church className="w-12 h-12 text-stone-400" />

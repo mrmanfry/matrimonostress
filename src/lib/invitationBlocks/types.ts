@@ -36,6 +36,9 @@ interface BlockBase {
   style?: BlockStyleOverride;
 }
 
+// Vertical focal point for cropped images (object-position)
+export type ImagePosition = "top" | "center" | "bottom";
+
 // ---------- Helper structs ----------
 
 export type GiftDecoration =
@@ -74,6 +77,7 @@ export interface CoverBlock extends BlockBase {
   type: "cover";
   config: {
     imageUrl: string | null;
+    imagePosition?: ImagePosition;
     title: string; // override of "{partner1} & {partner2}" if non-empty
     subtitle: string | null;
     titleStyle: "stacked" | "single-line";
@@ -85,6 +89,7 @@ export interface CeremonyBlock extends BlockBase {
   config: {
     sectionTitle: string;
     imageUrl: string | null;
+    imagePosition?: ImagePosition;
     mapsButtonLabel: string;
   };
 }
@@ -94,6 +99,7 @@ export interface ReceptionBlock extends BlockBase {
   config: {
     sectionTitle: string;
     imageUrl: string | null;
+    imagePosition?: ImagePosition;
     mapsButtonLabel: string;
   };
 }
@@ -115,6 +121,7 @@ export interface GiftRegistryBlock extends BlockBase {
   config: {
     title: string;
     imageUrl: string | null;
+    imagePosition?: ImagePosition;
     decoration: GiftDecoration;
     message: string;
     coupleNames: string;

@@ -29,7 +29,7 @@ export function CoverBlockView({ block, wedding }: Props) {
           ? `url(${heroImageUrl})`
           : `linear-gradient(135deg, ${primaryColor}33 0%, ${primaryColor}11 100%)`,
         backgroundSize: "cover",
-        backgroundPosition: "center",
+        backgroundPosition: `center ${config.imagePosition ?? "center"}`,
       }}
     >
       <div

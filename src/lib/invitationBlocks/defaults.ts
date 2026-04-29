@@ -33,6 +33,7 @@ export function makeCoverBlock(overrides: Partial<CoverBlock["config"]> = {}): C
     visible: true,
     config: {
       imageUrl: null,
+      imagePosition: "center",
       title: "",
       subtitle: null,
       titleStyle: "stacked",
@@ -49,6 +50,7 @@ export function makeCeremonyBlock(overrides: Partial<CeremonyBlock["config"]> = 
     config: {
       sectionTitle: "La Cerimonia",
       imageUrl: null,
+      imagePosition: "center",
       mapsButtonLabel: "Apri in Maps",
       ...overrides,
     },
@@ -63,6 +65,7 @@ export function makeReceptionBlock(overrides: Partial<ReceptionBlock["config"]> 
     config: {
       sectionTitle: "Il Ricevimento",
       imageUrl: null,
+      imagePosition: "center",
       mapsButtonLabel: "Apri in Maps",
       ...overrides,
     },
@@ -94,6 +97,7 @@ export function makeGiftRegistryBlock(overrides: Partial<GiftRegistryBlock["conf
     config: {
       title: "La Lista Nozze",
       imageUrl: null,
+      imagePosition: "center",
       decoration: { kind: "icon", iconName: "gift" },
       message: "",
       coupleNames: "",

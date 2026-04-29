@@ -128,6 +128,33 @@ function ImageField({
   );
 }
 
+function ImagePositionField({
+  value,
+  onChange,
+}: {
+  value: "top" | "center" | "bottom" | undefined;
+  onChange: (v: "top" | "center" | "bottom") => void;
+}) {
+  return (
+    <div className="space-y-1">
+      <Label>Posizione foto (ritaglio)</Label>
+      <Select value={value ?? "center"} onValueChange={(v) => onChange(v as any)}>
+        <SelectTrigger>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="top">In alto (mostra la parte superiore)</SelectItem>
+          <SelectItem value="center">Centrata</SelectItem>
+          <SelectItem value="bottom">In basso (mostra la parte inferiore)</SelectItem>
+        </SelectContent>
+      </Select>
+      <p className="text-xs text-muted-foreground">
+        Sposta il ritaglio se la foto taglia troppo cielo o soggetto.
+      </p>
+    </div>
+  );
+}
+
 // ---------- Inspectors ----------
 interface BaseProps<B extends InvitationBlock> {
   block: B;
@@ -145,6 +172,12 @@ function CoverInspector({ block, update, weddingId }: BaseProps<CoverBlock>) {
         weddingId={weddingId}
         prefix="cover"
       />
+      {block.config.imageUrl && (
+        <ImagePositionField
+          value={block.config.imagePosition}
+          onChange={(v) => update({ imagePosition: v })}
+        />
+      )}
       <div className="space-y-1">
         <Label>Titolo (lascia vuoto per usare i nomi degli sposi)</Label>
         <Input
@@ -200,6 +233,12 @@ function CeremonyInspector({ block, update, weddingId }: BaseProps<CeremonyBlock
         weddingId={weddingId}
         prefix="ceremony"
       />
+      {block.config.imageUrl && (
+        <ImagePositionField
+          value={block.config.imagePosition}
+          onChange={(v) => update({ imagePosition: v })}
+        />
+      )}
       <div className="space-y-1">
         <Label>Etichetta bottone Maps</Label>
         <Input
@@ -231,6 +270,12 @@ function ReceptionInspector({ block, update, weddingId }: BaseProps<ReceptionBlo
         weddingId={weddingId}
         prefix="reception"
       />
+      {block.config.imageUrl && (
+        <ImagePositionField
+          value={block.config.imagePosition}
+          onChange={(v) => update({ imagePosition: v })}
+        />
+      )}
       <div className="space-y-1">
         <Label>Etichetta bottone Maps</Label>
         <Input
@@ -304,6 +349,12 @@ function GiftRegistryInspector({ block, update, weddingId }: BaseProps<GiftRegis
         weddingId={weddingId}
         prefix="gift-registry"
       />
+      {c.imageUrl && (
+        <ImagePositionField
+          value={c.imagePosition}
+          onChange={(v) => update({ imagePosition: v })}
+        />
+      )}
       <div className="space-y-1">
         <Label>Messaggio</Label>
         <Textarea
