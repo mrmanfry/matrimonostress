@@ -349,6 +349,12 @@ function GiftRegistryInspector({ block, update, weddingId }: BaseProps<GiftRegis
         weddingId={weddingId}
         prefix="gift-registry"
       />
+      {c.imageUrl && (
+        <ImagePositionField
+          value={c.imagePosition}
+          onChange={(v) => update({ imagePosition: v })}
+        />
+      )}
       <div className="space-y-1">
         <Label>Messaggio</Label>
         <Textarea
