@@ -460,10 +460,10 @@ export default function RSVPPublic({ forceStdMode }: RSVPPublicProps) {
   const weddingForBlocks: WeddingPublicData = {
     partner1Name:
       rsvpData.wedding.partner1Name ||
-      (rsvpData.wedding.couple?.split(/\s+&\s+|\s+e\s+|\s+/)[0] ?? ""),
+      (rsvpData.wedding.couple?.split(/\s*&\s*|\s+e\s+/i)[0]?.trim() ?? ""),
     partner2Name:
       rsvpData.wedding.partner2Name ||
-      (rsvpData.wedding.couple?.split(/\s+&\s+|\s+e\s+|\s+/).slice(-1)[0] ?? ""),
+      (rsvpData.wedding.couple?.split(/\s*&\s*|\s+e\s+/i).slice(-1)[0]?.trim() ?? ""),
     weddingDate: rsvpData.wedding.date,
     timezone: rsvpData.wedding.timezone || "Europe/Rome",
     location: rsvpData.wedding.location,
