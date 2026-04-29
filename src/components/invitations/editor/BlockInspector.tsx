@@ -130,28 +130,54 @@ function ImageField({
   );
 }
 
+// Convert any saved ImagePosition (legacy string or new number) to a 0-100 percentage.
+function imagePositionToPercent(v: ImagePosition | undefined): number {
+  if (typeof v === "number") return Math.max(0, Math.min(100, v));
+  if (v === "top") return 0;
+  if (v === "bottom") return 100;
+  return 50; // center / undefined
+}
+
 function ImagePositionField({
   value,
   onChange,
+  imageUrl,
 }: {
-  value: "top" | "center" | "bottom" | undefined;
-  onChange: (v: "top" | "center" | "bottom") => void;
+  value: ImagePosition | undefined;
+  onChange: (v: ImagePosition) => void;
+  imageUrl?: string | null;
 }) {
+  const percent = imagePositionToPercent(value);
   return (
-    <div className="space-y-1">
-      <Label>Posizione foto (ritaglio)</Label>
-      <Select value={value ?? "center"} onValueChange={(v) => onChange(v as any)}>
-        <SelectTrigger>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="top">In alto (mostra la parte superiore)</SelectItem>
-          <SelectItem value="center">Centrata</SelectItem>
-          <SelectItem value="bottom">In basso (mostra la parte inferiore)</SelectItem>
-        </SelectContent>
-      </Select>
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <Label>Posizione foto (ritaglio verticale)</Label>
+        <span className="text-xs tabular-nums text-muted-foreground">{percent}%</span>
+      </div>
+      {imageUrl && (
+        <div className="relative w-full h-24 rounded-md overflow-hidden border bg-muted">
+          <img
+            src={imageUrl}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover"
+            style={{ objectPosition: `center ${percent}%` }}
+          />
+        </div>
+      )}
+      <Slider
+        value={[percent]}
+        min={0}
+        max={100}
+        step={1}
+        onValueChange={(vals) => onChange(vals[0] ?? 50)}
+      />
+      <div className="flex justify-between text-[10px] uppercase tracking-wide text-muted-foreground">
+        <span>In alto</span>
+        <span>Centro</span>
+        <span>In basso</span>
+      </div>
       <p className="text-xs text-muted-foreground">
-        Sposta il ritaglio se la foto taglia troppo cielo o soggetto.
+        Trascina per spostare il ritaglio della foto in modo continuo.
       </p>
     </div>
   );
