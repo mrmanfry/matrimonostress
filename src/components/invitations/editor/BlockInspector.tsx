@@ -289,7 +289,7 @@ function RsvpInspector({ block, update }: BaseProps<RsvpBlock>) {
   );
 }
 
-function GiftRegistryInspector({ block, update }: BaseProps<GiftRegistryBlock>) {
+function GiftRegistryInspector({ block, update, weddingId }: BaseProps<GiftRegistryBlock>) {
   const c = block.config;
   return (
     <div className="space-y-3">
