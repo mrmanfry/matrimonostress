@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 200" role="img" aria-label="WedsApp">
+  <title>WedsApp</title>
+  <g>
+    <circle cx="103" cy="70" r="42" fill="none" stroke="#5B21B6" stroke-width="6" stroke-linecap="round"/>
+    <circle cx="137" cy="70" r="42" fill="none" stroke="#A78BFA" stroke-width="6" stroke-linecap="round"/>
+  </g>
+  <text x="120" y="170"
+        text-anchor="middle"
+        font-family="Georgia, 'Times New Roman', 'DM Serif Display', serif"
+        font-size="38"
+        font-weight="400"
+        letter-spacing="2"
+        fill="#5B21B6">WedsApp</text>
+</svg>
