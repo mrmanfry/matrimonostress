@@ -28,9 +28,14 @@ const Nav = () => (
     >
       <LandingLogo size="sm" />
       <nav style={{ display: "flex", gap: 32 }}>
-        {["Funzionalità", "Come funziona", "Prezzi", "Risorse"].map((l) => (
-          <a key={l} href="#" style={{ fontSize: 14, fontWeight: 500, color: T.ink2 }}>
-            {l}
+        {[
+          { l: "Funzionalità", to: "/funzionalita" },
+          { l: "Come funziona", to: "/come-funziona" },
+          { l: "Prezzi", to: "/prezzi" },
+          { l: "Risorse", to: "/risorse" },
+        ].map((it) => (
+          <a key={it.l} href={it.to} style={{ fontSize: 14, fontWeight: 500, color: T.ink2 }}>
+            {it.l}
           </a>
         ))}
       </nav>
