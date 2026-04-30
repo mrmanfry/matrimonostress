@@ -38,6 +38,10 @@ import CameraPublic from "./pages/CameraPublic";
 import Invitations from "./pages/Invitations";
 import MassBooklet from "./pages/MassBooklet";
 import HelpCenter from "./pages/HelpCenter";
+import Funzionalita from "./pages/Funzionalita";
+import ComeFunziona from "./pages/ComeFunziona";
+import Prezzi from "./pages/Prezzi";
+import Risorse from "./pages/Risorse";
 import NotFound from "./pages/NotFound";
 
 const AppIndexRedirect = () => {
@@ -56,6 +60,10 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
+            <Route path="/funzionalita" element={<Funzionalita />} />
+            <Route path="/come-funziona" element={<ComeFunziona />} />
+            <Route path="/prezzi" element={<Prezzi />} />
+            <Route path="/risorse" element={<Risorse />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
