@@ -95,8 +95,12 @@ export default {
 					brand: 'hsl(var(--paper-brand))',
 					'brand-ink': 'hsl(var(--paper-brand-ink))',
 					'brand-tint': 'hsl(var(--paper-brand-tint))'
+				},
+				brand: {
+					primary: '#5B21B6',
+					secondary: '#A78BFA',
+					soft: '#F5F3FF',
 				}
-			},
 			backgroundImage: {
 				'gradient-hero': 'var(--gradient-hero)',
 				'gradient-card': 'var(--gradient-card)'
