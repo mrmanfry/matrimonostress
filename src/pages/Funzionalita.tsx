@@ -65,7 +65,7 @@ const Funzionalita = () => (
                 borderRadius: 16,
                 border: `1px solid ${T.border}`,
                 padding: "32px 28px",
-                boxShadow: "var(--shadow-sm, 0 1px 2px rgba(43,37,32,.04))",
+                boxShadow: T.shadowSm,
                 display: "flex",
                 flexDirection: "column",
                 gap: 16,
