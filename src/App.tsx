@@ -38,6 +38,10 @@ import CameraPublic from "./pages/CameraPublic";
 import Invitations from "./pages/Invitations";
 import MassBooklet from "./pages/MassBooklet";
 import HelpCenter from "./pages/HelpCenter";
+import Funzionalita from "./pages/Funzionalita";
+import ComeFunziona from "./pages/ComeFunziona";
+import Prezzi from "./pages/Prezzi";
+import Risorse from "./pages/Risorse";
 import NotFound from "./pages/NotFound";
 
 const AppIndexRedirect = () => {
