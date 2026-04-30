@@ -1,5 +1,4 @@
-import logoSrc from "@/assets/wedsapp-logo.png";
-import { T } from "./LandingTokens";
+import Logo from "@/components/Logo";
 
 interface LogoProps {
   size?: "sm" | "md" | "lg";
@@ -7,26 +6,25 @@ interface LogoProps {
   showWordmark?: boolean;
 }
 
-// Logo WedsApp: usa l'immagine ufficiale fornita dall'utente (anelli intrecciati + wordmark).
-// L'immagine include già il wordmark, quindi mostriamo solo l'immagine in dimensione adeguata.
+/**
+ * Landing-page wrapper around the shared <Logo /> component.
+ * Uses the official horizontal SVG (transparent background).
+ * - sm: navbar (32px mobile / 40px desktop)
+ * - md: 44px (used in footers / on-dark sections)
+ * - lg: 56px (hero areas)
+ */
 const LandingLogo = ({ size = "md", onDark = false }: LogoProps) => {
-  const h = size === "lg" ? 96 : size === "md" ? 72 : 56;
+  const variant = onDark ? "white" : "horizontal";
+  const baseHeight = size === "lg" ? 56 : size === "md" ? 44 : 32;
+  const responsiveClass =
+    size === "sm" ? "!h-8 md:!h-10" : undefined;
   return (
     <a
       href="/"
       aria-label="WedsApp — Home"
       style={{ display: "inline-flex", alignItems: "center", lineHeight: 0 }}
     >
-      <img
-        src={logoSrc}
-        alt="WedsApp"
-        style={{
-          height: h,
-          width: "auto",
-          display: "block",
-          filter: onDark ? "brightness(0) invert(1)" : "none",
-        }}
-      />
+      <Logo variant={variant} size={baseHeight} className={responsiveClass} />
     </a>
   );
 };

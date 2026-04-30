@@ -9,7 +9,8 @@ import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { Heart, Loader2, Eye, EyeOff } from "lucide-react";
+import { Loader2, Eye, EyeOff } from "lucide-react";
+import Logo from "@/components/Logo";
 import { z } from "zod";
 import { sessionGuard } from "@/utils/sessionGuard";
 import { Sparkles } from "lucide-react";
@@ -179,15 +180,8 @@ const Auth = () => {
   const formContent = (
     <div className="w-full max-w-md mx-auto flex flex-col justify-center min-h-screen lg:min-h-0 px-6 py-8 lg:py-0">
       <div className="text-center space-y-2 mb-8">
-        <div className="flex justify-center items-center gap-3 mb-2">
-          <div className="relative p-3 rounded-2xl bg-accent/10 backdrop-blur-md border border-accent/15 shadow-lg">
-            <Heart className="w-7 h-7 text-accent fill-accent/70" />
-            <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-accent/40 blur-[1px]" />
-          </div>
-          <div className="flex flex-col">
-            <span className="font-serif text-2xl font-bold tracking-wider leading-none">WedsApp</span>
-            <span className="text-muted-foreground text-[10px] font-medium tracking-[0.25em] uppercase leading-none mt-1">Wedding Planner</span>
-          </div>
+        <div className="flex justify-center mb-4">
+          <Logo variant="vertical" size={120} className="md:!h-40" />
         </div>
         <p className="text-muted-foreground">
           {isLogin ? "Bentornato!" : "Inizia a organizzare il tuo matrimonio"}
@@ -371,15 +365,8 @@ const Auth = () => {
 
         <div className="relative z-10 flex flex-col justify-between p-12 w-full">
           {/* Top: Logo area */}
-        <div className="flex items-center gap-3">
-            <div className="relative p-3 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 shadow-lg">
-              <Heart className="w-6 h-6 text-white fill-white/70" />
-              <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-white/40 blur-[1px]" />
-            </div>
-            <div className="flex flex-col">
-              <span className="text-white font-serif text-xl font-bold tracking-wider leading-none">WedsApp</span>
-              <span className="text-white/40 text-[10px] font-medium tracking-[0.25em] uppercase leading-none mt-1">Wedding Planner</span>
-            </div>
+          <div className="flex items-center">
+            <Logo variant="white" size={40} alt="WedsApp" />
           </div>
 
           {/* Center: Main message */}
