@@ -101,6 +101,7 @@ export default {
 					secondary: '#A78BFA',
 					soft: '#F5F3FF',
 				}
+			},
 			backgroundImage: {
 				'gradient-hero': 'var(--gradient-hero)',
 				'gradient-card': 'var(--gradient-card)'
