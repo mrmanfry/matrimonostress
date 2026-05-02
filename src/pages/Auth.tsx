@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Eye, EyeOff, ArrowLeft, ArrowRight, Mail, Lock } from "lucide-react";
 import { z } from "zod";
 import { sessionGuard } from "@/utils/sessionGuard";
+import Logo from "@/components/Logo";
 
 const emailSchema = z.string().trim().email("Email non valida");
 const passwordSchema = z
@@ -412,15 +413,9 @@ const Auth = () => {
         <div className="absolute bottom-0 -left-20 w-[400px] h-[400px] rounded-full bg-white/[0.05] blur-2xl" />
 
         <div className="relative z-10 flex flex-col justify-between p-12 xl:p-16 w-full">
-          {/* Top: Logo chip */}
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center shadow-lg">
-              <span className="text-[hsl(258_89%_55%)]" style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: 22 }}>W</span>
-            </div>
-            <div className="leading-tight">
-              <div className="text-white text-xl font-semibold" style={{ fontFamily: "'Fraunces', serif" }}>WedsApp</div>
-              <div className="text-white/60 text-[10px] tracking-[0.25em] uppercase">Wedding Planner</div>
-            </div>
+          {/* Top: Logo (white variant for dark panel) */}
+          <div className="flex items-center">
+            <Logo variant="white" size={44} alt="WedsApp" />
           </div>
 
           {/* Center: Hero text + Tesoreria card */}
