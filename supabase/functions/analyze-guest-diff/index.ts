@@ -86,7 +86,31 @@ serve(async (req) => {
       throw new Error('Configurazione Supabase mancante');
     }
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const userClient = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_ANON_KEY')!, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: userData, error: userErr } = await userClient.auth.getUser();
+    if (userErr || !userData?.user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Verify access to the wedding via RLS-aware client
+    const { data: accessCheck } = await userClient
+      .from('user_roles')
+      .select('id')
+      .eq('user_id', userData.user.id)
+      .eq('wedding_id', weddingId)
+      .maybeSingle();
+    if (!accessCheck) {
+      return new Response(JSON.stringify({ error: 'Forbidden' }), {
+        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Use user-scoped client so RLS is enforced on guest fetch
+    const supabase = userClient;
 
     // Fetch existing guests from DB
     console.log('Fetching existing guests for wedding:', weddingId);
