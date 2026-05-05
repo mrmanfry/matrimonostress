@@ -1331,7 +1331,21 @@ serve(async (req) => {
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    // Validate JWT
+    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: userData, error: authErr } = await userClient.auth.getUser();
+    if (authErr || !userData?.user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
 
     const body = await req.json();
