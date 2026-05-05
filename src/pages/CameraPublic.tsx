@@ -85,18 +85,16 @@ export default function CameraPublic() {
 
     const load = async () => {
       const { data, error: err } = await supabase
-        .from("disposable_cameras" as any)
-        .select("*")
-        .eq("token", token)
-        .maybeSingle();
+        .rpc("get_camera_by_token" as any, { p_token: token });
 
-      if (err || !data) {
+      const cameraRow = Array.isArray(data) ? data[0] : data;
+      if (err || !cameraRow) {
         setError("Rullino non trovato");
         setLoading(false);
         return;
       }
 
-      const cam = data as any;
+      const cam = cameraRow as any;
 
       if (!cam.is_active) {
         setError("Questo rullino non è più attivo");
@@ -153,17 +151,15 @@ export default function CameraPublic() {
 
   // Load gallery photos
   const loadGallery = useCallback(async () => {
-    if (!camera) return;
+    if (!camera || !token) return;
     const { data } = await supabase
-      .from("camera_photos" as any)
-      .select("*")
-      .eq("camera_id", camera.id)
-      .eq("guest_fingerprint", fingerprint.current)
-      .eq("is_approved", true)
-      .order("created_at", { ascending: false });
+      .rpc("get_camera_photos_by_token" as any, {
+        p_token: token,
+        p_fingerprint: fingerprint.current,
+      });
 
     if (data) setPhotos(data as any[]);
-  }, [camera]);
+  }, [camera, token]);
 
   useEffect(() => {
     if (view === "gallery") loadGallery();
