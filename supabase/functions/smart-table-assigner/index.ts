@@ -1376,6 +1376,20 @@ serve(async (req) => {
       });
     }
 
+    // Authorize: user must have a role on this wedding
+    const { data: roleRow } = await userClient
+      .from("user_roles")
+      .select("id")
+      .eq("user_id", userData.user.id)
+      .eq("wedding_id", weddingId)
+      .maybeSingle();
+    if (!roleRow) {
+      return new Response(JSON.stringify({ error: "Forbidden - no access to wedding" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     console.log(
       `Planner start: wedding=${weddingId}, guests=${guests.length}, vibe=${vibe_mode}, mode=${calculation_mode}, preserve_locked=${preserve_locked_tables}`,
     );
