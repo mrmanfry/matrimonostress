@@ -1331,7 +1331,21 @@ serve(async (req) => {
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    // Validate JWT
+    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: userData, error: authErr } = await userClient.auth.getUser();
+    if (authErr || !userData?.user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
 
     const body = await req.json();
@@ -1358,6 +1372,20 @@ serve(async (req) => {
     if (!weddingId || !guests || guests.length === 0) {
       return new Response(JSON.stringify({ error: "Missing weddingId or guests" }), {
         status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Authorize: user must have a role on this wedding
+    const { data: roleRow } = await userClient
+      .from("user_roles")
+      .select("id")
+      .eq("user_id", userData.user.id)
+      .eq("wedding_id", weddingId)
+      .maybeSingle();
+    if (!roleRow) {
+      return new Response(JSON.stringify({ error: "Forbidden - no access to wedding" }), {
+        status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
