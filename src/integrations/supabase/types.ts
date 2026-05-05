@@ -2248,9 +2248,43 @@ export type Database = {
         Args: { p1_name: string; p2_name: string }
         Returns: string
       }
+      get_camera_by_token: {
+        Args: { p_token: string }
+        Returns: {
+          created_at: string
+          ending_date: string
+          film_type: string
+          free_reveal_limit: number
+          hard_storage_limit: number
+          id: string
+          is_active: boolean
+          poster_design: Json
+          require_approval: boolean
+          reveal_at: string
+          reveal_mode: string
+          shots_per_person: number
+          token: string
+          unlocked_photo_limit: number
+          updated_at: string
+          wedding_id: string
+        }[]
+      }
       get_camera_participant_count: {
         Args: { p_token: string }
         Returns: number
+      }
+      get_camera_photos_by_token: {
+        Args: { p_fingerprint: string; p_token: string }
+        Returns: {
+          camera_id: string
+          created_at: string
+          file_path: string
+          film_type_applied: string
+          guest_fingerprint: string
+          guest_name: string
+          id: string
+          is_approved: boolean
+        }[]
       }
       get_display_names: {
         Args: { user_ids: string[] }
@@ -2261,6 +2295,15 @@ export type Database = {
       }
       get_user_context: { Args: never; Returns: Json }
       get_user_email: { Args: { _user_id: string }; Returns: string }
+      get_vendor_financials: {
+        Args: { p_vendor_id: string }
+        Returns: {
+          iban: string
+          intestatario_conto: string
+          partita_iva_cf: string
+          ragione_sociale: string
+        }[]
+      }
       get_wedding_role: {
         Args: { _user_id: string; _wedding_id: string }
         Returns: Database["public"]["Enums"]["app_role"]

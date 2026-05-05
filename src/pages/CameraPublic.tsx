@@ -85,12 +85,10 @@ export default function CameraPublic() {
 
     const load = async () => {
       const { data, error: err } = await supabase
-        .from("disposable_cameras" as any)
-        .select("*")
-        .eq("token", token)
-        .maybeSingle();
+        .rpc("get_camera_by_token" as any, { p_token: token });
 
-      if (err || !data) {
+      const cameraRow = Array.isArray(data) ? data[0] : data;
+      if (err || !cameraRow) {
         setError("Rullino non trovato");
         setLoading(false);
         return;
