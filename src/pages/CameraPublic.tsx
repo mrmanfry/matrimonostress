@@ -94,7 +94,7 @@ export default function CameraPublic() {
         return;
       }
 
-      const cam = data as any;
+      const cam = cameraRow as any;
 
       if (!cam.is_active) {
         setError("Questo rullino non è più attivo");
