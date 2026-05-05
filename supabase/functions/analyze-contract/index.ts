@@ -67,12 +67,12 @@ serve(async (req) => {
     // Parse Google Cloud credentials (Service Account JSON)
     const credentials = JSON.parse(GOOGLE_CLOUD_VISION_CREDENTIALS);
 
-    // Create Supabase client
+    // Create Supabase client (service role only used for non-storage tasks)
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Download the file from Supabase Storage
-    console.log("[analyze-contract] Downloading file from storage");
-    const { data: fileData, error: downloadError } = await supabase.storage
+    // Download via user-scoped client so storage RLS is enforced
+    console.log("[analyze-contract] Downloading file from storage (user-scoped)");
+    const { data: fileData, error: downloadError } = await userClient.storage
       .from("vendor-contracts")
       .download(fileUrl);
 
