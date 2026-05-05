@@ -12,8 +12,27 @@ serve(async (req) => {
   }
 
   try {
+    // Auth check
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const _SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+    const _SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const userClient = createClient(_SUPABASE_URL, _SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: userData, error: authError } = await userClient.auth.getUser();
+    if (authError || !userData?.user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { fileUrl } = await req.json();
-    console.log("[analyze-contract] Starting OCR analysis for:", fileUrl);
+    console.log("[analyze-contract] Starting OCR analysis for user:", userData.user.id);
 
     if (!fileUrl) {
       console.error("[analyze-contract] Missing fileUrl");
