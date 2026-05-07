@@ -956,7 +956,14 @@ const ExpensesList: React.FC<{
                   )}
                   <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
                     {!lockAmounts && (
-                      <PaperButton variant="ghost" size="sm" iconLeft={<Pencil size={11}/>} onClick={() => startEdit(it, total)}>
+                      <PaperButton
+                        variant="ghost" size="sm" iconLeft={<Pencil size={11}/>}
+                        onClick={() => {
+                          const hasLineItems = ((lineItemsByExpenseItem[it.id] || []).length) > 0;
+                          if (isVariable && hasLineItems) onEditAudience(it.id);
+                          else startEdit(it, total);
+                        }}
+                      >
                         Modifica
                       </PaperButton>
                     )}
