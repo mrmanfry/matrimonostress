@@ -348,7 +348,7 @@ export default function VendorDetails() {
 
   const updateExpenseItem = async (
     itemId: string,
-    patch: { description?: string; total_amount?: number; fixed_amount?: number | null },
+    patch: { description?: string; total_amount?: number; fixed_amount?: number | null; estimated_amount?: number | null },
   ) => {
     const { error } = await supabase.from('expense_items').update(patch).eq('id', itemId);
     if (error) { toast({ title: 'Errore', description: error.message, variant: 'destructive' }); return; }
@@ -822,27 +822,41 @@ const ExpensesList: React.FC<{
   mode: ScenarioMode;
   guestCounts: GuestCounts;
   lockAmounts?: boolean;
-  onUpdateItem: (id: string, patch: { description?: string; total_amount?: number; fixed_amount?: number | null }) => void | Promise<void>;
+  onUpdateItem: (id: string, patch: { description?: string; total_amount?: number; fixed_amount?: number | null; estimated_amount?: number | null }) => void | Promise<void>;
   onDeleteItem: (id: string) => void | Promise<void>;
   onAddPayment: (expenseItemId: string) => void | Promise<void>;
 }> = ({ items, lineItemsByExpenseItem, payments, mode, guestCounts, lockAmounts, onUpdateItem, onDeleteItem, onAddPayment }) => {
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [draftDesc, setDraftDesc] = React.useState('');
   const [draftTotal, setDraftTotal] = React.useState<string>('');
+  const [draftUnit, setDraftUnit] = React.useState<string>('');
 
   const startEdit = (it: DbExpenseItem, total: number) => {
     setEditingId(it.id);
     setDraftDesc(it.description);
     setDraftTotal(String(total));
+    setDraftUnit(it.estimated_amount != null ? String(it.estimated_amount) : '');
   };
   const cancelEdit = () => { setEditingId(null); };
   const saveEdit = async (it: DbExpenseItem) => {
-    const newTotal = Number(draftTotal);
     const isVariable = (it.expense_type ?? '').toLowerCase() === 'variable';
+    const hasLineItems = ((lineItemsByExpenseItem[it.id] || []).length) > 0;
     const patch: any = { description: draftDesc.trim() || it.description };
-    if (!Number.isNaN(newTotal) && newTotal >= 0) {
-      patch.total_amount = newTotal;
-      if (!isVariable) patch.fixed_amount = newTotal;
+    if (isVariable) {
+      // Per spese variabili NON sovrascriviamo il totale (= prezzo unitario × invitati).
+      // Si modifica il prezzo unitario; per "per_audience" (con line items) si rimanda al wizard.
+      if (!hasLineItems) {
+        const newUnit = Number(draftUnit);
+        if (!Number.isNaN(newUnit) && newUnit >= 0) {
+          patch.estimated_amount = newUnit;
+        }
+      }
+    } else {
+      const newTotal = Number(draftTotal);
+      if (!Number.isNaN(newTotal) && newTotal >= 0) {
+        patch.total_amount = newTotal;
+        patch.fixed_amount = newTotal;
+      }
     }
     await onUpdateItem(it.id, patch);
     setEditingId(null);
@@ -864,41 +878,62 @@ const ExpensesList: React.FC<{
             fontFamily: FONT_UI,
           }}>
             {isEditing ? (
-              <div style={{ display: 'grid', gap: 10 }}>
-                <input
-                  type="text"
-                  value={draftDesc}
-                  onChange={e => setDraftDesc(e.target.value)}
-                  placeholder="Descrizione"
-                  style={{
-                    fontSize: 14, padding: '8px 10px', borderRadius: 6,
-                    border: `1px solid ${border(true)}`, background: surface(),
-                    color: ink(), fontFamily: FONT_UI, outline: 'none',
-                  }}
-                />
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <input
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    value={draftTotal}
-                    onChange={e => setDraftTotal(e.target.value)}
-                    placeholder="Importo €"
-                    style={{
-                      flex: 1, fontSize: 14, padding: '8px 10px', borderRadius: 6,
-                      border: `1px solid ${border(true)}`, background: surface(),
-                      color: ink(), fontFamily: FONT_MONO, outline: 'none',
-                    }}
-                  />
-                  <PaperButton variant="primary" size="sm" onClick={() => saveEdit(it)}>Salva</PaperButton>
-                  <PaperButton variant="ghost" size="sm" onClick={cancelEdit}>Annulla</PaperButton>
-                </div>
-                {isVariable && (
-                  <div style={{ fontSize: 11, color: ink(3) }}>
-                    Spesa variabile: l'importo viene ricalcolato automaticamente sugli invitati confermati.
+              (() => {
+                const hasLineItems = ((lineItemsByExpenseItem[it.id] || []).length) > 0;
+                const editingPerAudience = isVariable && hasLineItems;
+                const editingPerPerson = isVariable && !hasLineItems;
+                return (
+                  <div style={{ display: 'grid', gap: 10 }}>
+                    <input
+                      type="text"
+                      value={draftDesc}
+                      onChange={e => setDraftDesc(e.target.value)}
+                      placeholder="Descrizione"
+                      style={{
+                        fontSize: 14, padding: '8px 10px', borderRadius: 6,
+                        border: `1px solid ${border(true)}`, background: surface(),
+                        color: ink(), fontFamily: FONT_UI, outline: 'none',
+                      }}
+                    />
+                    {editingPerAudience ? (
+                      <div style={{
+                        fontSize: 12, color: ink(2), padding: '10px 12px',
+                        background: 'hsl(var(--paper-surface-muted))',
+                        border: `1px dashed ${border(true)}`, borderRadius: 8,
+                      }}>
+                        Spesa variabile per fasce (Adulti / Bambini / Staff). Per modificare i prezzi unitari elimina la voce e ricreala dal wizard "Aggiungi spesa".
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <div style={{ flex: 1, position: 'relative' }}>
+                          <input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            value={editingPerPerson ? draftUnit : draftTotal}
+                            onChange={e => editingPerPerson ? setDraftUnit(e.target.value) : setDraftTotal(e.target.value)}
+                            placeholder={editingPerPerson ? 'Prezzo a persona €' : 'Importo €'}
+                            style={{
+                              width: '100%', fontSize: 14, padding: '8px 10px', borderRadius: 6,
+                              border: `1px solid ${border(true)}`, background: surface(),
+                              color: ink(), fontFamily: FONT_MONO, outline: 'none',
+                            }}
+                          />
+                          {editingPerPerson && (
+                            <div style={{ fontSize: 11, color: ink(3), marginTop: 4 }}>
+                              Totale ora: <span style={{ fontFamily: FONT_MONO }}>{fmtEUR(total)}</span> · si ricalcola sugli invitati.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                      <PaperButton variant="ghost" size="sm" onClick={cancelEdit}>Annulla</PaperButton>
+                      <PaperButton variant="primary" size="sm" onClick={() => saveEdit(it)}>Salva</PaperButton>
+                    </div>
                   </div>
-                )}
-              </div>
+                );
+              })()
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 20, alignItems: 'flex-start' }}>
                 <div>

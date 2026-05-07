@@ -48,18 +48,42 @@ function BudgetNewExpenseFlow({
   const [loading, setLoading] = React.useState(true);
   const [filter, setFilter] = React.useState('');
   const [selected, setSelected] = React.useState<VendorLite | null>(null);
+  const [creatingInline, setCreatingInline] = React.useState(false);
+  const [newName, setNewName] = React.useState('');
+  const [savingNew, setSavingNew] = React.useState(false);
 
-  React.useEffect(() => {
-    (async () => {
-      const { data } = await supabase
-        .from('vendors')
-        .select('id, name, category_id, wedding_id, is_accommodation, expense_categories(name)')
-        .eq('wedding_id', weddingId)
-        .order('name');
-      setVendors((data ?? []) as unknown as VendorLite[]);
-      setLoading(false);
-    })();
+  const loadVendors = React.useCallback(async () => {
+    const { data } = await supabase
+      .from('vendors')
+      .select('id, name, category_id, wedding_id, is_accommodation, expense_categories(name)')
+      .eq('wedding_id', weddingId)
+      .order('name');
+    setVendors((data ?? []) as unknown as VendorLite[]);
+    setLoading(false);
   }, [weddingId]);
+
+  React.useEffect(() => { loadVendors(); }, [loadVendors]);
+
+  const handleCreateVendor = async () => {
+    const name = newName.trim();
+    if (!name) return;
+    setSavingNew(true);
+    const { data, error } = await supabase
+      .from('vendors')
+      .insert([{ wedding_id: weddingId, name, status: 'da_contattare' }])
+      .select('id, name, category_id, wedding_id, is_accommodation, expense_categories(name)')
+      .single();
+    setSavingNew(false);
+    if (error || !data) {
+      toast.error(error?.message || 'Impossibile creare il fornitore');
+      return;
+    }
+    toast.success('Fornitore creato');
+    setVendors(v => [...v, data as unknown as VendorLite].sort((a, b) => a.name.localeCompare(b.name)));
+    setCreatingInline(false);
+    setNewName('');
+    setSelected(data as unknown as VendorLite);
+  };
 
   const filtered = vendors.filter(v =>
     !filter.trim() || v.name.toLowerCase().includes(filter.toLowerCase()) ||
@@ -157,18 +181,61 @@ function BudgetNewExpenseFlow({
         )}
       >
         <div style={{ display: 'grid', gap: 14, fontFamily: FONT_UI }}>
-          <div style={{ position: 'relative' }}>
-            <Search size={14} style={{
-              position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: ink(3),
-            }}/>
-            <PaperInput
-              autoFocus
-              value={filter}
-              onChange={e => setFilter(e.target.value)}
-              placeholder="Cerca fornitore o categoria…"
-              style={{ paddingLeft: 32 }}
-            />
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div style={{ position: 'relative', flex: 1 }}>
+              <Search size={14} style={{
+                position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: ink(3),
+              }}/>
+              <PaperInput
+                autoFocus
+                value={filter}
+                onChange={e => setFilter(e.target.value)}
+                placeholder="Cerca fornitore o categoria…"
+                style={{ paddingLeft: 32 }}
+              />
+            </div>
+            {!creatingInline && (
+              <PaperButton
+                variant="secondary"
+                iconLeft={<Plus size={14}/>}
+                onClick={() => setCreatingInline(true)}
+              >
+                Nuovo
+              </PaperButton>
+            )}
           </div>
+
+          {creatingInline && (
+            <div style={{
+              padding: 12, border: `1px solid ${border(true)}`, borderRadius: 10,
+              background: 'hsl(var(--paper-surface-muted))', display: 'grid', gap: 8,
+            }}>
+              <PaperLabel required>Nome del nuovo fornitore</PaperLabel>
+              <PaperInput
+                autoFocus
+                value={newName}
+                onChange={e => setNewName(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleCreateVendor(); }}
+                placeholder="Es. Catering Bianchi"
+              />
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                <PaperButton variant="ghost" onClick={() => { setCreatingInline(false); setNewName(''); }}>
+                  Annulla
+                </PaperButton>
+                <PaperButton
+                  variant="primary"
+                  disabled={!newName.trim() || savingNew}
+                  onClick={handleCreateVendor}
+                >
+                  {savingNew ? 'Creazione…' : 'Crea e continua'}
+                </PaperButton>
+              </div>
+              <div style={{ fontSize: 11, color: ink(3) }}>
+                Potrai completare i dettagli del fornitore (categoria, contatti, contratto) successivamente dalla scheda fornitore.
+              </div>
+            </div>
+          )}
+
           {loading ? (
             <div style={{ padding: 20, color: ink(3), fontSize: 13 }}>Caricamento…</div>
           ) : filtered.length === 0 ? (
@@ -177,7 +244,7 @@ function BudgetNewExpenseFlow({
               border: `1px dashed ${border(true)}`, borderRadius: 10,
             }}>
               {vendors.length === 0
-                ? 'Nessun fornitore. Creane uno dalla pagina Fornitori.'
+                ? 'Nessun fornitore presente. Creane uno con il pulsante "Nuovo".'
                 : 'Nessun fornitore corrisponde alla ricerca.'}
             </div>
           ) : (

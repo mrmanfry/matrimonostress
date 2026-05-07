@@ -12,6 +12,7 @@ interface Props {
   setFilter: (f: FilterKey) => void;
   onOpenVendor: (id: string) => void;
   onAdd?: () => void;
+  addSlot?: React.ReactNode;
   onMarkPaid?: (payment: UiPayment) => void;
 }
 
@@ -25,7 +26,7 @@ interface Row {
   paidRatio: number;
 }
 
-export function ExpensesTable({ vendors, filter, setFilter, onOpenVendor, onAdd, onMarkPaid }: Props) {
+export function ExpensesTable({ vendors, filter, setFilter, onOpenVendor, onAdd, addSlot, onMarkPaid }: Props) {
   const [search, setSearch] = React.useState('');
 
   const rows: Row[] = vendors.map(v => {
@@ -90,7 +91,8 @@ export function ExpensesTable({ vendors, filter, setFilter, onOpenVendor, onAdd,
                 }}
               />
             </div>
-            {onAdd && (
+            {addSlot}
+            {!addSlot && onAdd && (
               <button
                 onClick={onAdd}
                 style={{
