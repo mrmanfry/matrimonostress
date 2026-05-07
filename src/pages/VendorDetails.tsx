@@ -525,9 +525,14 @@ export default function VendorDetails() {
 
               {/* Actions */}
               <div style={{ marginTop: 18, paddingTop: 18, borderTop: `1px solid ${border()}`, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {!vendorCostsHidden && (
+                {!vendorCostsHidden && !v.is_accommodation && (
                   <PaperButton variant="primary" iconLeft={<Plus size={14}/>} onClick={() => setWizardOpen(true)}>
                     Nuova spesa
+                  </PaperButton>
+                )}
+                {v.is_accommodation && !vendorCostsHidden && (
+                  <PaperButton variant="primary" iconLeft={<Home size={14}/>} onClick={() => navigate('/app/accommodation')}>
+                    Gestisci camere
                   </PaperButton>
                 )}
                 <PaperButton variant="secondary" iconLeft={<Pencil size={14}/>} onClick={() => setEditOpen(true)}>
@@ -573,12 +578,30 @@ export default function VendorDetails() {
               <section id="sec-spese">
                 <PaperSectionHeader
                   title="Spese & Pagamenti"
-                  action={
+                  action={!v.is_accommodation ? (
                     <PaperButton variant="secondary" size="sm" iconLeft={<Plus size={14}/>} onClick={() => setWizardOpen(true)}>
                       Nuova spesa
                     </PaperButton>
-                  }
+                  ) : undefined}
                 />
+
+                {v.is_accommodation && (
+                  <div style={{
+                    marginTop: 4, marginBottom: 14, padding: '12px 14px',
+                    background: 'hsl(220 89% 95%)', border: '1px solid hsl(220 50% 88%)',
+                    borderRadius: 10, display: 'flex', gap: 10, alignItems: 'flex-start',
+                    fontSize: 13, color: 'hsl(220 73% 41%)', fontFamily: FONT_UI,
+                  }}>
+                    <Info size={14} style={{ flexShrink: 0, marginTop: 2 }}/>
+                    <div style={{ flex: 1 }}>
+                      <b>Struttura ricettiva.</b> L'importo della spesa è calcolato dalle camere inserite in <b>Pernotto</b>.
+                      Puoi comunque gestire qui il piano pagamenti.
+                    </div>
+                    <PaperButton variant="ghost" size="sm" onClick={() => navigate('/app/accommodation')}>
+                      Vai a Pernotto →
+                    </PaperButton>
+                  </div>
+                )}
 
                 {/* Scenario selector — keeps numbers aligned with /app/budget */}
                 <div style={{ marginTop: -8, marginBottom: 14, display: 'flex', justifyContent: 'flex-end' }}>
@@ -588,12 +611,18 @@ export default function VendorDetails() {
                 {data.items.length === 0 ? (
                   <PaperEmpty
                     title="Nessuna spesa ancora"
-                    desc="Aggiungi la prima voce quando ricevi il preventivo o firmi il contratto."
-                    cta={
+                    desc={v.is_accommodation
+                      ? 'Aggiungi le camere dalla sezione Pernotto: la spesa apparirà qui automaticamente.'
+                      : 'Aggiungi la prima voce quando ricevi il preventivo o firmi il contratto.'}
+                    cta={!v.is_accommodation ? (
                       <PaperButton variant="primary" size="sm" iconLeft={<Plus size={14}/>} onClick={() => setWizardOpen(true)}>
                         Aggiungi spesa
                       </PaperButton>
-                    }
+                    ) : (
+                      <PaperButton variant="primary" size="sm" iconLeft={<Home size={14}/>} onClick={() => navigate('/app/accommodation')}>
+                        Vai a Pernotto
+                      </PaperButton>
+                    )}
                   />
                 ) : (
                   <ExpensesList
@@ -602,6 +631,7 @@ export default function VendorDetails() {
                     payments={data.payments}
                     mode={activeMode}
                     guestCounts={data.guestCounts}
+                    lockAmounts={!!v.is_accommodation}
                     onUpdateItem={updateExpenseItem}
                     onDeleteItem={deleteExpenseItem}
                     onAddPayment={addPaymentRow}
@@ -692,6 +722,7 @@ export default function VendorDetails() {
         vendor={v}
         categories={categories}
         onSave={handleSaveVendor}
+        onCreateCategory={handleCreateCategory}
       />
 
       <ExpenseWizard
@@ -760,10 +791,11 @@ const ExpensesList: React.FC<{
   payments: DbPayment[];
   mode: ScenarioMode;
   guestCounts: GuestCounts;
+  lockAmounts?: boolean;
   onUpdateItem: (id: string, patch: { description?: string; total_amount?: number; fixed_amount?: number | null }) => void | Promise<void>;
   onDeleteItem: (id: string) => void | Promise<void>;
   onAddPayment: (expenseItemId: string) => void | Promise<void>;
-}> = ({ items, lineItemsByExpenseItem, payments, mode, guestCounts, onUpdateItem, onDeleteItem, onAddPayment }) => {
+}> = ({ items, lineItemsByExpenseItem, payments, mode, guestCounts, lockAmounts, onUpdateItem, onDeleteItem, onAddPayment }) => {
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [draftDesc, setDraftDesc] = React.useState('');
   const [draftTotal, setDraftTotal] = React.useState<string>('');
@@ -850,15 +882,19 @@ const ExpensesList: React.FC<{
                     </div>
                   )}
                   <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-                    <PaperButton variant="ghost" size="sm" iconLeft={<Pencil size={11}/>} onClick={() => startEdit(it, total)}>
-                      Modifica
-                    </PaperButton>
+                    {!lockAmounts && (
+                      <PaperButton variant="ghost" size="sm" iconLeft={<Pencil size={11}/>} onClick={() => startEdit(it, total)}>
+                        Modifica
+                      </PaperButton>
+                    )}
                     <PaperButton variant="ghost" size="sm" iconLeft={<Plus size={11}/>} onClick={() => onAddPayment(it.id)}>
                       Aggiungi rata
                     </PaperButton>
-                    <PaperButton variant="ghost" size="sm" iconLeft={<Trash2 size={11}/>} onClick={() => onDeleteItem(it.id)}>
-                      Elimina
-                    </PaperButton>
+                    {!lockAmounts && (
+                      <PaperButton variant="ghost" size="sm" iconLeft={<Trash2 size={11}/>} onClick={() => onDeleteItem(it.id)}>
+                        Elimina
+                      </PaperButton>
+                    )}
                   </div>
                 </div>
                 <div style={{ textAlign: 'right', minWidth: 140 }}>
