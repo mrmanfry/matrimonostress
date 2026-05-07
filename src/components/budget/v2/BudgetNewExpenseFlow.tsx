@@ -23,6 +23,8 @@ interface Props {
   weddingDate: string | null;
   guestsPlanned: number;
   guestsConfirmed: number;
+  countsPlanned?: { adults: number; children: number; staff: number };
+  countsConfirmed?: { adults: number; children: number; staff: number };
   onSaved: () => void;
 }
 
