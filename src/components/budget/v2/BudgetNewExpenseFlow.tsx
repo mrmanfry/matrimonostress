@@ -23,6 +23,8 @@ interface Props {
   weddingDate: string | null;
   guestsPlanned: number;
   guestsConfirmed: number;
+  countsPlanned?: { adults: number; children: number; staff: number };
+  countsConfirmed?: { adults: number; children: number; staff: number };
   onSaved: () => void;
 }
 
@@ -39,7 +41,7 @@ export function BudgetNewExpenseButton(props: Props) {
 }
 
 function BudgetNewExpenseFlow({
-  weddingId, weddingDate, guestsPlanned, guestsConfirmed, onSaved, onClose,
+  weddingId, weddingDate, guestsPlanned, guestsConfirmed, countsPlanned, countsConfirmed, onSaved, onClose,
 }: Props & { onClose: () => void }) {
   const { authState } = useAuth();
   const [vendors, setVendors] = React.useState<VendorLite[]>([]);
@@ -82,6 +84,13 @@ function BudgetNewExpenseFlow({
       expensePayload.estimated_amount = values.unit;
       expensePayload.total_amount = values.computedTotal;
       expensePayload.planned_adults = guestsPlanned;
+    } else if (values.kind === 'per_audience') {
+      expensePayload.total_amount = values.computedTotal;
+      if (countsPlanned) {
+        expensePayload.planned_adults = countsPlanned.adults;
+        expensePayload.planned_children = countsPlanned.children;
+        expensePayload.planned_staff = countsPlanned.staff;
+      }
     } else {
       expensePayload.estimated_amount = values.unit;
       expensePayload.total_amount = values.computedTotal;
@@ -91,6 +100,27 @@ function BudgetNewExpenseFlow({
     if (itemErr || !insertedItem) {
       toast.error(itemErr?.message || 'Salvataggio non riuscito');
       return;
+    }
+    if (values.kind === 'per_audience') {
+      const rows = (['adults', 'children', 'staff'] as const)
+        .map((k, idx) => {
+          const a = values.audience[k];
+          if (!a.enabled || a.unit_price <= 0) return null;
+          return {
+            expense_item_id: insertedItem.id,
+            description: ({ adults: 'Adulti', children: 'Bambini', staff: 'Staff' })[k],
+            unit_price: a.unit_price,
+            quantity_type: k,
+            tax_rate: a.tax_rate,
+            price_is_tax_inclusive: a.tax_inclusive,
+            order_index: idx,
+          };
+        })
+        .filter(Boolean) as any[];
+      if (rows.length > 0) {
+        const { error: liErr } = await supabase.from('expense_line_items').insert(rows);
+        if (liErr) toast.error('Spesa creata, righe non salvate: ' + liErr.message);
+      }
     }
     if (values.hasPayments && values.payments.length > 0) {
       const rows = values.payments.map(p => ({

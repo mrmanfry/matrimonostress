@@ -259,6 +259,11 @@ export default function VendorDetails() {
       expensePayload.estimated_amount = values.unit;
       expensePayload.total_amount = values.computedTotal;
       expensePayload.planned_adults = data.guestsPlanned;
+    } else if (values.kind === 'per_audience') {
+      expensePayload.total_amount = values.computedTotal;
+      expensePayload.planned_adults = data.guestCounts.planned.adults;
+      expensePayload.planned_children = data.guestCounts.planned.children;
+      expensePayload.planned_staff = data.guestCounts.planned.staff;
     } else { // per_unit
       expensePayload.estimated_amount = values.unit;
       expensePayload.total_amount = values.computedTotal;
@@ -272,6 +277,29 @@ export default function VendorDetails() {
     if (itemErr || !insertedItem) {
       toast({ title: 'Errore', description: itemErr?.message || 'Salvataggio non riuscito', variant: 'destructive' });
       return;
+    }
+
+    // Per-audience: create one expense_line_items row per active fascia
+    if (values.kind === 'per_audience') {
+      const rows = (['adults', 'children', 'staff'] as const)
+        .map((k, idx) => {
+          const a = values.audience[k];
+          if (!a.enabled || a.unit_price <= 0) return null;
+          return {
+            expense_item_id: insertedItem.id,
+            description: ({ adults: 'Adulti', children: 'Bambini', staff: 'Staff' })[k],
+            unit_price: a.unit_price,
+            quantity_type: k,
+            tax_rate: a.tax_rate,
+            price_is_tax_inclusive: a.tax_inclusive,
+            order_index: idx,
+          };
+        })
+        .filter(Boolean) as any[];
+      if (rows.length > 0) {
+        const { error: liErr } = await supabase.from('expense_line_items').insert(rows);
+        if (liErr) toast({ title: 'Spesa creata, righe non salvate', description: liErr.message, variant: 'destructive' });
+      }
     }
 
     if (values.hasPayments && values.payments.length > 0) {
@@ -731,6 +759,8 @@ export default function VendorDetails() {
         vendorName={v.name}
         guestsPlanned={data.guestsPlanned}
         guestsConfirmed={data.guestsConfirmed}
+        countsPlanned={data.guestCounts.planned}
+        countsConfirmed={data.guestCounts.confirmed}
         weddingDate={data.wedding?.wedding_date || null}
         onSave={handleSaveExpense}
       />
