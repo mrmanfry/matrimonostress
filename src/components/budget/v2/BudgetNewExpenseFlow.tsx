@@ -41,7 +41,7 @@ export function BudgetNewExpenseButton(props: Props) {
 }
 
 function BudgetNewExpenseFlow({
-  weddingId, weddingDate, guestsPlanned, guestsConfirmed, onSaved, onClose,
+  weddingId, weddingDate, guestsPlanned, guestsConfirmed, countsPlanned, countsConfirmed, onSaved, onClose,
 }: Props & { onClose: () => void }) {
   const { authState } = useAuth();
   const [vendors, setVendors] = React.useState<VendorLite[]>([]);
