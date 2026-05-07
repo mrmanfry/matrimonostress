@@ -15,6 +15,7 @@ import { VendorDrawer } from '@/components/budget/v2/VendorDrawer';
 import { PaymentAllocationDialog } from '@/components/budget/v2/PaymentAllocationDialog';
 import { ContributorDetailDrawer } from '@/components/budget/v2/ContributorDetailDrawer';
 import { ScenarioHeadcountBar } from '@/components/budget/v2/ScenarioHeadcountBar';
+import { BudgetNewExpenseButton } from '@/components/budget/v2/BudgetNewExpenseFlow';
 
 import {
   buildVendors, buildTotals, buildContributors, upcomingPayments, nextPayment, allPayments,
