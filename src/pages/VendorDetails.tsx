@@ -794,6 +794,23 @@ export default function VendorDetails() {
           await queryClient.invalidateQueries({ queryKey: ['vendor-allocations'] });
         }}
       />
+
+      {editAudienceItemId && (() => {
+        const it = data.items.find(i => i.id === editAudienceItemId);
+        if (!it) return null;
+        return (
+          <EditAudiencePricesDialog
+            open={true}
+            onClose={() => setEditAudienceItemId(null)}
+            expenseItemId={it.id}
+            description={it.description}
+            lineItems={(data.lineItemsByExpenseItem[it.id] || []) as any}
+            countsPlanned={data.guestCounts.planned}
+            countsConfirmed={data.guestCounts.confirmed}
+            onSaved={() => queryClient.invalidateQueries({ queryKey: ['vendor-detail-v2'] })}
+          />
+        );
+      })()}
     </div>
   );
 }
