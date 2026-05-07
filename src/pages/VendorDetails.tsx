@@ -20,6 +20,7 @@ import { PaperBadge, PaperCard } from '@/components/budget/v2/paperPrimitives';
 import { PaymentAllocationDialog } from '@/components/budget/v2/PaymentAllocationDialog';
 import { VendorFormModal, VendorFormValues } from '@/components/vendors/v2/VendorFormModal';
 import { ExpenseWizard, ExpenseWizardValues } from '@/components/vendors/v2/ExpenseWizard';
+import { EditAudiencePricesDialog } from '@/components/vendors/v2/EditAudiencePricesDialog';
 import { VendorDocumentsWidget } from '@/components/vendors/widgets/VendorDocumentsWidget';
 import { VendorChecklistWidget } from '@/components/vendors/widgets/VendorChecklistWidget';
 import { VendorAppointmentsWidget } from '@/components/vendors/widgets/VendorAppointmentsWidget';
@@ -58,6 +59,7 @@ export default function VendorDetails() {
   );
   const [allocPaymentId, setAllocPaymentId] = React.useState<string | null>(null);
   const [allocMode, setAllocMode] = React.useState<'mark' | 'edit'>('mark');
+  const [editAudienceItemId, setEditAudienceItemId] = React.useState<string | null>(null);
   // Calculation scenario — synced with /app/budget via weddings.calculation_mode
   const [mode, setMode] = React.useState<ScenarioMode | null>(null);
 
@@ -663,6 +665,7 @@ export default function VendorDetails() {
                     onUpdateItem={updateExpenseItem}
                     onDeleteItem={deleteExpenseItem}
                     onAddPayment={addPaymentRow}
+                    onEditAudience={(id) => setEditAudienceItemId(id)}
                   />
                 )}
 
@@ -791,6 +794,23 @@ export default function VendorDetails() {
           await queryClient.invalidateQueries({ queryKey: ['vendor-allocations'] });
         }}
       />
+
+      {editAudienceItemId && (() => {
+        const it = data.items.find(i => i.id === editAudienceItemId);
+        if (!it) return null;
+        return (
+          <EditAudiencePricesDialog
+            open={true}
+            onClose={() => setEditAudienceItemId(null)}
+            expenseItemId={it.id}
+            description={it.description}
+            lineItems={(data.lineItemsByExpenseItem[it.id] || []) as any}
+            countsPlanned={data.guestCounts.planned}
+            countsConfirmed={data.guestCounts.confirmed}
+            onSaved={() => queryClient.invalidateQueries({ queryKey: ['vendor-detail-v2'] })}
+          />
+        );
+      })()}
     </div>
   );
 }
@@ -825,7 +845,8 @@ const ExpensesList: React.FC<{
   onUpdateItem: (id: string, patch: { description?: string; total_amount?: number; fixed_amount?: number | null; estimated_amount?: number | null }) => void | Promise<void>;
   onDeleteItem: (id: string) => void | Promise<void>;
   onAddPayment: (expenseItemId: string) => void | Promise<void>;
-}> = ({ items, lineItemsByExpenseItem, payments, mode, guestCounts, lockAmounts, onUpdateItem, onDeleteItem, onAddPayment }) => {
+  onEditAudience: (expenseItemId: string) => void;
+}> = ({ items, lineItemsByExpenseItem, payments, mode, guestCounts, lockAmounts, onUpdateItem, onDeleteItem, onAddPayment, onEditAudience }) => {
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [draftDesc, setDraftDesc] = React.useState('');
   const [draftTotal, setDraftTotal] = React.useState<string>('');
@@ -897,11 +918,15 @@ const ExpensesList: React.FC<{
                     />
                     {editingPerAudience ? (
                       <div style={{
-                        fontSize: 12, color: ink(2), padding: '10px 12px',
+                        fontSize: 12, color: ink(2), padding: '12px 14px',
                         background: 'hsl(var(--paper-surface-muted))',
                         border: `1px dashed ${border(true)}`, borderRadius: 8,
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12,
                       }}>
-                        Spesa variabile per fasce (Adulti / Bambini / Staff). Per modificare i prezzi unitari elimina la voce e ricreala dal wizard "Aggiungi spesa".
+                        <span>Spesa variabile per fasce (Adulti / Bambini / Staff). Apri l'editor dedicato per modificare i prezzi unitari.</span>
+                        <PaperButton variant="primary" size="sm" onClick={() => { cancelEdit(); onEditAudience(it.id); }}>
+                          Modifica prezzi
+                        </PaperButton>
                       </div>
                     ) : (
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -948,7 +973,14 @@ const ExpensesList: React.FC<{
                   )}
                   <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
                     {!lockAmounts && (
-                      <PaperButton variant="ghost" size="sm" iconLeft={<Pencil size={11}/>} onClick={() => startEdit(it, total)}>
+                      <PaperButton
+                        variant="ghost" size="sm" iconLeft={<Pencil size={11}/>}
+                        onClick={() => {
+                          const hasLineItems = ((lineItemsByExpenseItem[it.id] || []).length) > 0;
+                          if (isVariable && hasLineItems) onEditAudience(it.id);
+                          else startEdit(it, total);
+                        }}
+                      >
                         Modifica
                       </PaperButton>
                     )}
