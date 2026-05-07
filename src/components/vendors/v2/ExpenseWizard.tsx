@@ -167,6 +167,7 @@ export const ExpenseWizard: React.FC<Props> = ({
           form={form} upd={upd}
           computed={computed}
           guestsPlanned={guestsPlanned} guestsConfirmed={guestsConfirmed}
+          countsPlanned={cPlan} countsConfirmed={cConf}
         />
       )}
       {step === 2 && (
