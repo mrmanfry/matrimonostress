@@ -339,6 +339,7 @@ const Vendors = () => {
         vendor={editingVendor}
         categories={categories}
         onSave={handleSaveVendor}
+        onCreateCategory={handleCreateCategory}
       />
     </div>
   );
