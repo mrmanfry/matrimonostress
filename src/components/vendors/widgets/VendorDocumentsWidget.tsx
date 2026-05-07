@@ -168,45 +168,40 @@ export function VendorDocumentsWidget({ vendorId, vendorName }: VendorDocumentsW
 
   if (isLoading) {
     return (
-      <Card>
-        <CardContent className="p-12">
-          <div className="flex items-center justify-center">
-            <div className="animate-pulse text-muted-foreground">Caricamento documenti...</div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="rounded-xl border border-[hsl(var(--paper-border,220_13%_88%))] bg-card p-10 text-center text-sm text-muted-foreground">
+        Caricamento documenti...
+      </div>
     );
   }
 
   return (
     <>
-      <Card>
-        <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between px-4 md:px-6 pt-4 md:pt-6">
-          <CardTitle className="hidden md:flex items-center gap-2">
-            <FileText className="w-5 h-5 text-indigo-600" />
-            Documenti e Contratti
-          </CardTitle>
-          <Button onClick={() => setUploadOpen(true)} size="sm" className="gap-1.5 text-xs md:text-sm self-start">
-            <Upload className="w-3.5 h-3.5 md:w-4 md:h-4" />
-            Carica Documento
+      <div className="rounded-xl border border-[hsl(var(--paper-border,220_13%_88%))] bg-card">
+        <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[hsl(var(--paper-border,220_13%_88%))]">
+          <div className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground font-medium">
+            {documents.length} {documents.length === 1 ? 'documento' : 'documenti'}
+          </div>
+          <Button onClick={() => setUploadOpen(true)} size="sm" variant="outline" className="gap-1.5 text-xs">
+            <Upload className="w-3.5 h-3.5" />
+            Carica documento
           </Button>
-        </CardHeader>
-        <CardContent>
+        </div>
+        <div className="p-4">
           {documents.length === 0 ? (
-            <div className="text-center py-12 space-y-3">
-              <FileText className="w-12 h-12 mx-auto text-muted-foreground opacity-50" />
-              <p className="text-muted-foreground">Nessun documento caricato</p>
-              <Button onClick={() => setUploadOpen(true)} variant="outline" className="gap-2">
-                <Upload className="w-4 h-4" />
+            <div className="text-center py-10 space-y-3">
+              <FileText className="w-10 h-10 mx-auto text-muted-foreground opacity-40" />
+              <p className="text-sm text-muted-foreground">Nessun documento caricato</p>
+              <Button onClick={() => setUploadOpen(true)} variant="outline" size="sm" className="gap-2">
+                <Upload className="w-3.5 h-3.5" />
                 Carica il primo documento
               </Button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {documents.map((doc) => (
                 <div
                   key={doc.id}
-                  className="p-4 border rounded-lg bg-card hover:border-indigo-200 transition-all space-y-3"
+                  className="p-3 border rounded-lg bg-background hover:border-foreground/20 transition-colors space-y-3"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
@@ -224,7 +219,7 @@ export function VendorDocumentsWidget({ vendorId, vendorName }: VendorDocumentsW
                       size="sm"
                       variant="outline"
                       onClick={() => setViewDocument(doc)}
-                      className="flex-1"
+                      className="flex-1 h-8 text-xs"
                     >
                       <Eye className="w-3 h-3 mr-1" />
                       Visualizza
@@ -234,7 +229,7 @@ export function VendorDocumentsWidget({ vendorId, vendorName }: VendorDocumentsW
                       size="sm"
                       variant="outline"
                       onClick={() => handleRenameClick(doc)}
-                      className="flex-1"
+                      className="flex-1 h-8 text-xs"
                     >
                       <Pencil className="w-3 h-3 mr-1" />
                       Rinomina
@@ -244,7 +239,7 @@ export function VendorDocumentsWidget({ vendorId, vendorName }: VendorDocumentsW
                       size="sm"
                       variant="ghost"
                       onClick={() => setDeleteDocument(doc)}
-                      className="text-destructive hover:text-destructive"
+                      className="text-destructive hover:text-destructive h-8"
                     >
                       <Trash2 className="w-3 h-3" />
                     </Button>
@@ -253,8 +248,8 @@ export function VendorDocumentsWidget({ vendorId, vendorName }: VendorDocumentsW
               ))}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Upload Dialog */}
       {wedding && (

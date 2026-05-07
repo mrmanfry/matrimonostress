@@ -167,33 +167,25 @@ export function VendorAppointmentsWidget({
 
   if (isLoading) {
     return (
-      <Card>
-        <CardContent className="p-12">
-          <div className="h-24 bg-muted animate-pulse rounded" />
-        </CardContent>
-      </Card>
+      <div className="rounded-xl border border-[hsl(var(--paper-border,220_13%_88%))] bg-card p-10">
+        <div className="h-20 bg-muted animate-pulse rounded" />
+      </div>
     );
   }
 
   return (
     <>
-      <Card>
-        <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between px-4 md:px-6 pt-4 md:pt-6">
-          <div className="space-y-1 hidden md:block">
-            <CardTitle className="flex items-center gap-2">
-              <CalendarCheck className="w-5 h-5 text-emerald-600" />
-              Appuntamenti
-            </CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Incontri e sopralluoghi con questo fornitore
-            </p>
+      <div className="rounded-xl border border-[hsl(var(--paper-border,220_13%_88%))] bg-card">
+        <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[hsl(var(--paper-border,220_13%_88%))]">
+          <div className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground font-medium">
+            {upcomingAppointments.length} prossimi · {pastAppointments.length} storico
           </div>
-          <Button size="sm" onClick={onCreateAppointment} className="gap-1.5 text-xs md:text-sm self-start">
-            <Plus className="w-3.5 h-3.5 md:w-4 md:h-4" />
+          <Button size="sm" variant="outline" onClick={onCreateAppointment} className="gap-1.5 text-xs">
+            <Plus className="w-3.5 h-3.5" />
             Pianifica
           </Button>
-        </CardHeader>
-        <CardContent className="space-y-6">
+        </div>
+        <div className="p-4 space-y-6">
           {appointments.length === 0 ? (
             <div className="text-center py-12 space-y-3">
               <CalendarCheck className="w-12 h-12 mx-auto text-muted-foreground opacity-50" />
@@ -280,8 +272,8 @@ export function VendorAppointmentsWidget({
               )}
             </>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Confirm Complete Dialog */}
       <AlertDialog
