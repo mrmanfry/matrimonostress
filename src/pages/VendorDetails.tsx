@@ -731,6 +731,8 @@ export default function VendorDetails() {
         vendorName={v.name}
         guestsPlanned={data.guestsPlanned}
         guestsConfirmed={data.guestsConfirmed}
+        countsPlanned={data.guestCounts.planned}
+        countsConfirmed={data.guestCounts.confirmed}
         weddingDate={data.wedding?.wedding_date || null}
         onSave={handleSaveExpense}
       />
