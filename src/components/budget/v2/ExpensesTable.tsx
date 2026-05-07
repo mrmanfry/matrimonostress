@@ -26,7 +26,7 @@ interface Row {
   paidRatio: number;
 }
 
-export function ExpensesTable({ vendors, filter, setFilter, onOpenVendor, onAdd, onMarkPaid }: Props) {
+export function ExpensesTable({ vendors, filter, setFilter, onOpenVendor, onAdd, addSlot, onMarkPaid }: Props) {
   const [search, setSearch] = React.useState('');
 
   const rows: Row[] = vendors.map(v => {
