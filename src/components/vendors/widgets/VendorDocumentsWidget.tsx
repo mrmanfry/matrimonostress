@@ -168,13 +168,9 @@ export function VendorDocumentsWidget({ vendorId, vendorName }: VendorDocumentsW
 
   if (isLoading) {
     return (
-      <Card>
-        <CardContent className="p-12">
-          <div className="flex items-center justify-center">
-            <div className="animate-pulse text-muted-foreground">Caricamento documenti...</div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="rounded-xl border border-[hsl(var(--paper-border,220_13%_88%))] bg-card p-10 text-center text-sm text-muted-foreground">
+        Caricamento documenti...
+      </div>
     );
   }
 
