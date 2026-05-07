@@ -156,6 +156,23 @@ const Vendors = () => {
     return true;
   });
 
+  // Inline category creation
+  const handleCreateCategory = async (name: string) => {
+    if (!weddingId) return null;
+    const { data, error } = await supabase
+      .from('expense_categories')
+      .insert([{ wedding_id: weddingId, name: name.trim() }])
+      .select('id, name')
+      .single();
+    if (error) {
+      toast({ title: 'Errore', description: error.message, variant: 'destructive' });
+      return null;
+    }
+    queryClient.invalidateQueries({ queryKey: ['vendors-v2'] });
+    toast({ title: 'Categoria creata' });
+    return data;
+  };
+
   // Save vendor (insert/update)
   const handleSaveVendor = async (values: VendorFormValues, vendorId?: string) => {
     if (!weddingId) return;
@@ -168,6 +185,8 @@ const Vendors = () => {
       email: values.email || null,
       indirizzo_sede_legale: values.address || null,
       notes: values.notes || null,
+      is_accommodation: values.is_accommodation,
+      staff_meals_count: values.staff_meals_count || 0,
     };
     if (vendorId) {
       const { error } = await supabase.from('vendors').update(payload).eq('id', vendorId);
