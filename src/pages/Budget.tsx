@@ -262,7 +262,11 @@ export default function Budget() {
           />
         </div>
 
-        <CashflowTimeline upcoming={upcoming} />
+        <CashflowTimeline
+          upcoming={upcoming}
+          onOpenVendor={setOpenVendorId}
+          onMarkPaid={openMarkPaidDialog}
+        />
 
         <ExpensesTable
           vendors={uiVendors}
