@@ -84,6 +84,13 @@ function BudgetNewExpenseFlow({
       expensePayload.estimated_amount = values.unit;
       expensePayload.total_amount = values.computedTotal;
       expensePayload.planned_adults = guestsPlanned;
+    } else if (values.kind === 'per_audience') {
+      expensePayload.total_amount = values.computedTotal;
+      if (countsPlanned) {
+        expensePayload.planned_adults = countsPlanned.adults;
+        expensePayload.planned_children = countsPlanned.children;
+        expensePayload.planned_staff = countsPlanned.staff;
+      }
     } else {
       expensePayload.estimated_amount = values.unit;
       expensePayload.total_amount = values.computedTotal;
