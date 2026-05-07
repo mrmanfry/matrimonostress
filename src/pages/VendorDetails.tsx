@@ -525,9 +525,14 @@ export default function VendorDetails() {
 
               {/* Actions */}
               <div style={{ marginTop: 18, paddingTop: 18, borderTop: `1px solid ${border()}`, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {!vendorCostsHidden && (
+                {!vendorCostsHidden && !v.is_accommodation && (
                   <PaperButton variant="primary" iconLeft={<Plus size={14}/>} onClick={() => setWizardOpen(true)}>
                     Nuova spesa
+                  </PaperButton>
+                )}
+                {v.is_accommodation && !vendorCostsHidden && (
+                  <PaperButton variant="primary" iconLeft={<Home size={14}/>} onClick={() => navigate('/app/accommodation')}>
+                    Gestisci camere
                   </PaperButton>
                 )}
                 <PaperButton variant="secondary" iconLeft={<Pencil size={14}/>} onClick={() => setEditOpen(true)}>
