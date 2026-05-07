@@ -91,7 +91,8 @@ export function ExpensesTable({ vendors, filter, setFilter, onOpenVendor, onAdd,
                 }}
               />
             </div>
-            {onAdd && (
+            {addSlot}
+            {!addSlot && onAdd && (
               <button
                 onClick={onAdd}
                 style={{
