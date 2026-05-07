@@ -57,7 +57,8 @@ const KIND_ICON: Record<ExpenseKind, React.ReactNode> = {
 };
 
 export const ExpenseWizard: React.FC<Props> = ({
-  open, onClose, vendorName, guestsPlanned, guestsConfirmed, weddingDate, onSave,
+  open, onClose, vendorName, guestsPlanned, guestsConfirmed,
+  countsPlanned, countsConfirmed, weddingDate, onSave,
 }) => {
   const [step, setStep] = React.useState(0);
   const [form, setForm] = React.useState<ExpenseWizardValues>(() => init());
@@ -68,6 +69,7 @@ export const ExpenseWizard: React.FC<Props> = ({
       kind: 'fixed',
       description: '',
       total: 0, unit: 0, qty: 0,
+      audience: emptyAudienceMap(),
       computedTotal: 0,
       hasPayments: false,
       scheme: 'single',
@@ -81,19 +83,26 @@ export const ExpenseWizard: React.FC<Props> = ({
   const upd = <K extends keyof ExpenseWizardValues>(k: K, v: ExpenseWizardValues[K]) =>
     setForm(s => ({ ...s, [k]: v }));
 
+  const cPlan = countsPlanned ?? { adults: guestsPlanned, children: 0, staff: 0 };
+  const cConf = countsConfirmed ?? { adults: guestsConfirmed, children: 0, staff: 0 };
+
   // Computed totals (planned vs confirmed scenario).
   const computed = React.useMemo(() => {
     if (form.kind === 'per_person') return { planned: form.unit * guestsPlanned, confirmed: form.unit * guestsConfirmed };
     if (form.kind === 'per_unit')   return { planned: form.unit * form.qty,      confirmed: form.unit * form.qty };
+    if (form.kind === 'per_audience') {
+      return { planned: audienceTotal(form.audience, cPlan), confirmed: audienceTotal(form.audience, cConf) };
+    }
     return { planned: form.total, confirmed: form.total };
-  }, [form.kind, form.unit, form.qty, form.total, guestsPlanned, guestsConfirmed]);
+  }, [form.kind, form.unit, form.qty, form.total, form.audience, guestsPlanned, guestsConfirmed, cPlan, cConf]);
 
   const canNext = (): boolean => {
     if (step === 0) return form.description.trim().length > 0;
     if (step === 1) {
-      if (form.kind === 'fixed')      return form.total > 0;
-      if (form.kind === 'per_person') return form.unit > 0;
-      if (form.kind === 'per_unit')   return form.unit > 0 && form.qty > 0;
+      if (form.kind === 'fixed')        return form.total > 0;
+      if (form.kind === 'per_person')   return form.unit > 0;
+      if (form.kind === 'per_unit')     return form.unit > 0 && form.qty > 0;
+      if (form.kind === 'per_audience') return computed.planned > 0;
     }
     return true;
   };
