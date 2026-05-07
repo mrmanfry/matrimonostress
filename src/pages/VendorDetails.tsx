@@ -578,12 +578,30 @@ export default function VendorDetails() {
               <section id="sec-spese">
                 <PaperSectionHeader
                   title="Spese & Pagamenti"
-                  action={
+                  action={!v.is_accommodation ? (
                     <PaperButton variant="secondary" size="sm" iconLeft={<Plus size={14}/>} onClick={() => setWizardOpen(true)}>
                       Nuova spesa
                     </PaperButton>
-                  }
+                  ) : undefined}
                 />
+
+                {v.is_accommodation && (
+                  <div style={{
+                    marginTop: 4, marginBottom: 14, padding: '12px 14px',
+                    background: 'hsl(220 89% 95%)', border: '1px solid hsl(220 50% 88%)',
+                    borderRadius: 10, display: 'flex', gap: 10, alignItems: 'flex-start',
+                    fontSize: 13, color: 'hsl(220 73% 41%)', fontFamily: FONT_UI,
+                  }}>
+                    <Info size={14} style={{ flexShrink: 0, marginTop: 2 }}/>
+                    <div style={{ flex: 1 }}>
+                      <b>Struttura ricettiva.</b> L'importo della spesa è calcolato dalle camere inserite in <b>Pernotto</b>.
+                      Puoi comunque gestire qui il piano pagamenti.
+                    </div>
+                    <PaperButton variant="ghost" size="sm" onClick={() => navigate('/app/accommodation')}>
+                      Vai a Pernotto →
+                    </PaperButton>
+                  </div>
+                )}
 
                 {/* Scenario selector — keeps numbers aligned with /app/budget */}
                 <div style={{ marginTop: -8, marginBottom: 14, display: 'flex', justifyContent: 'flex-end' }}>
@@ -593,12 +611,18 @@ export default function VendorDetails() {
                 {data.items.length === 0 ? (
                   <PaperEmpty
                     title="Nessuna spesa ancora"
-                    desc="Aggiungi la prima voce quando ricevi il preventivo o firmi il contratto."
-                    cta={
+                    desc={v.is_accommodation
+                      ? 'Aggiungi le camere dalla sezione Pernotto: la spesa apparirà qui automaticamente.'
+                      : 'Aggiungi la prima voce quando ricevi il preventivo o firmi il contratto.'}
+                    cta={!v.is_accommodation ? (
                       <PaperButton variant="primary" size="sm" iconLeft={<Plus size={14}/>} onClick={() => setWizardOpen(true)}>
                         Aggiungi spesa
                       </PaperButton>
-                    }
+                    ) : (
+                      <PaperButton variant="primary" size="sm" iconLeft={<Home size={14}/>} onClick={() => navigate('/app/accommodation')}>
+                        Vai a Pernotto
+                      </PaperButton>
+                    )}
                   />
                 ) : (
                   <ExpensesList
@@ -607,6 +631,7 @@ export default function VendorDetails() {
                     payments={data.payments}
                     mode={activeMode}
                     guestCounts={data.guestCounts}
+                    lockAmounts={!!v.is_accommodation}
                     onUpdateItem={updateExpenseItem}
                     onDeleteItem={deleteExpenseItem}
                     onAddPayment={addPaymentRow}
