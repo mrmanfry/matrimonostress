@@ -882,15 +882,19 @@ const ExpensesList: React.FC<{
                     </div>
                   )}
                   <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-                    <PaperButton variant="ghost" size="sm" iconLeft={<Pencil size={11}/>} onClick={() => startEdit(it, total)}>
-                      Modifica
-                    </PaperButton>
+                    {!lockAmounts && (
+                      <PaperButton variant="ghost" size="sm" iconLeft={<Pencil size={11}/>} onClick={() => startEdit(it, total)}>
+                        Modifica
+                      </PaperButton>
+                    )}
                     <PaperButton variant="ghost" size="sm" iconLeft={<Plus size={11}/>} onClick={() => onAddPayment(it.id)}>
                       Aggiungi rata
                     </PaperButton>
-                    <PaperButton variant="ghost" size="sm" iconLeft={<Trash2 size={11}/>} onClick={() => onDeleteItem(it.id)}>
-                      Elimina
-                    </PaperButton>
+                    {!lockAmounts && (
+                      <PaperButton variant="ghost" size="sm" iconLeft={<Trash2 size={11}/>} onClick={() => onDeleteItem(it.id)}>
+                        Elimina
+                      </PaperButton>
+                    )}
                   </div>
                 </div>
                 <div style={{ textAlign: 'right', minWidth: 140 }}>
