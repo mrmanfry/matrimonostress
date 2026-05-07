@@ -692,6 +692,7 @@ export default function VendorDetails() {
         vendor={v}
         categories={categories}
         onSave={handleSaveVendor}
+        onCreateCategory={handleCreateCategory}
       />
 
       <ExpenseWizard
