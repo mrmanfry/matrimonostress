@@ -262,7 +262,9 @@ const StepImporto: React.FC<{
   computed: { planned: number; confirmed: number };
   guestsPlanned: number;
   guestsConfirmed: number;
-}> = ({ form, upd, computed, guestsPlanned, guestsConfirmed }) => (
+  countsPlanned: { adults: number; children: number; staff: number };
+  countsConfirmed: { adults: number; children: number; staff: number };
+}> = ({ form, upd, computed, guestsPlanned, guestsConfirmed, countsPlanned, countsConfirmed }) => (
   <div style={{ display: 'grid', gap: 18, fontFamily: FONT_UI }}>
     {form.kind === 'fixed' && (
       <div>
@@ -283,24 +285,28 @@ const StepImporto: React.FC<{
             border: `1px solid ${border()}`, borderRadius: 10, display: 'grid', gap: 10,
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-              <span style={{ fontSize: 13, color: ink(2) }}>
-                Con <b>{guestsPlanned} previsti</b>
-              </span>
+              <span style={{ fontSize: 13, color: ink(2) }}>Con <b>{guestsPlanned} previsti</b></span>
               <span style={{ fontFamily: FONT_SERIF, fontSize: 18, fontWeight: 500, color: ink() }}>
                 {fmtEUR(computed.planned)}
               </span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', color: ink(3) }}>
-              <span style={{ fontSize: 12 }}>
-                Con <b>{guestsConfirmed} confermati</b>
-              </span>
-              <span style={{ fontFamily: FONT_MONO, fontSize: 13 }}>
-                {fmtEUR(computed.confirmed)}
-              </span>
+              <span style={{ fontSize: 12 }}>Con <b>{guestsConfirmed} confermati</b></span>
+              <span style={{ fontFamily: FONT_MONO, fontSize: 13 }}>{fmtEUR(computed.confirmed)}</span>
             </div>
           </div>
         )}
       </>
+    )}
+
+    {form.kind === 'per_audience' && (
+      <AudienceEditor
+        audience={form.audience}
+        onChange={a => upd('audience', a)}
+        countsPlanned={countsPlanned}
+        countsConfirmed={countsConfirmed}
+        computed={computed}
+      />
     )}
 
     {form.kind === 'per_unit' && (
@@ -339,6 +345,92 @@ const StepImporto: React.FC<{
     )}
   </div>
 );
+
+// ─── Audience editor (per_audience) ───
+const AudienceEditor: React.FC<{
+  audience: AudienceMap;
+  onChange: (a: AudienceMap) => void;
+  countsPlanned: { adults: number; children: number; staff: number };
+  countsConfirmed: { adults: number; children: number; staff: number };
+  computed: { planned: number; confirmed: number };
+}> = ({ audience, onChange, countsPlanned, countsConfirmed, computed }) => {
+  const keys = ['adults', 'children', 'staff'] as const;
+  return (
+    <div style={{ display: 'grid', gap: 12 }}>
+      <div style={{ fontSize: 12, color: ink(3) }}>
+        Imposta un prezzo per ciascuna fascia. L'IVA può essere già inclusa nel prezzo o aggiunta a parte.
+      </div>
+      {keys.map(k => {
+        const row = audience[k];
+        const planQty = countsPlanned[k] || 0;
+        const confQty = countsConfirmed[k] || 0;
+        return (
+          <div key={k} style={{
+            border: `1px solid ${border(true)}`, borderRadius: 10,
+            background: row.enabled ? surface() : 'hsl(var(--paper-surface-muted))',
+            padding: '12px 14px', display: 'grid', gap: 10,
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                <input
+                  type="checkbox" checked={row.enabled}
+                  onChange={e => onChange({ ...audience, [k]: { ...row, enabled: e.target.checked } })}
+                />
+                <span style={{ fontFamily: FONT_SERIF, fontSize: 15, color: ink() }}>{AUDIENCE_LABELS[k]}</span>
+                <span style={{ fontSize: 11, color: ink(3), fontFamily: FONT_MONO }}>
+                  · {planQty} previsti / {confQty} confermati
+                </span>
+              </label>
+            </div>
+            {row.enabled && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px 1fr', gap: 8, alignItems: 'end' }}>
+                <div>
+                  <PaperLabel>Prezzo unitario</PaperLabel>
+                  <Money value={row.unit_price} onChange={v => onChange({ ...audience, [k]: { ...row, unit_price: v } })}/>
+                </div>
+                <div>
+                  <PaperLabel>IVA %</PaperLabel>
+                  <PaperInput
+                    type="number" min={0} max={100} step="0.5"
+                    value={row.tax_rate}
+                    onChange={e => onChange({ ...audience, [k]: { ...row, tax_rate: parseFloat(e.target.value) || 0 } })}
+                    style={{ fontFamily: FONT_MONO }}
+                  />
+                </div>
+                <div>
+                  <PaperLabel>Modalità IVA</PaperLabel>
+                  <PaperSelect
+                    value={row.tax_inclusive ? 'incl' : 'excl'}
+                    onChange={v => onChange({ ...audience, [k]: { ...row, tax_inclusive: v === 'incl' } })}
+                    options={[
+                      { value: 'incl', label: 'Inclusa nel prezzo' },
+                      { value: 'excl', label: 'Da aggiungere' },
+                    ]}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+      <div style={{
+        padding: '14px 16px', background: 'hsl(var(--paper-brand-tint))',
+        border: `1px solid ${border()}`, borderRadius: 10, display: 'grid', gap: 6,
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+          <span style={{ fontSize: 13, color: ink(2) }}>Totale stimato (previsti)</span>
+          <span style={{ fontFamily: FONT_SERIF, fontSize: 20, fontWeight: 500, color: ink() }}>
+            {fmtEUR(computed.planned)}
+          </span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', color: ink(3) }}>
+          <span style={{ fontSize: 12 }}>Totale (confermati)</span>
+          <span style={{ fontFamily: FONT_MONO, fontSize: 13 }}>{fmtEUR(computed.confirmed)}</span>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // ─── Step 2: Pagamenti ───
 const StepPagamenti: React.FC<{
