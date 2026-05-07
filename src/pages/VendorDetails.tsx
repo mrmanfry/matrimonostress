@@ -201,6 +201,23 @@ export default function VendorDetails() {
     },
   });
 
+  // Inline category creation
+  const handleCreateCategory = async (name: string) => {
+    if (!data?.vendor?.wedding_id) return null;
+    const { data: created, error } = await supabase
+      .from('expense_categories')
+      .insert([{ wedding_id: data.vendor.wedding_id, name: name.trim() }])
+      .select('id, name')
+      .single();
+    if (error) {
+      toast({ title: 'Errore', description: error.message, variant: 'destructive' });
+      return null;
+    }
+    queryClient.invalidateQueries({ queryKey: ['expense-categories-v2'] });
+    toast({ title: 'Categoria creata' });
+    return created;
+  };
+
   // Save edits
   const handleSaveVendor = async (values: VendorFormValues) => {
     if (!data?.vendor?.id) return;
@@ -215,6 +232,8 @@ export default function VendorDetails() {
         email: values.email || null,
         indirizzo_sede_legale: values.address || null,
         notes: values.notes || null,
+        is_accommodation: values.is_accommodation,
+        staff_meals_count: values.staff_meals_count || 0,
       })
       .eq('id', data.vendor.id);
     if (error) { toast({ title: 'Errore', description: error.message, variant: 'destructive' }); return; }
