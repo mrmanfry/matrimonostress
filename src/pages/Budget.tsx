@@ -76,6 +76,7 @@ export default function Budget() {
       setBudget(Number(weddingRes.data?.total_budget || 0));
       setPartner1(weddingRes.data?.partner1_name || '');
       setPartner2(weddingRes.data?.partner2_name || '');
+      setWeddingDate((weddingRes.data as any)?.wedding_date ?? null);
       setMode(((weddingRes.data?.calculation_mode as 'planned' | 'expected' | 'confirmed') ?? 'planned'));
       setVendors((vendorsRes.data ?? []) as unknown as DbVendor[]);
       const allItems = (itemsRes.data ?? []) as unknown as DbExpenseItem[];
