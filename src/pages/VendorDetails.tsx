@@ -828,7 +828,8 @@ const ExpensesList: React.FC<{
   onUpdateItem: (id: string, patch: { description?: string; total_amount?: number; fixed_amount?: number | null; estimated_amount?: number | null }) => void | Promise<void>;
   onDeleteItem: (id: string) => void | Promise<void>;
   onAddPayment: (expenseItemId: string) => void | Promise<void>;
-}> = ({ items, lineItemsByExpenseItem, payments, mode, guestCounts, lockAmounts, onUpdateItem, onDeleteItem, onAddPayment }) => {
+  onEditAudience: (expenseItemId: string) => void;
+}> = ({ items, lineItemsByExpenseItem, payments, mode, guestCounts, lockAmounts, onUpdateItem, onDeleteItem, onAddPayment, onEditAudience }) => {
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [draftDesc, setDraftDesc] = React.useState('');
   const [draftTotal, setDraftTotal] = React.useState<string>('');
