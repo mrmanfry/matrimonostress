@@ -829,20 +829,34 @@ const ExpensesList: React.FC<{
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [draftDesc, setDraftDesc] = React.useState('');
   const [draftTotal, setDraftTotal] = React.useState<string>('');
+  const [draftUnit, setDraftUnit] = React.useState<string>('');
 
   const startEdit = (it: DbExpenseItem, total: number) => {
     setEditingId(it.id);
     setDraftDesc(it.description);
     setDraftTotal(String(total));
+    setDraftUnit(it.estimated_amount != null ? String(it.estimated_amount) : '');
   };
   const cancelEdit = () => { setEditingId(null); };
   const saveEdit = async (it: DbExpenseItem) => {
-    const newTotal = Number(draftTotal);
     const isVariable = (it.expense_type ?? '').toLowerCase() === 'variable';
+    const hasLineItems = ((lineItemsByExpenseItem[it.id] || []).length) > 0;
     const patch: any = { description: draftDesc.trim() || it.description };
-    if (!Number.isNaN(newTotal) && newTotal >= 0) {
-      patch.total_amount = newTotal;
-      if (!isVariable) patch.fixed_amount = newTotal;
+    if (isVariable) {
+      // Per spese variabili NON sovrascriviamo il totale (= prezzo unitario × invitati).
+      // Si modifica il prezzo unitario; per "per_audience" (con line items) si rimanda al wizard.
+      if (!hasLineItems) {
+        const newUnit = Number(draftUnit);
+        if (!Number.isNaN(newUnit) && newUnit >= 0) {
+          patch.estimated_amount = newUnit;
+        }
+      }
+    } else {
+      const newTotal = Number(draftTotal);
+      if (!Number.isNaN(newTotal) && newTotal >= 0) {
+        patch.total_amount = newTotal;
+        patch.fixed_amount = newTotal;
+      }
     }
     await onUpdateItem(it.id, patch);
     setEditingId(null);
