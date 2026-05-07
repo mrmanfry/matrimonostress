@@ -15,6 +15,7 @@ import { VendorDrawer } from '@/components/budget/v2/VendorDrawer';
 import { PaymentAllocationDialog } from '@/components/budget/v2/PaymentAllocationDialog';
 import { ContributorDetailDrawer } from '@/components/budget/v2/ContributorDetailDrawer';
 import { ScenarioHeadcountBar } from '@/components/budget/v2/ScenarioHeadcountBar';
+import { BudgetNewExpenseButton } from '@/components/budget/v2/BudgetNewExpenseFlow';
 
 import {
   buildVendors, buildTotals, buildContributors, upcomingPayments, nextPayment, allPayments,
@@ -31,6 +32,7 @@ export default function Budget() {
   const [budget, setBudget] = useState(0);
   const [partner1, setPartner1] = useState('');
   const [partner2, setPartner2] = useState('');
+  const [weddingDate, setWeddingDate] = useState<string | null>(null);
   const [vendors, setVendors] = useState<DbVendor[]>([]);
   const [items, setItems] = useState<DbExpenseItem[]>([]);
   const [payments, setPayments] = useState<DbPayment[]>([]);
@@ -64,7 +66,7 @@ export default function Budget() {
         contribRes,
         guestsRes,
       ] = await Promise.all([
-        supabase.from('weddings').select('total_budget, calculation_mode, partner1_name, partner2_name, target_adults, target_children, target_staff').eq('id', weddingId).maybeSingle(),
+        supabase.from('weddings').select('total_budget, calculation_mode, partner1_name, partner2_name, target_adults, target_children, target_staff, wedding_date').eq('id', weddingId).maybeSingle(),
         supabase.from('vendors').select('id, name, category_id, expense_categories(id, name), staff_meals_count').eq('wedding_id', weddingId),
         supabase.from('expense_items').select('*, vendors(name, expense_categories(id, name)), expense_categories(id, name)').eq('wedding_id', weddingId),
         supabase.from('financial_contributors').select('id, name, contribution_target').eq('wedding_id', weddingId),
@@ -74,6 +76,7 @@ export default function Budget() {
       setBudget(Number(weddingRes.data?.total_budget || 0));
       setPartner1(weddingRes.data?.partner1_name || '');
       setPartner2(weddingRes.data?.partner2_name || '');
+      setWeddingDate((weddingRes.data as any)?.wedding_date ?? null);
       setMode(((weddingRes.data?.calculation_mode as 'planned' | 'expected' | 'confirmed') ?? 'planned'));
       setVendors((vendorsRes.data ?? []) as unknown as DbVendor[]);
       const allItems = (itemsRes.data ?? []) as unknown as DbExpenseItem[];
@@ -222,12 +225,23 @@ export default function Budget() {
       />
 
       <div style={{ maxWidth: 1320, margin: '0 auto', padding: '28px 40px 60px', display: 'grid', gap: 24 }}>
-        <ScenarioHeadcountBar
-          mode={mode}
-          weddingId={weddingId}
-          counts={guestCounts}
-          onPlannedSaved={loadAll}
-        />
+        <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 420px', minWidth: 280 }}>
+            <ScenarioHeadcountBar
+              mode={mode}
+              weddingId={weddingId}
+              counts={guestCounts}
+              onPlannedSaved={loadAll}
+            />
+          </div>
+          <BudgetNewExpenseButton
+            weddingId={weddingId}
+            weddingDate={weddingDate}
+            guestsPlanned={guestCounts?.planned.adults ?? 100}
+            guestsConfirmed={guestCounts?.confirmed.adults ?? 0}
+            onSaved={loadAll}
+          />
+        </div>
 
         {next && (
           <NextPaymentCallout
