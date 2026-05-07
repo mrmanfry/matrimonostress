@@ -12,7 +12,7 @@ import {
   PaperDivider, ink, brand, surface, border, FONT_SERIF, FONT_MONO, FONT_UI,
 } from './PaperUI';
 import { PaperBadge } from '@/components/budget/v2/paperPrimitives';
-import { EXPENSE_KINDS, ExpenseKind, fmtEUR, generateSchedule, SchedulePayment } from '@/lib/vendorAggregates';
+import { EXPENSE_KINDS, ExpenseKind, fmtEUR, generateSchedule, rebalanceSchedule, SchedulePayment, ScheduleScheme } from '@/lib/vendorAggregates';
 
 export interface ExpenseWizardValues {
   kind: ExpenseKind;
@@ -25,7 +25,9 @@ export interface ExpenseWizardValues {
   computedTotal: number;
   // payments
   hasPayments: boolean;
-  scheme: 'acconto50' | 'thirds' | 'single';
+  scheme: ScheduleScheme;
+  acconto_pct: number;
+  n_rate: number;
   payments: SchedulePayment[];
 }
 
