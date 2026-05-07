@@ -70,45 +70,31 @@ export function VendorChecklistWidget({ vendorId, onCreateTask }: VendorChecklis
 
   if (isLoading) {
     return (
-      <Card>
-        <CardContent className="p-12">
-          <div className="h-20 bg-muted animate-pulse rounded" />
-        </CardContent>
-      </Card>
+      <div className="rounded-xl border border-[hsl(var(--paper-border,220_13%_88%))] bg-card p-10">
+        <div className="h-20 bg-muted animate-pulse rounded" />
+      </div>
     );
   }
 
   return (
-    <Card>
-      <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between px-4 md:px-6 pt-4 md:pt-6">
-        <div className="flex items-start gap-3 md:block">
-          <div className="space-y-1">
-            <CardTitle className="hidden md:flex items-center gap-2">
-              <ListTodo className="w-5 h-5 text-indigo-600" />
-              Checklist Dedicata
-            </CardTitle>
-            <p className="text-sm text-muted-foreground hidden md:block">
-              Attività specifiche per questo fornitore
-            </p>
-          </div>
+    <div className="rounded-xl border border-[hsl(var(--paper-border,220_13%_88%))] bg-card">
+      <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[hsl(var(--paper-border,220_13%_88%))]">
+        <div className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground font-medium">
+          {completedCount}/{tasks.length} completate
         </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="secondary" className="bg-indigo-50 text-indigo-700 text-xs">
-            {completedCount}/{tasks.length} completate
-          </Badge>
-          {onCreateTask && (
-            <Button 
-              size="sm" 
-              onClick={onCreateTask}
-              className="gap-1.5 text-xs md:text-sm"
-            >
-              <Plus className="w-3.5 h-3.5 md:w-4 md:h-4" />
-              Crea Task
-            </Button>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent>
+        {onCreateTask && (
+          <Button 
+            size="sm"
+            variant="outline"
+            onClick={onCreateTask}
+            className="gap-1.5 text-xs"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Nuova attività
+          </Button>
+        )}
+      </div>
+      <div className="p-4">
         {tasks.length === 0 ? (
           <div className="text-center py-12 space-y-3">
             <ListTodo className="w-12 h-12 mx-auto text-muted-foreground opacity-50" />
@@ -200,7 +186,7 @@ export function VendorChecklistWidget({ vendorId, onCreateTask }: VendorChecklis
             })}
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
