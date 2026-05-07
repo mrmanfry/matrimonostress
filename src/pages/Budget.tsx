@@ -32,6 +32,7 @@ export default function Budget() {
   const [budget, setBudget] = useState(0);
   const [partner1, setPartner1] = useState('');
   const [partner2, setPartner2] = useState('');
+  const [weddingDate, setWeddingDate] = useState<string | null>(null);
   const [vendors, setVendors] = useState<DbVendor[]>([]);
   const [items, setItems] = useState<DbExpenseItem[]>([]);
   const [payments, setPayments] = useState<DbPayment[]>([]);
