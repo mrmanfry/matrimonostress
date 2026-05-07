@@ -1,81 +1,87 @@
-# Refactor Inviti → Sistema Block-Based
+# Piano di intervento — Budget, Fornitori, Pernotto
 
-Trasformiamo le pagine pubbliche RSVP e Save The Date da template fissi a un sistema **a blocchi riordinabili e personalizzabili**, seguendo il documento allegato. Implementiamo tutte le fasi dichiarate (0 → 6) con un approccio incrementale, dietro feature flag, garantendo che **link e QR code già in produzione continuino a funzionare al 100%**.
+Raggruppo le 11 osservazioni in 5 aree di lavoro. Tutte UI/presentazione: la logica di calcolo (`calculateExpenseAmount`, sync pernotto, ecc.) resta invariata.
 
-## Garanzia di retrocompatibilità (priorità #1)
+---
 
-Niente di ciò che è già stampato/inviato deve rompersi:
+## 1. Budget (`/app/budget`) — riportare l'azione "Nuova Spesa"
 
-- **URL e token invariati**: le rotte `/:coupleSlug/rsvp/:token` e `/rsvp/:token` (legacy) restano identiche. Nessun cambio in `App.tsx` o `RSVPPublic.tsx` per quanto riguarda routing/token.
-- **Edge function `rsvp-handler`**: l'API pubblica (action `fetch`, `submit-rsvp`, `save-std-response`) mantiene la stessa shape di payload e response. Aggiunge solo un campo extra `pageSchema` nel response del `fetch`.
-- **Lazy migration JSONB**: nessuna migration SQL. Se `weddings.campaigns_config.pages` non esiste, l'edge function calcola al volo lo schema dei blocchi a partire dal vecchio formato (titoli, immagini, FAQ, gift info già salvati). I matrimoni esistenti vedono la stessa esperienza di prima senza che noi tocchiamo il loro DB.
-- **Feature flag `USE_BLOCK_BASED_RENDERING`** in `RSVPPublic.tsx`: di default `true`, ma flippabile a `false` per fallback istantaneo ai vecchi `FormalInviteView` / `SaveTheDateView` (che restano nel codice fino a regression OK su un invito reale).
-- **Dati canonici (nomi sposi, data, indirizzi venue) NON duplicati nei blocchi** → letti sempre da `wedding.*`, quindi qualsiasi modifica futura ai dati del matrimonio si riflette automaticamente anche sugli inviti già condivisi.
+**Problemi:** non si può creare una spesa dal Budget; "Orizzonte liquidità" è poco leggibile.
 
-## Cosa costruiamo
+- Aggiungere CTA **"+ Nuova spesa"** in `Budget.tsx` (header + stato vuoto), che apre `ExpenseItemDialog` con `vendor_id` opzionale.
+- Permettere creazione spesa **senza fornitore** (categoria obbligatoria, fornitore opzionale → assegnabile dopo).
+- Redesign **`CashflowTimeline`**:
+  - Sostituire le barre verticali attuali con un **grafico a gradini cumulativo** (esborso progressivo) + barre mensili sotto, con tooltip che mostra fornitori/importi del mese.
+  - KPI in alto: mese più intenso, prossimo pagamento, totale residuo.
+  - Lista flussi sotto, ogni riga cliccabile → apre VendorDrawer + azione "Segna come pagato".
 
-### Phase 0 — Preparazione
-- Installare `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities`.
-- Creare le cartelle: `src/lib/invitationBlocks/`, `src/components/invitations/editor/{,inspectors/}`, `src/components/publicInvitation/{,blocks/}`.
+---
 
-### Phase 1 — Schema dati e tipi (no DB)
-- `types.ts`: union discriminata `InvitationBlock` con 14 tipi (cover, ceremony, reception, rsvp, gift_registry, faq, rich_text, gallery, countdown, schedule, travel_info, dress_code, divider, footer) + `BlockStyleOverride` (bg/text/accent/paddingY) + `InvitationPageSchema`.
-- `defaults.ts`: factory `make<Type>Block()` + `makeDefaultRsvpPage()` / `makeDefaultStdPage()` con ordine e contenuti italiani sensati.
-- `validation.ts`: validatori Zod per ogni blocco.
-- `migrations.ts`: `legacyRsvpToBlockSchema()` / `legacyStdToBlockSchema()` che leggono il vecchio `campaigns_config` (welcome_title, hero_image_url, ceremony/reception_image_url, faqs, gift_info, ecc.) e producono uno schema a blocchi equivalente.
-- `registry.ts`: registro centrale dei blocchi (label, icon, category, inspector, renderer — questi ultimi inizialmente `null`).
+## 2. Fornitori — categorie e contatti catering
 
-### Phase 2 — Renderer pubblici (block components)
-Estraiamo dai file esistenti `FormalInviteView.tsx` e `SaveTheDateView.tsx` ogni sezione in un componente `<XBlock>` (CoverBlock, CeremonyBlock, ReceptionBlock, RsvpBlock, GiftRegistryBlock, FaqBlock, FooterBlock, RichText/Gallery/Countdown/Schedule/TravelInfo/DressCode/Divider). Ogni blocco:
-- Riceve `block` + dati canonici da `wedding`.
-- Rispetta `block.style` (override colori/padding) e `block.visible`.
-- Visual parity 1:1 con la versione attuale per i blocchi già esistenti.
+**Problemi:** non si può creare una nuova categoria dal `VendorDialog`; manca il campo "persone del fornitore da contare nel catering".
 
-Poi `BlockRenderer` (dispatcher) e `PublicInvitationPage` (itera lo schema).
+- In `VendorDialog`, nel Select categoria aggiungere voce **"+ Crea nuova categoria…"** che apre inline un mini-prompt (input + Salva) e la inserisce in `expense_categories` per il wedding corrente, selezionandola.
+- Reintrodurre nella scheda fornitore (sezione Anagrafica/Catering) il campo **`staff_count`** (n° persone del fornitore da includere nel catering) — già esistente nella logica staff meals, va riesposto in UI.
 
-### Phase 3 — Edge function aggiornata
-Modifichiamo `supabase/functions/rsvp-handler/index.ts` action `fetch`:
-1. Se `wedding.campaigns_config.pages.rsvp` (o `.std`) esiste → lo restituisce così com'è.
-2. Altrimenti → chiama in-line la versione Deno di `legacyRsvpToBlockSchema` / `legacyStdToBlockSchema` e restituisce lo schema calcolato.
-3. Risposta arricchita con `pageSchema` accanto agli altri campi esistenti (nessun campo rimosso → backward compat assoluta).
+---
 
-### Phase 4 — Switchover lato pubblico
-In `RSVPPublic.tsx`: se `USE_BLOCK_BASED_RENDERING && data.pageSchema` → render `<PublicInvitationPage>`, altrimenti fallback a `FormalInviteView` / `SaveTheDateView`. I vecchi componenti restano nel repo finché non confermiamo la regression su un invito reale.
+## 3. Spese — pricing per audience, IVA, fixed vs variable
 
-### Phase 5 — Editor block-based (per gli sposi)
-- Hook `useInvitationPageEditor` con undo/redo (riusa il pattern di `PrintInvitationEditor`).
-- `BlockListEditor` con drag&drop (`@dnd-kit/sortable`), toggle visibilità, duplicate, delete.
-- `AddBlockMenu` (popover con blocchi raggruppati per category).
-- Inspector per ogni tipo (`CoverInspector`, `CeremonyInspector`, ..., `GiftRegistryInspector`, `FaqInspector` con bottone "✨ Migliora" via AI esistente).
-- `BlockStyleEditor` comune per override visuali.
-- `BlockEditorModal` che orchestra lista + inspector + preview live (debounce 200ms).
+**Problemi:** la spesa "a persona" non distingue adulti/bambini/staff; modificando una spesa variabile si vede solo il totale; manca toggle IVA.
 
-### Phase 6 — Integrazione e cleanup parziale
-- Integriamo l'editor dentro `CampaignConfigDialog` come nuova tab "Layout pagina" (i due editor coesistono: vecchi campi base + nuovo editor a blocchi).
-- Rimozione **non distruttiva**: i vecchi campi nel JSON restano ma non sono più editabili dalla UI; vengono usati solo dalla lazy-migration finché non vengono sovrascritti dal nuovo schema al primo salvataggio.
-- I componenti `FormalInviteView` / `SaveTheDateView` restano come fallback emergenza dietro feature flag.
+- In `ExpenseItemDialog` (e relativo editor in scheda fornitore):
+  - **Tipo spesa**: toggle `Fissa` / `Variabile (a persona)`.
+  - Se **Variabile**: mostrare 3 righe **prezzo unitario** per `Adulti`, `Bambini`, `Staff` (mappate su `expense_line_items` con `quantity_type`). Il totale viene calcolato (read-only) usando `calculateExpenseAmount()` — nessun cambio logica.
+  - Se **Fissa**: importo unico.
+- **Toggle IVA** per ogni riga/spesa: `Prezzo IVA inclusa` ↔ `Prezzo + IVA` con campo aliquota (default 22, modificabile). Si appoggia ai campi già esistenti `tax_rate` e `amount_is_tax_inclusive` / `price_is_tax_inclusive`.
+- In modifica spesa variabile dalla scheda fornitore: mostrare la **vista per-persona** invece del totalone.
 
-## Scelte tecniche chiave
+---
 
-- **Storage**: tutto in `weddings.campaigns_config.pages = { rsvp: InvitationPageSchema, std: InvitationPageSchema }`. Zero migration SQL.
-- **Tipi**: discriminated union su `block.type`, mai `any`. Narrowing TS garantito.
-- **UI**: solo shadcn + Tailwind esistenti. Unica nuova dep: `@dnd-kit/*`.
-- **AI**: il bottone "Migliora FAQ" riusa la edge function `generate-rsvp-faqs` esistente (modalità `polish`).
+## 4. Piano pagamenti — campi completi e schema rate flessibile
 
-## Cosa NON tocchiamo (per sicurezza)
-- Schema DB, RLS, token RSVP, rotte React Router, payload edge function (solo additivo).
-- `weddings.created_by`, `user_roles`, logiche di permesso esistenti.
-- Stile/branding del sito principale: i blocchi ereditano il `theme` dell'invito attuale.
+**Problemi:** mancano data/chi-ha-pagato; schema rate troppo rigido; in modifica si cambia solo la cifra.
 
-## Strategia di rollout
-1. Phase 0 → 4 in un primo gruppo di modifiche (tutta l'infrastruttura + render pubblico dietro flag).
-2. Test manuale su un invito reale già in produzione → confermare visual parity.
-3. Phase 5 → 6 (editor + integrazione UI sposi).
-4. Solo dopo conferma definitiva, rimozione dei vecchi `FormalInviteView` / `SaveTheDateView`.
+- In `PaymentDialog` / `PaymentPlanTab`, sia in **creazione** che **modifica** rata, esporre:
+  - **Data scadenza** (date picker, già nel data model `due_date`).
+  - **Chi paga** (Select da `financial_contributors`, campo `paid_by` già presente).
+  - **Stato + data pagato**.
+  - Importo (€) o % della spesa.
+  - Toggle IVA per riga (eredita dalla spesa).
+- **Schema rate** nel wizard piano:
+  - `Pagamento unico`
+  - `Acconto X% + Saldo` (X configurabile, default 50)
+  - `N rate uguali` (N libero)
+  - **`Personalizzato`**: aggiungo le rate manualmente; opzione **"Saldo finale automatico"** che calcola la differenza tra (totale spesa) − (somma rate esplicite).
+- In modifica rata: **tutti i campi** editabili, non solo l'importo.
 
-## File principali toccati/creati
-- **Creati**: ~30 file fra `src/lib/invitationBlocks/*`, `src/components/publicInvitation/blocks/*`, `src/components/invitations/editor/*`, `src/hooks/useInvitationPageEditor.ts`.
-- **Modificati**: `supabase/functions/rsvp-handler/index.ts` (additivo), `src/pages/RSVPPublic.tsx` (switch dietro flag), `src/components/settings/CampaignConfigDialog.tsx` (nuova tab Layout).
-- **Non modificati**: `App.tsx` (routing), `FormalInviteView.tsx` / `SaveTheDateView.tsx` (restano come fallback).
+---
 
-Approvando questo piano procedo per fasi (0→6), tenendo sempre il vecchio rendering raggiungibile via feature flag finché non confermi che gli inviti già inviati funzionano correttamente.
+## 5. Scheda fornitore — UI contratti/appuntamenti + flag struttura ricettiva
+
+**Problemi:** UI contratti/appuntamenti vecchia rispetto a Spese; manca flag pernotto.
+
+- Riallineare `ContractWidgets` e la sezione appuntamenti in `VendorDetails.tsx` allo stile **`ExpenseItemTabs` / `PaymentPlanTab`**:
+  - stesso pattern card/tabella, stessi bottoni, stesso spacing, stesso "View/Edit" mode.
+- In `VendorDialog`, aggiungere checkbox **"Struttura ricettiva / fornisce camere"** (mappa su `is_accommodation` o equivalente già presente in memoria pernotto):
+  - se ON → il fornitore appare in `/app/accommodation` con possibilità di aggiungere camere.
+  - In scheda fornitore, sezione Spese: **importo bloccato** (read-only) con messaggio _"Il prezzo è gestito dalle camere inserite in Pernotto"_ + link diretto.
+  - **Piano pagamenti** resta editabile (sulla cifra totale sincronizzata da `syncAccommodationExpense`).
+
+---
+
+## Ordine di implementazione consigliato
+
+1. **Budget**: CTA nuova spesa + redesign CashflowTimeline (impatto immediato).
+2. **ExpenseItemDialog**: pricing per audience + IVA toggle (sblocca casi catering).
+3. **PaymentDialog/Plan**: campi completi + schemi rate flessibili.
+4. **VendorDialog**: nuova categoria inline + staff catering + flag ricettivo.
+5. **VendorDetails**: redesign contratti/appuntamenti + lock prezzo accommodation.
+
+## Note tecniche
+
+- Nessuna migration DB: tutti i campi esistono già (`tax_rate`, `amount_is_tax_inclusive`, `price_is_tax_inclusive`, `paid_by`, `due_date`, `expense_line_items` con `quantity_type`).
+- Rispettare la regola: tutti i totali devono passare da `calculateExpenseAmount()` (memory: Centralized Calculation Library).
+- Per la categoria inline: insert su `expense_categories` filtrato per `weddingId`.
+- Per la flag ricettiva: usare il pattern `is_accommodation OR has accommodation_rooms` (memory: Accommodation Resilient Fetch).
