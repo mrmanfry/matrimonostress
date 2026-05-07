@@ -165,32 +165,82 @@ export interface SchedulePayment {
   description: string;
   amount: number;
   due_date: string; // ISO
+  is_balance?: boolean; // true → calcolato come saldo (totale - somma altre rate)
 }
+
+export type ScheduleScheme = 'single' | 'acconto_custom' | 'equal_n' | 'custom';
+
+export interface ScheduleOptions {
+  acconto_pct?: number;   // per 'acconto_custom' (default 50)
+  n_rate?: number;        // per 'equal_n' (default 3)
+}
+
+const isoDate = (d: Date) => d.toISOString().slice(0, 10);
+
+function distributeDates(count: number, weddingDate: string | null): string[] {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const start = new Date(today); start.setDate(start.getDate() + 7);
+  const wed = weddingDate ? new Date(weddingDate) : new Date(today.getFullYear() + 1, today.getMonth(), today.getDate());
+  const before30 = new Date(wed); before30.setDate(before30.getDate() - 30);
+  if (count <= 1) return [isoDate(before30)];
+  const span = Math.max(1, before30.getTime() - start.getTime());
+  const step = span / (count - 1);
+  return Array.from({ length: count }, (_, i) => isoDate(new Date(start.getTime() + step * i)));
+}
+
 export function generateSchedule(
-  scheme: 'acconto50' | 'thirds' | 'single',
+  scheme: ScheduleScheme | 'acconto50' | 'thirds',
   total: number,
   weddingDate: string | null,
+  opts: ScheduleOptions = {},
 ): SchedulePayment[] {
-  const today = new Date(); today.setHours(0,0,0,0);
+  // Backward compat
+  if (scheme === 'acconto50') { scheme = 'acconto_custom'; opts = { ...opts, acconto_pct: 50 }; }
+  if (scheme === 'thirds')    { scheme = 'equal_n'; opts = { ...opts, n_rate: 3 }; }
+
+  const today = new Date(); today.setHours(0, 0, 0, 0);
   const plus7 = new Date(today); plus7.setDate(plus7.getDate() + 7);
   const wed = weddingDate ? new Date(weddingDate) : new Date(today.getFullYear() + 1, today.getMonth(), today.getDate());
   const before30 = new Date(wed); before30.setDate(before30.getDate() - 30);
 
-  const iso = (d: Date) => d.toISOString().slice(0, 10);
-
-  if (scheme === 'acconto50') {
+  if (scheme === 'single') {
+    return [{ description: 'Pagamento unico', amount: total, due_date: isoDate(wed) }];
+  }
+  if (scheme === 'acconto_custom') {
+    const pct = Math.min(99, Math.max(1, opts.acconto_pct ?? 50));
+    const acconto = Math.round((total * pct) / 100);
     return [
-      { description: 'Acconto 50%', amount: Math.round(total * 0.5), due_date: iso(plus7) },
-      { description: 'Saldo',       amount: total - Math.round(total * 0.5), due_date: iso(before30) },
+      { description: `Acconto ${pct}%`, amount: acconto, due_date: isoDate(plus7) },
+      { description: 'Saldo', amount: total - acconto, due_date: isoDate(before30), is_balance: true },
     ];
   }
-  if (scheme === 'thirds') {
-    const third = Math.round(total / 3);
-    return [
-      { description: 'Acconto',      amount: third,            due_date: iso(plus7) },
-      { description: 'Seconda rata', amount: third,            due_date: iso(before30) },
-      { description: 'Saldo',        amount: total - 2 * third, due_date: iso(wed) },
-    ];
+  if (scheme === 'equal_n') {
+    const n = Math.max(2, Math.min(12, opts.n_rate ?? 3));
+    const dates = distributeDates(n, weddingDate);
+    const base = Math.floor(total / n);
+    const out: SchedulePayment[] = [];
+    let acc = 0;
+    for (let i = 0; i < n - 1; i++) {
+      out.push({ description: `Rata ${i + 1} di ${n}`, amount: base, due_date: dates[i] });
+      acc += base;
+    }
+    out.push({ description: `Saldo (rata ${n} di ${n})`, amount: total - acc, due_date: dates[n - 1], is_balance: true });
+    return out;
   }
-  return [{ description: 'Pagamento unico', amount: total, due_date: iso(wed) }];
+  // 'custom' → start with acconto + saldo, the user edits
+  return [
+    { description: 'Acconto', amount: Math.round(total * 0.3), due_date: isoDate(plus7) },
+    { description: 'Saldo', amount: total - Math.round(total * 0.3), due_date: isoDate(before30), is_balance: true },
+  ];
 }
+
+// Ricalcola il saldo dopo modifiche manuali alle altre rate.
+export function rebalanceSchedule(payments: SchedulePayment[], total: number): SchedulePayment[] {
+  const balanceIdx = payments.findIndex(p => p.is_balance);
+  if (balanceIdx < 0) return payments;
+  const others = payments.reduce((s, p, i) => i === balanceIdx ? s : s + (Number(p.amount) || 0), 0);
+  const next = [...payments];
+  next[balanceIdx] = { ...next[balanceIdx], amount: Math.max(0, total - others) };
+  return next;
+}
+

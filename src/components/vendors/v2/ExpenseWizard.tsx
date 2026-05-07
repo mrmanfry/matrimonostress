@@ -12,7 +12,7 @@ import {
   PaperDivider, ink, brand, surface, border, FONT_SERIF, FONT_MONO, FONT_UI,
 } from './PaperUI';
 import { PaperBadge } from '@/components/budget/v2/paperPrimitives';
-import { EXPENSE_KINDS, ExpenseKind, fmtEUR, generateSchedule, SchedulePayment } from '@/lib/vendorAggregates';
+import { EXPENSE_KINDS, ExpenseKind, fmtEUR, generateSchedule, rebalanceSchedule, SchedulePayment, ScheduleScheme } from '@/lib/vendorAggregates';
 
 export interface ExpenseWizardValues {
   kind: ExpenseKind;
@@ -25,7 +25,9 @@ export interface ExpenseWizardValues {
   computedTotal: number;
   // payments
   hasPayments: boolean;
-  scheme: 'acconto50' | 'thirds' | 'single';
+  scheme: ScheduleScheme;
+  acconto_pct: number;
+  n_rate: number;
   payments: SchedulePayment[];
 }
 
@@ -60,6 +62,8 @@ export const ExpenseWizard: React.FC<Props> = ({
       computedTotal: 0,
       hasPayments: false,
       scheme: 'single',
+      acconto_pct: 50,
+      n_rate: 3,
       payments: [],
     };
   }
@@ -85,13 +89,16 @@ export const ExpenseWizard: React.FC<Props> = ({
     return true;
   };
 
-  // Auto-generate schedule when entering step 2 with hasPayments=true.
+  // Auto-generate schedule when entering step 2 / scheme / pct change.
   React.useEffect(() => {
     if (step === 2 && form.hasPayments) {
-      const sched = generateSchedule(form.scheme, computed.planned, weddingDate);
+      const sched = generateSchedule(form.scheme, computed.planned, weddingDate, {
+        acconto_pct: form.acconto_pct, n_rate: form.n_rate,
+      });
       setForm(s => ({ ...s, payments: sched }));
     }
-  }, [step, form.hasPayments, form.scheme, computed.planned, weddingDate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, form.hasPayments, form.scheme, form.acconto_pct, form.n_rate, computed.planned, weddingDate]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -356,12 +363,48 @@ const StepPagamenti: React.FC<{
             value={form.scheme}
             onChange={v => upd('scheme', v as ExpenseWizardValues['scheme'])}
             options={[
-              { value: 'single',     label: 'Pagamento unico' },
-              { value: 'acconto50',  label: 'Acconto 50% + Saldo' },
-              { value: 'thirds',     label: 'Tre rate uguali' },
+              { value: 'single',         label: 'Pagamento unico' },
+              { value: 'acconto_custom', label: 'Acconto + Saldo' },
+              { value: 'equal_n',        label: 'N rate uguali' },
+              { value: 'custom',         label: 'Personalizzato' },
             ]}
           />
         </div>
+
+        {form.scheme === 'acconto_custom' && (
+          <div>
+            <PaperLabel hint="Percentuale del totale richiesta come acconto">Percentuale acconto</PaperLabel>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <input
+                type="number" min={1} max={99}
+                value={form.acconto_pct}
+                onChange={e => upd('acconto_pct', Math.max(1, Math.min(99, parseInt(e.target.value) || 50)))}
+                style={{
+                  width: 90, padding: '8px 10px', borderRadius: 8,
+                  border: `1px solid ${border(true)}`, fontFamily: FONT_MONO, fontSize: 14,
+                  background: surface(),
+                }}
+              />
+              <span style={{ color: ink(3), fontSize: 13 }}>% &nbsp;·&nbsp; saldo automatico {100 - form.acconto_pct}%</span>
+            </div>
+          </div>
+        )}
+
+        {form.scheme === 'equal_n' && (
+          <div>
+            <PaperLabel>Numero di rate</PaperLabel>
+            <input
+              type="number" min={2} max={12}
+              value={form.n_rate}
+              onChange={e => upd('n_rate', Math.max(2, Math.min(12, parseInt(e.target.value) || 3)))}
+              style={{
+                width: 90, padding: '8px 10px', borderRadius: 8,
+                border: `1px solid ${border(true)}`, fontFamily: FONT_MONO, fontSize: 14,
+                background: surface(),
+              }}
+            />
+          </div>
+        )}
 
         <div style={{
           padding: '12px 14px', background: 'hsl(var(--paper-info-tint, 220 89% 95%))',
@@ -370,27 +413,97 @@ const StepPagamenti: React.FC<{
         }}>
           <Info size={14} style={{ flexShrink: 0, marginTop: 1 }}/>
           <span>
-            Le rate vengono distribuite a partire dalla settimana prossima e fino al giorno delle nozze.
-            Potrai modificarle in qualsiasi momento dalla scheda fornitore.
+            Modifica liberamente descrizione, importo e data. Il saldo viene ricalcolato in automatico per quadrare con il totale.
           </span>
         </div>
 
         <div style={{ display: 'grid', gap: 8 }}>
           {form.payments.map((p, i) => (
             <div key={i} style={{
-              display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 10, alignItems: 'center',
-              padding: '10px 12px', background: surface(), border: `1px solid ${border()}`, borderRadius: 8,
+              display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr auto', gap: 8, alignItems: 'center',
+              padding: '10px 12px', background: p.is_balance ? brand('tint') : surface(),
+              border: `1px solid ${p.is_balance ? brand('base') : border()}`, borderRadius: 8,
             }}>
-              <div style={{ fontSize: 13, color: ink() }}>{p.description}</div>
-              <div style={{ fontSize: 12, color: ink(3), fontFamily: FONT_MONO }}>
-                {new Date(p.due_date).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' })}
-              </div>
-              <div style={{ fontSize: 13, fontWeight: 500, color: ink(), fontFamily: FONT_MONO, minWidth: 80, textAlign: 'right' }}>
-                {fmtEUR(p.amount)}
-              </div>
+              <input
+                value={p.description}
+                onChange={e => {
+                  const next = [...form.payments];
+                  next[i] = { ...next[i], description: e.target.value };
+                  upd('payments', next);
+                }}
+                style={{
+                  padding: '6px 8px', border: `1px solid transparent`, borderRadius: 6,
+                  fontSize: 13, color: ink(), background: 'transparent', fontFamily: FONT_UI,
+                }}
+                onFocus={e => e.currentTarget.style.borderColor = border(true)}
+                onBlur={e => e.currentTarget.style.borderColor = 'transparent'}
+              />
+              <input
+                type="date"
+                value={p.due_date}
+                onChange={e => {
+                  const next = [...form.payments];
+                  next[i] = { ...next[i], due_date: e.target.value };
+                  upd('payments', next);
+                }}
+                style={{
+                  padding: '6px 8px', borderRadius: 6, border: `1px solid ${border(true)}`,
+                  fontSize: 12, color: ink(2), background: surface(), fontFamily: FONT_MONO,
+                }}
+              />
+              <input
+                type="number" min={0} step="0.01"
+                value={p.is_balance ? p.amount.toFixed(2) : (p.amount || '')}
+                disabled={p.is_balance}
+                onChange={e => {
+                  const v = parseFloat(e.target.value) || 0;
+                  const next = [...form.payments];
+                  next[i] = { ...next[i], amount: v };
+                  upd('payments', rebalanceSchedule(next, total));
+                }}
+                style={{
+                  padding: '6px 8px', borderRadius: 6, border: `1px solid ${border(true)}`,
+                  fontSize: 13, color: ink(), background: p.is_balance ? 'transparent' : surface(),
+                  fontFamily: FONT_MONO, textAlign: 'right',
+                }}
+              />
+              {form.scheme === 'custom' && !p.is_balance && form.payments.length > 2 ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = form.payments.filter((_, j) => j !== i);
+                    upd('payments', rebalanceSchedule(next, total));
+                  }}
+                  style={{
+                    border: 'none', background: 'transparent', cursor: 'pointer',
+                    color: ink(3), fontSize: 16, padding: '4px 8px',
+                  }}
+                  title="Rimuovi rata"
+                >×</button>
+              ) : <div />}
             </div>
           ))}
         </div>
+
+        {form.scheme === 'custom' && (
+          <button
+            type="button"
+            onClick={() => {
+              const balanceIdx = form.payments.findIndex(p => p.is_balance);
+              const insertAt = balanceIdx >= 0 ? balanceIdx : form.payments.length;
+              const next = [...form.payments];
+              next.splice(insertAt, 0, {
+                description: `Rata ${insertAt + 1}`, amount: 0,
+                due_date: form.payments[Math.max(0, insertAt - 1)]?.due_date || new Date().toISOString().slice(0, 10),
+              });
+              upd('payments', rebalanceSchedule(next, total));
+            }}
+            style={{
+              padding: '8px 12px', borderRadius: 8, border: `1px dashed ${border(true)}`,
+              background: 'transparent', color: ink(2), fontSize: 12, fontFamily: FONT_UI, cursor: 'pointer',
+            }}
+          >+ Aggiungi rata</button>
+        )}
 
         <div style={{
           display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
