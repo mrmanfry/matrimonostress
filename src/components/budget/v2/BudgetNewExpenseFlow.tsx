@@ -101,6 +101,27 @@ function BudgetNewExpenseFlow({
       toast.error(itemErr?.message || 'Salvataggio non riuscito');
       return;
     }
+    if (values.kind === 'per_audience') {
+      const rows = (['adults', 'children', 'staff'] as const)
+        .map((k, idx) => {
+          const a = values.audience[k];
+          if (!a.enabled || a.unit_price <= 0) return null;
+          return {
+            expense_item_id: insertedItem.id,
+            description: ({ adults: 'Adulti', children: 'Bambini', staff: 'Staff' })[k],
+            unit_price: a.unit_price,
+            quantity_type: k,
+            tax_rate: a.tax_rate,
+            price_is_tax_inclusive: a.tax_inclusive,
+            order_index: idx,
+          };
+        })
+        .filter(Boolean) as any[];
+      if (rows.length > 0) {
+        const { error: liErr } = await supabase.from('expense_line_items').insert(rows);
+        if (liErr) toast.error('Spesa creata, righe non salvate: ' + liErr.message);
+      }
+    }
     if (values.hasPayments && values.payments.length > 0) {
       const rows = values.payments.map(p => ({
         expense_item_id: insertedItem.id,
