@@ -225,25 +225,12 @@ export default function Budget() {
       />
 
       <div style={{ maxWidth: 1320, margin: '0 auto', padding: '28px 40px 60px', display: 'grid', gap: 24 }}>
-        <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-          <div style={{ flex: '1 1 420px', minWidth: 280 }}>
-            <ScenarioHeadcountBar
-              mode={mode}
-              weddingId={weddingId}
-              counts={guestCounts}
-              onPlannedSaved={loadAll}
-            />
-          </div>
-          <BudgetNewExpenseButton
-            weddingId={weddingId}
-            weddingDate={weddingDate}
-            guestsPlanned={guestCounts?.planned.adults ?? 100}
-            guestsConfirmed={guestCounts?.confirmed.adults ?? 0}
-            countsPlanned={guestCounts?.planned}
-            countsConfirmed={guestCounts?.confirmed}
-            onSaved={loadAll}
-          />
-        </div>
+        <ScenarioHeadcountBar
+          mode={mode}
+          weddingId={weddingId}
+          counts={guestCounts}
+          onPlannedSaved={loadAll}
+        />
 
         {next && (
           <NextPaymentCallout
@@ -274,6 +261,17 @@ export default function Budget() {
           setFilter={setFilter}
           onOpenVendor={setOpenVendorId}
           onMarkPaid={openMarkPaidDialog}
+          addSlot={
+            <BudgetNewExpenseButton
+              weddingId={weddingId}
+              weddingDate={weddingDate}
+              guestsPlanned={guestCounts?.planned.adults ?? 100}
+              guestsConfirmed={guestCounts?.confirmed.adults ?? 0}
+              countsPlanned={guestCounts?.planned}
+              countsConfirmed={guestCounts?.confirmed}
+              onSaved={loadAll}
+            />
+          }
         />
 
         <div style={{ textAlign: 'center', color: 'hsl(var(--paper-ink-3))', fontSize: 12, paddingTop: 8 }}>
