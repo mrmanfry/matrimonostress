@@ -901,11 +901,15 @@ const ExpensesList: React.FC<{
                     />
                     {editingPerAudience ? (
                       <div style={{
-                        fontSize: 12, color: ink(2), padding: '10px 12px',
+                        fontSize: 12, color: ink(2), padding: '12px 14px',
                         background: 'hsl(var(--paper-surface-muted))',
                         border: `1px dashed ${border(true)}`, borderRadius: 8,
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12,
                       }}>
-                        Spesa variabile per fasce (Adulti / Bambini / Staff). Per modificare i prezzi unitari elimina la voce e ricreala dal wizard "Aggiungi spesa".
+                        <span>Spesa variabile per fasce (Adulti / Bambini / Staff). Apri l'editor dedicato per modificare i prezzi unitari.</span>
+                        <PaperButton variant="primary" size="sm" onClick={() => { cancelEdit(); onEditAudience(it.id); }}>
+                          Modifica prezzi
+                        </PaperButton>
                       </div>
                     ) : (
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
