@@ -12,6 +12,7 @@ interface Props {
   setFilter: (f: FilterKey) => void;
   onOpenVendor: (id: string) => void;
   onAdd?: () => void;
+  addSlot?: React.ReactNode;
   onMarkPaid?: (payment: UiPayment) => void;
 }
 
