@@ -462,7 +462,14 @@ export function VendorDialog({
               </div>
               <Select
                 value={categoryId}
-                onValueChange={(value) => setValue("category_id", value, { shouldValidate: true })}
+                onValueChange={(value) => {
+                  if (value === "__create__") {
+                    setInlineCatOpen(true);
+                    setInlineCatName("");
+                    return;
+                  }
+                  setValue("category_id", value, { shouldValidate: true });
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Seleziona categoria" />
@@ -473,8 +480,62 @@ export function VendorDialog({
                       {cat.name}
                     </SelectItem>
                   ))}
+                  <SelectItem value="__create__" className="text-primary font-medium">
+                    + Crea nuova categoria…
+                  </SelectItem>
                 </SelectContent>
               </Select>
+              {inlineCatOpen && (
+                <div className="flex items-center gap-2 mt-2">
+                  <Input
+                    autoFocus
+                    value={inlineCatName}
+                    onChange={(e) => setInlineCatName(e.target.value)}
+                    placeholder="Nome categoria"
+                    maxLength={80}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        (document.getElementById("__inline_cat_save") as HTMLButtonElement)?.click();
+                      } else if (e.key === "Escape") {
+                        setInlineCatOpen(false);
+                      }
+                    }}
+                  />
+                  <Button
+                    id="__inline_cat_save"
+                    type="button"
+                    size="sm"
+                    disabled={creatingCat || !inlineCatName.trim()}
+                    onClick={async () => {
+                      const name = inlineCatName.trim();
+                      if (!name) return;
+                      setCreatingCat(true);
+                      try {
+                        await onCreateCategory(name);
+                        // Find newly-added category by name (case-insensitive)
+                        setTimeout(() => {
+                          const found = categories.find(c => c.name.toLowerCase() === name.toLowerCase());
+                          if (found) {
+                            setValue("category_id", found.id, { shouldValidate: true });
+                          }
+                        }, 100);
+                        setInlineCatOpen(false);
+                        setInlineCatName("");
+                      } catch (err) {
+                        console.error(err);
+                      } finally {
+                        setCreatingCat(false);
+                      }
+                    }}
+                  >
+                    {creatingCat ? "..." : "Salva"}
+                  </Button>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => setInlineCatOpen(false)}>
+                    Annulla
+                  </Button>
+                </div>
+              )}
               {errors.category_id && (
                 <p className="text-sm text-destructive">{errors.category_id.message}</p>
               )}
