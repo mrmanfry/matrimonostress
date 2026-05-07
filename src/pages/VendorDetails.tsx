@@ -878,41 +878,62 @@ const ExpensesList: React.FC<{
             fontFamily: FONT_UI,
           }}>
             {isEditing ? (
-              <div style={{ display: 'grid', gap: 10 }}>
-                <input
-                  type="text"
-                  value={draftDesc}
-                  onChange={e => setDraftDesc(e.target.value)}
-                  placeholder="Descrizione"
-                  style={{
-                    fontSize: 14, padding: '8px 10px', borderRadius: 6,
-                    border: `1px solid ${border(true)}`, background: surface(),
-                    color: ink(), fontFamily: FONT_UI, outline: 'none',
-                  }}
-                />
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <input
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    value={draftTotal}
-                    onChange={e => setDraftTotal(e.target.value)}
-                    placeholder="Importo €"
-                    style={{
-                      flex: 1, fontSize: 14, padding: '8px 10px', borderRadius: 6,
-                      border: `1px solid ${border(true)}`, background: surface(),
-                      color: ink(), fontFamily: FONT_MONO, outline: 'none',
-                    }}
-                  />
-                  <PaperButton variant="primary" size="sm" onClick={() => saveEdit(it)}>Salva</PaperButton>
-                  <PaperButton variant="ghost" size="sm" onClick={cancelEdit}>Annulla</PaperButton>
-                </div>
-                {isVariable && (
-                  <div style={{ fontSize: 11, color: ink(3) }}>
-                    Spesa variabile: l'importo viene ricalcolato automaticamente sugli invitati confermati.
+              (() => {
+                const hasLineItems = ((lineItemsByExpenseItem[it.id] || []).length) > 0;
+                const editingPerAudience = isVariable && hasLineItems;
+                const editingPerPerson = isVariable && !hasLineItems;
+                return (
+                  <div style={{ display: 'grid', gap: 10 }}>
+                    <input
+                      type="text"
+                      value={draftDesc}
+                      onChange={e => setDraftDesc(e.target.value)}
+                      placeholder="Descrizione"
+                      style={{
+                        fontSize: 14, padding: '8px 10px', borderRadius: 6,
+                        border: `1px solid ${border(true)}`, background: surface(),
+                        color: ink(), fontFamily: FONT_UI, outline: 'none',
+                      }}
+                    />
+                    {editingPerAudience ? (
+                      <div style={{
+                        fontSize: 12, color: ink(2), padding: '10px 12px',
+                        background: 'hsl(var(--paper-surface-muted))',
+                        border: `1px dashed ${border(true)}`, borderRadius: 8,
+                      }}>
+                        Spesa variabile per fasce (Adulti / Bambini / Staff). Per modificare i prezzi unitari elimina la voce e ricreala dal wizard "Aggiungi spesa".
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <div style={{ flex: 1, position: 'relative' }}>
+                          <input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            value={editingPerPerson ? draftUnit : draftTotal}
+                            onChange={e => editingPerPerson ? setDraftUnit(e.target.value) : setDraftTotal(e.target.value)}
+                            placeholder={editingPerPerson ? 'Prezzo a persona €' : 'Importo €'}
+                            style={{
+                              width: '100%', fontSize: 14, padding: '8px 10px', borderRadius: 6,
+                              border: `1px solid ${border(true)}`, background: surface(),
+                              color: ink(), fontFamily: FONT_MONO, outline: 'none',
+                            }}
+                          />
+                          {editingPerPerson && (
+                            <div style={{ fontSize: 11, color: ink(3), marginTop: 4 }}>
+                              Totale ora: <span style={{ fontFamily: FONT_MONO }}>{fmtEUR(total)}</span> · si ricalcola sugli invitati.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                      <PaperButton variant="ghost" size="sm" onClick={cancelEdit}>Annulla</PaperButton>
+                      <PaperButton variant="primary" size="sm" onClick={() => saveEdit(it)}>Salva</PaperButton>
+                    </div>
                   </div>
-                )}
-              </div>
+                );
+              })()
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 20, alignItems: 'flex-start' }}>
                 <div>
