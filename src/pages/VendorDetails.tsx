@@ -665,6 +665,7 @@ export default function VendorDetails() {
                     onUpdateItem={updateExpenseItem}
                     onDeleteItem={deleteExpenseItem}
                     onAddPayment={addPaymentRow}
+                    onEditAudience={(id) => setEditAudienceItemId(id)}
                   />
                 )}
 
