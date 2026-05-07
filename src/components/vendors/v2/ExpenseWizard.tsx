@@ -62,6 +62,8 @@ export const ExpenseWizard: React.FC<Props> = ({
       computedTotal: 0,
       hasPayments: false,
       scheme: 'single',
+      acconto_pct: 50,
+      n_rate: 3,
       payments: [],
     };
   }
