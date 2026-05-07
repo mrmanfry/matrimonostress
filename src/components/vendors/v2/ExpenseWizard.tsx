@@ -12,7 +12,11 @@ import {
   PaperDivider, ink, brand, surface, border, FONT_SERIF, FONT_MONO, FONT_UI,
 } from './PaperUI';
 import { PaperBadge } from '@/components/budget/v2/paperPrimitives';
-import { EXPENSE_KINDS, ExpenseKind, fmtEUR, generateSchedule, rebalanceSchedule, SchedulePayment, ScheduleScheme } from '@/lib/vendorAggregates';
+import {
+  EXPENSE_KINDS, ExpenseKind, fmtEUR, generateSchedule, rebalanceSchedule,
+  SchedulePayment, ScheduleScheme,
+  AudienceMap, emptyAudienceMap, AUDIENCE_LABELS, AUDIENCE_QTY_TYPE, audienceTotal,
+} from '@/lib/vendorAggregates';
 
 export interface ExpenseWizardValues {
   kind: ExpenseKind;
@@ -21,6 +25,7 @@ export interface ExpenseWizardValues {
   total: number;     // for 'fixed'
   unit: number;      // for 'per_person' / 'per_unit'
   qty: number;       // for 'per_unit'
+  audience: AudienceMap; // for 'per_audience'
   // computed at save-time
   computedTotal: number;
   // payments
@@ -37,6 +42,9 @@ interface Props {
   vendorName?: string;
   guestsPlanned: number;
   guestsConfirmed: number;
+  // Detailed counts for per_audience (defaults: adults = guests*, children = 0, staff = 0)
+  countsPlanned?: { adults: number; children: number; staff: number };
+  countsConfirmed?: { adults: number; children: number; staff: number };
   weddingDate: string | null;
   onSave: (values: ExpenseWizardValues) => Promise<void>;
 }
@@ -44,6 +52,7 @@ interface Props {
 const KIND_ICON: Record<ExpenseKind, React.ReactNode> = {
   fixed: <Tag size={18}/>,
   per_person: <Users size={18}/>,
+  per_audience: <Users size={18}/>,
   per_unit: <Grid3x3 size={18}/>,
 };
 
