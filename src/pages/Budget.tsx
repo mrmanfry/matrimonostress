@@ -66,7 +66,7 @@ export default function Budget() {
         contribRes,
         guestsRes,
       ] = await Promise.all([
-        supabase.from('weddings').select('total_budget, calculation_mode, partner1_name, partner2_name, target_adults, target_children, target_staff').eq('id', weddingId).maybeSingle(),
+        supabase.from('weddings').select('total_budget, calculation_mode, partner1_name, partner2_name, target_adults, target_children, target_staff, wedding_date').eq('id', weddingId).maybeSingle(),
         supabase.from('vendors').select('id, name, category_id, expense_categories(id, name), staff_meals_count').eq('wedding_id', weddingId),
         supabase.from('expense_items').select('*, vendors(name, expense_categories(id, name)), expense_categories(id, name)').eq('wedding_id', weddingId),
         supabase.from('financial_contributors').select('id, name, contribution_target').eq('wedding_id', weddingId),
