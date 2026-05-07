@@ -239,6 +239,8 @@ export default function Budget() {
             weddingDate={weddingDate}
             guestsPlanned={guestCounts?.planned.adults ?? 100}
             guestsConfirmed={guestCounts?.confirmed.adults ?? 0}
+            countsPlanned={guestCounts?.planned}
+            countsConfirmed={guestCounts?.confirmed}
             onSaved={loadAll}
           />
         </div>
