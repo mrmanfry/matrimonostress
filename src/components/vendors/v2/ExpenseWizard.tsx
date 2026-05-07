@@ -89,13 +89,16 @@ export const ExpenseWizard: React.FC<Props> = ({
     return true;
   };
 
-  // Auto-generate schedule when entering step 2 with hasPayments=true.
+  // Auto-generate schedule when entering step 2 / scheme / pct change.
   React.useEffect(() => {
     if (step === 2 && form.hasPayments) {
-      const sched = generateSchedule(form.scheme, computed.planned, weddingDate);
+      const sched = generateSchedule(form.scheme, computed.planned, weddingDate, {
+        acconto_pct: form.acconto_pct, n_rate: form.n_rate,
+      });
       setForm(s => ({ ...s, payments: sched }));
     }
-  }, [step, form.hasPayments, form.scheme, computed.planned, weddingDate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, form.hasPayments, form.scheme, form.acconto_pct, form.n_rate, computed.planned, weddingDate]);
 
   const handleSave = async () => {
     setSaving(true);
