@@ -181,18 +181,61 @@ function BudgetNewExpenseFlow({
         )}
       >
         <div style={{ display: 'grid', gap: 14, fontFamily: FONT_UI }}>
-          <div style={{ position: 'relative' }}>
-            <Search size={14} style={{
-              position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: ink(3),
-            }}/>
-            <PaperInput
-              autoFocus
-              value={filter}
-              onChange={e => setFilter(e.target.value)}
-              placeholder="Cerca fornitore o categoria…"
-              style={{ paddingLeft: 32 }}
-            />
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div style={{ position: 'relative', flex: 1 }}>
+              <Search size={14} style={{
+                position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: ink(3),
+              }}/>
+              <PaperInput
+                autoFocus
+                value={filter}
+                onChange={e => setFilter(e.target.value)}
+                placeholder="Cerca fornitore o categoria…"
+                style={{ paddingLeft: 32 }}
+              />
+            </div>
+            {!creatingInline && (
+              <PaperButton
+                variant="secondary"
+                iconLeft={<Plus size={14}/>}
+                onClick={() => setCreatingInline(true)}
+              >
+                Nuovo
+              </PaperButton>
+            )}
           </div>
+
+          {creatingInline && (
+            <div style={{
+              padding: 12, border: `1px solid ${border(true)}`, borderRadius: 10,
+              background: 'hsl(var(--paper-surface-muted))', display: 'grid', gap: 8,
+            }}>
+              <PaperLabel required>Nome del nuovo fornitore</PaperLabel>
+              <PaperInput
+                autoFocus
+                value={newName}
+                onChange={e => setNewName(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleCreateVendor(); }}
+                placeholder="Es. Catering Bianchi"
+              />
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                <PaperButton variant="ghost" onClick={() => { setCreatingInline(false); setNewName(''); }}>
+                  Annulla
+                </PaperButton>
+                <PaperButton
+                  variant="primary"
+                  disabled={!newName.trim() || savingNew}
+                  onClick={handleCreateVendor}
+                >
+                  {savingNew ? 'Creazione…' : 'Crea e continua'}
+                </PaperButton>
+              </div>
+              <div style={{ fontSize: 11, color: ink(3) }}>
+                Potrai completare i dettagli del fornitore (categoria, contatti, contratto) successivamente dalla scheda fornitore.
+              </div>
+            </div>
+          )}
+
           {loading ? (
             <div style={{ padding: 20, color: ink(3), fontSize: 13 }}>Caricamento…</div>
           ) : filtered.length === 0 ? (
@@ -201,7 +244,7 @@ function BudgetNewExpenseFlow({
               border: `1px dashed ${border(true)}`, borderRadius: 10,
             }}>
               {vendors.length === 0
-                ? 'Nessun fornitore. Creane uno dalla pagina Fornitori.'
+                ? 'Nessun fornitore presente. Creane uno con il pulsante "Nuovo".'
                 : 'Nessun fornitore corrisponde alla ricerca.'}
             </div>
           ) : (
