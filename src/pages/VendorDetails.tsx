@@ -59,6 +59,7 @@ export default function VendorDetails() {
   );
   const [allocPaymentId, setAllocPaymentId] = React.useState<string | null>(null);
   const [allocMode, setAllocMode] = React.useState<'mark' | 'edit'>('mark');
+  const [editAudienceItemId, setEditAudienceItemId] = React.useState<string | null>(null);
   // Calculation scenario — synced with /app/budget via weddings.calculation_mode
   const [mode, setMode] = React.useState<ScenarioMode | null>(null);
 
