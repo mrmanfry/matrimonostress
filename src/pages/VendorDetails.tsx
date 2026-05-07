@@ -348,7 +348,7 @@ export default function VendorDetails() {
 
   const updateExpenseItem = async (
     itemId: string,
-    patch: { description?: string; total_amount?: number; fixed_amount?: number | null },
+    patch: { description?: string; total_amount?: number; fixed_amount?: number | null; estimated_amount?: number | null },
   ) => {
     const { error } = await supabase.from('expense_items').update(patch).eq('id', itemId);
     if (error) { toast({ title: 'Errore', description: error.message, variant: 'destructive' }); return; }
