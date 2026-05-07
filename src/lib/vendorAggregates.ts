@@ -35,12 +35,54 @@ export function statusById(id: string) {
 }
 
 // ─── Expense kinds (wizard) ───
-export type ExpenseKind = 'fixed' | 'per_person' | 'per_unit';
+export type ExpenseKind = 'fixed' | 'per_person' | 'per_audience' | 'per_unit';
 export const EXPENSE_KINDS: { id: ExpenseKind; label: string; desc: string; icon: string }[] = [
-  { id: 'fixed',      label: 'Importo fisso',  desc: 'Costo definito, non dipende dal numero di invitati',      icon: 'tag' },
-  { id: 'per_person', label: 'A persona',      desc: 'Prezzo × numero invitati (previsti / confermati)',        icon: 'users' },
-  { id: 'per_unit',   label: 'A quantità',     desc: 'Prezzo × unità (bomboniere, centrotavola, camere…)',     icon: 'grid' },
+  { id: 'fixed',        label: 'Importo fisso',     desc: 'Costo definito, non dipende dal numero di invitati',           icon: 'tag' },
+  { id: 'per_person',   label: 'A persona (unico)', desc: 'Stesso prezzo per ogni invitato',                              icon: 'users' },
+  { id: 'per_audience', label: 'Per fascia',        desc: 'Prezzi distinti per Adulti, Bambini e Staff (con IVA per riga)', icon: 'users' },
+  { id: 'per_unit',     label: 'A quantità',        desc: 'Prezzo × unità (bomboniere, centrotavola, camere…)',          icon: 'grid' },
 ];
+
+// ─── Per-audience pricing (per_audience kind) ───
+export interface AudiencePricing {
+  enabled: boolean;
+  unit_price: number;
+  tax_rate: number;          // %
+  tax_inclusive: boolean;    // if true → unit_price contains VAT already
+}
+export interface AudienceMap {
+  adults: AudiencePricing;
+  children: AudiencePricing;
+  staff: AudiencePricing;
+}
+export function emptyAudienceMap(): AudienceMap {
+  return {
+    adults:   { enabled: true,  unit_price: 0, tax_rate: 22, tax_inclusive: true },
+    children: { enabled: false, unit_price: 0, tax_rate: 22, tax_inclusive: true },
+    staff:    { enabled: false, unit_price: 0, tax_rate: 22, tax_inclusive: true },
+  };
+}
+export const AUDIENCE_LABELS: Record<keyof AudienceMap, string> = {
+  adults: 'Adulti',
+  children: 'Bambini',
+  staff: 'Staff',
+};
+export const AUDIENCE_QTY_TYPE: Record<keyof AudienceMap, 'adults' | 'children' | 'staff'> = {
+  adults: 'adults',
+  children: 'children',
+  staff: 'staff',
+};
+export function audienceTotal(map: AudienceMap, counts: { adults: number; children: number; staff: number }): number {
+  let total = 0;
+  (Object.keys(map) as (keyof AudienceMap)[]).forEach(k => {
+    const row = map[k];
+    if (!row.enabled || row.unit_price <= 0) return;
+    const qty = counts[k] || 0;
+    const unit = row.tax_inclusive ? row.unit_price : row.unit_price * (1 + (row.tax_rate || 0) / 100);
+    total += unit * qty;
+  });
+  return total;
+}
 
 // ─── Types ───
 export interface DbPayment {
