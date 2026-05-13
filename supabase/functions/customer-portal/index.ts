@@ -31,6 +31,21 @@ serve(async (req) => {
     // Find customer by stored ID first, fallback to email lookup
     let customerId: string | undefined;
     if (weddingId) {
+      // Verify the authenticated user actually has access to this wedding (co_planner or planner)
+      const { data: roleRow } = await supabaseAdmin
+        .from("user_roles")
+        .select("role")
+        .eq("wedding_id", weddingId)
+        .eq("user_id", user.id)
+        .in("role", ["co_planner", "planner"])
+        .maybeSingle();
+      if (!roleRow) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 403,
+        });
+      }
+
       const { data: w } = await supabaseAdmin
         .from("weddings")
         .select("stripe_customer_id")

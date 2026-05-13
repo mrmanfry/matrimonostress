@@ -78,11 +78,11 @@ serve(async (req: Request): Promise<Response> => {
   const testEmail = url.searchParams.get("email"); // Email di test opzionale
   const testWeddingId = url.searchParams.get("wedding_id"); // Wedding ID specifico per test
 
-  // Validate cron secret - skip in test mode
-  if (!testMode) {
+  // Validate cron secret - required for ALL invocations (test mode no longer bypasses auth)
+  {
     const cronSecret = req.headers.get("X-Cron-Secret");
     const expectedSecret = Deno.env.get("CRON_SECRET");
-    
+
     if (!expectedSecret || cronSecret !== expectedSecret) {
       console.error("Unauthorized cron request - invalid or missing secret");
       return new Response(
