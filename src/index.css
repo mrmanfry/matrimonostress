@@ -138,6 +138,12 @@ All colors MUST be HSL.
     --paper-warn-tint: 39 75% 92%;     /* #FBF0DF */
     --paper-danger: 0 73% 41%;         /* #B91C1C */
     --paper-danger-tint: 0 66% 95%;    /* #FBEAEA */
+    --paper-info: 224 76% 48%;         /* #1D4ED8 */
+    --paper-info-tint: 222 76% 95%;    /* #E8EEFB */
+    --paper-gold: 39 48% 47%;          /* #B08A3E */
+    --paper-gold-tint: 41 56% 92%;     /* #F5EFE1 */
+    --paper-gold-border: 41 53% 82%;   /* #E7D9BA */
+    --paper-sunk: 39 36% 90%;          /* #F0EADD */
   }
 
   .dark {
