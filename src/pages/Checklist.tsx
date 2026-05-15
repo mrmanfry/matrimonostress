@@ -1,39 +1,40 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { CheckSquare, Plus, Calendar, Filter, ChevronDown, ChevronUp, Trash2, Sparkles, MessageSquare, StickyNote, Phone, Mail, Link2, Lock, List, CalendarDays, ExternalLink, CalendarPlus, X, LayoutGrid, UserCheck } from "lucide-react";
+import {
+  Plus, Calendar as CalendarIcon, Sparkles, MessageSquare, StickyNote, Phone, Mail,
+  Link2, X, CalendarPlus,
+} from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { DelegatedBadge } from "@/components/checklist/DelegatedBadge";
 import { useNavigate } from "react-router-dom";
-import { ChecklistCalendarView } from "@/components/checklist/ChecklistCalendarView";
 import { ChecklistExportMenu } from "@/components/checklist/ChecklistExportMenu";
 import { ContactVendorWizard } from "@/components/checklist/ContactVendorWizard";
-import { ChecklistProgressBar } from "@/components/checklist/ChecklistProgressBar";
-import { AttentionBox } from "@/components/checklist/AttentionBox";
-import { PriorityBadge } from "@/components/checklist/PriorityBadge";
-import { OwnerSelector, OwnerBadge } from "@/components/checklist/OwnerSelector";
+import { OwnerSelector } from "@/components/checklist/OwnerSelector";
 import { PaymentLinkSelector } from "@/components/checklist/PaymentLinkSelector";
-import { TaskDependencySelector, BlockedIndicator } from "@/components/checklist/TaskDependencySelector";
+import { TaskDependencySelector } from "@/components/checklist/TaskDependencySelector";
 import { PaymentSyncDialog } from "@/components/checklist/PaymentSyncDialog";
 import { BlockedTaskWarning } from "@/components/checklist/BlockedTaskWarning";
 import { FollowUpDialog, FollowUpData } from "@/components/checklist/FollowUpDialog";
-import { CategoryGroupView } from "@/components/checklist/CategoryGroupView";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { MACRO_CATEGORIES, inferCategoryFromTitle, mapVendorCategoryToMacro, TaskMacroCategory } from "@/lib/taskCategories";
+import {
+  MACRO_CATEGORIES, inferCategoryFromTitle, mapVendorCategoryToMacro, TaskMacroCategory,
+} from "@/lib/taskCategories";
+import {
+  PaperRoot, ChkHeader, AttentionBlock, FilterBar, ListView, CategoryView, CalendarView,
+  TaskDetailDrawer, paperGhostBtn,
+} from "@/components/checklist/v2/ChecklistPaperUI";
+import { daysUntil, relDue } from "@/components/checklist/v2/paper-tokens";
 
 interface Task {
   id: string;
@@ -56,232 +57,160 @@ interface Task {
   completed_at?: string | null;
   completed_by_user_id?: string | null;
 }
-interface Payment {
-  id: string;
-  description: string;
-  amount: number;
-  status: string;
-  expense_item?: {
-    vendor?: {
-      name: string;
-    } | null;
-  } | null;
-}
-interface Vendor {
-  id: string;
-  name: string;
-  phone: string | null;
-  email: string | null;
-  category_id: string | null;
-  category?: {
-    name: string;
-  } | null;
-}
-interface Wedding {
-  id: string;
-  wedding_date: string;
-  partner1_name: string;
-  partner2_name: string;
-}
+interface Payment { id: string; description: string; amount: number; status: string; expense_item?: { vendor?: { name: string } | null } | null; }
+interface Vendor { id: string; name: string; phone: string | null; email: string | null; category_id: string | null; category?: { name: string } | null; }
+interface Wedding { id: string; wedding_date: string; partner1_name: string; partner2_name: string; }
+
 const Checklist = () => {
   const { authState } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
+
   const [wedding, setWedding] = useState<Wedding | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [filteredTasks, setFilteredTasks] = useState<Task[]>([]);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userProfile, setUserProfile] = useState<{ first_name: string | null; wedding_role: string | null } | null>(null);
+
   const [filterStatus, setFilterStatus] = useState<string>("pending");
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [expandedTask, setExpandedTask] = useState<string | null>(null);
-  const [addTaskOpen, setAddTaskOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "calendar" | "category">("list");
-  const [newTask, setNewTask] = useState({
-    title: "",
-    description: "",
-    due_date: "",
-    vendor_id: "",
-    priority: "medium",
-    notes: "",
-    assigned_to: "both",
-    category: "altro" as TaskMacroCategory
-  });
-  const [vendors, setVendors] = useState<Vendor[]>([]);
-  const [userProfile, setUserProfile] = useState<{
-    first_name: string | null;
-    wedding_role: string | null;
-  } | null>(null);
+
+  const [openTaskId, setOpenTaskId] = useState<string | null>(null);
+  const [addTaskOpen, setAddTaskOpen] = useState(false);
   const [contactVendorTask, setContactVendorTask] = useState<Task | null>(null);
-  const [editingNotes, setEditingNotes] = useState<string | null>(null);
   const [tempNotes, setTempNotes] = useState("");
 
-  // Payment sync dialog state
-  const [paymentSyncDialog, setPaymentSyncDialog] = useState<{
-    open: boolean;
-    taskId: string;
-    payment: Payment | null;
-  }>({
-    open: false,
-    taskId: "",
-    payment: null
+  const [newTask, setNewTask] = useState({
+    title: "", description: "", due_date: "", vendor_id: "",
+    priority: "medium", notes: "", assigned_to: "both",
+    category: "altro" as TaskMacroCategory,
   });
 
-  // Blocked task warning state
-  const [blockedWarning, setBlockedWarning] = useState<{
-    open: boolean;
-    taskId: string;
-    blockingTaskTitle: string;
-  }>({
-    open: false,
-    taskId: "",
-    blockingTaskTitle: ""
-  });
+  const [paymentSyncDialog, setPaymentSyncDialog] = useState<{ open: boolean; taskId: string; payment: Payment | null }>({ open: false, taskId: "", payment: null });
+  const [blockedWarning, setBlockedWarning] = useState<{ open: boolean; taskId: string; blockingTaskTitle: string }>({ open: false, taskId: "", blockingTaskTitle: "" });
+  const [followUpDialog, setFollowUpDialog] = useState<{ open: boolean; task: Task | null }>({ open: false, task: null });
 
-  // Smart Follow-up state
-  const [followUpDialog, setFollowUpDialog] = useState<{
-    open: boolean;
-    task: Task | null;
-  }>({
-    open: false,
-    task: null
-  });
+  useEffect(() => { loadData(); }, []);
 
-  const {
-    toast
-  } = useToast();
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  // FR-DB-4.2.B - Intercetta parametri URL per deep linking
+  // Deep linking via ?task_id=
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    const taskId = urlParams.get('task_id');
+    const taskId = urlParams.get("task_id");
     if (taskId && !loading && tasks.length > 0) {
-      const timer = setTimeout(() => {
-        const taskElement = document.getElementById(`task-${taskId}`);
-        if (taskElement) {
-          taskElement.scrollIntoView({
-            behavior: 'smooth',
-            block: 'center'
-          });
-          taskElement.classList.add('animate-pulse', 'bg-yellow-100', 'dark:bg-yellow-900/20');
-          setTimeout(() => {
-            taskElement.classList.remove('animate-pulse', 'bg-yellow-100', 'dark:bg-yellow-900/20');
-          }, 2000);
-          setExpandedTask(taskId);
-        }
-      }, 300);
-      return () => clearTimeout(timer);
+      setOpenTaskId(taskId);
     }
   }, [loading, tasks]);
+
+  // Sync notes draft when drawer opens
   useEffect(() => {
-    applyFilters();
-  }, [tasks, filterStatus, filterCategory, searchQuery]);
+    if (openTaskId) {
+      const t = tasks.find((x) => x.id === openTaskId);
+      setTempNotes(t?.notes || "");
+    }
+  }, [openTaskId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const loadData = async () => {
     try {
-      const {
-        data: {
-          user
-        }
-      } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const {
-        data: profileData
-      } = await supabase.from("profiles").select("first_name, wedding_role").eq("id", user.id).single();
+      const { data: profileData } = await supabase.from("profiles").select("first_name, wedding_role").eq("id", user.id).single();
       setUserProfile(profileData);
-      const {
-        data: roleData
-      } = await supabase.from("user_roles").select("wedding_id").eq("user_id", user.id).limit(1).maybeSingle();
+      const { data: roleData } = await supabase.from("user_roles").select("wedding_id").eq("user_id", user.id).limit(1).maybeSingle();
       if (!roleData?.wedding_id) return;
-      const {
-        data: weddingData
-      } = await supabase.from("weddings").select("id, wedding_date, partner1_name, partner2_name").eq("id", roleData.wedding_id).single();
+      const { data: weddingData } = await supabase.from("weddings").select("id, wedding_date, partner1_name, partner2_name").eq("id", roleData.wedding_id).single();
       if (!weddingData) return;
       setWedding(weddingData);
-      const {
-        data: tasksData
-      } = await supabase.from("checklist_tasks").select("*").eq("wedding_id", weddingData.id).order("due_date", {
-        ascending: true,
-        nullsFirst: false
-      });
+      const { data: tasksData } = await supabase.from("checklist_tasks").select("*").eq("wedding_id", weddingData.id).order("due_date", { ascending: true, nullsFirst: false });
       setTasks(tasksData || []);
-      const {
-        data: vendorsData
-      } = await supabase.from("vendors").select(`
-          id, 
-          name, 
-          phone, 
-          email, 
-          category_id,
-          category:expense_categories(name)
-        `).eq("wedding_id", weddingData.id).order("name");
+      const { data: vendorsData } = await supabase.from("vendors").select(`id, name, phone, email, category_id, category:expense_categories(name)`).eq("wedding_id", weddingData.id).order("name");
       setVendors(vendorsData || []);
-    } catch (error) {
-      console.error("Error loading checklist:", error);
+    } catch (e) {
+      console.error("Error loading checklist:", e);
     } finally {
       setLoading(false);
     }
   };
-  const applyFilters = () => {
-    let filtered = [...tasks];
-    if (filterStatus !== "all") {
-      filtered = filtered.filter(t => t.status === filterStatus);
+
+  const filteredTasks = useMemo(() => {
+    let list = [...tasks];
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter((t) => t.title.toLowerCase().includes(q) || (t.description || "").toLowerCase().includes(q));
     }
     if (filterCategory !== "all") {
-      filtered = filtered.filter(t => (t.category || "altro") === filterCategory);
+      list = list.filter((t) => (t.category || "altro") === filterCategory);
     }
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(t => t.title.toLowerCase().includes(query) || t.description?.toLowerCase().includes(query));
-    }
-    setFilteredTasks(filtered);
-  };
-  const toggleTaskStatus = async (taskId: string, currentStatus: string) => {
-    const task = tasks.find(t => t.id === taskId);
-    if (!task) return;
+    if (filterStatus === "pending") list = list.filter((t) => t.status === "pending");
+    else if (filterStatus === "completed") list = list.filter((t) => t.status === "completed");
+    else if (filterStatus === "overdue") list = list.filter((t) => t.status !== "completed" && relDue(t.due_date).kind === "overdue");
 
-    // If completing a task, check if it's blocked
+    list.sort((a, b) => {
+      if (a.status === "completed" && b.status !== "completed") return 1;
+      if (a.status !== "completed" && b.status === "completed") return -1;
+      const ad = a.due_date ? new Date(a.due_date).getTime() : Infinity;
+      const bd = b.due_date ? new Date(b.due_date).getTime() : Infinity;
+      return ad - bd;
+    });
+    return list;
+  }, [tasks, searchQuery, filterCategory, filterStatus]);
+
+  const stats = useMemo(() => ({
+    total: tasks.length,
+    done: tasks.filter((t) => t.status === "completed").length,
+    pending: tasks.filter((t) => t.status === "pending").length,
+    overdue: tasks.filter((t) => t.status !== "completed" && t.due_date && (daysUntil(t.due_date) ?? 0) < 0).length,
+    active: tasks.filter((t) => t.status !== "completed").length,
+  }), [tasks]);
+
+  const attentionTasks = useMemo(
+    () => tasks.filter((t) => t.status !== "completed" && relDue(t.due_date).kind === "overdue"),
+    [tasks],
+  );
+
+  const vendorMap = useMemo(() => {
+    const m = new Map<string, string>();
+    vendors.forEach((v) => m.set(v.id, v.name));
+    return m;
+  }, [vendors]);
+
+  const isTaskBlocked = (task: Task): boolean => {
+    if (!task.blocked_by_task_id) return false;
+    const blockingTask = tasks.find((t) => t.id === task.blocked_by_task_id);
+    return blockingTask ? blockingTask.status !== "completed" : false;
+  };
+
+  /* ─── Mutations (preserved from previous implementation) ─── */
+  const toggleTaskStatus = async (taskId: string) => {
+    const task = tasks.find((t) => t.id === taskId);
+    if (!task) return;
+    const currentStatus = task.status;
+
     if (currentStatus === "pending" && task.blocked_by_task_id) {
-      const blockingTask = tasks.find(t => t.id === task.blocked_by_task_id);
+      const blockingTask = tasks.find((t) => t.id === task.blocked_by_task_id);
       if (blockingTask && blockingTask.status !== "completed") {
-        setBlockedWarning({
-          open: true,
-          taskId,
-          blockingTaskTitle: blockingTask.title
-        });
+        setBlockedWarning({ open: true, taskId, blockingTaskTitle: blockingTask.title });
         return;
       }
     }
-
-    // If completing a task with linked payment, ask about sync
     if (currentStatus === "pending" && task.linked_payment_id) {
-      const {
-        data: paymentData
-      } = await supabase.from("payments").select(`
-          id,
-          description,
-          amount,
-          status,
-          expense_item:expense_items(
-            vendor:vendors(name)
-          )
-        `).eq("id", task.linked_payment_id).single();
+      const { data: paymentData } = await supabase
+        .from("payments")
+        .select(`id, description, amount, status, expense_item:expense_items(vendor:vendors(name))`)
+        .eq("id", task.linked_payment_id)
+        .single();
       if (paymentData && paymentData.status !== "Pagato") {
-        setPaymentSyncDialog({
-          open: true,
-          taskId,
-          payment: paymentData
-        });
+        setPaymentSyncDialog({ open: true, taskId, payment: paymentData });
         return;
       }
     }
     await completeToggleTask(taskId, currentStatus);
   };
+
   const completeToggleTask = async (taskId: string, currentStatus: string, alsoMarkPayment = false) => {
     const newStatus = currentStatus === "completed" ? "pending" : "completed";
-    const task = tasks.find(t => t.id === taskId);
-    
+    const task = tasks.find((t) => t.id === taskId);
     const { data: { user } } = await supabase.auth.getUser();
     const updatePayload: any = { status: newStatus };
     if (newStatus === "completed") {
@@ -291,880 +220,375 @@ const Checklist = () => {
       updatePayload.completed_at = null;
       updatePayload.completed_by_user_id = null;
     }
-    
     const { error } = await supabase.from("checklist_tasks").update(updatePayload).eq("id", taskId);
-    if (error) {
-      toast({
-        title: "Errore",
-        description: "Impossibile aggiornare il task",
-        variant: "destructive"
-      });
-      return;
-    }
+    if (error) { toast({ title: "Errore", description: "Impossibile aggiornare il task", variant: "destructive" }); return; }
 
-    // If also marking payment as paid
     if (alsoMarkPayment && task?.linked_payment_id && newStatus === "completed") {
-      const {
-        error: paymentError
-      } = await supabase.from("payments").update({
-        status: "Pagato",
-        paid_on_date: new Date().toISOString().split('T')[0]
-      }).eq("id", task.linked_payment_id);
-      if (paymentError) {
-        toast({
-          title: "Attenzione",
-          description: "Task completato, ma errore nel segnare il pagamento",
-          variant: "destructive"
-        });
-      } else {
-        // Show follow-up prompt via toast with action buttons
-        showFollowUpToast(task);
-      }
+      const { error: paymentError } = await supabase.from("payments").update({ status: "Pagato", paid_on_date: new Date().toISOString().split("T")[0] }).eq("id", task.linked_payment_id);
+      if (paymentError) toast({ title: "Attenzione", description: "Task completato, ma errore nel segnare il pagamento", variant: "destructive" });
+      else if (task) showFollowUpToast(task);
     } else if (newStatus === "completed" && task) {
-      // Show follow-up prompt for completed tasks
       showFollowUpToast(task);
     } else {
-      toast({
-        title: "Ripristinato",
-        description: "Task rimesso in sospeso"
-      });
+      toast({ title: "Ripristinato", description: "Task rimesso in sospeso" });
     }
-    setTasks(prev => prev.map(t => t.id === taskId ? {
-      ...t,
-      status: newStatus
-    } : t));
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t)));
   };
 
-  // Smart Follow-up: show interactive toast when task is completed
   const showFollowUpToast = (task: Task) => {
     toast({
       title: "Task completato!",
       description: (
         <div className="flex flex-col gap-3 mt-2">
-          <span className="text-sm text-muted-foreground">
-            Vuoi programmare un follow-up?
-          </span>
+          <span className="text-sm text-muted-foreground">Vuoi programmare un follow-up?</span>
           <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                // Just dismiss - the toast will auto-dismiss
-              }}
-              className="flex-1"
-            >
-              <X className="h-3 w-3 mr-1" />
-              No, grazie
+            <Button variant="outline" size="sm" onClick={() => {}} className="flex-1">
+              <X className="h-3 w-3 mr-1" />No, grazie
             </Button>
-            <Button
-              size="sm"
-              onClick={() => {
-                setFollowUpDialog({ open: true, task });
-              }}
-              className="flex-1"
-            >
-              <CalendarPlus className="h-3 w-3 mr-1" />
-              Sì, crea
+            <Button size="sm" onClick={() => setFollowUpDialog({ open: true, task })} className="flex-1">
+              <CalendarPlus className="h-3 w-3 mr-1" />Sì, crea
             </Button>
           </div>
         </div>
       ),
-      duration: 8000, // Give user time to decide
+      duration: 8000,
     });
   };
 
-  // Handle follow-up creation
   const handleCreateFollowUp = async (followUpData: FollowUpData) => {
     if (!wedding) return;
-
-    const { data, error } = await supabase
-      .from("checklist_tasks")
-      .insert({
-        wedding_id: wedding.id,
-        title: followUpData.title,
-        description: followUpData.description || null,
-        due_date: followUpData.due_date || null,
-        vendor_id: followUpData.vendor_id,
-        status: "pending",
-        priority: "medium",
-        assigned_to: followUpData.assigned_to,
-        blocked_by_task_id: followUpData.parent_task_id, // Link to parent task
-      })
-      .select()
-      .single();
-
-    if (error) {
-      toast({
-        title: "Errore",
-        description: "Impossibile creare il follow-up",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setTasks(prev => [...prev, data]);
-    toast({
-      title: "Follow-up creato!",
-      description: `"${followUpData.title}" aggiunto alla checklist`,
-    });
+    const { data, error } = await supabase.from("checklist_tasks").insert({
+      wedding_id: wedding.id, title: followUpData.title, description: followUpData.description || null,
+      due_date: followUpData.due_date || null, vendor_id: followUpData.vendor_id, status: "pending",
+      priority: "medium", assigned_to: followUpData.assigned_to, blocked_by_task_id: followUpData.parent_task_id,
+    }).select().single();
+    if (error) { toast({ title: "Errore", description: "Impossibile creare il follow-up", variant: "destructive" }); return; }
+    setTasks((prev) => [...prev, data]);
+    toast({ title: "Follow-up creato!", description: `"${followUpData.title}" aggiunto alla checklist` });
   };
+
   const handlePaymentSyncConfirm = () => {
-    const {
-      taskId
-    } = paymentSyncDialog;
-    setPaymentSyncDialog({
-      open: false,
-      taskId: "",
-      payment: null
-    });
+    const { taskId } = paymentSyncDialog;
+    setPaymentSyncDialog({ open: false, taskId: "", payment: null });
     completeToggleTask(taskId, "pending", true);
   };
   const handlePaymentSyncSkip = () => {
-    const {
-      taskId
-    } = paymentSyncDialog;
-    setPaymentSyncDialog({
-      open: false,
-      taskId: "",
-      payment: null
-    });
+    const { taskId } = paymentSyncDialog;
+    setPaymentSyncDialog({ open: false, taskId: "", payment: null });
     completeToggleTask(taskId, "pending", false);
   };
   const handleBlockedWarningConfirm = () => {
-    const {
-      taskId
-    } = blockedWarning;
-    setBlockedWarning({
-      open: false,
-      taskId: "",
-      blockingTaskTitle: ""
-    });
+    const { taskId } = blockedWarning;
+    setBlockedWarning({ open: false, taskId: "", blockingTaskTitle: "" });
     completeToggleTask(taskId, "pending", false);
   };
-  const handleBlockedWarningCancel = () => {
-    setBlockedWarning({
-      open: false,
-      taskId: "",
-      blockingTaskTitle: ""
-    });
+
+  const updateField = async (taskId: string, patch: Partial<Task>, successMsg?: string) => {
+    const { error } = await supabase.from("checklist_tasks").update(patch).eq("id", taskId);
+    if (error) { toast({ title: "Errore", description: "Impossibile aggiornare il task", variant: "destructive" }); return; }
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, ...patch } : t)));
+    if (successMsg) toast({ title: "Salvato", description: successMsg });
   };
-  const deleteTask = async (taskId: string) => {
-    const {
-      error
-    } = await supabase.from("checklist_tasks").delete().eq("id", taskId);
-    if (error) {
-      toast({
-        title: "Errore",
-        description: "Impossibile eliminare il task",
-        variant: "destructive"
-      });
-      return;
+
+  const updateTaskPriority = (taskId: string, priority: string) => updateField(taskId, { priority });
+  const updateTaskOwner = (taskId: string, assigned_to: string) => updateField(taskId, { assigned_to: assigned_to === "both" ? null : assigned_to });
+  const updateTaskDueDate = (taskId: string, dueDate: string | null) => updateField(taskId, { due_date: dueDate }, dueDate ? `Nuova scadenza: ${new Date(dueDate).toLocaleDateString("it-IT")}` : "Scadenza rimossa");
+  const updateTaskPaymentLink = (taskId: string, paymentId: string | null) => updateField(taskId, { linked_payment_id: paymentId }, paymentId ? "Task collegato al pagamento" : "Collegamento rimosso");
+  const updateTaskDependency = (taskId: string, blockedByTaskId: string | null) => updateField(taskId, { blocked_by_task_id: blockedByTaskId }, blockedByTaskId ? "Dipendenza aggiunta" : "Dipendenza rimossa");
+  const updateTaskVendor = async (taskId: string, vendorId: string | null) => {
+    const task = tasks.find((t) => t.id === taskId);
+    let newCategory = task?.category;
+    if (vendorId) {
+      const v = vendors.find((x) => x.id === vendorId);
+      newCategory = mapVendorCategoryToMacro(v?.category?.name);
     }
-    setTasks(prev => prev.filter(t => t.id !== taskId));
-    toast({
-      title: "Eliminato",
-      description: "Task rimosso dalla checklist"
-    });
+    await updateField(taskId, { vendor_id: vendorId, category: newCategory }, vendorId ? "Fornitore collegato" : "Fornitore rimosso");
   };
+
+  const saveNotes = async () => {
+    if (!openTaskId) return;
+    await updateField(openTaskId, { notes: tempNotes || null }, "Note aggiornate");
+  };
+
+  const deleteTask = async (taskId: string) => {
+    const { error } = await supabase.from("checklist_tasks").delete().eq("id", taskId);
+    if (error) { toast({ title: "Errore", description: "Impossibile eliminare il task", variant: "destructive" }); return; }
+    setTasks((prev) => prev.filter((t) => t.id !== taskId));
+    setOpenTaskId(null);
+    toast({ title: "Eliminato", description: "Task rimosso dalla checklist" });
+  };
+
   const addTask = async () => {
     if (!newTask.title.trim() || !wedding) {
-      toast({
-        title: "Errore",
-        description: "Inserisci almeno un titolo per il task",
-        variant: "destructive"
-      });
+      toast({ title: "Errore", description: "Inserisci almeno un titolo per il task", variant: "destructive" });
       return;
     }
-    // Determine category with priority: 1) Manual selection 2) Vendor category 3) Title inference
     let taskCategory: TaskMacroCategory = newTask.category;
-    
     if (newTask.category === "altro") {
-      // Check if a vendor is selected and use its category
       const selectedVendorId = newTask.vendor_id === "none" ? null : newTask.vendor_id;
       if (selectedVendorId) {
-        const selectedVendor = vendors.find(v => v.id === selectedVendorId);
-        const vendorCategoryName = selectedVendor?.category?.name;
-        taskCategory = mapVendorCategoryToMacro(vendorCategoryName);
+        const v = vendors.find((x) => x.id === selectedVendorId);
+        taskCategory = mapVendorCategoryToMacro(v?.category?.name);
       } else {
-        // Fallback to title inference
         taskCategory = inferCategoryFromTitle(newTask.title);
       }
     }
-    
-    // Auto-detect if current user is a planner for this wedding
-    const isPlanner = authState.status === 'authenticated' && (authState.activeRole === 'planner');
-    const currentUserId = authState.status === 'authenticated' ? authState.user.id : null;
+    const isPlanner = authState.status === "authenticated" && authState.activeRole === "planner";
+    const currentUserId = authState.status === "authenticated" ? authState.user.id : null;
 
     const insertPayload: any = {
-      wedding_id: wedding.id,
-      title: newTask.title,
-      description: newTask.description || null,
+      wedding_id: wedding.id, title: newTask.title, description: newTask.description || null,
       due_date: newTask.due_date || null,
       vendor_id: newTask.vendor_id === "none" ? null : newTask.vendor_id || null,
-      status: "pending",
-      priority: newTask.priority,
-      notes: newTask.notes || null,
+      status: "pending", priority: newTask.priority, notes: newTask.notes || null,
       assigned_to: newTask.assigned_to === "both" ? null : newTask.assigned_to,
       category: taskCategory,
     };
-
     if (isPlanner && currentUserId) {
       insertPayload.delegated_by_user_id = currentUserId;
       insertPayload.delegated_at = new Date().toISOString();
     }
+    const { data, error } = await supabase.from("checklist_tasks").insert(insertPayload).select().single();
+    if (error) { toast({ title: "Errore", description: "Impossibile creare il task", variant: "destructive" }); return; }
+    setTasks((prev) => [...prev, data]);
 
-    const {
-      data,
-      error
-    } = await supabase.from("checklist_tasks").insert(insertPayload).select().single();
-    if (error) {
-      toast({
-        title: "Errore",
-        description: "Impossibile creare il task",
-        variant: "destructive"
-      });
-      return;
-    }
-    setTasks(prev => [...prev, data]);
-
-    // Bridge Task-Chat: fire-and-forget system message for delegated tasks
     if (isPlanner && currentUserId && data.id) {
-      const dueDateLabel = newTask.due_date
-        ? format(new Date(newTask.due_date), "d MMMM yyyy", { locale: it })
-        : "nessuna scadenza";
+      const dueDateLabel = newTask.due_date ? format(new Date(newTask.due_date), "d MMMM yyyy", { locale: it }) : "nessuna scadenza";
       supabase.from("messages").insert({
-        wedding_id: wedding.id,
-        sender_id: currentUserId,
+        wedding_id: wedding.id, sender_id: currentUserId,
         content: `📋 Ti ho assegnato un nuovo task: "${newTask.title}" — scadenza: ${dueDateLabel}`,
-        visibility: "all",
-        message_type: "system",
-        system_action_type: "task_created",
-        system_action_ref_id: data.id,
-      }).then(({ error: msgErr }) => {
-        if (msgErr) console.warn("[Bridge] Failed to insert system message:", msgErr);
-      });
+        visibility: "all", message_type: "system", system_action_type: "task_created", system_action_ref_id: data.id,
+      }).then(({ error: msgErr }) => { if (msgErr) console.warn("[Bridge] Failed to insert system message:", msgErr); });
     }
 
-    setNewTask({
-      title: "",
-      description: "",
-      due_date: "",
-      vendor_id: "",
-      priority: "medium",
-      notes: "",
-      assigned_to: "both",
-      category: "altro"
-    });
+    setNewTask({ title: "", description: "", due_date: "", vendor_id: "", priority: "medium", notes: "", assigned_to: "both", category: "altro" });
     setAddTaskOpen(false);
-    toast({
-      title: "Creato!",
-      description: "Nuovo task aggiunto alla checklist"
-    });
+    toast({ title: "Creato!", description: "Nuovo task aggiunto alla checklist" });
   };
-  const updateTaskPriority = async (taskId: string, priority: string) => {
-    const {
-      error
-    } = await supabase.from("checklist_tasks").update({
-      priority
-    }).eq("id", taskId);
-    if (error) {
-      toast({
-        title: "Errore",
-        description: "Impossibile aggiornare la priorità",
-        variant: "destructive"
-      });
-      return;
-    }
-    setTasks(prev => prev.map(t => t.id === taskId ? {
-      ...t,
-      priority
-    } : t));
-  };
-  
-  const updateTaskVendor = async (taskId: string, vendorId: string | null) => {
-    const task = tasks.find(t => t.id === taskId);
-    
-    // Determine new category based on vendor
-    let newCategory = task?.category;
-    if (vendorId) {
-      const selectedVendor = vendors.find(v => v.id === vendorId);
-      newCategory = mapVendorCategoryToMacro(selectedVendor?.category?.name);
-    }
-    
-    const { error } = await supabase
-      .from("checklist_tasks")
-      .update({
-        vendor_id: vendorId,
-        category: newCategory
-      })
-      .eq("id", taskId);
-      
-    if (error) {
-      toast({
-        title: "Errore",
-        description: "Impossibile aggiornare il fornitore",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    setTasks(prev => prev.map(t => t.id === taskId ? {
-      ...t,
-      vendor_id: vendorId,
-      category: newCategory
-    } : t));
-    
-    toast({
-      title: vendorId ? "Fornitore collegato" : "Fornitore rimosso",
-      description: vendorId ? "Task collegato al fornitore" : "Collegamento rimosso"
-    });
-  };
-  
-  const updateTaskDueDate = async (taskId: string, dueDate: string | null) => {
-    const { error } = await supabase
-      .from("checklist_tasks")
-      .update({ due_date: dueDate })
-      .eq("id", taskId);
-      
-    if (error) {
-      toast({
-        title: "Errore",
-        description: "Impossibile aggiornare la scadenza",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, due_date: dueDate } : t));
-    toast({
-      title: "Scadenza aggiornata",
-      description: dueDate ? `Nuova scadenza: ${new Date(dueDate).toLocaleDateString("it-IT")}` : "Scadenza rimossa"
-    });
-  };
-  
-  const updateTaskOwner = async (taskId: string, assigned_to: string) => {
-    const value = assigned_to === "both" ? null : assigned_to;
-    const {
-      error
-    } = await supabase.from("checklist_tasks").update({
-      assigned_to: value
-    }).eq("id", taskId);
-    if (error) {
-      toast({
-        title: "Errore",
-        description: "Impossibile aggiornare l'assegnazione",
-        variant: "destructive"
-      });
-      return;
-    }
-    setTasks(prev => prev.map(t => t.id === taskId ? {
-      ...t,
-      assigned_to: value
-    } : t));
-  };
-  const updateTaskPaymentLink = async (taskId: string, paymentId: string | null) => {
-    const {
-      error
-    } = await supabase.from("checklist_tasks").update({
-      linked_payment_id: paymentId
-    }).eq("id", taskId);
-    if (error) {
-      toast({
-        title: "Errore",
-        description: "Impossibile collegare il pagamento",
-        variant: "destructive"
-      });
-      return;
-    }
-    setTasks(prev => prev.map(t => t.id === taskId ? {
-      ...t,
-      linked_payment_id: paymentId
-    } : t));
-    toast({
-      title: paymentId ? "Collegato!" : "Scollegato",
-      description: paymentId ? "Task collegato al pagamento" : "Collegamento rimosso"
-    });
-  };
-  const updateTaskDependency = async (taskId: string, blockedByTaskId: string | null) => {
-    const {
-      error
-    } = await supabase.from("checklist_tasks").update({
-      blocked_by_task_id: blockedByTaskId
-    }).eq("id", taskId);
-    if (error) {
-      toast({
-        title: "Errore",
-        description: "Impossibile aggiornare la dipendenza",
-        variant: "destructive"
-      });
-      return;
-    }
-    setTasks(prev => prev.map(t => t.id === taskId ? {
-      ...t,
-      blocked_by_task_id: blockedByTaskId
-    } : t));
-    toast({
-      title: blockedByTaskId ? "Dipendenza aggiunta" : "Dipendenza rimossa",
-      description: blockedByTaskId ? "Il task è ora bloccato" : "Il task non ha più dipendenze"
-    });
-  };
-  const saveNotes = async (taskId: string) => {
-    const {
-      error
-    } = await supabase.from("checklist_tasks").update({
-      notes: tempNotes || null
-    }).eq("id", taskId);
-    if (error) {
-      toast({
-        title: "Errore",
-        description: "Impossibile salvare le note",
-        variant: "destructive"
-      });
-      return;
-    }
-    setTasks(prev => prev.map(t => t.id === taskId ? {
-      ...t,
-      notes: tempNotes || null
-    } : t));
-    setEditingNotes(null);
-    toast({
-      title: "Salvato",
-      description: "Note aggiornate"
-    });
-  };
-  const getDaysUntilDue = (dueDate: string | null): number | null => {
-    if (!dueDate) return null;
-    const due = new Date(dueDate);
-    const today = new Date();
-    const diffTime = due.getTime() - today.getTime();
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  };
-  const getDueDateBadge = (dueDate: string | null, status: string) => {
-    if (status === "completed") return null;
-    if (!dueDate) return null;
-    const daysUntil = getDaysUntilDue(dueDate);
-    if (daysUntil === null) return null;
-    if (daysUntil < 0) {
-      return <Badge variant="destructive" className="font-medium">Scaduto</Badge>;
-    } else if (daysUntil === 0) {
-      return <Badge variant="destructive" className="font-medium animate-pulse">Oggi!</Badge>;
-    } else if (daysUntil <= 7) {
-      return (
-        <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-medium">
-          ⏰ {daysUntil === 1 ? "Domani" : `${daysUntil} giorni`}
-        </Badge>
-      );
-    } else if (daysUntil <= 30) {
-      return <Badge variant="secondary" className="font-normal">{daysUntil} giorni</Badge>;
-    }
-    return null;
-  };
-  const isTaskBlocked = (task: Task): boolean => {
-    if (!task.blocked_by_task_id) return false;
-    const blockingTask = tasks.find(t => t.id === task.blocked_by_task_id);
-    return blockingTask ? blockingTask.status !== "completed" : false;
-  };
-  const stats = {
-    total: tasks.length,
-    completed: tasks.filter(t => t.status === "completed").length,
-    pending: tasks.filter(t => t.status === "pending").length,
-    overdue: tasks.filter(t => t.status === "pending" && t.due_date && getDaysUntilDue(t.due_date)! < 0).length
-  };
-  const handleAttentionTaskClick = (taskId: string) => {
-    setFilterStatus("pending");
-    setExpandedTask(taskId);
-    setTimeout(() => {
-      const taskElement = document.getElementById(`task-${taskId}`);
-      if (taskElement) {
-        taskElement.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center'
-        });
-        taskElement.classList.add('animate-pulse', 'ring-2', 'ring-destructive');
-        setTimeout(() => {
-          taskElement.classList.remove('animate-pulse', 'ring-2', 'ring-destructive');
-        }, 2000);
-      }
-    }, 100);
-  };
+
+  const openTask = openTaskId ? tasks.find((t) => t.id === openTaskId) || null : null;
+  const openTaskVendor = openTask?.vendor_id ? vendors.find((v) => v.id === openTask.vendor_id) : null;
+  const blockingTask = openTask?.blocked_by_task_id ? tasks.find((t) => t.id === openTask.blocked_by_task_id) : null;
+
   if (loading) {
-    return <div className="p-4 lg:p-8">
-        <p className="text-muted-foreground">Caricamento...</p>
-      </div>;
-  }
-  return <div className="p-4 lg:p-8 max-w-5xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div className="space-y-2">
-          <div className="flex items-center gap-3">
-            <CheckSquare className="w-8 h-8 text-accent" />
-            <h1 className="text-3xl font-bold">Checklist Matrimonio</h1>
-          </div>
-          <p className="text-muted-foreground">
-            Organizza tutte le attività necessarie per il tuo grande giorno
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {/* View Toggle */}
-          <div className="flex border rounded-lg overflow-hidden">
-            <Button variant={viewMode === "list" ? "default" : "ghost"} size="sm" onClick={() => setViewMode("list")} className="rounded-none gap-1">
-              <List className="w-4 h-4" />
-              <span className="hidden sm:inline">Lista</span>
-            </Button>
-            <Button variant={viewMode === "category" ? "default" : "ghost"} size="sm" onClick={() => setViewMode("category")} className="rounded-none gap-1">
-              <LayoutGrid className="w-4 h-4" />
-              <span className="hidden sm:inline">Categoria</span>
-            </Button>
-            <Button variant={viewMode === "calendar" ? "default" : "ghost"} size="sm" onClick={() => setViewMode("calendar")} className="rounded-none gap-1">
-              <CalendarDays className="w-4 h-4" />
-              <span className="hidden sm:inline">Calendario</span>
-            </Button>
-          </div>
-          
-          {/* Export Menu */}
-          {wedding && <ChecklistExportMenu tasks={tasks} vendors={vendors} weddingDate={wedding.wedding_date} partner1Name={wedding.partner1_name} partner2Name={wedding.partner2_name} />}
-          
-          <Button onClick={() => setAddTaskOpen(true)} className="gap-2">
-            <Plus className="w-4 h-4" />
-            Nuovo Task
-          </Button>
-        </div>
+    return (
+      <div style={{ background: "hsl(var(--paper-bg))", padding: "30px 38px", minHeight: "100%" }}>
+        <p style={{ color: "hsl(var(--paper-ink-3))" }}>Caricamento…</p>
       </div>
+    );
+  }
 
-      {/* Progress Bar */}
-      <ChecklistProgressBar completed={stats.completed} pending={stats.pending} overdue={stats.overdue} />
-
-      {/* Attention Box */}
-      <AttentionBox tasks={tasks} onTaskClick={handleAttentionTaskClick} />
-
-      {/* Pre-populated Notice */}
-      {tasks.some(t => t.is_system_generated)}
-
-      {/* Calendar View */}
-      {viewMode === "calendar" && <ChecklistCalendarView tasks={tasks} onTaskClick={handleAttentionTaskClick} />}
-
-      {/* Category View */}
-      {viewMode === "category" && (
-        <>
-          {/* Filters */}
-          <Card className="p-4">
-            <div className="flex flex-col lg:flex-row gap-4">
-              <div className="flex-1">
-                <Input placeholder="Cerca task..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
-              </div>
-              <div className="flex gap-2">
-                <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger className="w-[150px]">
-                    <Filter className="w-4 h-4 mr-2" />
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tutti</SelectItem>
-                    <SelectItem value="pending">In Sospeso</SelectItem>
-                    <SelectItem value="completed">Completati</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+  return (
+    <PaperRoot>
+      <ChkHeader
+        stats={{ total: stats.total, done: stats.done, active: stats.active, overdue: stats.overdue }}
+        view={viewMode}
+        setView={setViewMode}
+        search={searchQuery}
+        setSearch={setSearchQuery}
+        onNew={() => setAddTaskOpen(true)}
+        exportSlot={
+          wedding ? (
+            <div style={{ display: "inline-flex" }}>
+              <ChecklistExportMenu
+                tasks={tasks as any}
+                vendors={vendors as any}
+                weddingDate={wedding.wedding_date}
+                partner1Name={wedding.partner1_name}
+                partner2Name={wedding.partner2_name}
+              />
             </div>
-          </Card>
+          ) : null
+        }
+      />
 
-          <CategoryGroupView
-            tasks={filteredTasks}
-            allTasks={tasks}
-            vendors={vendors}
-            wedding={wedding}
-            expandedTask={expandedTask}
-            onExpandTask={setExpandedTask}
-            onToggleStatus={toggleTaskStatus}
-            onDeleteTask={deleteTask}
-            onNavigateToVendor={(vendorId) => navigate(`/app/vendors/${vendorId}`)}
-            getDueDateBadge={getDueDateBadge}
-            isTaskBlocked={isTaskBlocked}
-            renderTaskExpanded={(task, vendor) => null}
+      <AttentionBlock tasks={attentionTasks as any} onOpenTask={setOpenTaskId} />
+
+      {viewMode === "list" && (
+        <>
+          <FilterBar
+            status={filterStatus} setStatus={setFilterStatus}
+            area={filterCategory} setArea={setFilterCategory}
+            count={filteredTasks.length}
+          />
+          <ListView
+            tasks={filteredTasks as any}
+            vendorMap={vendorMap}
+            partner1={wedding?.partner1_name} partner2={wedding?.partner2_name}
+            onToggle={toggleTaskStatus}
+            onOpen={setOpenTaskId}
           />
         </>
       )}
 
-      {/* List View */}
-      {viewMode === "list" && <>
-          {/* Filters */}
-          <Card className="p-4">
-            <div className="flex flex-col lg:flex-row gap-4">
-              <div className="flex-1">
-                <Input placeholder="Cerca task..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+      {viewMode === "category" && (
+        <>
+          <FilterBar
+            status={filterStatus} setStatus={setFilterStatus}
+            area={filterCategory} setArea={setFilterCategory}
+            count={filteredTasks.length}
+          />
+          <CategoryView
+            allTasks={tasks as any}
+            filteredTasks={filteredTasks as any}
+            vendorMap={vendorMap}
+            partner1={wedding?.partner1_name} partner2={wedding?.partner2_name}
+            onToggle={toggleTaskStatus}
+            onOpen={setOpenTaskId}
+          />
+        </>
+      )}
+
+      {viewMode === "calendar" && (
+        <CalendarView tasks={tasks as any} onOpen={setOpenTaskId} />
+      )}
+
+      {/* Task drawer */}
+      <TaskDetailDrawer
+        task={openTask as any}
+        vendorName={openTaskVendor?.name || null}
+        vendorCategory={openTaskVendor?.category?.name || null}
+        blockingTaskTitle={blockingTask?.title || null}
+        blockingResolved={blockingTask ? blockingTask.status === "completed" : false}
+        onClose={() => setOpenTaskId(null)}
+        onToggle={toggleTaskStatus}
+        expandedControls={
+          openTask && wedding ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Priorità</Label>
+                  <Select value={openTask.priority || "medium"} onValueChange={(v) => updateTaskPriority(openTask.id, v)}>
+                    <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="high">🔴 Alta</SelectItem>
+                      <SelectItem value="medium">🟡 Media</SelectItem>
+                      <SelectItem value="low">🟢 Bassa</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Assegnato a</Label>
+                  <OwnerSelector value={openTask.assigned_to || "both"} onChange={(v) => updateTaskOwner(openTask.id, v)} partner1Name={wedding.partner1_name} partner2Name={wedding.partner2_name} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Fornitore</Label>
+                  <Select
+                    value={openTask.vendor_id || "none"}
+                    onValueChange={(v) => updateTaskVendor(openTask.id, v === "none" ? null : v)}
+                  >
+                    <SelectTrigger className="h-9"><SelectValue placeholder="Nessun fornitore" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Nessun fornitore</SelectItem>
+                      {vendors.map((v) => (
+                        <SelectItem key={v.id} value={v.id}>
+                          {v.name} {v.category?.name && `(${v.category.name})`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Scadenza</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn("h-9 w-full justify-start text-left font-normal", !openTask.due_date && "text-muted-foreground")}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {openTask.due_date ? format(new Date(openTask.due_date), "d MMMM yyyy", { locale: it }) : "Nessuna scadenza"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <CalendarComponent
+                        mode="single"
+                        selected={openTask.due_date ? new Date(openTask.due_date) : undefined}
+                        onSelect={(date) => updateTaskDueDate(openTask.id, date ? format(date, "yyyy-MM-dd") : null)}
+                        initialFocus locale={it}
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                      {openTask.due_date && (
+                        <div className="p-2 border-t">
+                          <Button variant="ghost" size="sm" className="w-full text-destructive" onClick={() => updateTaskDueDate(openTask.id, null)}>
+                            <X className="w-4 h-4 mr-2" />Rimuovi scadenza
+                          </Button>
+                        </div>
+                      )}
+                    </PopoverContent>
+                  </Popover>
+                </div>
               </div>
-              <div className="flex gap-2 flex-wrap">
-                <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger className="w-[150px]">
-                    <Filter className="w-4 h-4 mr-2" />
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tutti</SelectItem>
-                    <SelectItem value="pending">In Sospeso</SelectItem>
-                    <SelectItem value="completed">Completati</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={filterCategory} onValueChange={setFilterCategory}>
-                  <SelectTrigger className="w-[160px]">
-                    <LayoutGrid className="w-4 h-4 mr-2" />
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tutte le aree</SelectItem>
-                    {MACRO_CATEGORIES.map(cat => (
-                      <SelectItem key={cat.id} value={cat.id}>{cat.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+
+              <PaymentLinkSelector weddingId={wedding.id} currentPaymentId={openTask.linked_payment_id || null} onLink={(pid) => updateTaskPaymentLink(openTask.id, pid)} />
+
+              <TaskDependencySelector currentTaskId={openTask.id} blockedByTaskId={openTask.blocked_by_task_id || null} allTasks={tasks as any} onUpdate={(b) => updateTaskDependency(openTask.id, b)} />
+
+              <div className="space-y-1.5">
+                <Label className="text-xs flex items-center gap-1.5"><StickyNote className="w-3.5 h-3.5" />Note</Label>
+                <Textarea value={tempNotes} onChange={(e) => setTempNotes(e.target.value)} placeholder="Aggiungi note, link, dettagli..." rows={3} />
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={saveNotes}>Salva note</Button>
+                </div>
               </div>
-            </div>
-          </Card>
 
-          {/* Tasks List */}
-          <div className="space-y-3">
-            {filteredTasks.length === 0 ? <Card className="p-8 text-center">
-                <CheckSquare className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">
-                  {searchQuery || filterStatus !== "all" ? "Nessun task trovato con questi filtri" : "Nessun task presente"}
-                </p>
-              </Card> : filteredTasks.map(task => {
-          const vendor = vendors.find(v => v.id === task.vendor_id);
-          const blocked = isTaskBlocked(task);
-          return <Card key={task.id} id={`task-${task.id}`} className={`p-4 transition-all ${task.status === "completed" ? "opacity-60" : ""} ${blocked ? "border-amber-300 bg-amber-50/30 dark:bg-amber-900/10" : ""}`}>
-                <div className="flex items-start gap-4">
-                  <div className="pt-1">
-                    <Checkbox checked={task.status === "completed"} onCheckedChange={() => toggleTaskStatus(task.id, task.status)} disabled={blocked && task.status === "pending"} />
-                  </div>
-
-                  <div className="flex-1 space-y-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          {blocked && <Lock className="w-4 h-4 text-amber-600" />}
-                          <h3 className={`font-semibold ${task.status === "completed" ? "line-through" : ""} ${blocked ? "text-muted-foreground" : ""}`}>
-                            {task.title}
-                          </h3>
-                          <PriorityBadge priority={task.priority} size="sm" />
-                          {task.delegated_by_user_id && <DelegatedBadge compact />}
-                          <BlockedIndicator blockedByTaskId={task.blocked_by_task_id} allTasks={tasks} />
-                          {task.linked_payment_id && <Badge variant="outline" className="text-xs gap-1">
-                              <Link2 className="w-3 h-3" />
-                              Pagamento
-                            </Badge>}
-                          {task.notes && <StickyNote className="w-3.5 h-3.5 text-muted-foreground" />}
-                        </div>
-                        {vendor && <button onClick={() => navigate(`/app/vendors/${vendor.id}`)} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors mt-0.5">
-                            {vendor.name}
-                            <ExternalLink className="w-3 h-3" />
-                          </button>}
-                        <div className="flex items-center gap-3 mt-1 flex-wrap">
-                          {task.due_date && <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              <Calendar className="w-4 h-4" />
-                              {new Date(task.due_date).toLocaleDateString("it-IT")}
-                              {getDueDateBadge(task.due_date, task.status)}
-                            </div>}
-                          <OwnerBadge owner={task.assigned_to} partner1Name={wedding?.partner1_name} partner2Name={wedding?.partner2_name} />
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {task.is_system_generated && <div title="Generato automaticamente">
-                            <Sparkles className="w-4 h-4 text-accent" />
-                          </div>}
-                        <Button variant="ghost" size="icon" onClick={() => setExpandedTask(expandedTask === task.id ? null : task.id)}>
-                          {expandedTask === task.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => deleteTask(task.id)}>
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-
-                    {expandedTask === task.id && <div className="pt-3 border-t space-y-4">
-                        {task.description && <p className="text-sm text-muted-foreground">{task.description}</p>}
-                        
-                        {/* Priority, Owner & Vendor Controls */}
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                          <div className="space-y-1.5">
-                            <Label className="text-xs">Priorità</Label>
-                            <Select value={task.priority || "medium"} onValueChange={value => updateTaskPriority(task.id, value)}>
-                              <SelectTrigger className="h-9">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="high">🔴 Alta</SelectItem>
-                                <SelectItem value="medium">🟡 Media</SelectItem>
-                                <SelectItem value="low">🟢 Bassa</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs">Assegnato a</Label>
-                            <OwnerSelector value={task.assigned_to} onChange={value => updateTaskOwner(task.id, value)} partner1Name={wedding?.partner1_name} partner2Name={wedding?.partner2_name} />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs">Fornitore</Label>
-                            <Select 
-                              value={task.vendor_id || "none"} 
-                              onValueChange={value => updateTaskVendor(task.id, value === "none" ? null : value)}
-                            >
-                              <SelectTrigger className="h-9">
-                                <SelectValue placeholder="Nessun fornitore" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="none">Nessun fornitore</SelectItem>
-                                {vendors.map(v => (
-                                  <SelectItem key={v.id} value={v.id}>
-                                    {v.name} {v.category?.name && `(${v.category.name})`}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          
-                          {/* Due Date Picker */}
-                          <div className="space-y-1.5">
-                            <Label className="text-xs">Scadenza</Label>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  className={cn(
-                                    "h-9 w-full justify-start text-left font-normal",
-                                    !task.due_date && "text-muted-foreground"
-                                  )}
-                                >
-                                  <Calendar className="mr-2 h-4 w-4" />
-                                  {task.due_date 
-                                    ? format(new Date(task.due_date), "d MMMM yyyy", { locale: it })
-                                    : "Nessuna scadenza"
-                                  }
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-auto p-0" align="start">
-                                <CalendarComponent
-                                  mode="single"
-                                  selected={task.due_date ? new Date(task.due_date) : undefined}
-                                  onSelect={(date) => updateTaskDueDate(task.id, date ? format(date, "yyyy-MM-dd") : null)}
-                                  initialFocus
-                                  locale={it}
-                                  className={cn("p-3 pointer-events-auto")}
-                                />
-                                {task.due_date && (
-                                  <div className="p-2 border-t">
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="w-full text-destructive hover:text-destructive"
-                                      onClick={() => updateTaskDueDate(task.id, null)}
-                                    >
-                                      <X className="w-4 h-4 mr-2" />
-                                      Rimuovi scadenza
-                                    </Button>
-                                  </div>
-                                )}
-                              </PopoverContent>
-                            </Popover>
-                          </div>
-                        </div>
-
-                        {/* Payment Link */}
-                        {wedding && <PaymentLinkSelector weddingId={wedding.id} currentPaymentId={task.linked_payment_id || null} onLink={paymentId => updateTaskPaymentLink(task.id, paymentId)} />}
-
-                        {/* Task Dependency */}
-                        <TaskDependencySelector currentTaskId={task.id} blockedByTaskId={task.blocked_by_task_id || null} allTasks={tasks} onUpdate={blockedBy => updateTaskDependency(task.id, blockedBy)} />
-
-                        {/* Notes Section */}
-                        <Collapsible>
-                          <CollapsibleTrigger asChild>
-                            <Button variant="ghost" size="sm" className="gap-2 h-8">
-                              <StickyNote className="w-4 h-4" />
-                              {task.notes ? "Modifica Note" : "Aggiungi Note"}
-                            </Button>
-                          </CollapsibleTrigger>
-                          <CollapsibleContent className="pt-2">
-                            {editingNotes === task.id ? <div className="space-y-2">
-                                <Textarea value={tempNotes} onChange={e => setTempNotes(e.target.value)} placeholder="Aggiungi note, link, dettagli..." rows={3} />
-                                <div className="flex gap-2">
-                                  <Button size="sm" onClick={() => saveNotes(task.id)}>
-                                    Salva
-                                  </Button>
-                                  <Button size="sm" variant="ghost" onClick={() => setEditingNotes(null)}>
-                                    Annulla
-                                  </Button>
-                                </div>
-                              </div> : <div className="p-3 bg-muted/50 rounded-md text-sm cursor-pointer hover:bg-muted transition-colors" onClick={() => {
-                        setEditingNotes(task.id);
-                        setTempNotes(task.notes || "");
-                      }}>
-                                {task.notes || <span className="text-muted-foreground italic">Clicca per aggiungere note...</span>}
-                              </div>}
-                          </CollapsibleContent>
-                        </Collapsible>
-
-                        {/* Vendor Quick Actions */}
-                        {vendor && <div className="pt-2 border-t">
-                            <Label className="text-xs text-muted-foreground">Fornitore: {vendor.name}</Label>
-                            <div className="flex gap-2 mt-2">
-                              {vendor.phone && <Button variant="outline" size="sm" asChild>
-                                  <a href={`tel:${vendor.phone}`}>
-                                    <Phone className="w-4 h-4 mr-2" />
-                                    Chiama
-                                  </a>
-                                </Button>}
-                              {vendor.email && <Button variant="outline" size="sm" asChild>
-                                  <a href={`mailto:${vendor.email}`}>
-                                    <Mail className="w-4 h-4 mr-2" />
-                                    Email
-                                  </a>
-                                </Button>}
-                              <Button variant="outline" size="sm" onClick={() => setContactVendorTask(task)}>
-                                <MessageSquare className="w-4 h-4 mr-2" />
-                                Messaggio AI
-                              </Button>
-                            </div>
-                          </div>}
-                      </div>}
+              {openTaskVendor && (
+                <div className="pt-3 border-t">
+                  <Label className="text-xs text-muted-foreground">Azioni rapide fornitore</Label>
+                  <div className="flex gap-2 mt-2 flex-wrap">
+                    {openTaskVendor.phone && (
+                      <Button variant="outline" size="sm" asChild>
+                        <a href={`tel:${openTaskVendor.phone}`}><Phone className="w-4 h-4 mr-2" />Chiama</a>
+                      </Button>
+                    )}
+                    {openTaskVendor.email && (
+                      <Button variant="outline" size="sm" asChild>
+                        <a href={`mailto:${openTaskVendor.email}`}><Mail className="w-4 h-4 mr-2" />Email</a>
+                      </Button>
+                    )}
+                    <Button variant="outline" size="sm" onClick={() => setContactVendorTask(openTask)}>
+                      <MessageSquare className="w-4 h-4 mr-2" />Messaggio AI
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => navigate(`/app/vendors/${openTaskVendor.id}`)}>
+                      <Link2 className="w-4 h-4 mr-2" />Apri scheda
+                    </Button>
                   </div>
                 </div>
-              </Card>;
-        })}
-          </div>
-        </>}
+              )}
 
-      {/* Add Task Dialog */}
+              <div className="pt-3 border-t flex justify-between items-center">
+                {openTask.is_system_generated && (
+                  <Badge variant="outline" className="gap-1 text-xs">
+                    <Sparkles className="w-3 h-3" />Generato automaticamente
+                  </Badge>
+                )}
+                <Button variant="ghost" size="sm" className="text-destructive ml-auto" onClick={() => deleteTask(openTask.id)}>
+                  Elimina task
+                </Button>
+              </div>
+            </div>
+          ) : null
+        }
+      />
+
+      {/* Add task dialog */}
       <Dialog open={addTaskOpen} onOpenChange={setAddTaskOpen}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Crea Nuovo Task</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Crea nuovo task</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="title">Titolo *</Label>
-              <Input id="title" value={newTask.title} onChange={e => setNewTask({
-              ...newTask,
-              title: e.target.value
-            })} placeholder="Es: Prenotare il fotografo" />
+              <Input id="title" value={newTask.title} onChange={(e) => setNewTask({ ...newTask, title: e.target.value })} placeholder="Es: Prenotare il fotografo" />
             </div>
-            
             <div className="space-y-2">
               <Label htmlFor="description">Descrizione</Label>
-              <Textarea id="description" value={newTask.description} onChange={e => setNewTask({
-              ...newTask,
-              description: e.target.value
-            })} placeholder="Aggiungi dettagli..." rows={3} />
+              <Textarea id="description" value={newTask.description} onChange={(e) => setNewTask({ ...newTask, description: e.target.value })} placeholder="Aggiungi dettagli..." rows={3} />
             </div>
-
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="priority">Priorità</Label>
-                <Select value={newTask.priority} onValueChange={value => setNewTask({
-                ...newTask,
-                priority: value
-              })}>
-                  <SelectTrigger id="priority">
-                    <SelectValue />
-                  </SelectTrigger>
+                <Select value={newTask.priority} onValueChange={(v) => setNewTask({ ...newTask, priority: v })}>
+                  <SelectTrigger id="priority"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="high">🔴 Alta</SelectItem>
                     <SelectItem value="medium">🟡 Media</SelectItem>
@@ -1172,99 +596,66 @@ const Checklist = () => {
                   </SelectContent>
                 </Select>
               </div>
-              
               <div className="space-y-2">
                 <Label htmlFor="assigned_to">Assegna a</Label>
-                <OwnerSelector value={newTask.assigned_to} onChange={value => setNewTask({
-                ...newTask,
-                assigned_to: value
-              })} partner1Name={wedding?.partner1_name} partner2Name={wedding?.partner2_name} />
+                <OwnerSelector value={newTask.assigned_to} onChange={(v) => setNewTask({ ...newTask, assigned_to: v })} partner1Name={wedding?.partner1_name} partner2Name={wedding?.partner2_name} />
               </div>
             </div>
-            
             <div className="space-y-2">
               <Label htmlFor="due_date">Scadenza</Label>
-              <Input id="due_date" type="date" value={newTask.due_date} onChange={e => setNewTask({
-              ...newTask,
-              due_date: e.target.value
-            })} />
+              <Input id="due_date" type="date" value={newTask.due_date} onChange={(e) => setNewTask({ ...newTask, due_date: e.target.value })} />
             </div>
-            
             <div className="space-y-2">
               <Label htmlFor="category">Area</Label>
-              <Select value={newTask.category} onValueChange={value => setNewTask({
-              ...newTask,
-              category: value as TaskMacroCategory
-            })}>
-                <SelectTrigger id="category">
-                  <SelectValue />
-                </SelectTrigger>
+              <Select value={newTask.category} onValueChange={(v) => setNewTask({ ...newTask, category: v as TaskMacroCategory })}>
+                <SelectTrigger id="category"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {MACRO_CATEGORIES.map(cat => (
+                  {MACRO_CATEGORIES.map((cat) => (
                     <SelectItem key={cat.id} value={cat.id}>{cat.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            
             <div className="space-y-2">
-              <Label htmlFor="vendor">Collega Fornitore (opzionale)</Label>
-              <Select value={newTask.vendor_id} onValueChange={value => setNewTask({
-              ...newTask,
-              vendor_id: value
-            })}>
-                <SelectTrigger id="vendor">
-                  <SelectValue placeholder="Nessun fornitore" />
-                </SelectTrigger>
+              <Label htmlFor="vendor">Collega fornitore (opzionale)</Label>
+              <Select value={newTask.vendor_id} onValueChange={(v) => setNewTask({ ...newTask, vendor_id: v })}>
+                <SelectTrigger id="vendor"><SelectValue placeholder="Nessun fornitore" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Nessuno</SelectItem>
-                  {vendors.map(vendor => <SelectItem key={vendor.id} value={vendor.id}>
-                      {vendor.name}
-                    </SelectItem>)}
+                  {vendors.map((v) => (<SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>))}
                 </SelectContent>
               </Select>
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="notes">Note</Label>
-              <Textarea id="notes" value={newTask.notes} onChange={e => setNewTask({
-              ...newTask,
-              notes: e.target.value
-            })} placeholder="Link, dettagli, appunti..." rows={2} />
+              <Textarea id="notes" value={newTask.notes} onChange={(e) => setNewTask({ ...newTask, notes: e.target.value })} placeholder="Link, dettagli, appunti..." rows={2} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAddTaskOpen(false)}>
-              Annulla
-            </Button>
-            <Button onClick={addTask}>Crea Task</Button>
+            <Button variant="outline" onClick={() => setAddTaskOpen(false)}>Annulla</Button>
+            <Button onClick={addTask}><Plus className="w-4 h-4 mr-2" />Crea task</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Payment Sync Dialog */}
-      <PaymentSyncDialog open={paymentSyncDialog.open} onOpenChange={open => {
-      if (!open) {
-        setPaymentSyncDialog({
-          open: false,
-          taskId: "",
-          payment: null
-        });
-      }
-    }} paymentDescription={paymentSyncDialog.payment?.description || ""} paymentAmount={paymentSyncDialog.payment?.amount || 0} vendorName={paymentSyncDialog.payment?.expense_item?.vendor?.name || "Fornitore"} onConfirm={handlePaymentSyncConfirm} onSkip={handlePaymentSyncSkip} />
+      <PaymentSyncDialog
+        open={paymentSyncDialog.open}
+        onOpenChange={(open) => { if (!open) setPaymentSyncDialog({ open: false, taskId: "", payment: null }); }}
+        paymentDescription={paymentSyncDialog.payment?.description || ""}
+        paymentAmount={paymentSyncDialog.payment?.amount || 0}
+        vendorName={paymentSyncDialog.payment?.expense_item?.vendor?.name || "Fornitore"}
+        onConfirm={handlePaymentSyncConfirm}
+        onSkip={handlePaymentSyncSkip}
+      />
 
-      {/* Blocked Task Warning */}
-      <BlockedTaskWarning open={blockedWarning.open} onOpenChange={open => {
-      if (!open) {
-        setBlockedWarning({
-          open: false,
-          taskId: "",
-          blockingTaskTitle: ""
-        });
-      }
-    }} blockingTaskTitle={blockedWarning.blockingTaskTitle} onConfirm={handleBlockedWarningConfirm} onCancel={handleBlockedWarningCancel} />
+      <BlockedTaskWarning
+        open={blockedWarning.open}
+        onOpenChange={(open) => { if (!open) setBlockedWarning({ open: false, taskId: "", blockingTaskTitle: "" }); }}
+        blockingTaskTitle={blockedWarning.blockingTaskTitle}
+        onConfirm={handleBlockedWarningConfirm}
+        onCancel={() => setBlockedWarning({ open: false, taskId: "", blockingTaskTitle: "" })}
+      />
 
-      {/* Smart Follow-up Dialog */}
       <FollowUpDialog
         open={followUpDialog.open}
         onClose={() => setFollowUpDialog({ open: false, task: null })}
@@ -1277,13 +668,23 @@ const Checklist = () => {
         }}
       />
 
-      {/* Contact Vendor Wizard */}
-      {contactVendorTask && wedding && <ContactVendorWizard open={!!contactVendorTask} onOpenChange={open => !open && setContactVendorTask(null)} task={{
-      id: contactVendorTask.id,
-      title: contactVendorTask.title,
-      description: contactVendorTask.description,
-      wedding_id: wedding.id
-    }} vendor={vendors.find(v => v.id === contactVendorTask.vendor_id)!} senderName={userProfile?.first_name || 'Un organizzatore'} senderRole={userProfile?.wedding_role || 'other'} />}
-    </div>;
+      {contactVendorTask && wedding && (
+        <ContactVendorWizard
+          open={!!contactVendorTask}
+          onOpenChange={(open) => !open && setContactVendorTask(null)}
+          task={{
+            id: contactVendorTask.id,
+            title: contactVendorTask.title,
+            description: contactVendorTask.description,
+            wedding_id: wedding.id,
+          }}
+          vendor={vendors.find((v) => v.id === contactVendorTask.vendor_id)!}
+          senderName={userProfile?.first_name || "Un organizzatore"}
+          senderRole={userProfile?.wedding_role || "other"}
+        />
+      )}
+    </PaperRoot>
+  );
 };
+
 export default Checklist;
