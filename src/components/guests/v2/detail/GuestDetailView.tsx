@@ -144,7 +144,7 @@ export function GuestDetailView({
           <div className="flex items-center gap-2 flex-shrink-0">
             <Badge variant="outline" className="gap-1.5 font-normal">
               <GuestStatusDot status={status} size="xs" />
-              {statusLabel(guest.rsvp_status)}
+              {statusText}
             </Badge>
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose} title="Chiudi">
               <X className="w-4 h-4" />
@@ -173,7 +173,7 @@ export function GuestDetailView({
               value={
                 <Badge variant="outline" className="gap-1.5 font-normal">
                   <GuestStatusDot status={status} size="xs" />
-                  {statusLabel(guest.rsvp_status)}
+                  {statusText}
                 </Badge>
               }
             />
