@@ -55,21 +55,24 @@ function MetaRow({
   );
 }
 
-function deriveDetailStatus(rsvp?: string | null, std?: string | null, isCouple?: boolean): GuestStatus {
+function deriveRsvpStatus(rsvp?: string | null, isCouple?: boolean): GuestStatus {
   if (isCouple) return "confirmed";
   if (rsvp === "confirmed") return "confirmed";
   if (rsvp === "declined") return "declined";
-  if (std === "likely_yes" || std === "unsure" || std === "likely_no") return "maybe";
   return "pending";
 }
 
-function deriveDetailLabel(rsvp?: string | null, std?: string | null, isCouple?: boolean): string {
+function deriveRsvpLabel(rsvp?: string | null, isCouple?: boolean): string {
   if (isCouple || rsvp === "confirmed") return "Confermato";
   if (rsvp === "declined") return "Rifiutato";
+  return "In attesa";
+}
+
+function stdResponseLabel(std?: string | null): string | null {
   if (std === "likely_yes") return "Probabile sì";
   if (std === "likely_no") return "Probabile no";
   if (std === "unsure") return "Forse";
-  return "In attesa";
+  return null;
 }
 
 export function GuestDetailView({
