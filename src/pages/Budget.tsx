@@ -323,6 +323,17 @@ export default function Budget() {
         onClose={() => setOpenContributorId(null)}
       />
 
+      <UnallocatedPaymentsDialog
+        open={unallocDialogOpen}
+        onOpenChange={setUnallocDialogOpen}
+        rows={unallocRows}
+        onAssign={(p) => {
+          setUnallocDialogOpen(false);
+          setAllocPayment(p);
+          setAllocMode('edit');
+        }}
+      />
+
       <style>{`
         .budget-grid-row {
           display: grid;
