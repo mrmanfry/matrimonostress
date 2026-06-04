@@ -47,7 +47,8 @@ export interface UiVendor {
   categoryTone: string;
   total: number;          // committed (sum of expense_item totals)
   paid: number;           // sum of paid payments for this vendor
-  items: { id: string; desc: string; total: number; paid: number }[];
+  scheduled: number;      // sum of ALL payments (paid + due) for this vendor
+  items: { id: string; desc: string; total: number; paid: number; scheduled: number }[];
   payments: UiPayment[];
 }
 
@@ -60,6 +61,17 @@ export interface UiPayment {
   amount: number;
   due: string;            // ISO date
   status: 'paid' | 'due';
+}
+
+export interface UiUnplannedCommitment {
+  vendorId: string;
+  vendorName: string;
+  categoryId: string;
+  categoryName: string;
+  categoryTone: string;
+  itemId: string;
+  itemDesc: string;
+  amount: number;          // residuo: itemTotal − sum(payments scheduled)
 }
 
 export interface UiTotals {
@@ -125,7 +137,7 @@ export function buildVendors(
   };
 
   const computeTotals = (vendorItems: DbExpenseItem[]) => {
-    let total = 0, paid = 0;
+    let total = 0, paid = 0, scheduled = 0;
     const uiItems: UiVendor['items'] = [];
     const uiPayments: UiPayment[] = [];
 
@@ -136,9 +148,12 @@ export function buildVendors(
       const itemPaid = linkedPayments
         .filter(p => p.status === 'Pagato')
         .reduce((s, p) => s + Number(p.amount || 0), 0);
+      const itemScheduled = linkedPayments
+        .reduce((s, p) => s + Number(p.amount || 0), 0);
       total += itemTotal;
       paid += itemPaid;
-      uiItems.push({ id: it.id, desc: it.description, total: itemTotal, paid: itemPaid });
+      scheduled += itemScheduled;
+      uiItems.push({ id: it.id, desc: it.description, total: itemTotal, paid: itemPaid, scheduled: itemScheduled });
 
       for (const p of linkedPayments) {
         uiPayments.push({
@@ -153,7 +168,7 @@ export function buildVendors(
         });
       }
     }
-    return { total, paid, uiItems, uiPayments };
+    return { total, paid, scheduled, uiItems, uiPayments };
   };
 
   const result: UiVendor[] = [];
@@ -164,12 +179,12 @@ export function buildVendors(
     const cat = v.expense_categories ?? vendorItems[0]?.expense_categories ?? null;
     const categoryId = cat?.id ?? v.category_id ?? 'uncategorized';
     const categoryName = cat?.name ?? 'Senza categoria';
-    const { total, paid, uiItems, uiPayments } = computeTotals(vendorItems);
+    const { total, paid, scheduled, uiItems, uiPayments } = computeTotals(vendorItems);
     uiPayments.forEach(p => { p.vendorId = v.id; p.vendorName = v.name; });
     result.push({
       id: v.id, name: v.name, categoryId, categoryName,
       categoryTone: categoryToneFor(categoryId + categoryName),
-      total, paid, items: uiItems, payments: uiPayments,
+      total, paid, scheduled, items: uiItems, payments: uiPayments,
     });
   }
 
@@ -185,7 +200,7 @@ export function buildVendors(
     for (const [catId, list] of byCat) {
       const cat = list[0]?.expense_categories;
       const categoryName = cat?.name ?? 'Senza categoria';
-      const { total, paid, uiItems, uiPayments } = computeTotals(list);
+      const { total, paid, scheduled, uiItems, uiPayments } = computeTotals(list);
       const synthId = `__cat__${catId}`;
       uiPayments.forEach(p => { p.vendorId = synthId; p.vendorName = `Spese ${categoryName}`; });
       result.push({
@@ -193,7 +208,7 @@ export function buildVendors(
         name: `Spese ${categoryName}`,
         categoryId: catId, categoryName,
         categoryTone: categoryToneFor(catId + categoryName),
-        total, paid, items: uiItems, payments: uiPayments,
+        total, paid, scheduled, items: uiItems, payments: uiPayments,
       });
     }
   }
@@ -237,6 +252,63 @@ export function upcomingPayments(vendors: UiVendor[]): UiPayment[] {
 export function nextPayment(vendors: UiVendor[], today = new Date()): UiPayment | null {
   const t = today.getTime();
   return upcomingPayments(vendors).find(p => new Date(p.due).getTime() >= t) ?? null;
+}
+
+/**
+ * Per ogni expense_item, residuo = itemTotal − sum(payments pianificati).
+ * Rappresenta gli impegni firmati che non hanno ancora un piano di pagamento
+ * (o il cui piano copre solo parzialmente il contratto).
+ */
+export function unplannedCommitments(vendors: UiVendor[]): UiUnplannedCommitment[] {
+  const out: UiUnplannedCommitment[] = [];
+  for (const v of vendors) {
+    for (const it of v.items) {
+      const residuo = it.total - it.scheduled;
+      if (residuo > 0.5) {
+        out.push({
+          vendorId: v.id,
+          vendorName: v.name,
+          categoryId: v.categoryId,
+          categoryName: v.categoryName,
+          categoryTone: v.categoryTone,
+          itemId: it.id,
+          itemDesc: it.desc,
+          amount: residuo,
+        });
+      }
+    }
+  }
+  return out.sort((a, b) => b.amount - a.amount);
+}
+
+/**
+ * Pagamenti già pagati la cui somma di allocazioni ai contributori è
+ * inferiore all'importo del pagamento. Il delta è "non allocato".
+ */
+export function unallocatedPaidPayments(
+  paymentsAll: UiPayment[],
+  allocations: DbAllocation[],
+): { payment: UiPayment; allocated: number; unallocated: number }[] {
+  const allocByPayment = new Map<string, number>();
+  for (const a of allocations) {
+    allocByPayment.set(a.payment_id, (allocByPayment.get(a.payment_id) ?? 0) + Number(a.amount || 0));
+  }
+  const out: { payment: UiPayment; allocated: number; unallocated: number }[] = [];
+  for (const p of paymentsAll) {
+    if (p.status !== 'paid') continue;
+    const allocated = allocByPayment.get(p.id) ?? 0;
+    const delta = p.amount - allocated;
+    if (delta > 0.5) out.push({ payment: p, allocated, unallocated: delta });
+  }
+  return out.sort((a, b) => b.unallocated - a.unallocated);
+}
+
+export function totalUnallocatedPaid(
+  paymentsAll: UiPayment[],
+  allocations: DbAllocation[],
+): number {
+  return unallocatedPaidPayments(paymentsAll, allocations)
+    .reduce((s, x) => s + x.unallocated, 0);
 }
 
 export interface DbAllocation {

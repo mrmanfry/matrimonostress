@@ -19,8 +19,10 @@ import { BudgetNewExpenseButton } from '@/components/budget/v2/BudgetNewExpenseF
 
 import {
   buildVendors, buildTotals, buildContributors, upcomingPayments, nextPayment, allPayments,
+  unplannedCommitments, unallocatedPaidPayments,
   type DbVendor, type DbExpenseItem, type DbPayment, type DbContributor, type DbAllocation, type UiPayment,
 } from '@/lib/budgetAggregates';
+import { UnallocatedPaymentsDialog } from '@/components/budget/v2/UnallocatedPaymentsDialog';
 import type { ExpenseLineItem, GuestCounts } from '@/lib/expenseCalculations';
 import { isGuestConfirmed, isGuestDeclined } from '@/lib/rsvpHelpers';
 
@@ -47,6 +49,7 @@ export default function Budget() {
   const [openContributorId, setOpenContributorId] = useState<string | null>(null);
   const [allocPayment, setAllocPayment] = useState<UiPayment | null>(null);
   const [allocMode, setAllocMode] = useState<'mark' | 'edit'>('mark');
+  const [unallocDialogOpen, setUnallocDialogOpen] = useState(false);
 
   const weddingId = authState.status === 'authenticated' ? authState.activeWeddingId : '';
 
@@ -173,6 +176,15 @@ export default function Budget() {
     () => buildContributors(contributors, allPayments(uiVendors), allocations),
     [contributors, uiVendors, allocations]
   );
+  const unplanned = useMemo(() => unplannedCommitments(uiVendors), [uiVendors]);
+  const unallocRows = useMemo(
+    () => unallocatedPaidPayments(allPayments(uiVendors), allocations),
+    [uiVendors, allocations]
+  );
+  const totalUnallocated = useMemo(
+    () => unallocRows.reduce((s, r) => s + r.unallocated, 0),
+    [unallocRows]
+  );
   const openVendor = uiVendors.find(v => v.id === openVendorId) ?? null;
 
   function handleModeChange(m: 'planned' | 'expected' | 'confirmed') {
@@ -248,11 +260,14 @@ export default function Budget() {
           <FundsCard
             contributors={uiContributors}
             onSelectContributor={(c) => setOpenContributorId(c.id)}
+            unallocatedPaid={totalUnallocated}
+            onAssignUnallocated={() => setUnallocDialogOpen(true)}
           />
         </div>
 
         <CashflowTimeline
           upcoming={upcoming}
+          unplanned={unplanned}
           onOpenVendor={setOpenVendorId}
           onMarkPaid={openMarkPaidDialog}
         />
@@ -306,6 +321,17 @@ export default function Budget() {
         vendors={uiVendors}
         allocations={allocations}
         onClose={() => setOpenContributorId(null)}
+      />
+
+      <UnallocatedPaymentsDialog
+        open={unallocDialogOpen}
+        onOpenChange={setUnallocDialogOpen}
+        rows={unallocRows}
+        onAssign={(p) => {
+          setUnallocDialogOpen(false);
+          setAllocPayment(p);
+          setAllocMode('edit');
+        }}
       />
 
       <style>{`
