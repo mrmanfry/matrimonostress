@@ -342,6 +342,20 @@ const Vendors = () => {
         categories={categories}
         onSave={handleSaveVendor}
         onCreateCategory={handleCreateCategory}
+        onDelete={(id) => setDeletingVendorId(id)}
+      />
+
+      <DeleteVendorDialog
+        open={!!deletingVendorId}
+        vendorId={deletingVendorId}
+        weddingId={weddingId || null}
+        onClose={() => setDeletingVendorId(null)}
+        onDeleted={() => {
+          setDeletingVendorId(null);
+          setFormOpen(false);
+          setEditingVendor(null);
+          queryClient.invalidateQueries({ queryKey: ['vendors-v2'] });
+        }}
       />
     </div>
   );
