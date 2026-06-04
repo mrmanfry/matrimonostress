@@ -15,6 +15,7 @@ import {
 } from '@/components/vendors/v2/PaperUI';
 import { PaperBadge, PaperCard } from '@/components/budget/v2/paperPrimitives';
 import { VendorFormModal, VendorFormValues } from '@/components/vendors/v2/VendorFormModal';
+import { DeleteVendorDialog } from '@/components/vendors/v2/DeleteVendorDialog';
 import {
   VENDOR_STATUSES, VendorStatusId, normalizeStatus, statusById,
   fmtEUR, fmtDateShort, daysFromToday,
