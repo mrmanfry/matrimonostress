@@ -52,6 +52,7 @@ export default function VendorDetails() {
   const vendorCostsHidden = isCollaborator && authState.status === 'authenticated' && !authState.activePermissions?.vendor_costs?.view;
 
   const [editOpen, setEditOpen] = React.useState(false);
+  const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [wizardOpen, setWizardOpen] = React.useState(false);
   const [taskOpen, setTaskOpen] = React.useState(false);
   const [taskType, setTaskType] = React.useState<'task' | 'appointment'>('task');
