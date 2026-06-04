@@ -462,10 +462,6 @@ export function parseCSV(content: string): GuestCSVRow[] {
       if (!value) return;
 
       switch (header) {
-        case "adults_count":
-        case "children_count":
-          row[header] = parseInt(value) || 0;
-          break;
         case "rsvp_status":
           if (["pending", "confirmed", "declined"].includes(value)) {
             row[header] = value;
