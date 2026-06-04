@@ -9,8 +9,8 @@ interface Guest {
   first_name: string;
   last_name: string;
   rsvp_status: string;
-  adults_count: number;
-  children_count: number;
+  is_child?: boolean;
+  is_staff?: boolean;
   menu_choice: string;
   dietary_restrictions: string;
   notes: string;
@@ -71,8 +71,7 @@ export const GuestCard = ({
       {/* Info */}
       <div className="space-y-1 text-sm text-muted-foreground">
         <p>
-          👥 {guest.adults_count} {guest.adults_count === 1 ? 'adulto' : 'adulti'}
-          {guest.children_count > 0 && `, ${guest.children_count} ${guest.children_count === 1 ? 'bambino' : 'bambini'}`}
+          {guest.is_staff ? '👷 Staff' : guest.is_child ? '🧒 Bambino' : '👤 Adulto'}
         </p>
         {guest.dietary_restrictions && (
           <p>🍽️ {guest.dietary_restrictions}</p>

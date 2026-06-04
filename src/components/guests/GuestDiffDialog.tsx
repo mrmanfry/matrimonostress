@@ -22,8 +22,7 @@ interface ExistingGuest {
   id: string;
   first_name: string;
   last_name: string;
-  adults_count: number | null;
-  children_count: number | null;
+  is_child: boolean | null;
   party_id: string | null;
   phone: string | null;
 }
@@ -129,8 +128,6 @@ export function GuestDiffDialog({ open, onOpenChange, weddingId, onSuccess }: Gu
           wedding_id: weddingId,
           first_name: g.nome_proposto.split(' ')[0] || g.nome_proposto,
           last_name: g.nome_proposto.split(' ').slice(1).join(' ') || '',
-          adults_count: g.adulti_stimati,
-          children_count: g.bambini_stimati,
           notes: g.note || null,
           is_child: false
         }));
@@ -142,8 +139,6 @@ export function GuestDiffDialog({ open, onOpenChange, weddingId, onSuccess }: Gu
             wedding_id: weddingId,
             first_name: match.parsed.nome_proposto.split(' ')[0] || match.parsed.nome_proposto,
             last_name: match.parsed.nome_proposto.split(' ').slice(1).join(' ') || '',
-            adults_count: match.parsed.adulti_stimati,
-            children_count: match.parsed.bambini_stimati,
             notes: match.parsed.note || null,
             is_child: false
           });
@@ -366,7 +361,7 @@ Anna e Marco`}
                                 <p className="text-xs text-muted-foreground mb-1">📁 Nel database</p>
                                 <p className="font-medium">{match.existing.first_name} {match.existing.last_name}</p>
                                 <p className="text-sm text-muted-foreground">
-                                  {match.existing.adults_count || 1} adulti, {match.existing.children_count || 0} bambini
+                                  {match.existing.is_child ? 'Bambino' : 'Adulto'}
                                   {match.existing.phone && ` • ${match.existing.phone}`}
                                 </p>
                               </div>

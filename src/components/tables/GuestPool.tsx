@@ -30,8 +30,7 @@ type Guest = {
   last_name: string;
   dietary_restrictions: string | null;
   notes: string | null;
-  adults_count: number;
-  children_count: number;
+  is_child?: boolean;
   party_id?: string | null;
   category?: string | null;
   is_plus_one?: boolean;
@@ -92,9 +91,7 @@ const DraggableGuest = ({ guest }: { guest: Guest }) => {
             </p>
             <div className="flex items-center gap-1 mt-0.5">
               <span className="text-xs text-muted-foreground">
-                {guest.is_plus_one ? "Accompagnatore" : (
-                  <>{guest.adults_count} ad.{guest.children_count > 0 && ` + ${guest.children_count} bimbi`}</>
-                )}
+                {guest.is_plus_one ? "Accompagnatore" : (guest.is_child ? "Bambino" : "Adulto")}
               </span>
               {guest.category && (
                 <Badge variant="outline" className={`text-[10px] px-1 py-0 h-4 ${getCategoryColor(guest.category)}`}>
