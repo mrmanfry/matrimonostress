@@ -176,6 +176,15 @@ export default function Budget() {
     () => buildContributors(contributors, allPayments(uiVendors), allocations),
     [contributors, uiVendors, allocations]
   );
+  const unplanned = useMemo(() => unplannedCommitments(uiVendors), [uiVendors]);
+  const unallocRows = useMemo(
+    () => unallocatedPaidPayments(allPayments(uiVendors), allocations),
+    [uiVendors, allocations]
+  );
+  const totalUnallocated = useMemo(
+    () => unallocRows.reduce((s, r) => s + r.unallocated, 0),
+    [unallocRows]
+  );
   const openVendor = uiVendors.find(v => v.id === openVendorId) ?? null;
 
   function handleModeChange(m: 'planned' | 'expected' | 'confirmed') {
