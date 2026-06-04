@@ -758,6 +758,20 @@ export default function VendorDetails() {
         categories={categories}
         onSave={handleSaveVendor}
         onCreateCategory={handleCreateCategory}
+        onDelete={() => setDeleteOpen(true)}
+      />
+
+      <DeleteVendorDialog
+        open={deleteOpen}
+        vendorId={v?.id || null}
+        weddingId={v?.wedding_id || null}
+        onClose={() => setDeleteOpen(false)}
+        onDeleted={() => {
+          setDeleteOpen(false);
+          setEditOpen(false);
+          queryClient.invalidateQueries({ queryKey: ['vendors-v2'] });
+          navigate('/app/vendors');
+        }}
       />
 
       <ExpenseWizard
