@@ -200,7 +200,7 @@ export function buildVendors(
     for (const [catId, list] of byCat) {
       const cat = list[0]?.expense_categories;
       const categoryName = cat?.name ?? 'Senza categoria';
-      const { total, paid, uiItems, uiPayments } = computeTotals(list);
+      const { total, paid, scheduled, uiItems, uiPayments } = computeTotals(list);
       const synthId = `__cat__${catId}`;
       uiPayments.forEach(p => { p.vendorId = synthId; p.vendorName = `Spese ${categoryName}`; });
       result.push({
@@ -208,7 +208,7 @@ export function buildVendors(
         name: `Spese ${categoryName}`,
         categoryId: catId, categoryName,
         categoryTone: categoryToneFor(catId + categoryName),
-        total, paid, items: uiItems, payments: uiPayments,
+        total, paid, scheduled, items: uiItems, payments: uiPayments,
       });
     }
   }
