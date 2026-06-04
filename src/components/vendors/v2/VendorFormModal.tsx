@@ -58,7 +58,7 @@ const emptyForm: VendorFormValues = {
 const CREATE_CAT_VALUE = '__create__';
 
 export const VendorFormModal: React.FC<VendorFormModalProps> = ({
-  open, onClose, vendor, categories, onSave, onCreateCategory,
+  open, onClose, vendor, categories, onSave, onCreateCategory, onDelete,
 }) => {
   const isEdit = !!vendor?.id;
   const [form, setForm] = React.useState<VendorFormValues>(emptyForm);
