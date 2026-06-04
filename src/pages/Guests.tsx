@@ -1142,8 +1142,6 @@ const Guests = () => {
         menu_choice: guest.menu_choice || null,
         dietary_restrictions: guest.dietary_restrictions || null,
         notes: guest.notes || null,
-        adults_count: guest.adults_count,
-        children_count: guest.children_count,
         is_child: guest.is_child,
         table_name: tableMap[guest.id] || undefined,
       }));
