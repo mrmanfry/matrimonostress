@@ -85,8 +85,6 @@ interface Guest {
   menu_choice?: string;
   dietary_restrictions?: string;
   notes?: string;
-  adults_count: number;
-  children_count: number;
   allow_plus_one?: boolean;
   plus_one_name?: string;
   is_couple_member?: boolean;
@@ -320,8 +318,6 @@ const Guests = () => {
           is_child: false,
           is_couple_member: true,
           rsvp_status: 'confirmed',
-          adults_count: 1,
-          children_count: 0,
           party_id: partyData.id,
         },
         {
@@ -331,8 +327,6 @@ const Guests = () => {
           is_child: false,
           is_couple_member: true,
           rsvp_status: 'confirmed',
-          adults_count: 1,
-          children_count: 0,
           party_id: partyData.id,
         }
       ];
