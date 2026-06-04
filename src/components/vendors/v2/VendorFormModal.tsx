@@ -44,6 +44,8 @@ interface VendorFormModalProps {
   onSave: (values: VendorFormValues, vendorId?: string) => Promise<void>;
   /** Optional: create a new category inline. Returns new category id. */
   onCreateCategory?: (name: string) => Promise<{ id: string; name: string } | null>;
+  /** Optional: request deletion of the vendor (only available in edit mode). */
+  onDelete?: (vendorId: string) => void;
 }
 
 const emptyForm: VendorFormValues = {
