@@ -53,6 +53,7 @@ const Vendors = () => {
   const [view, setView] = React.useState<'grid' | 'list'>('grid');
   const [formOpen, setFormOpen] = React.useState(false);
   const [editingVendor, setEditingVendor] = React.useState<VendorRow | null>(null);
+  const [deletingVendorId, setDeletingVendorId] = React.useState<string | null>(null);
 
   // Resolve wedding id
   const { data: weddingId } = useQuery({
