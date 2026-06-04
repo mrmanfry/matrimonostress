@@ -18,7 +18,7 @@ export function AllocationCard({ vendors }: AllocationProps) {
               Allocazione per categoria
             </h3>
             <p style={{ margin: '4px 0 0', color: ink(3), fontSize: 12, fontFamily: FONT_UI }}>
-              Come sono distribuiti gli impegni firmati
+              Impegnato per categoria · totale {fmt(total)}
             </p>
           </div>
           <PaperBadge tone="neutral" size="sm">{cats.length} voci</PaperBadge>
