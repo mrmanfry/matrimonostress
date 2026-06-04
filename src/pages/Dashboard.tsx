@@ -170,11 +170,13 @@ const Dashboard = () => {
         staff: weddingData.target_staff || 0,
       };
 
-      const guestsConfirmed = guests.filter(g => g.rsvp_status === 'confirmed');
-      const totalAdultsConfirmed = guestsConfirmed.reduce((sum, g) => sum + (g.adults_count || 0), 0);
-      const totalChildrenConfirmed = guestsConfirmed.reduce((sum, g) => sum + (g.children_count || 0), 0);
-      const totalAdults = guests.reduce((sum, g) => sum + (g.adults_count || 0), 0);
-      const totalChildren = guests.reduce((sum, g) => sum + (g.children_count || 0), 0);
+      // 1 row = 1 person — flag-based classification, ignora couple_member e staff.
+      const nonStaffNonCouple = (guests as any[]).filter(g => !g.is_staff && !g.is_couple_member);
+      const confirmedNSNC = nonStaffNonCouple.filter(g => g.rsvp_status === 'confirmed');
+      const totalAdultsConfirmed = confirmedNSNC.filter(g => !g.is_child).length;
+      const totalChildrenConfirmed = confirmedNSNC.filter(g => g.is_child).length;
+      const totalAdults = nonStaffNonCouple.filter(g => !g.is_child).length;
+      const totalChildren = nonStaffNonCouple.filter(g => g.is_child).length;
 
       // Calculate expected counts
       const vendorStaffTotal = calculateTotalVendorStaff(vendors);
@@ -238,14 +240,14 @@ const Dashboard = () => {
       const totalToBePaid = totalCommitment - totalPaid;
 
       setStats({
-        guestsTotal: guests.reduce((sum, g) => sum + (g.adults_count || 0) + (g.children_count || 0), 0),
+        guestsTotal: nonStaffNonCouple.length,
         adultsTotal: totalAdults,
         childrenTotal: totalChildren,
         guestsConfirmed: totalAdultsConfirmed + totalChildrenConfirmed,
         adultsConfirmed: totalAdultsConfirmed,
         childrenConfirmed: totalChildrenConfirmed,
-        guestsPending: guests.filter(g => g.rsvp_status === 'pending').reduce((sum, g) => sum + (g.adults_count || 0) + (g.children_count || 0), 0),
-        guestsDeclined: guests.filter(g => g.rsvp_status === 'declined').reduce((sum, g) => sum + (g.adults_count || 0) + (g.children_count || 0), 0),
+        guestsPending: nonStaffNonCouple.filter(g => g.rsvp_status === 'pending').length,
+        guestsDeclined: nonStaffNonCouple.filter(g => g.rsvp_status === 'declined').length,
         budgetTotal: weddingData.total_budget || 0,
         budgetSpent: totalCommitment,
         budgetPaid: totalPaid,
