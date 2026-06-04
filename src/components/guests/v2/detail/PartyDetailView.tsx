@@ -158,7 +158,13 @@ export function PartyDetailView({
     { label: "Save the date inviato", done: stdSent, current: !stdSent },
     { label: "Invito formale inviato", done: invSent, current: stdSent && !invSent },
     {
-      label: declined ? "Rifiutato" : "RSVP confermato",
+      label: allConfirmed
+        ? "RSVP confermato"
+        : declined
+        ? "RSVP rifiutato"
+        : invSent
+        ? "In attesa risposta RSVP"
+        : "RSVP",
       done: allConfirmed || declined,
       current: invSent && !allConfirmed && !declined,
     },
