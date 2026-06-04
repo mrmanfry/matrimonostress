@@ -11,8 +11,8 @@ interface Props {
   onMarkPaid?: (payment: UiPayment) => void;
 }
 
-export function CashflowTimeline({ upcoming, onOpenVendor, onMarkPaid }: Props) {
-  if (upcoming.length === 0) {
+export function CashflowTimeline({ upcoming, unplanned = [], onOpenVendor, onMarkPaid }: Props) {
+  if (upcoming.length === 0 && unplanned.length === 0) {
     return (
       <PaperCard>
         <div style={{ textAlign: 'center', padding: 24, color: ink(3), fontFamily: FONT_UI }}>
