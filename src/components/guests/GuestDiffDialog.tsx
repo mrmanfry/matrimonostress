@@ -431,7 +431,7 @@ Anna e Marco`}
                           <div className="flex-1">
                             <p className="font-medium">{guest.first_name} {guest.last_name}</p>
                             <p className="text-sm text-muted-foreground">
-                              {guest.adults_count || 1} adulti, {guest.children_count || 0} bambini
+                              {guest.is_child ? 'Bambino' : 'Adulto'}
                               {guest.phone && ` • 📱 ${guest.phone}`}
                             </p>
                           </div>
