@@ -126,6 +126,9 @@ function MemberRow({ guest, onOpen }: { guest: Guest; onOpen: (id: string) => vo
             <GuestStatusDot status={status} size="xs" />
             {memberStatusLabel(guest)}
           </span>
+          {memberStdLabel(guest) && (
+            <span className="text-amber-700">· {memberStdLabel(guest)}</span>
+          )}
           {guest.menu_choice && <span>· menù {guest.menu_choice}</span>}
           {guest.dietary_restrictions && (
             <span className="text-amber-600">· {guest.dietary_restrictions}</span>
