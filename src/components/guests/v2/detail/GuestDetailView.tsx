@@ -55,11 +55,22 @@ function MetaRow({
   );
 }
 
-const statusLabel = (s?: string | null) => {
-  if (s === "confirmed") return "Confermato";
-  if (s === "declined") return "Rifiutato";
+function deriveDetailStatus(rsvp?: string | null, std?: string | null, isCouple?: boolean): GuestStatus {
+  if (isCouple) return "confirmed";
+  if (rsvp === "confirmed") return "confirmed";
+  if (rsvp === "declined") return "declined";
+  if (std === "likely_yes" || std === "unsure" || std === "likely_no") return "maybe";
+  return "pending";
+}
+
+function deriveDetailLabel(rsvp?: string | null, std?: string | null, isCouple?: boolean): string {
+  if (isCouple || rsvp === "confirmed") return "Confermato";
+  if (rsvp === "declined") return "Rifiutato";
+  if (std === "likely_yes") return "Probabile sì";
+  if (std === "likely_no") return "Probabile no";
+  if (std === "unsure") return "Forse";
   return "In attesa";
-};
+}
 
 export function GuestDetailView({
   guest,
@@ -70,25 +81,32 @@ export function GuestDetailView({
   onEdit,
   onDelete,
 }: Props) {
-  const status = deriveGuestStatus({
-    rsvpStatus: guest.rsvp_status,
-    stdResponse: guest.std_response,
-  });
+  const status = deriveDetailStatus(guest.rsvp_status, guest.std_response, guest.is_couple_member);
+  const statusText = deriveDetailLabel(guest.rsvp_status, guest.std_response, guest.is_couple_member);
   const initials = `${guest.first_name?.[0] ?? ""}${guest.last_name?.[0] ?? ""}`.toUpperCase();
 
   const stdSent = !!guest.save_the_date_sent_at;
   const invSent = !!guest.formal_invite_sent_at;
   const confirmed = guest.rsvp_status === "confirmed" || guest.is_couple_member;
   const declined = guest.rsvp_status === "declined";
+  const rsvpCurrent = invSent && !confirmed && !declined;
+
+  const rsvpStepLabel = confirmed
+    ? "RSVP confermato"
+    : declined
+    ? "RSVP rifiutato"
+    : rsvpCurrent
+    ? "In attesa risposta RSVP"
+    : "RSVP";
 
   const steps: PercorsoStep[] = [
     { label: "Bozza creata", done: true },
     { label: "Save the date inviato", done: stdSent, current: !stdSent },
     { label: "Invito formale inviato", done: invSent, current: stdSent && !invSent },
     {
-      label: declined ? "Rifiutato" : "RSVP confermato",
+      label: rsvpStepLabel,
       done: !!confirmed || declined,
-      current: invSent && !confirmed && !declined,
+      current: rsvpCurrent,
     },
     { label: "Tavolo assegnato", done: false, current: !!confirmed },
   ];
