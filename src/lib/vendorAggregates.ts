@@ -286,3 +286,131 @@ export function rebalanceSchedule(payments: SchedulePayment[], total: number): S
   return next;
 }
 
+
+// ─── Vendor deletion (cascade) ───
+import { supabase } from '@/integrations/supabase/client';
+
+export interface VendorDeletionPreview {
+  vendorName: string;
+  expenseItems: number;
+  payments: number;
+  contracts: number;
+  appointments: number;
+  communications: number;
+  checklistTasks: number;
+  accommodationRooms: number;
+  storageFiles: number;
+}
+
+export async function previewVendorDeletion(vendorId: string): Promise<VendorDeletionPreview> {
+  const [vendorRes, expRes, contractsRes, apptsRes, commsRes, tasksRes, roomsRes] = await Promise.all([
+    supabase.from('vendors').select('name, wedding_id').eq('id', vendorId).maybeSingle(),
+    supabase.from('expense_items').select('id').eq('vendor_id', vendorId),
+    supabase.from('vendor_contracts').select('id').eq('vendor_id', vendorId),
+    supabase.from('vendor_appointments').select('id').eq('vendor_id', vendorId),
+    supabase.from('vendor_communications').select('id').eq('vendor_id', vendorId),
+    supabase.from('checklist_tasks').select('id').eq('vendor_id', vendorId),
+    supabase.from('accommodation_rooms').select('id').eq('vendor_id', vendorId),
+  ]);
+
+  const expenseIds = (expRes.data || []).map((r: any) => r.id);
+  let payCount = 0;
+  if (expenseIds.length) {
+    const { data: pays } = await supabase
+      .from('payments').select('id').in('expense_item_id', expenseIds);
+    payCount = pays?.length || 0;
+  }
+
+  let storageFiles = 0;
+  const weddingId = (vendorRes.data as any)?.wedding_id;
+  if (weddingId) {
+    const { data: files } = await supabase.storage
+      .from('vendor-contracts')
+      .list(`${weddingId}/${vendorId}`);
+    storageFiles = files?.length || 0;
+  }
+
+  return {
+    vendorName: (vendorRes.data as any)?.name || '',
+    expenseItems: expenseIds.length,
+    payments: payCount,
+    contracts: contractsRes.data?.length || 0,
+    appointments: apptsRes.data?.length || 0,
+    communications: commsRes.data?.length || 0,
+    checklistTasks: tasksRes.data?.length || 0,
+    accommodationRooms: roomsRes.data?.length || 0,
+    storageFiles,
+  };
+}
+
+export interface VendorDeletionResult {
+  blocked?: string;
+  ok?: boolean;
+}
+
+export async function deleteVendorCascade(
+  vendorId: string,
+  weddingId: string,
+): Promise<VendorDeletionResult> {
+  // Block if there are accommodation rooms still attached
+  const { data: rooms } = await supabase
+    .from('accommodation_rooms')
+    .select('id')
+    .eq('vendor_id', vendorId);
+  if (rooms && rooms.length > 0) {
+    return {
+      blocked: `Questo fornitore ha ${rooms.length} camera/e collegata/e. Rimuovile dalla sezione Pernotto prima di eliminare il fornitore.`,
+    };
+  }
+
+  // 1. Storage files
+  try {
+    const prefix = `${weddingId}/${vendorId}`;
+    const { data: files } = await supabase.storage.from('vendor-contracts').list(prefix);
+    if (files && files.length > 0) {
+      const paths = files.map(f => `${prefix}/${f.name}`);
+      await supabase.storage.from('vendor-contracts').remove(paths);
+    }
+    // Also clean vendor-documents bucket if present
+    const { data: docs } = await supabase.storage.from('vendor-documents').list(prefix);
+    if (docs && docs.length > 0) {
+      const paths = docs.map(f => `${prefix}/${f.name}`);
+      await supabase.storage.from('vendor-documents').remove(paths);
+    }
+  } catch (e) {
+    // non-fatal: continue
+    console.warn('[deleteVendorCascade] storage cleanup error', e);
+  }
+
+  // 2. vendor_contracts
+  await supabase.from('vendor_contracts').delete().eq('vendor_id', vendorId);
+
+  // 3-6. Expense chain
+  const { data: expRows } = await supabase
+    .from('expense_items').select('id').eq('vendor_id', vendorId);
+  const expenseIds = (expRows || []).map((r: any) => r.id);
+  if (expenseIds.length) {
+    const { data: payRows } = await supabase
+      .from('payments').select('id').in('expense_item_id', expenseIds);
+    const payIds = (payRows || []).map((r: any) => r.id);
+    if (payIds.length) {
+      await supabase.from('payment_allocations').delete().in('payment_id', payIds);
+      await supabase.from('payments').delete().in('id', payIds);
+    }
+    await supabase.from('expense_line_items').delete().in('expense_item_id', expenseIds);
+    await supabase.from('expense_items').delete().in('id', expenseIds);
+  }
+
+  // 7-8. Appointments & communications
+  await supabase.from('vendor_appointments').delete().eq('vendor_id', vendorId);
+  await supabase.from('vendor_communications').delete().eq('vendor_id', vendorId);
+
+  // 9. Detach checklist tasks (do not delete)
+  await supabase.from('checklist_tasks').update({ vendor_id: null }).eq('vendor_id', vendorId);
+
+  // 10. Finally, delete the vendor
+  const { error } = await supabase.from('vendors').delete().eq('id', vendorId);
+  if (error) return { blocked: error.message };
+
+  return { ok: true };
+}
