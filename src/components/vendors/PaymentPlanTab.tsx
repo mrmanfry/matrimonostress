@@ -137,17 +137,18 @@ export function PaymentPlanTab({
       // Carica conteggi ospiti
       const { data: guestsData } = await supabase
         .from("guests")
-        .select("rsvp_status, is_child, is_staff, adults_count, children_count")
+        .select("rsvp_status, is_child, is_staff, is_couple_member")
         .eq("wedding_id", weddingId);
 
       const guests = guestsData || [];
-      
+
+      // 1 row = 1 person — flag-based classification.
       const confirmedAdults = guests
-        .filter(g => !g.is_child && !g.is_staff && g.rsvp_status === 'Confermato')
-        .reduce((sum, g) => sum + (g.adults_count || 1), 0);
+        .filter(g => !g.is_child && !g.is_staff && !g.is_couple_member && g.rsvp_status === 'Confermato')
+        .length;
       const confirmedChildren = guests
-        .filter(g => (g.is_child || g.children_count) && g.rsvp_status === 'Confermato')
-        .reduce((sum, g) => sum + (g.children_count || 1), 0);
+        .filter(g => g.is_child && !g.is_staff && g.rsvp_status === 'Confermato')
+        .length;
       const confirmedStaff = guests
         .filter(g => g.is_staff && g.rsvp_status === 'Confermato')
         .length;

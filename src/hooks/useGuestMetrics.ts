@@ -56,7 +56,7 @@ export function useGuestMetrics(): GuestMetrics {
       
       const { data, error } = await supabase
         .from("guests")
-        .select("id, is_child, is_staff, is_couple_member, rsvp_status, allow_plus_one, plus_one_name, plus_one_of_guest_id, adults_count, children_count")
+        .select("id, is_child, is_staff, is_couple_member, rsvp_status, allow_plus_one, plus_one_name, plus_one_of_guest_id")
         .eq("wedding_id", weddingId);
       
       if (error) throw error;
@@ -136,16 +136,10 @@ export function useGuestMetrics(): GuestMetrics {
   const pendingCount = pendingGuests.length;
   const declinedCount = declinedGuests.length;
 
-  // Conteggi HeadCount per RSVP (usando adults_count + children_count)
-  const confirmedHeadCount = confirmedGuests.reduce(
-    (sum, g) => sum + (g.adults_count || 0) + (g.children_count || 0), 0
-  );
-  const pendingHeadCount = pendingGuests.reduce(
-    (sum, g) => sum + (g.adults_count || 0) + (g.children_count || 0), 0
-  );
-  const declinedHeadCount = declinedGuests.reduce(
-    (sum, g) => sum + (g.adults_count || 0) + (g.children_count || 0), 0
-  );
+  // Conteggi HeadCount per RSVP — 1 riga = 1 persona (flag-based).
+  const confirmedHeadCount = confirmedGuests.length;
+  const pendingHeadCount = pendingGuests.length;
+  const declinedHeadCount = declinedGuests.length;
 
   // Ospiti non classificati (senza is_child definito o altro problema)
   const unclassifiedCount = analyzableGuests.filter(g => 
