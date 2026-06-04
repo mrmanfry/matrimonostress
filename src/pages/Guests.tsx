@@ -1635,14 +1635,12 @@ const Guests = () => {
               first_name: guestData.first_name,
               last_name: guestData.last_name,
               rsvp_status: guestData.rsvp_status || "In attesa",
-              adults_count: guestData.adults_count || 1,
-              children_count: guestData.children_count || 0,
               menu_choice: guestData.menu_choice || null,
               dietary_restrictions: guestData.dietary_restrictions || null,
               notes: guestData.notes || null,
               group_id: guestData.group_id || null,
               allow_plus_one: guestData.allow_plus_one || false,
-              is_child: false,
+              is_child: guestData.is_child || false,
             });
             
           if (error) throw error;
