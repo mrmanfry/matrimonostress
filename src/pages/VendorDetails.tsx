@@ -19,6 +19,7 @@ import {
 import { PaperBadge, PaperCard } from '@/components/budget/v2/paperPrimitives';
 import { PaymentAllocationDialog } from '@/components/budget/v2/PaymentAllocationDialog';
 import { VendorFormModal, VendorFormValues } from '@/components/vendors/v2/VendorFormModal';
+import { DeleteVendorDialog } from '@/components/vendors/v2/DeleteVendorDialog';
 import { ExpenseWizard, ExpenseWizardValues } from '@/components/vendors/v2/ExpenseWizard';
 import { EditAudiencePricesDialog } from '@/components/vendors/v2/EditAudiencePricesDialog';
 import { VendorDocumentsWidget } from '@/components/vendors/widgets/VendorDocumentsWidget';
