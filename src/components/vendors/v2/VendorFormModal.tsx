@@ -135,6 +135,16 @@ export const VendorFormModal: React.FC<VendorFormModalProps> = ({
       width={620}
       footer={(
         <>
+          {isEdit && onDelete && vendor?.id && (
+            <PaperButton
+              variant="ghost"
+              onClick={() => onDelete(vendor.id!)}
+              iconLeft={<Trash2 size={14}/>}
+              style={{ color: 'hsl(var(--paper-danger))', marginRight: 'auto' }}
+            >
+              Elimina fornitore
+            </PaperButton>
+          )}
           <PaperButton variant="ghost" onClick={onClose}>Annulla</PaperButton>
           <PaperButton variant="primary" disabled={!valid || saving} onClick={handleSave}>
             {saving ? 'Salvataggio…' : isEdit ? 'Salva modifiche' : 'Aggiungi fornitore'}
