@@ -1,44 +1,25 @@
 ## Obiettivo
 
-Eliminare l'incoerenza nel pannello di dettaglio invitato dove il pallino appare verde ("confermato") mentre la label dice "In attesa", e dove lo step del Percorso mostra "RSVP confermato" anche quando l'RSVP è solo atteso.
+Applicare lo stesso allineamento "pallino+label = rsvp_status reale" già fatto in `GuestDetailView.tsx` anche a `PartyDetailView.tsx`, dove le righe membro del nucleo mostrano "Confermato" per ospiti come Ariana Cristogel anche quando hanno solo risposto `likely_yes` al Save the Date (RSVP ancora pending).
 
-## Cambi (un solo file: `src/components/guests/v2/detail/GuestDetailView.tsx`)
+## Causa
 
-### 1. Pallino di stato basato su `rsvp_status` reale
+In `PartyDetailView.tsx` (riga 74) `MemberRow` usa `deriveGuestStatus` che promuove `std_response='likely_yes'` a `confirmed`. La label (riga 108) deriva poi dallo status calcolato → mostra "Confermato" anche senza RSVP.
 
-Sostituire l'uso di `deriveGuestStatus` (che promuove `std_response='likely_yes'` a "confirmed") con una funzione locale che riflette lo stato RSVP effettivo:
+## Cambi (un solo file: `src/components/guests/v2/detail/PartyDetailView.tsx`)
 
-- `confirmed` → verde (anche per `is_couple_member`)
-- `declined` → rosso
-- `std_response` ∈ {`likely_yes`, `unsure`} senza RSVP ricevuto → ambra ("maybe")
-- `std_response = 'likely_no'` senza RSVP → rosso tenue ("declined" soft) oppure ambra — uniformiamo ad ambra per non confondere con un rifiuto reale
-- altrimenti → grigio ("pending")
+1. **`MemberRow`**: sostituire `deriveGuestStatus` con la stessa logica usata in `GuestDetailView`:
+   - status: `confirmed` solo se `rsvp_status='confirmed'` o `is_couple_member`; `declined` se rifiutato; `maybe` per `std_response ∈ {likely_yes, likely_no, unsure}` con RSVP pending; altrimenti `pending`.
+   - label coerente: "Confermato" / "Rifiutato" / "Probabile sì" / "Probabile no" / "Forse" / "In attesa".
 
-Il pallino viene usato in 2 punti (header badge + riga "RSVP" nel body): entrambi useranno la nuova logica.
+2. **Step "Percorso" del nucleo** (righe 146-150): rendere dinamica l'etichetta dello step RSVP:
+   - done+confermato → "RSVP confermato"
+   - done+rifiutato → "RSVP rifiutato"
+   - current (invito inviato, in attesa) → "In attesa risposta RSVP"
+   - altrimenti → "RSVP"
 
-### 2. Label coerente
-
-La `statusLabel` continuerà a derivare dal `rsvp_status` reale, ma aggiungiamo il caso intermedio quando c'è una preferenza STD:
-
-- `confirmed` → "Confermato"
-- `declined` → "Rifiutato"
-- `std_response='likely_yes'` & RSVP pending → "Probabile sì"
-- `std_response='likely_no'` & RSVP pending → "Probabile no"
-- `std_response='unsure'` & RSVP pending → "Forse"
-- altrimenti → "In attesa"
-
-Così pallino e label raccontano la stessa storia.
-
-### 3. Step "Percorso" dinamico
-
-Nello step RSVP del `PercorsoStepper`, l'etichetta diventa funzione dello stato:
-
-- `done` (confirmed) → "RSVP confermato"
-- `done` (declined) → "RSVP rifiutato"
-- `current` (invito inviato, in attesa) → "In attesa risposta RSVP"
-- altrimenti → "RSVP"
+3. Rimuovere l'import inutilizzato di `deriveGuestStatus` se non più usato (mantenere `deriveNucleusStatus` se ancora referenziato altrove nel file).
 
 ## Out of scope
 
-- Nessuna modifica a `GuestStatusDot.tsx`, `deriveGuestStatus`, `deriveNucleusStatus` o ad altri consumer (card nucleo, KPI funnel). Il fix è localizzato al pannello dettaglio per non alterare il comportamento aggregato.
-- Nessun cambio di business logic / query / RLS.
+Nessuna modifica a `GuestStatusDot.tsx`, `deriveGuestStatus`, `deriveNucleusStatus`, o ad altri consumer (KPI funnel, card nucleo, conteggi). Fix puramente di presentazione localizzato al pannello dettaglio nucleo.
