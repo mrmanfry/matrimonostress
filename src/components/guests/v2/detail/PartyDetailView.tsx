@@ -70,11 +70,25 @@ function StatTile({
   );
 }
 
+function deriveMemberStatus(g: Guest): GuestStatus {
+  if (g.is_couple_member) return "confirmed";
+  if (g.rsvp_status === "confirmed") return "confirmed";
+  if (g.rsvp_status === "declined") return "declined";
+  if (g.std_response === "likely_yes" || g.std_response === "likely_no" || g.std_response === "unsure") return "maybe";
+  return "pending";
+}
+
+function memberStatusLabel(g: Guest): string {
+  if (g.is_couple_member || g.rsvp_status === "confirmed") return "Confermato";
+  if (g.rsvp_status === "declined") return "Rifiutato";
+  if (g.std_response === "likely_yes") return "Probabile sì";
+  if (g.std_response === "likely_no") return "Probabile no";
+  if (g.std_response === "unsure") return "Forse";
+  return "In attesa";
+}
+
 function MemberRow({ guest, onOpen }: { guest: Guest; onOpen: (id: string) => void }) {
-  const status = deriveGuestStatus({
-    rsvpStatus: guest.rsvp_status,
-    stdResponse: guest.std_response,
-  });
+  const status = deriveMemberStatus(guest);
   const initials = `${guest.first_name?.[0] ?? ""}${guest.last_name?.[0] ?? ""}`.toUpperCase();
 
   return (
@@ -105,7 +119,7 @@ function MemberRow({ guest, onOpen }: { guest: Guest; onOpen: (id: string) => vo
         <div className="flex items-center gap-2 mt-0.5 text-[11px] text-paper-ink-3">
           <span className="inline-flex items-center gap-1">
             <GuestStatusDot status={status} size="xs" />
-            {status === "confirmed" ? "Confermato" : status === "declined" ? "Rifiutato" : status === "maybe" ? "Forse" : "In attesa"}
+            {memberStatusLabel(guest)}
           </span>
           {guest.menu_choice && <span>· menù {guest.menu_choice}</span>}
           {guest.dietary_restrictions && (
