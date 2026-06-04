@@ -2,10 +2,11 @@
 // "Orizzonte Liquidità": il cuore della Tesoreria.
 import * as React from 'react';
 import { PaperCard, PaperBadge, FONT_SERIF, FONT_UI, FONT_MONO, ink, border, brand, warn } from './paperPrimitives';
-import { fmt, fmtDate, paymentsByMonth, daysFromToday, type UiPayment } from '@/lib/budgetAggregates';
+import { fmt, fmtDate, paymentsByMonth, daysFromToday, type UiPayment, type UiUnplannedCommitment } from '@/lib/budgetAggregates';
 
 interface Props {
   upcoming: UiPayment[];
+  unplanned?: UiUnplannedCommitment[];
   onOpenVendor?: (vendorId: string) => void;
   onMarkPaid?: (payment: UiPayment) => void;
 }
