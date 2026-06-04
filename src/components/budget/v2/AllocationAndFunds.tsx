@@ -55,6 +55,10 @@ export function AllocationCard({ vendors }: AllocationProps) {
                 <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${pct}%`, background: c.tone, opacity: .25 }}/>
                 <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${paidPctOfTotal}%`, background: c.tone }}/>
               </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 11, color: ink(3), fontFamily: FONT_UI }}>
+                <span>Versato <span style={{ fontFamily: FONT_MONO, color: ink(2) }}>{fmt(c.paid)}</span></span>
+                <span>Da versare <span style={{ fontFamily: FONT_MONO, color: ink(2) }}>{fmt(Math.max(0, c.committed - c.paid))}</span></span>
+              </div>
             </div>
           );
         })}
