@@ -186,8 +186,6 @@ const Tables = () => {
             dietary_restrictions: null,
             menu_choice: g.plus_one_menu || null,
             notes: null,
-            adults_count: 1,
-            children_count: 0,
             party_id: g.party_id,
             group_id: g.group_id,
             category: g.category,
@@ -228,8 +226,6 @@ const Tables = () => {
             dietary_restrictions: null,
             menu_choice: g.plus_one_menu || null,
             notes: null,
-            adults_count: 1,
-            children_count: 0,
             party_id: g.party_id,
             group_id: g.group_id,
             category: g.category,
@@ -418,8 +414,6 @@ const Tables = () => {
           category: originalGuest.category,
           menu_choice: originalGuest.plus_one_menu || null,
           is_child: false,
-          adults_count: 1,
-          children_count: 0,
         })
         .select("id")
         .single();
@@ -529,8 +523,6 @@ const Tables = () => {
           group_id: originalGuest.group_id,
           category: originalGuest.category,
           is_child: false,
-          adults_count: 1,
-          children_count: 0,
         })
         .select("id")
         .single();

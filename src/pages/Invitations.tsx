@@ -766,8 +766,6 @@ const Invitations = () => {
             ...g,
             wedding_id: weddingId || "",
             is_child: false,
-            adults_count: 1,
-            children_count: 0,
             rsvp_send_status: g.rsvp_send_status as "Non Inviato" | "Inviato" | "Fallito",
           })),
         }))}
