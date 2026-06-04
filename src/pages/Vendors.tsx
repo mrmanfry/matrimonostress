@@ -15,6 +15,7 @@ import {
 } from '@/components/vendors/v2/PaperUI';
 import { PaperBadge, PaperCard } from '@/components/budget/v2/paperPrimitives';
 import { VendorFormModal, VendorFormValues } from '@/components/vendors/v2/VendorFormModal';
+import { DeleteVendorDialog } from '@/components/vendors/v2/DeleteVendorDialog';
 import {
   VENDOR_STATUSES, VendorStatusId, normalizeStatus, statusById,
   fmtEUR, fmtDateShort, daysFromToday,
@@ -52,6 +53,7 @@ const Vendors = () => {
   const [view, setView] = React.useState<'grid' | 'list'>('grid');
   const [formOpen, setFormOpen] = React.useState(false);
   const [editingVendor, setEditingVendor] = React.useState<VendorRow | null>(null);
+  const [deletingVendorId, setDeletingVendorId] = React.useState<string | null>(null);
 
   // Resolve wedding id
   const { data: weddingId } = useQuery({
@@ -340,6 +342,20 @@ const Vendors = () => {
         categories={categories}
         onSave={handleSaveVendor}
         onCreateCategory={handleCreateCategory}
+        onDelete={(id) => setDeletingVendorId(id)}
+      />
+
+      <DeleteVendorDialog
+        open={!!deletingVendorId}
+        vendorId={deletingVendorId}
+        weddingId={weddingId || null}
+        onClose={() => setDeletingVendorId(null)}
+        onDeleted={() => {
+          setDeletingVendorId(null);
+          setFormOpen(false);
+          setEditingVendor(null);
+          queryClient.invalidateQueries({ queryKey: ['vendors-v2'] });
+        }}
       />
     </div>
   );

@@ -1,73 +1,67 @@
-# Razionalizzazione classificazione ospiti — Fase 1 + Fase 2
+## Obiettivo
+Permettere l'eliminazione di un fornitore dalla modale di modifica, con conferma esplicita che spieghi cosa verrà eliminato a cascata (spese, rate, contratti, file, appuntamenti, comunicazioni) e aggiornamento immediato della tabella/lista.
 
-Obiettivo: unico modello "1 riga = 1 persona" basato sui flag `is_child`, `is_staff`, `is_couple_member`. Niente più letture/conteggi da `adults_count`/`children_count` nel codice applicativo. Fix immediato per il bug "Adriano e Diletta contati come adulti" in Budget.
+## Comportamento UX
 
-## Fase 2 — Libreria centrale (la creo per prima e poi la uso ovunque)
+**1. Pulsante "Elimina fornitore"**
+- Aggiunto in `VendorFormModal` (visibile solo in modalità modifica, non in creazione).
+- Posizionato nel footer a sinistra, stile distruttivo (rosso ink), separato dai bottoni Annulla/Salva a destra.
 
-**Nuovo file `src/lib/guestClassification.ts`**
+**2. Dialog di conferma a cascata**
+- Al click apre un secondo dialog di conferma (non `window.confirm`, ma un `PaperModal` coerente con lo stile).
+- Mostra un riepilogo dinamico di cosa verrà eliminato per quel fornitore specifico (conteggi reali letti dal DB):
+  - N. voci di spesa + rate di pagamento collegate
+  - N. contratti caricati (+ file su storage)
+  - N. appuntamenti + comunicazioni
+  - N. camere collegate (se struttura ricettiva) — bloccante, vedi sotto
+  - N. attività in checklist collegate (verranno scollegate, non eliminate)
+- Richiede di digitare il nome del fornitore (o checkbox "Confermo eliminazione definitiva") per evitare cancellazioni accidentali.
+- Bottoni: "Annulla" + "Elimina definitivamente" (rosso).
 
-Espone:
-- `type GuestClassInput = { is_child?: boolean | null; is_staff?: boolean | null; is_couple_member?: boolean | null; rsvp_status?: string | null }`
-- `classifyGuest(g)` → `'adult' | 'child' | 'staff' | 'couple'` (priorità: staff → couple → child → adult)
-- `countHeads(guests)` → `{ adults, children, staff, couple, total }` (1 riga = 1 persona, esclude duplicati)
-- `countHeadsByRsvp(guests, status)` → stesso shape filtrato per `rsvp_status` (con normalizzazione 'confirmed'/'Confermato')
-- `headcountForCatering(g)` → 1 per ogni riga (mai legge `adults_count`/`children_count`)
+**3. Esecuzione**
+- Esegue la cascata (vedi sotto), mostra toast di esito.
+- Chiude entrambe le modali.
+- In `/app/vendors`: invalida la query e il fornitore sparisce dalla tabella.
+- In `/app/vendors/:id`: naviga indietro a `/app/vendors`.
 
-Unica fonte di verità per qualunque conteggio "teste" lato app.
+## Logica di cascata
 
-## Fase 1 — Allineamento codice (sostituisco le letture legacy)
+Ordine di eliminazione (dal foglia alla radice, per evitare violazioni FK):
 
-### 1. `src/pages/Budget.tsx` — fix bug Adriano/Diletta
-Riscrivo `tally` (righe ~119-145) usando `countHeadsByRsvp` / `classifyGuest`:
-- staff → skip (conteggio staff resta dai vendors)
-- couple_member → skip (gestito a parte)
-- `is_child` → `children += 1`
-- altrimenti → `adults += 1`
-- Rimuovo qualsiasi `+ g.adults_count` / `+ g.children_count` e i `+1` testuali da `plus_one_name`. I +1 promossi sono già righe separate (`plus_one_of_guest_id`), quindi vengono contati naturalmente.
-- Aggiorno la `select` per togliere `adults_count, children_count`.
+```text
+1. Storage: rimuovi tutti i file in bucket "vendor-contracts" sotto "{wedding_id}/{vendor_id}/"
+2. vendor_contracts        WHERE vendor_id = X       → delete
+3. payment_allocations     WHERE payment_id IN (...) → delete (via expense_items)
+4. payments                WHERE expense_item_id IN (... vendor_id = X) → delete
+5. expense_line_items      WHERE expense_item_id IN (... vendor_id = X) → delete
+6. expense_items           WHERE vendor_id = X       → delete
+7. vendor_appointments     WHERE vendor_id = X       → delete
+8. vendor_communications   WHERE vendor_id = X       → delete
+9. checklist_tasks         WHERE vendor_id = X       → UPDATE vendor_id = NULL (scollega, non elimina)
+10. accommodation_rooms    → se presenti, BLOCCA con messaggio "Rimuovi prima le camere dalla sezione Pernotto"
+11. vendors                WHERE id = X              → delete
+```
 
-### 2. `src/hooks/useGuestMetrics.ts`
-- `confirmedHeadCount`/`pendingHeadCount`/`declinedHeadCount` non sommano più `adults_count + children_count`: diventano `confirmedGuests.length` ecc. (1 riga = 1 persona, coerente con `adultsCount`/`childrenCount` già calcolati così).
-- Tolgo `adults_count, children_count` dalla `select`.
+Le camere `accommodation_rooms` hanno `vendor_id NOT NULL` ed è una gestione dedicata (sezione Pernotto): non si eliminano silenziosamente. Se presenti, blocchiamo l'eliminazione e indichiamo all'utente di rimuoverle prima.
 
-### 3. `src/pages/Dashboard.tsx` (righe 174-248)
-Stessa logica: conteggi per testa = numero di righe filtrate per `is_child` e `rsvp_status`, non più somma dei legacy counter. Tolgo i campi dalla `select`.
+## Centralizzazione
 
-### 4. `src/pages/VendorDetails.tsx` (righe 114-136)
-`children += g.children_count || 0` → `if (g.is_child) children += 1`. Tolgo `children_count` dalla select.
+Creo helper `deleteVendorCascade(vendorId, weddingId)` in **`src/lib/vendorAggregates.ts`** (già esistente) — usato sia da `Vendors.tsx` (lista) sia da `VendorDetails.tsx` (scheda). Restituisce `{ blocked?: string; deletedCounts: {...} }`.
 
-### 5. `src/components/vendors/ExpenseItemTabs.tsx` + `PaymentPlanTab.tsx`
-I `reduce((sum, g) => sum + (g.adults_count || 1), 0)` diventano semplici `filter(...).length` basati su `is_child`/`is_staff`/`rsvp_status`. Rimuovo i due campi dalle select.
+Helper `previewVendorDeletion(vendorId)` che ritorna i conteggi per il dialog di conferma.
 
-### 6. UI display — `GuestCard.tsx`, `GuestPool.tsx`, `GuestDiffDialog.tsx`
-Le righe "{adults_count} adulti, {children_count} bambini" non hanno più senso (1 riga = 1 persona). Le sostituisco con un singolo badge:
-- adulto → "Adulto"
-- bambino → "Bambino" (+ eventuale `child_age_group`)
-- staff → "Staff"
-Mantenuto il behavior per i diff dialog mostrando "Adulto"/"Bambino" sul singolo record.
+## File modificati
 
-### 7. Scritture — non scrivere più i campi legacy
-In tutti i posti che fanno `insert/update` con `adults_count: 1, children_count: 0` (Guests.tsx, Tables.tsx, Invitations.tsx, CSVImportDialog, SmartImportDialog, CateringExportMenu, GuestDiffDialog) **rimuovo i due campi dal payload**. Il flag `is_child` è già scritto correttamente ovunque.
+| File | Modifica |
+|------|---------|
+| `src/lib/vendorAggregates.ts` | + `previewVendorDeletion()`, + `deleteVendorCascade()` |
+| `src/components/vendors/v2/VendorFormModal.tsx` | Aggiunto prop `onDelete?: (vendorId: string) => Promise<void>` e bottone "Elimina fornitore" nel footer in modalità edit |
+| `src/components/vendors/v2/DeleteVendorDialog.tsx` (nuovo) | `PaperModal` di conferma con anteprima conteggi e digitazione nome |
+| `src/pages/Vendors.tsx` | Handler `handleDeleteVendor`, passato a `VendorFormModal`, invalida query |
+| `src/pages/VendorDetails.tsx` | Stesso handler, dopo delete naviga a `/app/vendors` |
 
-### 8. `GuestDialog.tsx` — rimozione UI input "N° Adulti / N° Bambini"
-Sono campi del modello legacy che non hanno più senso (ogni riga = 1 persona). Li rimuovo dal form, dalla validazione (`validationSchemas.ts`) e dal tipo `GuestFormData`. Resta il toggle "è un bambino" (`is_child`).
+## Note tecniche
 
-### 9. CSV import — `csvHelpers.ts`
-Rimuovo le colonne `adults_count`/`children_count` da schema e mapper. Per import legacy che hanno `children_count > 0` su una sola riga, aggiungo una nota nel parser: vengono ignorate (con eventuale warning). L'import "party-first" già crea N righe.
-
-### 10. `pdfHelpers.ts`
-Tolgo i due campi dal tipo e dalle eventuali colonne stampate; il PDF mostra una riga per persona con il badge categoria.
-
-## Cosa NON faccio in questa fase
-- **Fase 3 (drop colonne DB)**: rimando. Le colonne `adults_count`/`children_count` restano in DB con i default attuali per non rompere dati legacy. Nessuna migrazione SQL in questo intervento. `src/integrations/supabase/types.ts` resta intatto (è autogenerato).
-- Nessun cambio a edge functions, RSVP handler, accommodation o catering settings.
-
-## File toccati (riepilogo)
-Nuovo: `src/lib/guestClassification.ts`
-Modificati: `Budget.tsx`, `Dashboard.tsx`, `VendorDetails.tsx`, `Guests.tsx`, `Tables.tsx`, `Invitations.tsx`, `useGuestMetrics.ts`, `validationSchemas.ts`, `csvHelpers.ts`, `pdfHelpers.ts`, `GuestDialog.tsx`, `GuestCard.tsx`, `GuestDiffDialog.tsx`, `CSVImportDialog.tsx`, `SmartImportDialog.tsx`, `CateringExportMenu.tsx`, `vendors/ExpenseItemTabs.tsx`, `vendors/PaymentPlanTab.tsx`, `tables/GuestPool.tsx`.
-
-## Verifica post-implementazione
-1. Budget → confermati: Adriano e Diletta finiscono in "Bambini", il totale `adulti + bambini` resta invariato.
-2. Dashboard KPI ospiti: numeri coerenti con `useGuestMetrics`.
-3. Catering/Vendors: i conteggi adulti/bambini per pasti riflettono i flag.
-4. Form ospite: niente più input adulti/bambini, solo toggle "bambino".
+- Non tocco lo schema DB: non aggiungo `ON DELETE CASCADE` perché alcune FK richiedono logica condizionale (es. checklist da scollegare, accommodation da bloccare). Tutto gestito a livello applicativo per controllo fine e messaggistica chiara.
+- Storage: `supabase.storage.from('vendor-contracts').list(prefix)` per recuperare i file, poi `.remove(paths)`.
+- Tutte le query filtrate anche per `wedding_id` per sicurezza (multi-tenant).

@@ -19,6 +19,7 @@ import {
 import { PaperBadge, PaperCard } from '@/components/budget/v2/paperPrimitives';
 import { PaymentAllocationDialog } from '@/components/budget/v2/PaymentAllocationDialog';
 import { VendorFormModal, VendorFormValues } from '@/components/vendors/v2/VendorFormModal';
+import { DeleteVendorDialog } from '@/components/vendors/v2/DeleteVendorDialog';
 import { ExpenseWizard, ExpenseWizardValues } from '@/components/vendors/v2/ExpenseWizard';
 import { EditAudiencePricesDialog } from '@/components/vendors/v2/EditAudiencePricesDialog';
 import { VendorDocumentsWidget } from '@/components/vendors/widgets/VendorDocumentsWidget';
@@ -51,6 +52,7 @@ export default function VendorDetails() {
   const vendorCostsHidden = isCollaborator && authState.status === 'authenticated' && !authState.activePermissions?.vendor_costs?.view;
 
   const [editOpen, setEditOpen] = React.useState(false);
+  const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [wizardOpen, setWizardOpen] = React.useState(false);
   const [taskOpen, setTaskOpen] = React.useState(false);
   const [taskType, setTaskType] = React.useState<'task' | 'appointment'>('task');
@@ -756,6 +758,20 @@ export default function VendorDetails() {
         categories={categories}
         onSave={handleSaveVendor}
         onCreateCategory={handleCreateCategory}
+        onDelete={() => setDeleteOpen(true)}
+      />
+
+      <DeleteVendorDialog
+        open={deleteOpen}
+        vendorId={v?.id || null}
+        weddingId={v?.wedding_id || null}
+        onClose={() => setDeleteOpen(false)}
+        onDeleted={() => {
+          setDeleteOpen(false);
+          setEditOpen(false);
+          queryClient.invalidateQueries({ queryKey: ['vendors-v2'] });
+          navigate('/app/vendors');
+        }}
       />
 
       <ExpenseWizard

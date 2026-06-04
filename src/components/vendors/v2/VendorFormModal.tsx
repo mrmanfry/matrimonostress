@@ -1,6 +1,6 @@
 // New "Paper" vendor add/edit modal — wraps the existing Supabase save flow.
 import * as React from 'react';
-import { Phone, Mail, Home, Plus, Check, X, Hotel, Users } from 'lucide-react';
+import { Phone, Mail, Home, Plus, Check, X, Hotel, Users, Trash2 } from 'lucide-react';
 import {
   PaperModal, PaperButton, PaperLabel, PaperInput, PaperTextarea, PaperSelect, PaperDivider,
   ink, surface, border,
@@ -44,6 +44,8 @@ interface VendorFormModalProps {
   onSave: (values: VendorFormValues, vendorId?: string) => Promise<void>;
   /** Optional: create a new category inline. Returns new category id. */
   onCreateCategory?: (name: string) => Promise<{ id: string; name: string } | null>;
+  /** Optional: request deletion of the vendor (only available in edit mode). */
+  onDelete?: (vendorId: string) => void;
 }
 
 const emptyForm: VendorFormValues = {
@@ -56,7 +58,7 @@ const emptyForm: VendorFormValues = {
 const CREATE_CAT_VALUE = '__create__';
 
 export const VendorFormModal: React.FC<VendorFormModalProps> = ({
-  open, onClose, vendor, categories, onSave, onCreateCategory,
+  open, onClose, vendor, categories, onSave, onCreateCategory, onDelete,
 }) => {
   const isEdit = !!vendor?.id;
   const [form, setForm] = React.useState<VendorFormValues>(emptyForm);
@@ -133,6 +135,16 @@ export const VendorFormModal: React.FC<VendorFormModalProps> = ({
       width={620}
       footer={(
         <>
+          {isEdit && onDelete && vendor?.id && (
+            <PaperButton
+              variant="ghost"
+              onClick={() => onDelete(vendor.id!)}
+              iconLeft={<Trash2 size={14}/>}
+              style={{ color: 'hsl(var(--paper-danger))', marginRight: 'auto' }}
+            >
+              Elimina fornitore
+            </PaperButton>
+          )}
           <PaperButton variant="ghost" onClick={onClose}>Annulla</PaperButton>
           <PaperButton variant="primary" disabled={!valid || saving} onClick={handleSave}>
             {saving ? 'Salvataggio…' : isEdit ? 'Salva modifiche' : 'Aggiungi fornitore'}
