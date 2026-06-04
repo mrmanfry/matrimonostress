@@ -1,6 +1,6 @@
 // New "Paper" vendor add/edit modal — wraps the existing Supabase save flow.
 import * as React from 'react';
-import { Phone, Mail, Home, Plus, Check, X, Hotel, Users } from 'lucide-react';
+import { Phone, Mail, Home, Plus, Check, X, Hotel, Users, Trash2 } from 'lucide-react';
 import {
   PaperModal, PaperButton, PaperLabel, PaperInput, PaperTextarea, PaperSelect, PaperDivider,
   ink, surface, border,
