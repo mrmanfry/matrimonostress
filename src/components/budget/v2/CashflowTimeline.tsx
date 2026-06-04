@@ -22,11 +22,13 @@ export function CashflowTimeline({ upcoming, unplanned = [], onOpenVendor, onMar
     );
   }
 
-  const months = paymentsByMonth(upcoming);
+  const hasUpcoming = upcoming.length > 0;
+  const months = hasUpcoming ? paymentsByMonth(upcoming) : [];
   const totalFuture = upcoming.reduce((s, p) => s + p.amount, 0);
+  const totalUnplanned = unplanned.reduce((s, u) => s + u.amount, 0);
 
-  // KPIs
-  const busiest = months.reduce((a, b) => (b.amount > a.amount ? b : a), months[0]);
+  // KPIs (only meaningful when there are upcoming flows)
+  const busiest = hasUpcoming ? months.reduce((a, b) => (b.amount > a.amount ? b : a), months[0]) : null;
   const next = upcoming[0];
   const nextDays = next ? daysFromToday(next.due) : 0;
 
@@ -36,7 +38,7 @@ export function CashflowTimeline({ upcoming, unplanned = [], onOpenVendor, onMar
     cum += m.amount;
     return { ...m, cum };
   });
-  const maxCum = series[series.length - 1].cum || 1;
+  const maxCum = series.length > 0 ? (series[series.length - 1].cum || 1) : 1;
 
   // SVG step path
   const W = 600, H = 160, padL = 8, padR = 8, padT = 12, padB = 24;
