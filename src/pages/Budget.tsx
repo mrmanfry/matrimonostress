@@ -49,6 +49,7 @@ export default function Budget() {
   const [openContributorId, setOpenContributorId] = useState<string | null>(null);
   const [allocPayment, setAllocPayment] = useState<UiPayment | null>(null);
   const [allocMode, setAllocMode] = useState<'mark' | 'edit'>('mark');
+  const [unallocDialogOpen, setUnallocDialogOpen] = useState(false);
 
   const weddingId = authState.status === 'authenticated' ? authState.activeWeddingId : '';
 
