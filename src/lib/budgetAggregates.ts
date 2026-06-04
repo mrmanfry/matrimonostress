@@ -137,7 +137,7 @@ export function buildVendors(
   };
 
   const computeTotals = (vendorItems: DbExpenseItem[]) => {
-    let total = 0, paid = 0;
+    let total = 0, paid = 0, scheduled = 0;
     const uiItems: UiVendor['items'] = [];
     const uiPayments: UiPayment[] = [];
 
@@ -148,9 +148,12 @@ export function buildVendors(
       const itemPaid = linkedPayments
         .filter(p => p.status === 'Pagato')
         .reduce((s, p) => s + Number(p.amount || 0), 0);
+      const itemScheduled = linkedPayments
+        .reduce((s, p) => s + Number(p.amount || 0), 0);
       total += itemTotal;
       paid += itemPaid;
-      uiItems.push({ id: it.id, desc: it.description, total: itemTotal, paid: itemPaid });
+      scheduled += itemScheduled;
+      uiItems.push({ id: it.id, desc: it.description, total: itemTotal, paid: itemPaid, scheduled: itemScheduled });
 
       for (const p of linkedPayments) {
         uiPayments.push({
@@ -165,7 +168,7 @@ export function buildVendors(
         });
       }
     }
-    return { total, paid, uiItems, uiPayments };
+    return { total, paid, scheduled, uiItems, uiPayments };
   };
 
   const result: UiVendor[] = [];
@@ -176,12 +179,12 @@ export function buildVendors(
     const cat = v.expense_categories ?? vendorItems[0]?.expense_categories ?? null;
     const categoryId = cat?.id ?? v.category_id ?? 'uncategorized';
     const categoryName = cat?.name ?? 'Senza categoria';
-    const { total, paid, uiItems, uiPayments } = computeTotals(vendorItems);
+    const { total, paid, scheduled, uiItems, uiPayments } = computeTotals(vendorItems);
     uiPayments.forEach(p => { p.vendorId = v.id; p.vendorName = v.name; });
     result.push({
       id: v.id, name: v.name, categoryId, categoryName,
       categoryTone: categoryToneFor(categoryId + categoryName),
-      total, paid, items: uiItems, payments: uiPayments,
+      total, paid, scheduled, items: uiItems, payments: uiPayments,
     });
   }
 
