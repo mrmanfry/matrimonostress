@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Send, Bell, Edit, UtensilsCrossed, Trash2, X, ChevronRight } from "lucide-react";
-import { GuestStatusDot, deriveGuestStatus, deriveNucleusStatus } from "@/components/guests/GuestStatusDot";
+import { GuestStatusDot, deriveNucleusStatus, type GuestStatus } from "@/components/guests/GuestStatusDot";
 import { cn } from "@/lib/utils";
 import { PercorsoStepper, PercorsoStep } from "./PercorsoStepper";
 import { DetailDivider } from "./DetailDivider";
