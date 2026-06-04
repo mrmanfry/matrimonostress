@@ -74,17 +74,22 @@ function deriveMemberStatus(g: Guest): GuestStatus {
   if (g.is_couple_member) return "confirmed";
   if (g.rsvp_status === "confirmed") return "confirmed";
   if (g.rsvp_status === "declined") return "declined";
-  if (g.std_response === "likely_yes" || g.std_response === "likely_no" || g.std_response === "unsure") return "maybe";
   return "pending";
 }
 
 function memberStatusLabel(g: Guest): string {
   if (g.is_couple_member || g.rsvp_status === "confirmed") return "Confermato";
   if (g.rsvp_status === "declined") return "Rifiutato";
-  if (g.std_response === "likely_yes") return "Probabile sì";
-  if (g.std_response === "likely_no") return "Probabile no";
-  if (g.std_response === "unsure") return "Forse";
   return "In attesa";
+}
+
+function memberStdLabel(g: Guest): string | null {
+  if (g.is_couple_member) return null;
+  if (g.rsvp_status === "confirmed" || g.rsvp_status === "declined") return null;
+  if (g.std_response === "likely_yes") return "STD: Probabile sì";
+  if (g.std_response === "likely_no") return "STD: Probabile no";
+  if (g.std_response === "unsure") return "STD: Forse";
+  return null;
 }
 
 function MemberRow({ guest, onOpen }: { guest: Guest; onOpen: (id: string) => void }) {
@@ -121,6 +126,9 @@ function MemberRow({ guest, onOpen }: { guest: Guest; onOpen: (id: string) => vo
             <GuestStatusDot status={status} size="xs" />
             {memberStatusLabel(guest)}
           </span>
+          {memberStdLabel(guest) && (
+            <span className="text-amber-700">· {memberStdLabel(guest)}</span>
+          )}
           {guest.menu_choice && <span>· menù {guest.menu_choice}</span>}
           {guest.dietary_restrictions && (
             <span className="text-amber-600">· {guest.dietary_restrictions}</span>

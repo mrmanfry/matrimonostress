@@ -55,21 +55,24 @@ function MetaRow({
   );
 }
 
-function deriveDetailStatus(rsvp?: string | null, std?: string | null, isCouple?: boolean): GuestStatus {
+function deriveRsvpStatus(rsvp?: string | null, isCouple?: boolean): GuestStatus {
   if (isCouple) return "confirmed";
   if (rsvp === "confirmed") return "confirmed";
   if (rsvp === "declined") return "declined";
-  if (std === "likely_yes" || std === "unsure" || std === "likely_no") return "maybe";
   return "pending";
 }
 
-function deriveDetailLabel(rsvp?: string | null, std?: string | null, isCouple?: boolean): string {
+function deriveRsvpLabel(rsvp?: string | null, isCouple?: boolean): string {
   if (isCouple || rsvp === "confirmed") return "Confermato";
   if (rsvp === "declined") return "Rifiutato";
+  return "In attesa";
+}
+
+function stdResponseLabel(std?: string | null): string | null {
   if (std === "likely_yes") return "Probabile sì";
   if (std === "likely_no") return "Probabile no";
   if (std === "unsure") return "Forse";
-  return "In attesa";
+  return null;
 }
 
 export function GuestDetailView({
@@ -81,8 +84,9 @@ export function GuestDetailView({
   onEdit,
   onDelete,
 }: Props) {
-  const status = deriveDetailStatus(guest.rsvp_status, guest.std_response, guest.is_couple_member);
-  const statusText = deriveDetailLabel(guest.rsvp_status, guest.std_response, guest.is_couple_member);
+  const status = deriveRsvpStatus(guest.rsvp_status, guest.is_couple_member);
+  const statusText = deriveRsvpLabel(guest.rsvp_status, guest.is_couple_member);
+  const stdLabel = stdResponseLabel(guest.std_response);
   const initials = `${guest.first_name?.[0] ?? ""}${guest.last_name?.[0] ?? ""}`.toUpperCase();
 
   const stdSent = !!guest.save_the_date_sent_at;
@@ -177,7 +181,21 @@ export function GuestDetailView({
                 </Badge>
               }
             />
-            <MetaRow label="Save the date" value={stdSent ? "Inviato" : "Non inviato"} />
+            <MetaRow
+              label="Save the date"
+              value={
+                stdSent ? (
+                  <span>
+                    Inviato
+                    {stdLabel && (
+                      <span className="text-paper-ink-3"> · risposta: {stdLabel}</span>
+                    )}
+                  </span>
+                ) : (
+                  "Non inviato"
+                )
+              }
+            />
             <MetaRow label="Invito" value={invSent ? "Inviato" : "Non inviato"} />
             <MetaRow
               label="Menù"

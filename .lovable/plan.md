@@ -1,25 +1,27 @@
-## Obiettivo
+## Piano di fix
 
-Applicare lo stesso allineamento "pallino+label = rsvp_status reale" già fatto in `GuestDetailView.tsx` anche a `PartyDetailView.tsx`, dove le righe membro del nucleo mostrano "Confermato" per ospiti come Ariana Cristogel anche quando hanno solo risposto `likely_yes` al Save the Date (RSVP ancora pending).
+Obiettivo: evitare che una risposta `std_response = likely_yes` venga mostrata come se fosse una risposta all'RSVP formale.
 
-## Causa
+### 1. GuestDetailView
+- Separare visivamente lo stato RSVP dallo stato Save the Date.
+- Nel campo `RSVP`, mostrare solo `rsvp_status`:
+  - `confirmed` → “Confermato” con pallino confermato
+  - `declined` → “Rifiutato” con pallino rifiutato
+  - assente / `pending` → “In attesa” con pallino pending
+- Nel campo `Save the date`, mantenere “Inviato/Non inviato” e, se presente `std_response`, aggiungere la risposta STD:
+  - `likely_yes` → “Probabile sì”
+  - `likely_no` → “Probabile no”
+  - `unsure` → “Forse”
 
-In `PartyDetailView.tsx` (riga 74) `MemberRow` usa `deriveGuestStatus` che promuove `std_response='likely_yes'` a `confirmed`. La label (riga 108) deriva poi dallo status calcolato → mostra "Confermato" anche senza RSVP.
+### 2. PartyDetailView
+- Applicare la stessa separazione nelle righe dei membri del nucleo:
+  - la mini-label principale deve rappresentare l’RSVP formale, non la risposta al Save the Date
+  - se c’è una risposta STD ma RSVP è ancora pending, mostrarla come contesto separato tipo “STD: Probabile sì”
+- Mantenere il percorso già corretto: se l’invito formale è inviato ma non c’è risposta RSVP, lo step resta “In attesa risposta RSVP”.
 
-## Cambi (un solo file: `src/components/guests/v2/detail/PartyDetailView.tsx`)
+### 3. GuestStatusDot helper
+- Non usare più `std_response` per trasformare automaticamente `likely_yes` in `confirmed` o `likely_no` in `declined` dove la UI sta parlando di RSVP.
+- Se serve, introdurre helper locali più espliciti per evitare ambiguità tra “stato RSVP” e “risposta Save the Date”.
 
-1. **`MemberRow`**: sostituire `deriveGuestStatus` con la stessa logica usata in `GuestDetailView`:
-   - status: `confirmed` solo se `rsvp_status='confirmed'` o `is_couple_member`; `declined` se rifiutato; `maybe` per `std_response ∈ {likely_yes, likely_no, unsure}` con RSVP pending; altrimenti `pending`.
-   - label coerente: "Confermato" / "Rifiutato" / "Probabile sì" / "Probabile no" / "Forse" / "In attesa".
-
-2. **Step "Percorso" del nucleo** (righe 146-150): rendere dinamica l'etichetta dello step RSVP:
-   - done+confermato → "RSVP confermato"
-   - done+rifiutato → "RSVP rifiutato"
-   - current (invito inviato, in attesa) → "In attesa risposta RSVP"
-   - altrimenti → "RSVP"
-
-3. Rimuovere l'import inutilizzato di `deriveGuestStatus` se non più usato (mantenere `deriveNucleusStatus` se ancora referenziato altrove nel file).
-
-## Out of scope
-
-Nessuna modifica a `GuestStatusDot.tsx`, `deriveGuestStatus`, `deriveNucleusStatus`, o ad altri consumer (KPI funnel, card nucleo, conteggi). Fix puramente di presentazione localizzato al pannello dettaglio nucleo.
+### Risultato atteso
+Per Ariana Cristogel e casi simili: se hanno risposto “Probabile sì” al Save the Date ma non all’RSVP, il dettaglio mostrerà `RSVP: In attesa` e `Save the date: Probabile sì`, senza far sembrare che abbiano confermato l’RSVP.
