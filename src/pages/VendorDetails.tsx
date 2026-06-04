@@ -111,7 +111,7 @@ export default function VendorDetails() {
       const [{ data: allGuests }, { data: allVendors }] = await Promise.all([
         supabase
           .from('guests')
-          .select('id, rsvp_status, children_count, is_staff, is_couple_member, allow_plus_one, plus_one_name, plus_one_of_guest_id')
+          .select('id, rsvp_status, is_child, is_staff, is_couple_member, allow_plus_one, plus_one_name, plus_one_of_guest_id')
           .eq('wedding_id', vendor.wedding_id),
         supabase
           .from('vendors')
@@ -126,14 +126,16 @@ export default function VendorDetails() {
       const hostsWithMaterializedPlusOne = new Set(
         guests.filter(g => g.plus_one_of_guest_id).map(g => g.plus_one_of_guest_id as string),
       );
+      // 1 row = 1 person (flag-based classification).
       const tally = (filterFn: (g: any) => boolean) => {
         let adults = 0, children = 0;
         for (const g of guests) {
           if (!filterFn(g)) continue;
           if (g.is_staff) continue;
-          adults += 1;
+          if (g.is_couple_member) continue;
+          if (g.is_child) children += 1;
+          else adults += 1;
           if (g.allow_plus_one && g.plus_one_name && !hostsWithMaterializedPlusOne.has(g.id)) adults += 1;
-          children += g.children_count || 0;
         }
         return { adults, children, staff: vendorStaffMeals };
       };

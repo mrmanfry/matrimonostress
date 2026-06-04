@@ -342,8 +342,6 @@ export const CSVImportDialog = ({
               menu_choice: guest.menu_choice || null,
               dietary_restrictions: guest.dietary_restrictions || null,
               notes: guest.notes || null,
-              adults_count: guest.is_child ? 0 : 1,
-              children_count: guest.is_child ? 1 : 0,
             });
           
           if (!error) importedGuests++;
@@ -400,8 +398,6 @@ export const CSVImportDialog = ({
             menu_choice: guest.menu_choice || null,
             dietary_restrictions: guest.dietary_restrictions || null,
             notes: guest.notes || null,
-            adults_count: guest.is_child ? 0 : 1,
-            children_count: guest.is_child ? 1 : 0,
           });
         
         if (!error) importedGuests++;

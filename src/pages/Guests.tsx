@@ -85,8 +85,6 @@ interface Guest {
   menu_choice?: string;
   dietary_restrictions?: string;
   notes?: string;
-  adults_count: number;
-  children_count: number;
   allow_plus_one?: boolean;
   plus_one_name?: string;
   is_couple_member?: boolean;
@@ -320,8 +318,6 @@ const Guests = () => {
           is_child: false,
           is_couple_member: true,
           rsvp_status: 'confirmed',
-          adults_count: 1,
-          children_count: 0,
           party_id: partyData.id,
         },
         {
@@ -331,8 +327,6 @@ const Guests = () => {
           is_child: false,
           is_couple_member: true,
           rsvp_status: 'confirmed',
-          adults_count: 1,
-          children_count: 0,
           party_id: partyData.id,
         }
       ];
@@ -1148,8 +1142,6 @@ const Guests = () => {
         menu_choice: guest.menu_choice || null,
         dietary_restrictions: guest.dietary_restrictions || null,
         notes: guest.notes || null,
-        adults_count: guest.adults_count,
-        children_count: guest.children_count,
         is_child: guest.is_child,
         table_name: tableMap[guest.id] || undefined,
       }));
@@ -1643,14 +1635,12 @@ const Guests = () => {
               first_name: guestData.first_name,
               last_name: guestData.last_name,
               rsvp_status: guestData.rsvp_status || "In attesa",
-              adults_count: guestData.adults_count || 1,
-              children_count: guestData.children_count || 0,
               menu_choice: guestData.menu_choice || null,
               dietary_restrictions: guestData.dietary_restrictions || null,
               notes: guestData.notes || null,
               group_id: guestData.group_id || null,
               allow_plus_one: guestData.allow_plus_one || false,
-              is_child: false,
+              is_child: guestData.is_child || false,
             });
             
           if (error) throw error;

@@ -19,8 +19,7 @@ interface ExistingGuest {
   id: string;
   first_name: string;
   last_name: string;
-  adults_count: number | null;
-  children_count: number | null;
+  is_child: boolean | null;
   party_id: string | null;
   phone: string | null;
 }
@@ -116,7 +115,7 @@ serve(async (req) => {
     console.log('Fetching existing guests for wedding:', weddingId);
     const { data: existingGuests, error: fetchError } = await supabase
       .from('guests')
-      .select('id, first_name, last_name, adults_count, children_count, party_id, phone')
+      .select('id, first_name, last_name, is_child, party_id, phone')
       .eq('wedding_id', weddingId);
 
     if (fetchError) {
@@ -128,8 +127,8 @@ serve(async (req) => {
     console.log(`Found ${existingGuestsList.length} existing guests`);
 
     // Format existing guests for AI comparison
-    const existingGuestsFormatted = existingGuestsList.map(g => 
-      `${g.first_name} ${g.last_name} (ID: ${g.id}, Adulti: ${g.adults_count || 1}, Bambini: ${g.children_count || 0})`
+    const existingGuestsFormatted = existingGuestsList.map(g =>
+      `${g.first_name} ${g.last_name} (ID: ${g.id}, ${g.is_child ? 'Bambino' : 'Adulto'})`
     ).join('\n');
 
     const systemPrompt = `Sei un assistente esperto nell'organizzazione di matrimoni. Il tuo compito è:

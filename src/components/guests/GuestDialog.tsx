@@ -30,8 +30,7 @@ interface Guest {
   last_name: string;
   alias?: string;
   rsvp_status: string;
-  adults_count: number;
-  children_count: number;
+  is_child?: boolean;
   menu_choice: string;
   dietary_restrictions: string;
   notes: string;
@@ -53,8 +52,7 @@ const emptyGuest = {
   last_name: "",
   alias: "",
   rsvp_status: "pending" as const,
-  adults_count: 1,
-  children_count: 0,
+  is_child: false,
   menu_choice: "",
   dietary_restrictions: "",
   notes: "",
@@ -96,8 +94,7 @@ export function GuestDialog({
         last_name: guest.last_name,
         alias: guest.alias || "",
         rsvp_status: guestRsvpStatus,
-        adults_count: guest.adults_count,
-        children_count: guest.children_count,
+        is_child: guest.is_child || false,
         menu_choice: guest.menu_choice || "",
         dietary_restrictions: guest.dietary_restrictions || "",
         notes: guest.notes || "",
@@ -118,8 +115,7 @@ export function GuestDialog({
         last_name: data.last_name,
         alias: data.alias?.trim() || null,
         rsvp_status: data.rsvp_status,
-        adults_count: data.adults_count,
-        children_count: data.children_count,
+        is_child: data.is_child || false,
         menu_choice: data.menu_choice || "",
         dietary_restrictions: data.dietary_restrictions || "",
         notes: data.notes || "",
@@ -229,33 +225,21 @@ export function GuestDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="adults_count">N° Adulti</Label>
-              <Input
-                id="adults_count"
-                type="number"
-                min="0"
-                max="20"
-                {...register("adults_count", { valueAsNumber: true })}
-              />
-              {errors.adults_count && (
-                <p className="text-sm text-destructive">{errors.adults_count.message}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="children_count">N° Bambini</Label>
-              <Input
-                id="children_count"
-                type="number"
-                min="0"
-                max="20"
-                {...register("children_count", { valueAsNumber: true })}
-              />
-              {errors.children_count && (
-                <p className="text-sm text-destructive">{errors.children_count.message}</p>
-              )}
+          <div className="flex items-center space-x-3 p-3 rounded-lg border border-border bg-muted/30">
+            <Checkbox
+              id="is_child"
+              checked={watch("is_child") || false}
+              onCheckedChange={(checked) => {
+                setValue("is_child", !!checked);
+              }}
+            />
+            <div className="flex-1">
+              <Label htmlFor="is_child" className="cursor-pointer font-medium">
+                È un bambino
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Conta come bambino nei totali di catering e budget
+              </p>
             </div>
           </div>
 

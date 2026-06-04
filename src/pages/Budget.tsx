@@ -70,7 +70,7 @@ export default function Budget() {
         supabase.from('vendors').select('id, name, category_id, expense_categories(id, name), staff_meals_count').eq('wedding_id', weddingId),
         supabase.from('expense_items').select('*, vendors(name, expense_categories(id, name)), expense_categories(id, name)').eq('wedding_id', weddingId),
         supabase.from('financial_contributors').select('id, name, contribution_target').eq('wedding_id', weddingId),
-        supabase.from('guests').select('id, rsvp_status, adults_count, children_count, is_staff, is_couple_member, allow_plus_one, plus_one_name, plus_one_of_guest_id').eq('wedding_id', weddingId),
+        supabase.from('guests').select('id, rsvp_status, is_child, is_staff, is_couple_member, allow_plus_one, plus_one_name, plus_one_of_guest_id').eq('wedding_id', weddingId),
       ]);
 
       setBudget(Number(weddingRes.data?.total_budget || 0));
@@ -113,11 +113,14 @@ export default function Budget() {
         setAllocations([]);
       }
 
-      // Guest counts (for variable expense calculation)
+      // Guest counts (for variable expense calculation) — 1 row = 1 person.
+      // Uses flag-based classification: is_child / is_staff / is_couple_member.
+      // Plus-ones promossi (plus_one_of_guest_id) sono già righe separate.
       const guests = (guestsRes.data ?? []) as Array<{
         id: string;
-        rsvp_status: string | null; adults_count: number | null; children_count: number | null;
-        is_staff: boolean | null; is_couple_member: boolean | null; allow_plus_one: boolean | null;
+        rsvp_status: string | null;
+        is_child: boolean | null; is_staff: boolean | null; is_couple_member: boolean | null;
+        allow_plus_one: boolean | null;
         plus_one_name: string | null; plus_one_of_guest_id: string | null;
       }>;
       const vendorStaffMeals = (vendorsRes.data ?? []).reduce(
@@ -127,19 +130,18 @@ export default function Budget() {
       const hostsWithMaterializedPlusOne = new Set(
         guests.filter(g => g.plus_one_of_guest_id).map(g => g.plus_one_of_guest_id as string)
       );
-      // Headcount tally — aligned with the guest list:
-      // each non-child non-staff record counts as 1 adult (regardless of any
-      // legacy adults_count > 1), plus any non-materialized textual +1.
       const tally = (filterFn: (g: typeof guests[number]) => boolean) => {
         let adults = 0, children = 0;
         for (const g of guests) {
           if (!filterFn(g)) continue;
-          if (g.is_staff) continue;
-          adults += 1;
+          if (g.is_staff) continue;            // staff counted from vendors
+          if (g.is_couple_member) continue;    // couple counted separately
+          if (g.is_child) children += 1;
+          else adults += 1;
+          // Textual +1 (not yet promoted to its own row) still counts as 1 adult head.
           if (g.allow_plus_one && g.plus_one_name && !hostsWithMaterializedPlusOne.has(g.id)) {
             adults += 1;
           }
-          children += g.children_count || 0;
         }
         return { adults, children, staff: vendorStaffMeals };
       };

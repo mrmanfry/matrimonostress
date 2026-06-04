@@ -7,8 +7,6 @@ export interface GuestCSVRow {
   first_name: string;
   last_name: string;
   rsvp_status?: string;
-  adults_count?: number;
-  children_count?: number;
   menu_choice?: string;
   dietary_restrictions?: string;
   notes?: string;
@@ -65,8 +63,6 @@ const csvGuestSchema = z.object({
   first_name: z.string().trim().min(1, "Nome obbligatorio").max(100),
   last_name: z.string().trim().min(1, "Cognome obbligatorio").max(100),
   rsvp_status: z.enum(["pending", "confirmed", "declined"]).optional(),
-  adults_count: z.number().min(0).max(20).optional(),
-  children_count: z.number().min(0).max(20).optional(),
   menu_choice: z.string().trim().max(200).optional(),
   dietary_restrictions: z.string().trim().max(500).optional(),
   notes: z.string().trim().max(1000).optional(),
@@ -466,10 +462,6 @@ export function parseCSV(content: string): GuestCSVRow[] {
       if (!value) return;
 
       switch (header) {
-        case "adults_count":
-        case "children_count":
-          row[header] = parseInt(value) || 0;
-          break;
         case "rsvp_status":
           if (["pending", "confirmed", "declined"].includes(value)) {
             row[header] = value;
