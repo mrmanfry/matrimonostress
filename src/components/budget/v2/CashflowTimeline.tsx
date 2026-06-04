@@ -67,7 +67,10 @@ export function CashflowTimeline({ upcoming, unplanned = [], onOpenVendor, onMar
             Orizzonte liquidità
           </h3>
           <p style={{ margin: '4px 0 0', color: ink(3), fontSize: 12, fontFamily: FONT_UI }}>
-            {upcoming.length} pagamenti futuri · totale {fmt(totalFuture)} · {months.length} mesi
+            {hasUpcoming
+              ? `${upcoming.length} rate pianificate · totale ${fmt(totalFuture)} · ${months.length} mesi`
+              : 'Nessuna rata pianificata'}
+            {unplanned.length > 0 && ` · ${unplanned.length} impegni senza piano (${fmt(totalUnplanned)})`}
           </p>
         </div>
         <PaperBadge tone="warn" size="sm">Esborso cumulativo</PaperBadge>
