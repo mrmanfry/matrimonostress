@@ -260,11 +260,14 @@ export default function Budget() {
           <FundsCard
             contributors={uiContributors}
             onSelectContributor={(c) => setOpenContributorId(c.id)}
+            unallocatedPaid={totalUnallocated}
+            onAssignUnallocated={() => setUnallocDialogOpen(true)}
           />
         </div>
 
         <CashflowTimeline
           upcoming={upcoming}
+          unplanned={unplanned}
           onOpenVendor={setOpenVendorId}
           onMarkPaid={openMarkPaidDialog}
         />
