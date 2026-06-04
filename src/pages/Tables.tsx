@@ -44,8 +44,6 @@ type Guest = {
   dietary_restrictions: string | null;
   menu_choice: string | null;
   notes: string | null;
-  adults_count: number;
-  children_count: number;
   party_id?: string | null;
   group_id?: string | null;
   category?: string | null;
