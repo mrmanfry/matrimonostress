@@ -181,7 +181,21 @@ export function GuestDetailView({
                 </Badge>
               }
             />
-            <MetaRow label="Save the date" value={stdSent ? "Inviato" : "Non inviato"} />
+            <MetaRow
+              label="Save the date"
+              value={
+                stdSent ? (
+                  <span>
+                    Inviato
+                    {stdLabel && (
+                      <span className="text-paper-ink-3"> · risposta: {stdLabel}</span>
+                    )}
+                  </span>
+                ) : (
+                  "Non inviato"
+                )
+              }
+            />
             <MetaRow label="Invito" value={invSent ? "Inviato" : "Non inviato"} />
             <MetaRow
               label="Menù"
