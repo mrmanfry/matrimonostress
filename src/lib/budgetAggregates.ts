@@ -47,7 +47,8 @@ export interface UiVendor {
   categoryTone: string;
   total: number;          // committed (sum of expense_item totals)
   paid: number;           // sum of paid payments for this vendor
-  items: { id: string; desc: string; total: number; paid: number }[];
+  scheduled: number;      // sum of ALL payments (paid + due) for this vendor
+  items: { id: string; desc: string; total: number; paid: number; scheduled: number }[];
   payments: UiPayment[];
 }
 
@@ -60,6 +61,17 @@ export interface UiPayment {
   amount: number;
   due: string;            // ISO date
   status: 'paid' | 'due';
+}
+
+export interface UiUnplannedCommitment {
+  vendorId: string;
+  vendorName: string;
+  categoryId: string;
+  categoryName: string;
+  categoryTone: string;
+  itemId: string;
+  itemDesc: string;
+  amount: number;          // residuo: itemTotal − sum(payments scheduled)
 }
 
 export interface UiTotals {
