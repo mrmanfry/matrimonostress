@@ -19,8 +19,10 @@ import { BudgetNewExpenseButton } from '@/components/budget/v2/BudgetNewExpenseF
 
 import {
   buildVendors, buildTotals, buildContributors, upcomingPayments, nextPayment, allPayments,
+  unplannedCommitments, unallocatedPaidPayments,
   type DbVendor, type DbExpenseItem, type DbPayment, type DbContributor, type DbAllocation, type UiPayment,
 } from '@/lib/budgetAggregates';
+import { UnallocatedPaymentsDialog } from '@/components/budget/v2/UnallocatedPaymentsDialog';
 import type { ExpenseLineItem, GuestCounts } from '@/lib/expenseCalculations';
 import { isGuestConfirmed, isGuestDeclined } from '@/lib/rsvpHelpers';
 
