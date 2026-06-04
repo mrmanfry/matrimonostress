@@ -254,6 +254,63 @@ export function nextPayment(vendors: UiVendor[], today = new Date()): UiPayment 
   return upcomingPayments(vendors).find(p => new Date(p.due).getTime() >= t) ?? null;
 }
 
+/**
+ * Per ogni expense_item, residuo = itemTotal − sum(payments pianificati).
+ * Rappresenta gli impegni firmati che non hanno ancora un piano di pagamento
+ * (o il cui piano copre solo parzialmente il contratto).
+ */
+export function unplannedCommitments(vendors: UiVendor[]): UiUnplannedCommitment[] {
+  const out: UiUnplannedCommitment[] = [];
+  for (const v of vendors) {
+    for (const it of v.items) {
+      const residuo = it.total - it.scheduled;
+      if (residuo > 0.5) {
+        out.push({
+          vendorId: v.id,
+          vendorName: v.name,
+          categoryId: v.categoryId,
+          categoryName: v.categoryName,
+          categoryTone: v.categoryTone,
+          itemId: it.id,
+          itemDesc: it.desc,
+          amount: residuo,
+        });
+      }
+    }
+  }
+  return out.sort((a, b) => b.amount - a.amount);
+}
+
+/**
+ * Pagamenti già pagati la cui somma di allocazioni ai contributori è
+ * inferiore all'importo del pagamento. Il delta è "non allocato".
+ */
+export function unallocatedPaidPayments(
+  paymentsAll: UiPayment[],
+  allocations: DbAllocation[],
+): { payment: UiPayment; allocated: number; unallocated: number }[] {
+  const allocByPayment = new Map<string, number>();
+  for (const a of allocations) {
+    allocByPayment.set(a.payment_id, (allocByPayment.get(a.payment_id) ?? 0) + Number(a.amount || 0));
+  }
+  const out: { payment: UiPayment; allocated: number; unallocated: number }[] = [];
+  for (const p of paymentsAll) {
+    if (p.status !== 'paid') continue;
+    const allocated = allocByPayment.get(p.id) ?? 0;
+    const delta = p.amount - allocated;
+    if (delta > 0.5) out.push({ payment: p, allocated, unallocated: delta });
+  }
+  return out.sort((a, b) => b.unallocated - a.unallocated);
+}
+
+export function totalUnallocatedPaid(
+  paymentsAll: UiPayment[],
+  allocations: DbAllocation[],
+): number {
+  return unallocatedPaidPayments(paymentsAll, allocations)
+    .reduce((s, x) => s + x.unallocated, 0);
+}
+
 export interface DbAllocation {
   contributor_id: string;
   payment_id: string;
