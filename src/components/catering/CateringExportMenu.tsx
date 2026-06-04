@@ -92,8 +92,6 @@ export const CateringExportMenu = ({ guests }: CateringExportMenuProps) => {
       menu_choice: g.menu_choice,
       dietary_restrictions: g.dietary_restrictions,
       notes: g.notes,
-      adults_count: g.is_child ? 0 : 1,
-      children_count: g.is_child ? 1 : 0,
       is_child: g.is_child,
       table_name: g.table_name || undefined,
     })));

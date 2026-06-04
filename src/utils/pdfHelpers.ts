@@ -6,8 +6,6 @@ interface CateringGuest {
   menu_choice: string | null;
   dietary_restrictions: string | null;
   notes: string | null;
-  adults_count: number;
-  children_count: number;
   is_child: boolean;
   table_name?: string;
 }
