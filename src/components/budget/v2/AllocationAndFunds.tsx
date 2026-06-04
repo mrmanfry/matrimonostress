@@ -144,6 +144,42 @@ export function FundsCard({ contributors, onSelectContributor, unallocatedPaid =
             </div>
           );
         })}
+        {hasUnallocated && (
+          <div
+            role={onAssignUnallocated ? 'button' : undefined}
+            tabIndex={onAssignUnallocated ? 0 : -1}
+            onClick={onAssignUnallocated}
+            onKeyDown={onAssignUnallocated ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onAssignUnallocated(); } } : undefined}
+            style={{
+              marginTop: 4, marginBottom: 4,
+              padding: '10px 12px',
+              border: `1px dashed ${border()}`,
+              borderRadius: 8,
+              background: 'hsl(36 28% 97%)',
+              cursor: onAssignUnallocated ? 'pointer' : 'default',
+              display: 'flex', alignItems: 'center', gap: 10,
+            }}
+            title="Pagamenti pagati senza contributore assegnato"
+          >
+            <div style={{
+              width: 30, height: 30, borderRadius: 999,
+              background: 'hsl(36 28% 90%)', color: ink(2),
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 14, fontWeight: 600, fontFamily: FONT_UI, flexShrink: 0,
+            }}>?</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 500, color: ink(), fontFamily: FONT_UI }}>
+                Non allocato
+              </div>
+              <div style={{ fontSize: 11, color: ink(3), fontFamily: FONT_UI, marginTop: 2 }}>
+                Pagamenti pagati senza contributore — clicca per assegnare ai fondi
+              </div>
+            </div>
+            <span style={{ fontSize: 13, fontFamily: FONT_MONO, color: ink(2), fontWeight: 600 }}>
+              {fmt(unallocatedPaid)}
+            </span>
+          </div>
+        )}
         <div style={{
           marginTop: 8, paddingTop: 14, borderTop: `1px solid ${border()}`,
           display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
@@ -152,7 +188,7 @@ export function FundsCard({ contributors, onSelectContributor, unallocatedPaid =
             Totale versato
           </span>
           <span style={{ fontFamily: FONT_SERIF, fontSize: 22, fontWeight: 500, color: success() }}>
-            {fmt(totalPaid)}
+            {fmt(grandTotal)}
           </span>
         </div>
       </div>
