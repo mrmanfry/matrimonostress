@@ -70,10 +70,14 @@ export function AllocationCard({ vendors }: AllocationProps) {
 interface FundsProps {
   contributors: UiContributor[];
   onSelectContributor?: (c: UiContributor) => void;
+  unallocatedPaid?: number;
+  onAssignUnallocated?: () => void;
 }
 
-export function FundsCard({ contributors, onSelectContributor }: FundsProps) {
+export function FundsCard({ contributors, onSelectContributor, unallocatedPaid = 0, onAssignUnallocated }: FundsProps) {
   const totalPaid = contributors.reduce((s, c) => s + c.paid, 0);
+  const grandTotal = totalPaid + Math.max(0, unallocatedPaid);
+  const hasUnallocated = unallocatedPaid > 0.5;
 
   return (
     <PaperCard padding={0}>
