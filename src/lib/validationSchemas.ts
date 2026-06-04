@@ -118,16 +118,7 @@ export const guestSchema = z.object({
     .min(1, "Il cognome è obbligatorio")
     .max(100, "Il cognome deve essere inferiore a 100 caratteri"),
   rsvp_status: z.enum(["pending", "confirmed", "declined"]),
-  adults_count: z
-    .number()
-    .int("Deve essere un numero intero")
-    .min(0, "Il numero di adulti non può essere negativo")
-    .max(20, "Il numero di adulti non può superare 20"),
-  children_count: z
-    .number()
-    .int("Deve essere un numero intero")
-    .min(0, "Il numero di bambini non può essere negativo")
-    .max(20, "Il numero di bambini non può superare 20"),
+  is_child: z.boolean().optional(),
   menu_choice: z
     .string()
     .trim()
