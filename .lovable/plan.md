@@ -1,67 +1,56 @@
 ## Obiettivo
-Permettere l'eliminazione di un fornitore dalla modale di modifica, con conferma esplicita che spieghi cosa verrà eliminato a cascata (spese, rate, contratti, file, appuntamenti, comunicazioni) e aggiornamento immediato della tabella/lista.
+Rendere riconciliabili tutti i numeri della pagina Budget secondo l'invariante:
+**Impegnato = Versato + Da Versare** (dove "Da Versare" = somma rate pianificate non pagate + impegni senza rate).
 
-## Comportamento UX
+## Modifiche
 
-**1. Pulsante "Elimina fornitore"**
-- Aggiunto in `VendorFormModal` (visibile solo in modalità modifica, non in creazione).
-- Posizionato nel footer a sinistra, stile distruttivo (rosso ink), separato dai bottoni Annulla/Salva a destra.
+### 1. `src/lib/budgetAggregates.ts`
+- Per ogni `expense_item` calcolare `residuoNonPianificato = max(0, itemTotal − sum(payments.amount))`. Nota: `itemPaid` resta solo somma payments `Pagato`; il residuo rappresenta il delta tra contratto e rate pianificate (pagate o no).
+- Aggiungere campo opzionale `synthetic?: boolean` e `itemId?: string` a `UiPayment`.
+- Nuova funzione `unplannedCommitments(vendors)`: ritorna un array `{ vendorId, vendorName, itemId, itemDesc, amount }[]` per gli expense_items con residuo > 0. NON entrano in `upcomingPayments` (così la timeline resta basata su rate reali).
+- Nuova funzione `unallocatedPaid(paidTotal, contributors)`: ritorna `paidTotal − sum(contributors.paid)` se > 0.
 
-**2. Dialog di conferma a cascata**
-- Al click apre un secondo dialog di conferma (non `window.confirm`, ma un `PaperModal` coerente con lo stile).
-- Mostra un riepilogo dinamico di cosa verrà eliminato per quel fornitore specifico (conteggi reali letti dal DB):
-  - N. voci di spesa + rate di pagamento collegate
-  - N. contratti caricati (+ file su storage)
-  - N. appuntamenti + comunicazioni
-  - N. camere collegate (se struttura ricettiva) — bloccante, vedi sotto
-  - N. attività in checklist collegate (verranno scollegate, non eliminate)
-- Richiede di digitare il nome del fornitore (o checkbox "Confermo eliminazione definitiva") per evitare cancellazioni accidentali.
-- Bottoni: "Annulla" + "Elimina definitivamente" (rosso).
+### 2. `src/components/budget/v2/CashflowTimeline.tsx`
+- Sotto la lista "Prossimi flussi" aggiungere blocco **"Impegni senza piano di pagamento"** con riga per ogni vendor/item residuo:
+  - Nome fornitore (cliccabile → apre `VendorDrawer`)
+  - Descrizione item
+  - Importo residuo
+  - CTA "Pianifica rate" → apre VendorDrawer scrollando alla sezione pagamenti
+- Header con totale: "X impegni · totale {fmt}".
+- Chiarire label KPI da "Totale futuro" a **"Totale da versare (rate pianificate)"**.
 
-**3. Esecuzione**
-- Esegue la cascata (vedi sotto), mostra toast di esito.
-- Chiude entrambe le modali.
-- In `/app/vendors`: invalida la query e il fornitore sparisce dalla tabella.
-- In `/app/vendors/:id`: naviga indietro a `/app/vendors`.
+### 3. `src/components/budget/v2/AllocationAndFunds.tsx`
+**AllocationCard**:
+- Sottotitolo: "Impegnato per categoria".
+- Sotto ogni riga categoria, micro-riga: `Versato {fmt(c.paid)} · Da versare {fmt(c.committed − c.paid)}`.
 
-## Logica di cascata
+**FundsCard**:
+- Aggiungere prop `unallocatedPaid: number` e `onAssignUnallocated?: () => void`.
+- Se `unallocatedPaid > 0`, mostrare riga dedicata (stile distinto, grigio neutro) sopra "Totale versato":
+  - Avatar `?`
+  - Etichetta "Non allocato"
+  - Importo in grigio
+  - Helper: "Pagamenti pagati senza contributore assegnato — assegna ai fondi"
+  - Click → apre dialog/drawer che lista i pagamenti pagati con allocazione incompleta, ognuno con CTA che apre `PaymentAllocationDialog` esistente.
 
-Ordine di eliminazione (dal foglia alla radice, per evitare violazioni FK):
+### 4. `src/pages/Budget.tsx`
+- Calcolare `unplanned = unplannedCommitments(uiVendors)` e `unalloc = unallocatedPaid(totals.paid, uiContributors)`.
+- Passare `unplanned` a `CashflowTimeline`.
+- Passare `unallocatedPaid={unalloc}` a `FundsCard` con handler che apre un nuovo `UnallocatedPaymentsDialog`.
 
-```text
-1. Storage: rimuovi tutti i file in bucket "vendor-contracts" sotto "{wedding_id}/{vendor_id}/"
-2. vendor_contracts        WHERE vendor_id = X       → delete
-3. payment_allocations     WHERE payment_id IN (...) → delete (via expense_items)
-4. payments                WHERE expense_item_id IN (... vendor_id = X) → delete
-5. expense_line_items      WHERE expense_item_id IN (... vendor_id = X) → delete
-6. expense_items           WHERE vendor_id = X       → delete
-7. vendor_appointments     WHERE vendor_id = X       → delete
-8. vendor_communications   WHERE vendor_id = X       → delete
-9. checklist_tasks         WHERE vendor_id = X       → UPDATE vendor_id = NULL (scollega, non elimina)
-10. accommodation_rooms    → se presenti, BLOCCA con messaggio "Rimuovi prima le camere dalla sezione Pernotto"
-11. vendors                WHERE id = X              → delete
-```
+### 5. Nuovo file `src/components/budget/v2/UnallocatedPaymentsDialog.tsx`
+- Dialog semplice che lista i pagamenti con `status === 'paid'` e `sum(allocations) < amount`.
+- Ogni riga ha CTA "Assegna" che apre il `PaymentAllocationDialog` esistente in modalità `edit`.
 
-Le camere `accommodation_rooms` hanno `vendor_id NOT NULL` ed è una gestione dedicata (sezione Pernotto): non si eliminano silenziosamente. Se presenti, blocchiamo l'eliminazione e indichiamo all'utente di rimuoverle prima.
+## Invariante visibile
+Dopo le modifiche:
+- `Impegnato (Hero)` = `Versato (Hero)` + `Da versare rate (timeline)` + `Impegni senza piano (sotto timeline)`.
+- `Versato (Hero)` = `Totale versato (Fondi)` + `Non allocato (Fondi)`.
+- `Allocazione categoria` esplicita Versato/Da versare per categoria → niente più confronti errati con totali cross-categoria.
 
-## Centralizzazione
-
-Creo helper `deleteVendorCascade(vendorId, weddingId)` in **`src/lib/vendorAggregates.ts`** (già esistente) — usato sia da `Vendors.tsx` (lista) sia da `VendorDetails.tsx` (scheda). Restituisce `{ blocked?: string; deletedCounts: {...} }`.
-
-Helper `previewVendorDeletion(vendorId)` che ritorna i conteggi per il dialog di conferma.
-
-## File modificati
-
-| File | Modifica |
-|------|---------|
-| `src/lib/vendorAggregates.ts` | + `previewVendorDeletion()`, + `deleteVendorCascade()` |
-| `src/components/vendors/v2/VendorFormModal.tsx` | Aggiunto prop `onDelete?: (vendorId: string) => Promise<void>` e bottone "Elimina fornitore" nel footer in modalità edit |
-| `src/components/vendors/v2/DeleteVendorDialog.tsx` (nuovo) | `PaperModal` di conferma con anteprima conteggi e digitazione nome |
-| `src/pages/Vendors.tsx` | Handler `handleDeleteVendor`, passato a `VendorFormModal`, invalida query |
-| `src/pages/VendorDetails.tsx` | Stesso handler, dopo delete naviga a `/app/vendors` |
-
-## Note tecniche
-
-- Non tocco lo schema DB: non aggiungo `ON DELETE CASCADE` perché alcune FK richiedono logica condizionale (es. checklist da scollegare, accommodation da bloccare). Tutto gestito a livello applicativo per controllo fine e messaggistica chiara.
-- Storage: `supabase.storage.from('vendor-contracts').list(prefix)` per recuperare i file, poi `.remove(paths)`.
-- Tutte le query filtrate anche per `wedding_id` per sicurezza (multi-tenant).
+## File toccati
+- `src/lib/budgetAggregates.ts`
+- `src/components/budget/v2/CashflowTimeline.tsx`
+- `src/components/budget/v2/AllocationAndFunds.tsx`
+- `src/components/budget/v2/UnallocatedPaymentsDialog.tsx` (nuovo)
+- `src/pages/Budget.tsx`
