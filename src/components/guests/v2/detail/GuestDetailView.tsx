@@ -84,8 +84,9 @@ export function GuestDetailView({
   onEdit,
   onDelete,
 }: Props) {
-  const status = deriveDetailStatus(guest.rsvp_status, guest.std_response, guest.is_couple_member);
-  const statusText = deriveDetailLabel(guest.rsvp_status, guest.std_response, guest.is_couple_member);
+  const status = deriveRsvpStatus(guest.rsvp_status, guest.is_couple_member);
+  const statusText = deriveRsvpLabel(guest.rsvp_status, guest.is_couple_member);
+  const stdLabel = stdResponseLabel(guest.std_response);
   const initials = `${guest.first_name?.[0] ?? ""}${guest.last_name?.[0] ?? ""}`.toUpperCase();
 
   const stdSent = !!guest.save_the_date_sent_at;
