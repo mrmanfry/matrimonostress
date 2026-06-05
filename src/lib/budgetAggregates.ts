@@ -31,6 +31,10 @@ export interface DbPayment {
   paid_on_date: string | null;
   tax_inclusive?: boolean | null;
   tax_rate?: number | null;
+  amount_type?: 'fixed' | 'percentage' | 'balance' | null;
+  percentage_value?: number | null;
+  balance_base?: 'planned' | 'actual' | null;
+  percentage_base?: 'planned' | 'actual' | null;
 }
 
 /**
