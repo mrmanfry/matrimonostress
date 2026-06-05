@@ -94,8 +94,16 @@ export interface UiTotals {
   budget: number;
   committed: number;
   paid: number;
-  remaining: number;      // budget - committed
-  toPay: number;          // committed - paid
+  remaining: number;      // budget - committed (clipped to 0)
+  toPay: number;          // committed - paid (SIGNED: negative = sovra-pagamento)
+}
+
+/** Saldo firmato per vendor/item/totale: prezzo previsto − pagato. Può essere negativo (anticipi). */
+export function balance(committed: number, paid: number): number {
+  return committed - paid;
+}
+export function isOverpaid(committed: number, paid: number, eps = 0.5): boolean {
+  return committed - paid < -eps;
 }
 
 export interface UiContributor {
