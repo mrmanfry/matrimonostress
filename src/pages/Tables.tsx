@@ -742,10 +742,13 @@ const Tables = () => {
                 </p>
               )}
             </div>
-            <div className="flex flex-wrap gap-2">
-              {headerActions}
-              {secondaryActions}
+            <div className="flex flex-wrap gap-2 md:overflow-visible overflow-x-auto -mx-3 px-3 md:mx-0 md:px-0 md:flex-wrap [&::-webkit-scrollbar]:hidden">
+              <div className="flex gap-2 flex-nowrap md:flex-wrap">
+                {headerActions}
+                {secondaryActions}
+              </div>
             </div>
+
           </div>
         </div>
 
