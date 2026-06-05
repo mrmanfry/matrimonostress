@@ -478,15 +478,22 @@ const segBtnStyle = (active: boolean): React.CSSProperties => ({
 });
 
 // ─── Vendor Card ───
+const MODE_LABELS: Record<ScenarioMode, string> = {
+  planned: 'pianificati',
+  expected: 'lista invitati',
+  confirmed: 'confermati',
+};
 const VendorCard: React.FC<{
   v: VendorRow;
   vendorCostsHidden: boolean;
+  totals: ReturnType<typeof vendorTotalsScenario>;
+  mode: ScenarioMode;
   onOpen: () => void;
   onEdit: () => void;
-}> = ({ v, vendorCostsHidden, onOpen }) => {
+}> = ({ v, vendorCostsHidden, totals, mode, onOpen }) => {
   const st = statusById(v.status);
-  const totals = vendorTotals(v.expense_items || [], v.lineItemsByExpenseItem || {}, v.payments || []);
   const next = nextPayment(v.payments || []);
+  const modeLabel = MODE_LABELS[mode];
 
   return (
     <div
