@@ -27,13 +27,19 @@ export function VendorDrawer({ vendor, onClose, onMarkPaid, onOpenVendorPage }: 
           zIndex: 40, animation: 'budgetFadeIn .2s',
         }}
       />
-      <div style={{
+      <div className="budget-vendor-drawer" style={{
         position: 'fixed', top: 0, right: 0, bottom: 0, width: 560, maxWidth: '100vw',
         background: 'hsl(var(--paper-bg))', borderLeft: `1px solid ${border()}`,
         boxShadow: '0 2px 4px rgba(43,37,32,.04), 0 24px 48px -16px rgba(43,37,32,.14)',
         zIndex: 50, overflow: 'auto', fontFamily: FONT_UI,
         animation: 'budgetSlideIn .25s ease-out',
       }}>
+        <style>{`
+          @media (max-width: 767px) {
+            .budget-vendor-drawer { width: 100vw !important; }
+          }
+        `}</style>
+
         <div style={{
           padding: '22px 28px', background: surface(),
           borderBottom: `1px solid ${border()}`, position: 'sticky', top: 0, zIndex: 1,
