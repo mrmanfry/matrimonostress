@@ -352,9 +352,8 @@ export default function Budget() {
           /* Allow flex/grid children to shrink so content wraps instead of overflowing. */
           .budget-page-body > div { min-width: 0; max-width: 100%; }
           .budget-page-body > div > div { min-width: 0; }
-          /* Tables inside cards stay scrollable horizontally. */
-          .budget-page-body table { display: block; overflow-x: auto; }
         }
+      
       
       `}</style>
 
