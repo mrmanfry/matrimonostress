@@ -604,6 +604,30 @@ export function PaymentPlanTab({
         calculatedAmount = calculateBalanceAmount(index);
       }
 
+      // Force-zero: se cambia l'importo di un pagamento con allocazioni esistenti,
+      // chiedi conferma e azzera le allocazioni (non si può ipotizzare come ridistribuire).
+      if (payment.id && paymentAllocations[payment.id]?.length > 0) {
+        const previousAmount = Number(originalPaymentData?.amount ?? payment.amount ?? 0);
+        if (Math.abs(previousAmount - calculatedAmount) > 0.01) {
+          const ok = window.confirm(
+            "Stai modificando l'importo di un pagamento già attribuito ai contributori.\n\n" +
+            "Le attribuzioni esistenti verranno azzerate e dovrai riassegnare il pagamento.\n\nProcedere?"
+          );
+          if (!ok) return;
+          // Pulizia esplicita: rimuovi le allocazioni esistenti e resetta lo stato locale.
+          await supabase.from("payment_allocations").delete().eq("payment_id", payment.id);
+          setEditingAllocations([]);
+          const cleaned = { ...paymentAllocations };
+          delete cleaned[payment.id];
+          setPaymentAllocations(cleaned);
+          // Riporta lo stato a "Da Pagare" così l'utente è forzato a ri-confermare il pagamento.
+          payment.status = 'Da Pagare';
+          payment.paid_by = undefined;
+          payment.paid_on_date = null;
+        }
+      }
+
+
       const paymentData = {
         expense_item_id: expenseItemId,
         description: payment.description,
