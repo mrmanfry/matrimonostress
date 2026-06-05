@@ -220,6 +220,12 @@ const Vendors = () => {
           .vendors-status-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
           .vendors-status-grid button { padding: 12px !important; }
           .vendors-cards-grid { grid-template-columns: 1fr !important; }
+          .vendors-cards-grid > div { overflow: hidden; min-width: 0; }
+          .vendors-cards-grid > div > div { min-width: 0; flex-wrap: wrap; }
+          .vendors-filters-bar > div:first-child { flex: 1 1 100% !important; max-width: none !important; min-width: 0 !important; }
+          .vendors-filters-bar select { width: 100% !important; }
+          .vendors-filters-bar > select,
+          .vendors-filters-bar [data-paper-select] { flex: 1 1 100% !important; width: 100% !important; }
         }
       `}</style>
       <div className="vendors-page-wrap" style={{ maxWidth: 1320, margin: '0 auto', padding: '20px 24px' }}>
@@ -277,7 +283,7 @@ const Vendors = () => {
         </div>
 
         {/* Filters bar */}
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 18, flexWrap: 'wrap' }}>
+        <div className="vendors-filters-bar" style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 18, flexWrap: 'wrap' }}>
           <div style={{ flex: '1 1 280px', minWidth: 240, maxWidth: 360 }}>
             <PaperInput
               iconLeft={<Search size={14}/>}

@@ -348,8 +348,13 @@ export default function Budget() {
           .budget-grid-row { grid-template-columns: 1fr; }
         }
         @media (max-width: 767px) {
-          .budget-page-body { padding: 18px 14px 80px; gap: 16px; }
+          .budget-page-body { padding: 18px 12px 80px; gap: 16px; }
+          /* Allow flex/grid children to shrink so content wraps instead of overflowing. */
+          .budget-page-body > div { min-width: 0; max-width: 100%; }
+          .budget-page-body > div > div { min-width: 0; }
         }
+      
+      
       `}</style>
 
     </div>
