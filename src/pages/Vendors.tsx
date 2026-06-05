@@ -19,9 +19,13 @@ import { DeleteVendorDialog } from '@/components/vendors/v2/DeleteVendorDialog';
 import {
   VENDOR_STATUSES, VendorStatusId, normalizeStatus, statusById,
   fmtEUR, fmtDateShort, daysFromToday,
-  vendorTotals, nextPayment, isPaymentPaid, countsByStatus,
+  vendorTotalsScenario, nextPayment, isPaymentPaid, countsByStatus,
   DbExpenseItem, DbLineItem, DbPayment, expenseItemTotal,
 } from '@/lib/vendorAggregates';
+import { ScenarioSelector, type ScenarioMode } from '@/components/budget/v2/ScenarioSelector';
+import { ScenarioHeadcountBar } from '@/components/budget/v2/ScenarioHeadcountBar';
+import type { GuestCounts } from '@/lib/expenseCalculations';
+import { isGuestConfirmed } from '@/lib/rsvpHelpers';
 
 interface VendorRow {
   id: string;
