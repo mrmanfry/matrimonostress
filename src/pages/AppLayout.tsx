@@ -354,7 +354,7 @@ const AppLayoutInner = ({
         <PaymentTestModeBanner />
         <PaywallGuard pathname={location.pathname} />
 
-        <main className="flex-1 overflow-auto pb-24 md:pb-6">
+        <main className="flex-1 overflow-auto overflow-x-hidden pb-24 md:pb-6">
           <Outlet />
         </main>
       </div>
