@@ -53,6 +53,8 @@ const Dashboard = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [daysUntilWedding, setDaysUntilWedding] = useState<number | null>(null);
+  const [scenarioMode, setScenarioMode] = useState<ScenarioMode>('planned');
+  const [guestCounts, setGuestCounts] = useState<GuestCounts | null>(null);
   const [accessCode, setAccessCode] = useState("");
   const [joiningWedding, setJoiningWedding] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
