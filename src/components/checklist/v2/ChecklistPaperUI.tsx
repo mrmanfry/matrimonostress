@@ -96,7 +96,7 @@ export function ChkHeader({ stats, view, setView, search, setSearch, onNew, expo
             <div style={{ width: 38, height: 38, borderRadius: 10, background: "linear-gradient(135deg, hsl(var(--paper-brand-tint)), #E8DFFC)", color: P.brandInk, display: "inline-flex", alignItems: "center", justifyContent: "center", border: "1px solid #E3D9FB" }}>
               <CheckSquare size={18} />
             </div>
-            <h1 style={{ margin: 0, fontFamily: P.fontSerif, fontSize: 26, fontWeight: 500, letterSpacing: "-0.02em" }}>Checklist Matrimonio</h1>
+            <h1 className="chk-header-h1" style={{ margin: 0, fontFamily: P.fontSerif, fontSize: 26, fontWeight: 500, letterSpacing: "-0.02em" }}>Checklist Matrimonio</h1>
           </div>
           <p style={{ margin: "0 0 18px", fontSize: 13.5, color: P.ink2, maxWidth: 540 }}>
             Tutto quello che serve fare prima del grande giorno, organizzato per area e priorità.
