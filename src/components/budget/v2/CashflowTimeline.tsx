@@ -204,7 +204,23 @@ export function CashflowTimeline({ upcoming, unplanned = [], totals, onOpenVendo
                     <div style={{ fontWeight: 600, color: ink(), textDecoration: onOpenVendor ? 'underline dotted' : 'none', textUnderlineOffset: 3 }}>
                       {p.vendorName}
                     </div>
-                    <div style={{ color: ink(3), fontSize: 11, marginTop: 2 }}>{p.desc}</div>
+                    <div style={{ color: ink(3), fontSize: 11, marginTop: 2, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      <span>{p.desc}</span>
+                      {p.isDynamic && (
+                        <span
+                          title="Importo ricalcolato live sullo scenario attivo: prezzo previsto − acconti già pianificati. Si aggiorna automaticamente se cambia lo scenario o gli ospiti confermati."
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 3,
+                            padding: '1px 6px', borderRadius: 999,
+                            background: 'hsl(36 28% 94%)', border: `1px solid ${border()}`,
+                            fontSize: 10, color: ink(2), fontWeight: 600,
+                            letterSpacing: '0.02em', cursor: 'help',
+                          }}
+                        >
+                          ↻ {p.amountType === 'balance' ? 'Saldo dinamico' : 'Calcolato'}
+                        </span>
+                      )}
+                    </div>
                   </button>
                   <div style={{ fontSize: 11, color: overdue ? warn() : ink(3), fontFamily: FONT_MONO }}>
                     {fmtDate(p.due)}
