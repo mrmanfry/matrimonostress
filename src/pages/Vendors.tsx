@@ -213,7 +213,16 @@ const Vendors = () => {
 
   return (
     <div style={{ background: surface('muted'), minHeight: '100%', padding: '8px 0 60px' }}>
-      <div style={{ maxWidth: 1320, margin: '0 auto', padding: '20px 24px' }}>
+      <style>{`
+        @media (max-width: 767px) {
+          .vendors-page-wrap { padding: 14px !important; }
+          .vendors-hero-h1 { font-size: 26px !important; }
+          .vendors-status-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
+          .vendors-status-grid button { padding: 12px !important; }
+          .vendors-cards-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
+      <div className="vendors-page-wrap" style={{ maxWidth: 1320, margin: '0 auto', padding: '20px 24px' }}>
 
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 24, gap: 16, flexWrap: 'wrap' }}>
@@ -221,7 +230,7 @@ const Vendors = () => {
             <div style={{ fontSize: 11, color: ink(3), letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 6, fontFamily: FONT_UI, fontWeight: 600 }}>
               Gestione fornitori
             </div>
-            <h1 style={{
+            <h1 className="vendors-hero-h1" style={{
               margin: 0, fontFamily: FONT_SERIF, fontWeight: 500, fontSize: 36,
               color: ink(), letterSpacing: '-0.6px', lineHeight: 1.1,
             }}>
@@ -238,7 +247,8 @@ const Vendors = () => {
         </div>
 
         {/* Status stats — clickable as filters */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginBottom: 24 }}>
+        <div className="vendors-status-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginBottom: 24 }}>
+
           {VENDOR_STATUSES.map(s => {
             const isActive = statusFilter === s.id;
             return (
