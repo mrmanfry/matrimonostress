@@ -264,6 +264,14 @@ export function PaymentAllocationDialog({
           </div>
         )}
 
+        {overAllocated && (
+          <div className="text-xs px-2 py-1.5 rounded bg-destructive/10 text-destructive">
+            Sovra-allocazione: <strong>+{fmt(overDelta)}</strong> oltre l'importo del pagamento.
+          </div>
+        )}
+
+
+
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Annulla
