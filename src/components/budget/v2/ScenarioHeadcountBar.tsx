@@ -20,10 +20,11 @@ interface Props {
 }
 
 const SOURCE_LABEL: Record<ScenarioMode, string> = {
-  planned: 'Stima manuale modificabile',
+  planned: 'Stima manuale modificabile (sposi inclusi)',
   expected: 'Da lista invitati (sposi inclusi)',
-  confirmed: 'Da RSVP confermati',
+  confirmed: 'Da RSVP confermati (sposi inclusi)',
 };
+
 
 export function ScenarioHeadcountBar({ mode, weddingId, counts, onPlannedSaved }: Props) {
   const isReadOnly = mode !== 'planned';
