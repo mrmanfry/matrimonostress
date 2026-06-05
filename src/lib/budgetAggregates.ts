@@ -29,7 +29,23 @@ export interface DbPayment {
   due_date: string;
   status: string;            // 'Pagato' | 'Da Pagare' | etc.
   paid_on_date: string | null;
+  tax_inclusive?: boolean | null;
+  tax_rate?: number | null;
 }
+
+/**
+ * Importo "cash" reale del pagamento (lordo, ciò che esce dal conto).
+ * Regola "no tax = no markup": se l'utente non ha indicato un'aliquota,
+ * il valore inserito è considerato già lordo.
+ */
+export function paymentCashAmount(p: Pick<DbPayment, 'amount' | 'tax_inclusive' | 'tax_rate'>): number {
+  const base = Number(p.amount || 0);
+  if (p.tax_inclusive === true) return base;
+  const rate = Number(p.tax_rate ?? 0);
+  if (!rate) return base;
+  return base * (1 + rate / 100);
+}
+
 
 export interface DbContributor {
   id: string;
