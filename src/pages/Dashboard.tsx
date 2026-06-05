@@ -557,15 +557,34 @@ const Dashboard = () => {
 
           return (
             <Card 
-              className="p-4 md:p-6 hover:shadow-elegant transition-all cursor-pointer"
-              onClick={() => navigate("/app/treasury")}
+              className="p-4 md:p-6 hover:shadow-elegant transition-all"
             >
-              <div className="flex items-center gap-2 mb-3">
+              <div
+                className="flex items-center gap-2 mb-3 cursor-pointer"
+                onClick={() => navigate("/app/treasury")}
+              >
                 <Euro className="w-6 h-6 text-primary" />
                 <h3 className="text-lg md:text-xl font-semibold">Finanze</h3>
               </div>
 
-              <div className="space-y-4">
+              {/* Scenario selector — shared with Budget/Fornitori via weddings.calculation_mode */}
+              <div className="mb-3" onClick={(e) => e.stopPropagation()}>
+                <ScenarioSelector
+                  mode={scenarioMode}
+                  counts={guestCounts}
+                  onModeChange={(m) => {
+                    setScenarioMode(m);
+                    if (wedding?.id) {
+                      supabase.from('weddings').update({ calculation_mode: m }).eq('id', wedding.id).then(({ error }) => {
+                        if (error) console.warn('Persist scenario failed', error);
+                      });
+                    }
+                    loadDashboardData(m);
+                  }}
+                />
+              </div>
+
+              <div className="space-y-4 cursor-pointer" onClick={() => navigate("/app/treasury")}>
                 {/* Hero: Impegno Totale */}
                 <div className="text-center py-1">
                   <div className="text-3xl font-bold">
