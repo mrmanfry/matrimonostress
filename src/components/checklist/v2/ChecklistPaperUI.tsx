@@ -16,10 +16,16 @@ const ICONS = { fileText: FileText, church: Church, utensils: Utensils, sparkles
 
 export function PaperRoot({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ background: P.bg, color: P.ink, fontFamily: P.fontUI, minHeight: "100%", padding: "30px 38px 60px" }}>
+    <div className="chk-paper-root" style={{ background: P.bg, color: P.ink, fontFamily: P.fontUI, minHeight: "100%", padding: "30px 38px 60px" }}>
+      <style>{`
+        @media (max-width: 767px) {
+          .chk-paper-root { padding: 16px 14px 80px !important; }
+        }
+      `}</style>
       <div style={{ maxWidth: 1480, margin: "0 auto", display: "flex", flexDirection: "column", gap: 22 }}>
         {children}
       </div>
+
     </div>
   );
 }
