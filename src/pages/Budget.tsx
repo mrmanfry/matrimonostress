@@ -268,6 +268,7 @@ export default function Budget() {
         <CashflowTimeline
           upcoming={upcoming}
           unplanned={unplanned}
+          totals={totals}
           onOpenVendor={setOpenVendorId}
           onMarkPaid={openMarkPaidDialog}
         />
