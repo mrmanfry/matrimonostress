@@ -281,7 +281,7 @@ const Vendors = () => {
         </div>
 
         {/* Filters bar */}
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 18, flexWrap: 'wrap' }}>
+        <div className="vendors-filters-bar" style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 18, flexWrap: 'wrap' }}>
           <div style={{ flex: '1 1 280px', minWidth: 240, maxWidth: 360 }}>
             <PaperInput
               iconLeft={<Search size={14}/>}
