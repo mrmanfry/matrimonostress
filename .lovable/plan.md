@@ -1,70 +1,83 @@
-## Obiettivo
+## Principio (allineato al tuo modello mentale)
 
-1. Cleanup pagamento Alberto Manzone (360 → 366, `tax_inclusive=true`).
-2. Unificare gli importi al **lordo (cash reale)** così che "Già pagato" e "Totale versato contributori" coincidano.
-3. Bloccare la sovra-allocazione nel `PaymentAllocationDialog`.
-4. Forzare l'azzeramento delle allocazioni quando l'importo di un pagamento già allocato viene modificato.
-5. Ereditarietà aliquota dal preventivo al pagamento, modificabile.
+- **Prezzo previsto (committed)** = `calculateExpenseAmount(item, lines, scenario, counts)`. Cambia con lo scenario (Pianificato / Lista invitati / Confermati). È l'unica fonte di verità del "quanto costerà".
+- **Rate (payments)** = proiezione di cassa, non debito contrattuale. Si **sottraggono** al prezzo previsto man mano che diventano `Pagato`.
+- **Da pagare reale** = `prezzo previsto − già pagato`. Può essere **negativo** (sovra-pagamento all'inizio, normale finché non ci sono i confermati).
+- Le rate `due` future hanno valore **solo come distribuzione temporale**: la loro somma può legittimamente differire dal "Da pagare reale".
 
----
+## Cosa cambia nell'app
 
-## 1. Cleanup dato
+### 1. `src/lib/budgetAggregates.ts` — un solo helper, niente clipping a zero
 
-UPDATE singolo sul pagamento "Acconto IVA inclusa" di Alberto Manzone: `amount = 366`, `tax_inclusive = true`. Allocazioni esistenti restano coerenti.
-
-## 2. Importi al lordo — `src/lib/budgetAggregates.ts`
-
-Helper `paymentCashAmount(p)`:
-
-```
-if p.tax_inclusive === true       → p.amount
-else if p.tax_rate is null/0      → p.amount   (assunto già lordo, niente moltiplicazione)
-else                              → p.amount × (1 + p.tax_rate/100)
+```ts
+// Oggi: toPay = Math.max(0, committed - paid)  ← maschera il sovra-pagamento
+// Domani: toPay = committed - paid             ← può essere negativo
 ```
 
-**Regola "no tax = no markup"**: se l'utente non indica aliquota, il valore inserito è considerato già lordo. Nessuna inflazione silenziosa.
+Aggiungo helper:
+```ts
+balance(item|vendor|totals) = committed - paid     // signed
+overpaid = balance < 0
+```
 
-Usato in:
-- `computeTotals` → `itemPaid` / `itemScheduled` sommano `paymentCashAmount(p)`
-- `UiPayment.amount` → valorizzato al lordo
-- `unallocatedPaidPayments` riceve già `p.amount` lordo dalla mappatura UI
+Effetto: hero "Da pagare" può mostrare un numero negativo o zero quando hai pagato più del previsto nello scenario corrente.
 
-Effetto: tile "Già pagato" allineata a "Totale versato"; caso Tenuta dell'olmo (500 net @ 22% → 610) risolto.
+### 2. Hero `BudgetHero.tsx` — disclaimer quando il residuo è negativo
 
-## 3. Blocco sovra-allocazione — `PaymentAllocationDialog.tsx`
+KPI "Da pagare":
+- `balance > 0` → mostra `fmt(balance)` in warn (come oggi).
+- `balance == 0` → mostra `0 €`, sub "Tutto coperto dai pagamenti".
+- `balance < 0` → mostra `+€X anticipati` in tono neutro/success, sub-disclaimer cliccabile: *"Hai versato più del prezzo previsto nello scenario corrente. Normale all'inizio: il prezzo aumenterà man mano che gli ospiti si confermano."*
+- Stessa logica per la legenda della progress bar (la barra "Da pagare" diventa 0 quando balance ≤ 0; aggiungo un chip "Anticipo +€X" accanto).
 
-Guardia numerica: `Σ allocazioni > paymentAmount + 0.01` → disabilita "Salva" con badge rosso e delta esplicito. `paymentAmount` ricevuto è già il **lordo** (caller allineato al punto 2).
+### 3. Timeline cassa `CashflowTimeline.tsx` — header riallineato
 
-## 4. Force-zero su modifica importo
+Sostituisco la KPI principale:
 
-Nei punti che aggiornano `payments.amount` (`PaymentPlanTab.tsx`, `PaymentDialog.tsx`):
+| Prima | Dopo |
+|---|---|
+| "Totale da versare (rate pianificate)" = Σ rate due (28.854) | **"Da pagare residuo"** = `committed - paid` (21.972), identico all'hero |
 
-1. Se esistono `payment_allocations` per quel `payment_id` E il nuovo `amount` ≠ vecchio → confirm dialog:
-   *"Modificando l'importo, le attribuzioni esistenti verranno azzerate. Dovrai riassegnare il pagamento ai contributori."*
-2. Su conferma: `DELETE` delle allocazioni, poi UPDATE.
-3. Se il pagamento era `Pagato` → aprire automaticamente `PaymentAllocationDialog` in mode `edit` per evitare stato "pagato senza allocazione".
+La lista delle rate future resta com'è (utile per la cassa nei mesi), ma:
+- Sotto la KPI aggiungo riga grigia: *"Rate ancora pianificate: 28.854 € · alcune potrebbero essere riviste quando lo scenario cambia."*
+- Se `Σ rate due > residuo + 0.01` → micro-disclaimer inline: *"Le rate pianificate eccedono il residuo previsto. Vedi spiegazione →"* che apre la stessa spiegazione del punto 4.
+- Se `residuo < 0` → KPI mostra "Anticipo +€X" con disclaimer come hero.
 
-## 5. Ereditarietà aliquota (preimpostata, modificabile)
+### 4. Vendor card — pannello "Cosa è successo qui" (spiegazione, non blame)
 
-In `PaymentDialog` / `PaymentPlanTab`, alla creazione/modifica di un pagamento:
-- Default `tax_rate` ← `expense_line_items.tax_rate` prevalente del preventivo del fornitore (mediana o prima riga); fallback `22` se nessuna riga.
-- Default `tax_inclusive` ← `expense_line_items.price_is_tax_inclusive` corrispondente; fallback `true`.
-- I campi restano **editabili** dall'utente, senza vincoli.
+Sul vendor card di `BudgetByVendor` (e nel Vendor Hub), quando `Σ paymentCashAmount(due+paid) > committed(scenario corrente)`, mostro un info-chip neutro (non rosso) "Rate > prezzo previsto" che apre un popover con la spiegazione ragionata:
 
-Niente blocchi né warning su mismatch con il preventivo: aliquote miste sono lecite (acconto 22% + saldo 10%, ecc.).
+> **Perché vedo rate maggiori del prezzo previsto?**
+> Il prezzo è ricalcolato in base allo scenario corrente: **Lista invitati** (X adulti, Y bambini, Z staff). Le rate sono state pianificate quando lo scenario era diverso, oppure il contratto copre una capienza superiore agli ospiti attualmente in lista.
+>
+> Cosa puoi fare:
+> - Se gli ospiti reali saranno più del previsto → cambia scenario in **Pianificato** o aggiorna le righe-costo (es. cap "fino a 100 adulti").
+> - Se il contratto è effettivamente più alto del previsto → aggiungi una riga-costo fissa "Adeguamento contratto" che colmi la differenza.
+> - Se le rate sono state sovrastimate → modifica l'importo della rata futura.
+>
+> *Δ = +X € · Scenario: {label}*
 
-## 6. Cleanup
+Niente CTA automatici di redistribuzione. Solo spiegazione + link rapidi: "Modifica line-items" / "Vai alle rate future".
 
-Rimuovere eventuali normalizzazioni silenziose in `budgetAggregates.ts` che nascondevano la sovra-allocazione: ora l'invariante è garantita a monte.
+### 5. Niente hard-block lato `PaymentDialog`
 
----
+Annullo la decisione precedente: non blocco più il salvataggio quando `Σ rate > committed`. È un caso legittimo (es. sovra-pagamento iniziale). Resta invece il guard sul **`PaymentAllocationDialog`** (allocazioni > importo singolo pagamento), che è una regola di integrità sulla cassa già effettiva e non ha niente a che vedere con lo scenario.
+
+### 6. Nessuna modifica dati per International Catering
+
+Il committed 12.594 € è **corretto** rispetto allo scenario corrente. Non tocchiamo né line-items né payments. La timeline mostrerà correttamente "Da pagare 21.972 €" totale e "Rate pianificate 28.854 €" come info secondaria, con il popover che spiega per Catering perché la rata da 17.790 € supera il residuo del vendor.
 
 ## File toccati
 
-- `src/lib/budgetAggregates.ts` — `paymentCashAmount` + uso nei totali
-- `src/components/budget/v2/PaymentAllocationDialog.tsx` — guardia sovra-allocazione
-- `src/components/vendors/PaymentPlanTab.tsx` — force-zero su edit amount + ereditarietà aliquota
-- `src/components/budget/PaymentDialog.tsx` — stesso pattern
-- Cleanup dato: UPDATE pagamento Alberto Manzone
+- `src/lib/budgetAggregates.ts` — rimuovo `Math.max(0, ...)` da `toPay`, aggiungo `balance` (signed) e helper `isOverpaid`.
+- `src/components/budget/v2/BudgetHero.tsx` — rendering tri-stato della KPI "Da pagare" + disclaimer.
+- `src/components/budget/v2/CashflowTimeline.tsx` — KPI "Da pagare residuo" allineato al committed-paid; riga secondaria "Rate ancora pianificate" + disclaimer condizionale.
+- `src/components/budget/v2/BudgetByVendor.tsx` (o equivalente card vendor) — info-chip + popover esplicativo quando rate > committed.
+- `src/components/budget/v2/PaymentDialog.tsx` — rimuovo logiche di hard-block previste prima.
 
-Procedo in build mode quando approvi.
+## Non in scope
+
+- Modifica del motore `calculateExpenseAmount` (resta invariato).
+- Snapshot del contratto firmato o nuove colonne DB.
+- Redistribuzione automatica delle rate.
+- Cleanup dati per Ludovica.

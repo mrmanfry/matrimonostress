@@ -1,17 +1,18 @@
 // Cashflow timeline — cumulative step chart + KPIs + actionable upcoming flows.
 // "Orizzonte Liquidità": il cuore della Tesoreria.
 import * as React from 'react';
-import { PaperCard, PaperBadge, FONT_SERIF, FONT_UI, FONT_MONO, ink, border, brand, warn } from './paperPrimitives';
-import { fmt, fmtDate, paymentsByMonth, daysFromToday, type UiPayment, type UiUnplannedCommitment } from '@/lib/budgetAggregates';
+import { PaperCard, PaperBadge, FONT_SERIF, FONT_UI, FONT_MONO, ink, border, brand, warn, success } from './paperPrimitives';
+import { fmt, fmtDate, paymentsByMonth, daysFromToday, type UiPayment, type UiUnplannedCommitment, type UiTotals } from '@/lib/budgetAggregates';
 
 interface Props {
   upcoming: UiPayment[];
   unplanned?: UiUnplannedCommitment[];
+  totals?: UiTotals;
   onOpenVendor?: (vendorId: string) => void;
   onMarkPaid?: (payment: UiPayment) => void;
 }
 
-export function CashflowTimeline({ upcoming, unplanned = [], onOpenVendor, onMarkPaid }: Props) {
+export function CashflowTimeline({ upcoming, unplanned = [], totals, onOpenVendor, onMarkPaid }: Props) {
   if (upcoming.length === 0 && unplanned.length === 0) {
     return (
       <PaperCard>
@@ -26,6 +27,15 @@ export function CashflowTimeline({ upcoming, unplanned = [], onOpenVendor, onMar
   const months = hasUpcoming ? paymentsByMonth(upcoming) : [];
   const totalFuture = upcoming.reduce((s, p) => s + p.amount, 0);
   const totalUnplanned = unplanned.reduce((s, u) => s + u.amount, 0);
+
+  // Residuo reale = committed − pagato (SIGNED).
+  // Le rate sono solo proiezione di cassa: la loro somma può legittimamente
+  // differire dal residuo (es. sovra-pagamenti iniziali, scenario evoluto).
+  const signedResidue = totals ? totals.toPay : totalFuture;
+  const overpaid = signedResidue < -0.5;
+  const residue = Math.max(0, signedResidue);
+  const advance = Math.max(0, -signedResidue);
+  const ratesExceedResidue = totals ? totalFuture > residue + 0.5 : false;
 
   // KPIs (only meaningful when there are upcoming flows)
   const busiest = hasUpcoming ? months.reduce((a, b) => (b.amount > a.amount ? b : a), months[0]) : null;
@@ -55,6 +65,12 @@ export function CashflowTimeline({ upcoming, unplanned = [], onOpenVendor, onMar
   });
   const dArea = d + ` L ${padL + innerW} ${padT + innerH} Z`;
 
+  const residueKpi = overpaid
+    ? { label: 'Da pagare residuo', value: `+${fmt(advance)} anticipati`, hint: 'Versato più del prezzo previsto · vedi spiegazione sotto', tone: 'success' as const }
+    : residue <= 0.5
+      ? { label: 'Da pagare residuo', value: fmt(0), hint: 'Tutto coperto dai pagamenti', tone: 'default' as const }
+      : { label: 'Da pagare residuo', value: fmt(residue), hint: 'Prezzo previsto − già pagato', tone: 'warn' as const };
+
   return (
     <PaperCard padding={0}>
       {/* Header */}
@@ -78,26 +94,49 @@ export function CashflowTimeline({ upcoming, unplanned = [], onOpenVendor, onMar
 
       {/* KPIs — only meaningful if there are scheduled payments */}
       {hasUpcoming && busiest && (
-        <div style={{
-          display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))',
-          borderBottom: `1px solid ${border()}`,
-        }}>
-          <Kpi label="Prossima scadenza"
-            value={next ? fmt(next.amount) : '—'}
-            hint={next ? `${next.vendorName} · ${fmtDate(next.due)} (${nextDays <= 0 ? 'oggi' : `tra ${nextDays}g`})` : ''}
-            tone={next && nextDays <= 7 ? 'warn' : 'default'}
-          />
-          <Kpi label="Mese più intenso"
-            value={fmt(busiest.amount)}
-            hint={`${busiest.label.toUpperCase()} · ${busiest.count} pagamenti`}
-          />
-          <Kpi label="Totale da versare (rate pianificate)"
-            value={fmt(totalFuture)}
-            hint={`fino a ${months[months.length - 1].label.toUpperCase()}`}
-            last
-          />
-        </div>
+        <>
+          <div style={{
+            display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))',
+            borderBottom: ratesExceedResidue || overpaid ? 'none' : `1px solid ${border()}`,
+          }}>
+            <Kpi label="Prossima scadenza"
+              value={next ? fmt(next.amount) : '—'}
+              hint={next ? `${next.vendorName} · ${fmtDate(next.due)} (${nextDays <= 0 ? 'oggi' : `tra ${nextDays}g`})` : ''}
+              tone={next && nextDays <= 7 ? 'warn' : 'default'}
+            />
+            <Kpi label="Mese più intenso"
+              value={fmt(busiest.amount)}
+              hint={`${busiest.label.toUpperCase()} · ${busiest.count} pagamenti`}
+            />
+            <Kpi
+              label={residueKpi.label}
+              value={residueKpi.value}
+              hint={residueKpi.hint}
+              tone={residueKpi.tone}
+              last
+            />
+          </div>
+          {(ratesExceedResidue || overpaid) && (
+            <div style={{
+              padding: '10px 24px',
+              background: 'hsl(36 28% 97%)',
+              borderBottom: `1px solid ${border()}`,
+              fontSize: 12, color: ink(2), fontFamily: FONT_UI,
+              display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+            }}>
+              <span style={{ fontWeight: 600, color: ink() }}>
+                {overpaid
+                  ? `Anticipo +${fmt(advance)} vs prezzo previsto`
+                  : `Rate pianificate ${fmt(totalFuture)} > residuo ${fmt(residue)} (Δ +${fmt(totalFuture - residue)})`}
+              </span>
+              <span style={{ color: ink(3) }}>
+                Le rate sono solo proiezione di cassa: alcune potrebbero essere riviste quando lo scenario cambia o gli ospiti si confermano.
+              </span>
+            </div>
+          )}
+        </>
       )}
+
 
       {/* Cumulative step chart */}
       {hasUpcoming && (
@@ -267,8 +306,9 @@ export function CashflowTimeline({ upcoming, unplanned = [], onOpenVendor, onMar
 
 function Kpi({ label, value, hint, tone = 'default', last = false }: {
   label: string; value: string; hint?: string;
-  tone?: 'default' | 'warn'; last?: boolean;
+  tone?: 'default' | 'warn' | 'success'; last?: boolean;
 }) {
+  const color = tone === 'warn' ? warn() : tone === 'success' ? success() : ink();
   return (
     <div style={{
       padding: '14px 20px',
@@ -280,7 +320,7 @@ function Kpi({ label, value, hint, tone = 'default', last = false }: {
       }}>{label}</div>
       <div style={{
         fontFamily: FONT_SERIF, fontSize: 22, fontWeight: 500,
-        color: tone === 'warn' ? warn() : ink(), marginTop: 4,
+        color, marginTop: 4,
       }}>{value}</div>
       {hint && (
         <div style={{ fontSize: 11, color: ink(3), fontFamily: FONT_UI, marginTop: 2 }}>{hint}</div>

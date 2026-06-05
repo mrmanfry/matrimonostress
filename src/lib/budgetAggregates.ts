@@ -94,8 +94,16 @@ export interface UiTotals {
   budget: number;
   committed: number;
   paid: number;
-  remaining: number;      // budget - committed
-  toPay: number;          // committed - paid
+  remaining: number;      // budget - committed (clipped to 0)
+  toPay: number;          // committed - paid (SIGNED: negative = sovra-pagamento)
+}
+
+/** Saldo firmato per vendor/item/totale: prezzo previsto − pagato. Può essere negativo (anticipi). */
+export function balance(committed: number, paid: number): number {
+  return committed - paid;
+}
+export function isOverpaid(committed: number, paid: number, eps = 0.5): boolean {
+  return committed - paid < -eps;
 }
 
 export interface UiContributor {
@@ -240,7 +248,9 @@ export function buildTotals(budget: number, vendors: UiVendor[]): UiTotals {
     committed,
     paid,
     remaining: Math.max(0, budget - committed),
-    toPay: Math.max(0, committed - paid),
+    // SIGNED: positivo = ancora da pagare; negativo = anticipi versati > prezzo previsto.
+    // Il clipping a zero \u00e8 demandato alla UI, che mostra "Anticipo +\u20acX" quando \u00e8 negativo.
+    toPay: committed - paid,
   };
 }
 

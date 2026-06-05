@@ -28,9 +28,29 @@ const SCENARIO_LABEL: Record<ScenarioMode, string> = {
 export function BudgetHero({ partner1, partner2, totals: t, next, vendorCount, mode, onModeChange, guestCounts }: HeroProps) {
   const pctPaid = t.committed > 0 ? Math.round((t.paid / t.committed) * 100) : 0;
   const pctCommitted = t.budget > 0 ? Math.round((t.committed / t.budget) * 100) : 0;
-  const pctPaidOfBudget = t.budget > 0 ? (t.paid / t.budget) * 100 : 0;
-  const pctOpenOfBudget = t.budget > 0 ? ((t.committed - t.paid) / t.budget) * 100 : 0;
+  // toPay è SIGNED: positivo = residuo, negativo = anticipi vs scenario.
+  const overpaid = t.toPay < -0.5;
+  const settled = !overpaid && t.toPay <= 0.5;
+  const residue = Math.max(0, t.toPay);
+  const advance = Math.max(0, -t.toPay);
+  const pctPaidOfBudget = t.budget > 0 ? Math.min(100, (t.paid / t.budget) * 100) : 0;
+  const pctOpenOfBudget = t.budget > 0 ? Math.max(0, (residue / t.budget) * 100) : 0;
   const couple = [partner1, partner2].filter(Boolean).join(' & ') || 'Sposi';
+
+  const toPayValue = overpaid
+    ? `+${fmt(advance)} anticipati`
+    : settled
+      ? fmt(0)
+      : fmt(residue);
+  const toPaySub = overpaid
+    ? 'Hai versato più del prezzo previsto in questo scenario'
+    : settled
+      ? 'Tutto coperto dai pagamenti'
+      : next ? `Prossima: ${fmt(next.amount)} tra ${daysFromToday(next.due)}gg` : 'Nessuna scadenza';
+  const toPayTone: 'success' | 'warn' | undefined = overpaid ? 'success' : settled ? undefined : 'warn';
+  const toPayHint = overpaid
+    ? 'Normale all\u2019inizio: il prezzo cresce man mano che gli ospiti si confermano.'
+    : undefined;
 
   return (
     <div style={{
@@ -72,9 +92,10 @@ export function BudgetHero({ partner1, partner2, totals: t, next, vendorCount, m
         <KPI label="Già pagato" value={fmt(t.paid)} sub={`${pctPaid}% dell'impegno`} tone="success" />
         <KPI
           label="Da pagare"
-          value={fmt(t.toPay)}
-          sub={next ? `Prossima: ${fmt(next.amount)} tra ${daysFromToday(next.due)}gg` : 'Nessuna scadenza'}
-          tone="warn"
+          value={toPayValue}
+          sub={toPaySub}
+          tone={toPayTone}
+          hint={toPayHint}
           last
         />
       </div>
@@ -89,7 +110,9 @@ export function BudgetHero({ partner1, partner2, totals: t, next, vendorCount, m
         </div>
         <div style={{ display: 'flex', gap: 20, fontSize: 12, color: ink(2), flexWrap: 'wrap' }}>
           <LegendDot color={success()} label={`Pagato ${fmt(t.paid)}`} />
-          <LegendDot color={warn()} label={`Da pagare ${fmt(t.toPay)}`} />
+          {overpaid
+            ? <LegendDot color={success()} label={`Anticipo +${fmt(advance)}`} />
+            : <LegendDot color={warn()} label={`Da pagare ${fmt(residue)}`} />}
           <LegendDot color="hsl(36 28% 88%)" label={`Margine ${fmt(t.remaining)}`} outline />
         </div>
       </div>
