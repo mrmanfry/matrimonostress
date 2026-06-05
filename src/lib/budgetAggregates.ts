@@ -81,6 +81,10 @@ export interface UiPayment {
   amount: number;
   due: string;            // ISO date
   status: 'paid' | 'due';
+  /** True se l'importo è ricalcolato live (balance/percentage non pagati) e non letto dal DB. */
+  isDynamic?: boolean;
+  /** Tipo originale del pagamento dal DB, utile per UI. */
+  amountType?: 'fixed' | 'percentage' | 'balance';
 }
 
 export interface UiUnplannedCommitment {
