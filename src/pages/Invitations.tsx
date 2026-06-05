@@ -173,14 +173,11 @@ const Invitations = () => {
 
   /* -- Recent activity derived from guests timestamps -- */
   const recentActivity: ActivityEntry[] = useMemo(() => {
-    const partyOf = (guestId: string) => {
-      const p = parties.find((p) => p.guests.some((g) => g.id === guestId));
-      return p?.party_name || "Invitato";
-    };
-    const entries: ActivityEntry[] = [];
+    const entries: (ActivityEntry & { key: string })[] = [];
     parties.forEach((p) => {
       p.guests.forEach((g) => {
         if (g.is_couple_member) return;
+        const fullName = `${g.first_name ?? ""} ${g.last_name ?? ""}`.trim() || p.party_name;
         if (g.std_responded_at) {
           const tone =
             g.std_response === "likely_yes"
@@ -195,41 +192,42 @@ const Invitations = () => {
               ? "ha indicato che probabilmente non verrà"
               : "ha aperto il Save the Date";
           entries.push({
-            who: p.party_name,
+            who: fullName,
             what,
             when: relativeTime(new Date(g.std_responded_at)),
             tone,
             ts: new Date(g.std_responded_at).getTime(),
+            key: `${g.id}|std`,
           });
         }
-        if (g.rsvp_status === "confirmed" && g.formal_invite_sent_at) {
-          entries.push({
-            who: p.party_name,
-            what: "ha confermato la presenza",
-            when: relativeTime(new Date(g.formal_invite_sent_at)),
-            tone: "success",
-            ts: new Date(g.formal_invite_sent_at).getTime(),
-          });
-        }
-        if (g.rsvp_status === "declined" && g.formal_invite_sent_at) {
-          entries.push({
-            who: p.party_name,
-            what: "ha declinato l'invito",
-            when: relativeTime(new Date(g.formal_invite_sent_at)),
-            tone: "danger",
-            ts: new Date(g.formal_invite_sent_at).getTime(),
-          });
+        if (g.rsvp_status === "confirmed" || g.rsvp_status === "declined") {
+          const respondedAt = g.updated_at || g.formal_invite_sent_at;
+          if (respondedAt) {
+            entries.push({
+              who: fullName,
+              what:
+                g.rsvp_status === "confirmed"
+                  ? "ha confermato la presenza"
+                  : "ha declinato l'invito",
+              when: relativeTime(new Date(respondedAt)),
+              tone: g.rsvp_status === "confirmed" ? "success" : "danger",
+              ts: new Date(respondedAt).getTime(),
+              key: `${g.id}|rsvp`,
+            });
+          }
         }
       });
     });
-    // dedupe by who+what, keep most recent
-    const map = new Map<string, ActivityEntry>();
+    // dedupe per guest+evento, keep most recent
+    const map = new Map<string, ActivityEntry & { key: string }>();
     entries.forEach((e) => {
-      const k = `${e.who}|${e.what}`;
-      const prev = map.get(k);
-      if (!prev || e.ts > prev.ts) map.set(k, e);
+      const prev = map.get(e.key);
+      if (!prev || e.ts > prev.ts) map.set(e.key, e);
     });
-    return Array.from(map.values()).sort((a, b) => b.ts - a.ts).slice(0, 4);
+    return Array.from(map.values())
+      .sort((a, b) => b.ts - a.ts)
+      .slice(0, 6)
+      .map(({ key, ...rest }) => rest);
   }, [parties]);
 
   if (isLoading) {
