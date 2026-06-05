@@ -52,13 +52,13 @@ export function useInvitationsData() {
       if (!weddingId) return [];
       const { data, error } = await supabase
         .from("guests")
-        .select("id, first_name, last_name, phone, party_id, unique_rsvp_token, rsvp_status, rsvp_send_status, is_couple_member, save_the_date_sent_at, formal_invite_sent_at, last_reminder_sent_at, std_response, std_responded_at")
+        .select("id, first_name, last_name, phone, party_id, unique_rsvp_token, rsvp_status, rsvp_send_status, is_couple_member, save_the_date_sent_at, formal_invite_sent_at, last_reminder_sent_at, std_response, std_responded_at, updated_at")
         .eq("wedding_id", weddingId);
       if (error) throw error;
       return (data || []) as InvitationGuest[];
     },
     enabled: !!weddingId,
-    staleTime: 30000,
+    staleTime: 0,
   });
 
   const { data: partiesData, isLoading: partiesLoading, refetch: refetchParties } = useQuery({
