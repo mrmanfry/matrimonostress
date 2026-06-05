@@ -403,8 +403,8 @@ export function PaymentPlanTab({
       due_date_type: "absolute" as const,
       days_before_wedding: "",
       status: "Da Pagare" as const,
-      tax_inclusive: true,
-      tax_rate: "22",
+      tax_inclusive: inheritedTax.tax_inclusive,
+      tax_rate: inheritedTax.tax_rate,
     };
     setPayments([...payments, newPayment]);
     setEditingPaymentIndex(payments.length);
