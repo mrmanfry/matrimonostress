@@ -166,7 +166,9 @@ const Dashboard = () => {
       const vendors = vendorsResponse.data || [];
 
       // Guest counts (same logic as Treasury)
-      const globalMode = (weddingData.calculation_mode as 'planned' | 'expected' | 'confirmed') || 'planned';
+      const persistedMode = (weddingData.calculation_mode as ScenarioMode) || 'planned';
+      const globalMode: ScenarioMode = modeOverride ?? persistedMode;
+      setScenarioMode(globalMode);
       const targets = {
         adults: weddingData.target_adults || 100,
         children: weddingData.target_children || 0,
@@ -198,6 +200,7 @@ const Dashboard = () => {
           staff: vendorStaffTotal,
         },
       };
+      setGuestCounts(guestCounts);
 
       // Calculate total commitment using centralized logic (same as Treasury)
       const totalCommitment = expenseItems.reduce((sum, item) => {
