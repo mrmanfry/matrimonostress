@@ -80,7 +80,7 @@ const Dashboard = () => {
     }
   }, [searchParams, authState.status]);
 
-  const loadDashboardData = async () => {
+  const loadDashboardData = async (modeOverride?: ScenarioMode) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
