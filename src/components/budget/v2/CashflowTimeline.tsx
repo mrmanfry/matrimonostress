@@ -306,8 +306,9 @@ export function CashflowTimeline({ upcoming, unplanned = [], totals, onOpenVendo
 
 function Kpi({ label, value, hint, tone = 'default', last = false }: {
   label: string; value: string; hint?: string;
-  tone?: 'default' | 'warn'; last?: boolean;
+  tone?: 'default' | 'warn' | 'success'; last?: boolean;
 }) {
+  const color = tone === 'warn' ? warn() : tone === 'success' ? success() : ink();
   return (
     <div style={{
       padding: '14px 20px',
@@ -319,7 +320,7 @@ function Kpi({ label, value, hint, tone = 'default', last = false }: {
       }}>{label}</div>
       <div style={{
         fontFamily: FONT_SERIF, fontSize: 22, fontWeight: 500,
-        color: tone === 'warn' ? warn() : ink(), marginTop: 4,
+        color, marginTop: 4,
       }}>{value}</div>
       {hint && (
         <div style={{ fontSize: 11, color: ink(3), fontFamily: FONT_UI, marginTop: 2 }}>{hint}</div>
