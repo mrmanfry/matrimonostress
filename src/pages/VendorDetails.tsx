@@ -468,7 +468,14 @@ export default function VendorDetails() {
 
   return (
     <div style={{ background: surface('muted'), minHeight: '100%', padding: '8px 0 60px' }}>
-      <div style={{ maxWidth: 1320, margin: '0 auto', padding: '20px 24px' }}>
+      <style>{`
+        @media (max-width: 767px) {
+          .vd-page-wrap { padding: 14px !important; }
+          .vd-grid { grid-template-columns: 1fr !important; gap: 16px !important; }
+          .vd-profile { position: static !important; top: auto !important; }
+        }
+      `}</style>
+      <div className="vd-page-wrap" style={{ maxWidth: 1320, margin: '0 auto', padding: '20px 24px' }}>
 
         {/* Back */}
         <button
@@ -482,14 +489,15 @@ export default function VendorDetails() {
           <ChevronLeft size={14}/> Torna ai fornitori
         </button>
 
-        <div style={{
+        <div className="vd-grid" style={{
           display: 'grid',
           gridTemplateColumns: 'minmax(280px, 320px) 1fr',
           gap: 32,
         }}>
 
           {/* === Left: profile === */}
-          <div style={{ position: 'sticky', top: 16, alignSelf: 'start', display: 'grid', gap: 14 }}>
+          <div className="vd-profile" style={{ position: 'sticky', top: 16, alignSelf: 'start', display: 'grid', gap: 14 }}>
+
             <PaperCard padding={20}>
               {v.expense_categories?.name && (
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
