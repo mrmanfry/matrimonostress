@@ -18,6 +18,7 @@ import WebsiteGeneratorCard from "@/components/website/WebsiteGeneratorCard";
 import { calculateExpenseAmount, resolveGuestCounts, inferExpenseType, formatCurrency } from "@/lib/expenseCalculations";
 import type { ExpenseItem, ExpenseLineItem, GuestCounts } from "@/lib/expenseCalculations";
 import { calculateExpectedCounts, calculateTotalVendorStaff } from "@/lib/expectedCalculator";
+import { ScenarioSelector, type ScenarioMode } from "@/components/budget/v2/ScenarioSelector";
 
 interface Wedding {
   id: string;
@@ -52,6 +53,8 @@ const Dashboard = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [daysUntilWedding, setDaysUntilWedding] = useState<number | null>(null);
+  const [scenarioMode, setScenarioMode] = useState<ScenarioMode>('planned');
+  const [guestCounts, setGuestCounts] = useState<GuestCounts | null>(null);
   const [accessCode, setAccessCode] = useState("");
   const [joiningWedding, setJoiningWedding] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
@@ -77,7 +80,7 @@ const Dashboard = () => {
     }
   }, [searchParams, authState.status]);
 
-  const loadDashboardData = async () => {
+  const loadDashboardData = async (modeOverride?: ScenarioMode) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -163,7 +166,9 @@ const Dashboard = () => {
       const vendors = vendorsResponse.data || [];
 
       // Guest counts (same logic as Treasury)
-      const globalMode = (weddingData.calculation_mode as 'planned' | 'expected' | 'confirmed') || 'planned';
+      const persistedMode = (weddingData.calculation_mode as ScenarioMode) || 'planned';
+      const globalMode: ScenarioMode = modeOverride ?? persistedMode;
+      setScenarioMode(globalMode);
       const targets = {
         adults: weddingData.target_adults || 100,
         children: weddingData.target_children || 0,
@@ -195,6 +200,7 @@ const Dashboard = () => {
           staff: vendorStaffTotal,
         },
       };
+      setGuestCounts(guestCounts);
 
       // Calculate total commitment using centralized logic (same as Treasury)
       const totalCommitment = expenseItems.reduce((sum, item) => {
@@ -551,15 +557,34 @@ const Dashboard = () => {
 
           return (
             <Card 
-              className="p-4 md:p-6 hover:shadow-elegant transition-all cursor-pointer"
-              onClick={() => navigate("/app/treasury")}
+              className="p-4 md:p-6 hover:shadow-elegant transition-all"
             >
-              <div className="flex items-center gap-2 mb-3">
+              <div
+                className="flex items-center gap-2 mb-3 cursor-pointer"
+                onClick={() => navigate("/app/treasury")}
+              >
                 <Euro className="w-6 h-6 text-primary" />
                 <h3 className="text-lg md:text-xl font-semibold">Finanze</h3>
               </div>
 
-              <div className="space-y-4">
+              {/* Scenario selector — shared with Budget/Fornitori via weddings.calculation_mode */}
+              <div className="mb-3" onClick={(e) => e.stopPropagation()}>
+                <ScenarioSelector
+                  mode={scenarioMode}
+                  counts={guestCounts}
+                  onModeChange={(m) => {
+                    setScenarioMode(m);
+                    if (wedding?.id) {
+                      supabase.from('weddings').update({ calculation_mode: m }).eq('id', wedding.id).then(({ error }) => {
+                        if (error) console.warn('Persist scenario failed', error);
+                      });
+                    }
+                    loadDashboardData(m);
+                  }}
+                />
+              </div>
+
+              <div className="space-y-4 cursor-pointer" onClick={() => navigate("/app/treasury")}>
                 {/* Hero: Impegno Totale */}
                 <div className="text-center py-1">
                   <div className="text-3xl font-bold">
