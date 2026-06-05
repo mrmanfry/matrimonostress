@@ -308,7 +308,7 @@ const AppLayoutInner = ({
       </Sidebar>
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="sticky top-0 z-40 h-16 border-b border-[hsl(var(--paper-border))] bg-[hsl(var(--paper-surface))] flex items-center px-6 gap-4">
+        <header className="sticky top-0 z-40 h-16 border-b border-[hsl(var(--paper-border))] bg-[hsl(var(--paper-surface))] flex items-center px-4 md:px-6 gap-2 md:gap-4">
           {/* Left: sidebar trigger + brand */}
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <SidebarTrigger className="text-[hsl(var(--paper-ink-2))] hover:text-[hsl(var(--paper-ink))]" />
@@ -354,11 +354,65 @@ const AppLayoutInner = ({
         <PaymentTestModeBanner />
         <PaywallGuard pathname={location.pathname} />
 
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-auto pb-24 md:pb-6">
           <Outlet />
         </main>
       </div>
+
+      <MobileBottomNav
+        pathname={location.pathname}
+        onOpenDrawer={() => setOpenMobile(true)}
+      />
     </div>
+  );
+};
+
+const MobileBottomNav = ({
+  pathname,
+  onOpenDrawer,
+}: {
+  pathname: string;
+  onOpenDrawer: () => void;
+}) => {
+  const tabs = [
+    { name: "Dashboard", href: "/app/dashboard", icon: LayoutDashboard },
+    { name: "Invitati", href: "/app/guests", icon: Users },
+    { name: "Budget", href: "/app/budget", icon: Euro },
+    { name: "Checklist", href: "/app/checklist", icon: CheckSquare },
+  ];
+  return (
+    <nav
+      className="md:hidden fixed bottom-0 inset-x-0 z-50 flex border-t border-[hsl(var(--paper-border))] bg-[hsl(var(--paper-surface))] pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_3px_rgba(0,0,0,0.04)]"
+      aria-label="Navigazione mobile"
+    >
+      {tabs.map((t) => {
+        const Icon = t.icon;
+        const active = pathname === t.href;
+        return (
+          <NavLink
+            key={t.href}
+            to={t.href}
+            className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] ${
+              active
+                ? "text-[hsl(var(--paper-ink))] font-medium"
+                : "text-[hsl(var(--paper-ink-3))]"
+            }`}
+          >
+            <Icon className="w-5 h-5" />
+            <span>{t.name}</span>
+          </NavLink>
+        );
+      })}
+      <button
+        type="button"
+        onClick={onOpenDrawer}
+        className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] text-[hsl(var(--paper-ink-3))]"
+        aria-label="Apri menu"
+      >
+        <LayoutGrid className="w-5 h-5" />
+        <span>Altro</span>
+      </button>
+    </nav>
   );
 };
 
