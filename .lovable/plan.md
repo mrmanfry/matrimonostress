@@ -1,56 +1,70 @@
 ## Obiettivo
-Rendere riconciliabili tutti i numeri della pagina Budget secondo l'invariante:
-**Impegnato = Versato + Da Versare** (dove "Da Versare" = somma rate pianificate non pagate + impegni senza rate).
 
-## Modifiche
+1. Cleanup pagamento Alberto Manzone (360 → 366, `tax_inclusive=true`).
+2. Unificare gli importi al **lordo (cash reale)** così che "Già pagato" e "Totale versato contributori" coincidano.
+3. Bloccare la sovra-allocazione nel `PaymentAllocationDialog`.
+4. Forzare l'azzeramento delle allocazioni quando l'importo di un pagamento già allocato viene modificato.
+5. Ereditarietà aliquota dal preventivo al pagamento, modificabile.
 
-### 1. `src/lib/budgetAggregates.ts`
-- Per ogni `expense_item` calcolare `residuoNonPianificato = max(0, itemTotal − sum(payments.amount))`. Nota: `itemPaid` resta solo somma payments `Pagato`; il residuo rappresenta il delta tra contratto e rate pianificate (pagate o no).
-- Aggiungere campo opzionale `synthetic?: boolean` e `itemId?: string` a `UiPayment`.
-- Nuova funzione `unplannedCommitments(vendors)`: ritorna un array `{ vendorId, vendorName, itemId, itemDesc, amount }[]` per gli expense_items con residuo > 0. NON entrano in `upcomingPayments` (così la timeline resta basata su rate reali).
-- Nuova funzione `unallocatedPaid(paidTotal, contributors)`: ritorna `paidTotal − sum(contributors.paid)` se > 0.
+---
 
-### 2. `src/components/budget/v2/CashflowTimeline.tsx`
-- Sotto la lista "Prossimi flussi" aggiungere blocco **"Impegni senza piano di pagamento"** con riga per ogni vendor/item residuo:
-  - Nome fornitore (cliccabile → apre `VendorDrawer`)
-  - Descrizione item
-  - Importo residuo
-  - CTA "Pianifica rate" → apre VendorDrawer scrollando alla sezione pagamenti
-- Header con totale: "X impegni · totale {fmt}".
-- Chiarire label KPI da "Totale futuro" a **"Totale da versare (rate pianificate)"**.
+## 1. Cleanup dato
 
-### 3. `src/components/budget/v2/AllocationAndFunds.tsx`
-**AllocationCard**:
-- Sottotitolo: "Impegnato per categoria".
-- Sotto ogni riga categoria, micro-riga: `Versato {fmt(c.paid)} · Da versare {fmt(c.committed − c.paid)}`.
+UPDATE singolo sul pagamento "Acconto IVA inclusa" di Alberto Manzone: `amount = 366`, `tax_inclusive = true`. Allocazioni esistenti restano coerenti.
 
-**FundsCard**:
-- Aggiungere prop `unallocatedPaid: number` e `onAssignUnallocated?: () => void`.
-- Se `unallocatedPaid > 0`, mostrare riga dedicata (stile distinto, grigio neutro) sopra "Totale versato":
-  - Avatar `?`
-  - Etichetta "Non allocato"
-  - Importo in grigio
-  - Helper: "Pagamenti pagati senza contributore assegnato — assegna ai fondi"
-  - Click → apre dialog/drawer che lista i pagamenti pagati con allocazione incompleta, ognuno con CTA che apre `PaymentAllocationDialog` esistente.
+## 2. Importi al lordo — `src/lib/budgetAggregates.ts`
 
-### 4. `src/pages/Budget.tsx`
-- Calcolare `unplanned = unplannedCommitments(uiVendors)` e `unalloc = unallocatedPaid(totals.paid, uiContributors)`.
-- Passare `unplanned` a `CashflowTimeline`.
-- Passare `unallocatedPaid={unalloc}` a `FundsCard` con handler che apre un nuovo `UnallocatedPaymentsDialog`.
+Helper `paymentCashAmount(p)`:
 
-### 5. Nuovo file `src/components/budget/v2/UnallocatedPaymentsDialog.tsx`
-- Dialog semplice che lista i pagamenti con `status === 'paid'` e `sum(allocations) < amount`.
-- Ogni riga ha CTA "Assegna" che apre il `PaymentAllocationDialog` esistente in modalità `edit`.
+```
+if p.tax_inclusive === true       → p.amount
+else if p.tax_rate is null/0      → p.amount   (assunto già lordo, niente moltiplicazione)
+else                              → p.amount × (1 + p.tax_rate/100)
+```
 
-## Invariante visibile
-Dopo le modifiche:
-- `Impegnato (Hero)` = `Versato (Hero)` + `Da versare rate (timeline)` + `Impegni senza piano (sotto timeline)`.
-- `Versato (Hero)` = `Totale versato (Fondi)` + `Non allocato (Fondi)`.
-- `Allocazione categoria` esplicita Versato/Da versare per categoria → niente più confronti errati con totali cross-categoria.
+**Regola "no tax = no markup"**: se l'utente non indica aliquota, il valore inserito è considerato già lordo. Nessuna inflazione silenziosa.
+
+Usato in:
+- `computeTotals` → `itemPaid` / `itemScheduled` sommano `paymentCashAmount(p)`
+- `UiPayment.amount` → valorizzato al lordo
+- `unallocatedPaidPayments` riceve già `p.amount` lordo dalla mappatura UI
+
+Effetto: tile "Già pagato" allineata a "Totale versato"; caso Tenuta dell'olmo (500 net @ 22% → 610) risolto.
+
+## 3. Blocco sovra-allocazione — `PaymentAllocationDialog.tsx`
+
+Guardia numerica: `Σ allocazioni > paymentAmount + 0.01` → disabilita "Salva" con badge rosso e delta esplicito. `paymentAmount` ricevuto è già il **lordo** (caller allineato al punto 2).
+
+## 4. Force-zero su modifica importo
+
+Nei punti che aggiornano `payments.amount` (`PaymentPlanTab.tsx`, `PaymentDialog.tsx`):
+
+1. Se esistono `payment_allocations` per quel `payment_id` E il nuovo `amount` ≠ vecchio → confirm dialog:
+   *"Modificando l'importo, le attribuzioni esistenti verranno azzerate. Dovrai riassegnare il pagamento ai contributori."*
+2. Su conferma: `DELETE` delle allocazioni, poi UPDATE.
+3. Se il pagamento era `Pagato` → aprire automaticamente `PaymentAllocationDialog` in mode `edit` per evitare stato "pagato senza allocazione".
+
+## 5. Ereditarietà aliquota (preimpostata, modificabile)
+
+In `PaymentDialog` / `PaymentPlanTab`, alla creazione/modifica di un pagamento:
+- Default `tax_rate` ← `expense_line_items.tax_rate` prevalente del preventivo del fornitore (mediana o prima riga); fallback `22` se nessuna riga.
+- Default `tax_inclusive` ← `expense_line_items.price_is_tax_inclusive` corrispondente; fallback `true`.
+- I campi restano **editabili** dall'utente, senza vincoli.
+
+Niente blocchi né warning su mismatch con il preventivo: aliquote miste sono lecite (acconto 22% + saldo 10%, ecc.).
+
+## 6. Cleanup
+
+Rimuovere eventuali normalizzazioni silenziose in `budgetAggregates.ts` che nascondevano la sovra-allocazione: ora l'invariante è garantita a monte.
+
+---
 
 ## File toccati
-- `src/lib/budgetAggregates.ts`
-- `src/components/budget/v2/CashflowTimeline.tsx`
-- `src/components/budget/v2/AllocationAndFunds.tsx`
-- `src/components/budget/v2/UnallocatedPaymentsDialog.tsx` (nuovo)
-- `src/pages/Budget.tsx`
+
+- `src/lib/budgetAggregates.ts` — `paymentCashAmount` + uso nei totali
+- `src/components/budget/v2/PaymentAllocationDialog.tsx` — guardia sovra-allocazione
+- `src/components/vendors/PaymentPlanTab.tsx` — force-zero su edit amount + ereditarietà aliquota
+- `src/components/budget/PaymentDialog.tsx` — stesso pattern
+- Cleanup dato: UPDATE pagamento Alberto Manzone
+
+Procedo in build mode quando approvi.

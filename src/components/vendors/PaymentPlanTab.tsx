@@ -70,6 +70,8 @@ export function PaymentPlanTab({
   const [editingAllocations, setEditingAllocations] = useState<Array<{contributor_id: string, amount: string}>>([]);
   const [editingPaymentIndex, setEditingPaymentIndex] = useState<number | null>(null);
   const [originalPaymentData, setOriginalPaymentData] = useState<Payment | null>(null);
+  // Aliquote ereditate dal preventivo (line_items) — usate come default per nuove rate.
+  const [inheritedTax, setInheritedTax] = useState<{ tax_rate: string; tax_inclusive: boolean }>({ tax_rate: '22', tax_inclusive: true });
   const { toast } = useToast();
 
   // Sincronizza i totali interni quando cambiano i props
@@ -219,8 +221,31 @@ export function PaymentPlanTab({
       loadPayments();
       loadWeddingDate();
       loadContributors();
+      loadInheritedTax();
     }
   }, [expenseItemId]);
+
+  const loadInheritedTax = async () => {
+    try {
+      const { data } = await supabase
+        .from('expense_line_items')
+        .select('tax_rate, price_is_tax_inclusive')
+        .eq('expense_item_id', expenseItemId)
+        .order('order_index', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (data) {
+        setInheritedTax({
+          tax_rate: String(data.tax_rate ?? 22),
+          tax_inclusive: data.price_is_tax_inclusive !== false,
+        });
+      }
+    } catch (e) {
+      // fallback silenzioso ai default
+    }
+  };
+
+
 
   const loadWeddingDate = async () => {
     try {
@@ -378,8 +403,8 @@ export function PaymentPlanTab({
       due_date_type: "absolute" as const,
       days_before_wedding: "",
       status: "Da Pagare" as const,
-      tax_inclusive: true,
-      tax_rate: "22",
+      tax_inclusive: inheritedTax.tax_inclusive,
+      tax_rate: inheritedTax.tax_rate,
     };
     setPayments([...payments, newPayment]);
     setEditingPaymentIndex(payments.length);
@@ -578,6 +603,30 @@ export function PaymentPlanTab({
       } else if (payment.amount_type === 'balance') {
         calculatedAmount = calculateBalanceAmount(index);
       }
+
+      // Force-zero: se cambia l'importo di un pagamento con allocazioni esistenti,
+      // chiedi conferma e azzera le allocazioni (non si può ipotizzare come ridistribuire).
+      if (payment.id && paymentAllocations[payment.id]?.length > 0) {
+        const previousAmount = Number(originalPaymentData?.amount ?? payment.amount ?? 0);
+        if (Math.abs(previousAmount - calculatedAmount) > 0.01) {
+          const ok = window.confirm(
+            "Stai modificando l'importo di un pagamento già attribuito ai contributori.\n\n" +
+            "Le attribuzioni esistenti verranno azzerate e dovrai riassegnare il pagamento.\n\nProcedere?"
+          );
+          if (!ok) return;
+          // Pulizia esplicita: rimuovi le allocazioni esistenti e resetta lo stato locale.
+          await supabase.from("payment_allocations").delete().eq("payment_id", payment.id);
+          setEditingAllocations([]);
+          const cleaned = { ...paymentAllocations };
+          delete cleaned[payment.id];
+          setPaymentAllocations(cleaned);
+          // Riporta lo stato a "Da Pagare" così l'utente è forzato a ri-confermare il pagamento.
+          payment.status = 'Da Pagare';
+          payment.paid_by = undefined;
+          payment.paid_on_date = null;
+        }
+      }
+
 
       const paymentData = {
         expense_item_id: expenseItemId,

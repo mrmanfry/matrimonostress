@@ -75,7 +75,13 @@ export function PaymentAllocationDialog({
 
   const splitTotal = Object.values(splitPct).reduce((s, v) => s + (Number(v) || 0), 0);
   const splitValid = strategy === 'split' ? Math.round(splitTotal) === 100 : true;
-  const canSave = !!paymentId && (strategy === 'single' ? !!singleId : splitValid);
+  // Importo allocato totale (in €) — usato per bloccare la sovra-allocazione.
+  const allocatedEuros = strategy === 'single'
+    ? paymentAmount
+    : Object.entries(splitPct).reduce((s, [, pct]) => s + (paymentAmount * (Number(pct) || 0)) / 100, 0);
+  const overAllocated = allocatedEuros > paymentAmount + 0.01;
+  const overDelta = allocatedEuros - paymentAmount;
+  const canSave = !!paymentId && !overAllocated && (strategy === 'single' ? !!singleId : splitValid);
 
   function handle5050() {
     if (contributors.length < 2) return;
@@ -257,6 +263,14 @@ export function PaymentAllocationDialog({
             </div>
           </div>
         )}
+
+        {overAllocated && (
+          <div className="text-xs px-2 py-1.5 rounded bg-destructive/10 text-destructive">
+            Sovra-allocazione: <strong>+{fmt(overDelta)}</strong> oltre l'importo del pagamento.
+          </div>
+        )}
+
+
 
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>

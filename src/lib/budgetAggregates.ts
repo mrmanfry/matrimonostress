@@ -29,7 +29,23 @@ export interface DbPayment {
   due_date: string;
   status: string;            // 'Pagato' | 'Da Pagare' | etc.
   paid_on_date: string | null;
+  tax_inclusive?: boolean | null;
+  tax_rate?: number | null;
 }
+
+/**
+ * Importo "cash" reale del pagamento (lordo, ciò che esce dal conto).
+ * Regola "no tax = no markup": se l'utente non ha indicato un'aliquota,
+ * il valore inserito è considerato già lordo.
+ */
+export function paymentCashAmount(p: Pick<DbPayment, 'amount' | 'tax_inclusive' | 'tax_rate'>): number {
+  const base = Number(p.amount || 0);
+  if (p.tax_inclusive === true) return base;
+  const rate = Number(p.tax_rate ?? 0);
+  if (!rate) return base;
+  return base * (1 + rate / 100);
+}
+
 
 export interface DbContributor {
   id: string;
@@ -147,9 +163,9 @@ export function buildVendors(
       const linkedPayments = paymentsByItem.get(it.id) ?? [];
       const itemPaid = linkedPayments
         .filter(p => p.status === 'Pagato')
-        .reduce((s, p) => s + Number(p.amount || 0), 0);
+        .reduce((s, p) => s + paymentCashAmount(p), 0);
       const itemScheduled = linkedPayments
-        .reduce((s, p) => s + Number(p.amount || 0), 0);
+        .reduce((s, p) => s + paymentCashAmount(p), 0);
       total += itemTotal;
       paid += itemPaid;
       scheduled += itemScheduled;
@@ -162,7 +178,7 @@ export function buildVendors(
           vendorName: '',
           categoryId: it.category_id ?? it.vendors?.expense_categories?.id ?? 'uncategorized',
           desc: p.description,
-          amount: Number(p.amount || 0),
+          amount: paymentCashAmount(p),
           due: p.due_date,
           status: p.status === 'Pagato' ? 'paid' : 'due',
         });
