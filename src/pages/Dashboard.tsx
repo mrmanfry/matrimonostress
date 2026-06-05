@@ -18,6 +18,7 @@ import WebsiteGeneratorCard from "@/components/website/WebsiteGeneratorCard";
 import { calculateExpenseAmount, resolveGuestCounts, inferExpenseType, formatCurrency } from "@/lib/expenseCalculations";
 import type { ExpenseItem, ExpenseLineItem, GuestCounts } from "@/lib/expenseCalculations";
 import { calculateExpectedCounts, calculateTotalVendorStaff } from "@/lib/expectedCalculator";
+import { ScenarioSelector, type ScenarioMode } from "@/components/budget/v2/ScenarioSelector";
 
 interface Wedding {
   id: string;
