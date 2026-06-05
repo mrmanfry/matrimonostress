@@ -44,7 +44,7 @@ type Strategy = 'single' | 'split';
 
 export function PaymentAllocationDialog({
   open, onOpenChange, mode, paymentId, paymentAmount, paymentDescription,
-  vendorName, contributors, existingAllocations, onSaved,
+  vendorName, contributors, existingAllocations, paymentIsDynamic, onSaved,
 }: Props) {
   const { toast } = useToast();
   const [strategy, setStrategy] = React.useState<Strategy>('single');
