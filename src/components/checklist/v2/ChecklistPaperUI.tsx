@@ -16,10 +16,16 @@ const ICONS = { fileText: FileText, church: Church, utensils: Utensils, sparkles
 
 export function PaperRoot({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ background: P.bg, color: P.ink, fontFamily: P.fontUI, minHeight: "100%", padding: "30px 38px 60px" }}>
+    <div className="chk-paper-root" style={{ background: P.bg, color: P.ink, fontFamily: P.fontUI, minHeight: "100%", padding: "30px 38px 60px" }}>
+      <style>{`
+        @media (max-width: 767px) {
+          .chk-paper-root { padding: 16px 14px 80px !important; }
+        }
+      `}</style>
       <div style={{ maxWidth: 1480, margin: "0 auto", display: "flex", flexDirection: "column", gap: 22 }}>
         {children}
       </div>
+
     </div>
   );
 }
@@ -80,14 +86,23 @@ export function ChkHeader({ stats, view, setView, search, setSearch, onNew, expo
     { id: "calendar", label: "Calendario", Icon: CalendarIcon },
   ];
   return (
-    <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 14, padding: 22, boxShadow: P.shadowSm }}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 24, alignItems: "flex-start" }}>
+    <div className="chk-header-card" style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 14, padding: 22, boxShadow: P.shadowSm }}>
+      <style>{`
+        @media (max-width: 767px) {
+          .chk-header-card { padding: 16px !important; }
+          .chk-header-grid { grid-template-columns: 1fr !important; gap: 16px !important; }
+          .chk-header-side { min-width: 0 !important; align-items: stretch !important; }
+          .chk-header-h1 { font-size: 22px !important; }
+        }
+      `}</style>
+      <div className="chk-header-grid" style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 24, alignItems: "flex-start" }}>
+
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 6 }}>
             <div style={{ width: 38, height: 38, borderRadius: 10, background: "linear-gradient(135deg, hsl(var(--paper-brand-tint)), #E8DFFC)", color: P.brandInk, display: "inline-flex", alignItems: "center", justifyContent: "center", border: "1px solid #E3D9FB" }}>
               <CheckSquare size={18} />
             </div>
-            <h1 style={{ margin: 0, fontFamily: P.fontSerif, fontSize: 26, fontWeight: 500, letterSpacing: "-0.02em" }}>Checklist Matrimonio</h1>
+            <h1 className="chk-header-h1" style={{ margin: 0, fontFamily: P.fontSerif, fontSize: 26, fontWeight: 500, letterSpacing: "-0.02em" }}>Checklist Matrimonio</h1>
           </div>
           <p style={{ margin: "0 0 18px", fontSize: 13.5, color: P.ink2, maxWidth: 540 }}>
             Tutto quello che serve fare prima del grande giorno, organizzato per area e priorità.
@@ -116,7 +131,7 @@ export function ChkHeader({ stats, view, setView, search, setSearch, onNew, expo
           </div>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "flex-end", minWidth: 320 }}>
+        <div className="chk-header-side" style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "flex-end", minWidth: 320 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, width: "100%" }}>
             <div style={{ flex: 1, position: "relative" }}>
               <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: P.ink3, pointerEvents: "none", display: "inline-flex" }}>
