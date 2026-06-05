@@ -338,6 +338,7 @@ export default function Budget() {
       />
 
       <style>{`
+        .budget-page-body { padding: 28px 40px 60px; }
         .budget-grid-row {
           display: grid;
           gap: 24px;
@@ -346,7 +347,11 @@ export default function Budget() {
         @media (max-width: 900px) {
           .budget-grid-row { grid-template-columns: 1fr; }
         }
+        @media (max-width: 767px) {
+          .budget-page-body { padding: 18px 14px 80px; gap: 16px; }
+        }
       `}</style>
+
     </div>
   );
 }
