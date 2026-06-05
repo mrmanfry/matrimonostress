@@ -138,7 +138,7 @@ export default function Budget() {
         for (const g of guests) {
           if (!filterFn(g)) continue;
           if (g.is_staff) continue;            // staff counted from vendors
-          if (g.is_couple_member) continue;    // couple counted separately
+          // NOTE: sposi (is_couple_member) inclusi negli adulti — generano coperto/costo a testa.
           if (g.is_child) children += 1;
           else adults += 1;
           // Textual +1 (not yet promoted to its own row) still counts as 1 adult head.
@@ -148,6 +148,7 @@ export default function Budget() {
         }
         return { adults, children, staff: vendorStaffMeals };
       };
+
       setGuestCounts({
         planned: {
           adults: Number(weddingRes.data?.target_adults ?? 100),
