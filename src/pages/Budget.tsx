@@ -314,6 +314,7 @@ export default function Budget() {
         vendorName={allocVendor?.name}
         contributors={uiContributors.map(c => ({ id: c.id, name: c.name }))}
         existingAllocations={existingAllocations}
+        paymentIsDynamic={allocPayment?.isDynamic ?? false}
         onSaved={loadAll}
       />
 
