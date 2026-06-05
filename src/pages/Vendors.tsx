@@ -413,6 +413,8 @@ const Vendors = () => {
                 key={v.id}
                 v={v}
                 vendorCostsHidden={vendorCostsHidden}
+                totals={totalsFor(v)}
+                mode={mode}
                 onOpen={() => navigate(`/app/vendors/${v.id}`)}
                 onEdit={() => { setEditingVendor(v); setFormOpen(true); }}
               />
@@ -422,6 +424,7 @@ const Vendors = () => {
           <VendorTable
             rows={filtered}
             vendorCostsHidden={vendorCostsHidden}
+            totalsFor={totalsFor}
             onOpen={(id) => navigate(`/app/vendors/${id}`)}
           />
         )}
