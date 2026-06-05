@@ -354,11 +354,65 @@ const AppLayoutInner = ({
         <PaymentTestModeBanner />
         <PaywallGuard pathname={location.pathname} />
 
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-auto pb-24 md:pb-6">
           <Outlet />
         </main>
       </div>
+
+      <MobileBottomNav
+        pathname={location.pathname}
+        onOpenDrawer={() => setOpenMobile(true)}
+      />
     </div>
+  );
+};
+
+const MobileBottomNav = ({
+  pathname,
+  onOpenDrawer,
+}: {
+  pathname: string;
+  onOpenDrawer: () => void;
+}) => {
+  const tabs = [
+    { name: "Dashboard", href: "/app/dashboard", icon: LayoutDashboard },
+    { name: "Invitati", href: "/app/guests", icon: Users },
+    { name: "Budget", href: "/app/budget", icon: Euro },
+    { name: "Checklist", href: "/app/checklist", icon: CheckSquare },
+  ];
+  return (
+    <nav
+      className="md:hidden fixed bottom-0 inset-x-0 z-50 flex border-t border-[hsl(var(--paper-border))] bg-[hsl(var(--paper-surface))] pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_3px_rgba(0,0,0,0.04)]"
+      aria-label="Navigazione mobile"
+    >
+      {tabs.map((t) => {
+        const Icon = t.icon;
+        const active = pathname === t.href;
+        return (
+          <NavLink
+            key={t.href}
+            to={t.href}
+            className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] ${
+              active
+                ? "text-[hsl(var(--paper-ink))] font-medium"
+                : "text-[hsl(var(--paper-ink-3))]"
+            }`}
+          >
+            <Icon className="w-5 h-5" />
+            <span>{t.name}</span>
+          </NavLink>
+        );
+      })}
+      <button
+        type="button"
+        onClick={onOpenDrawer}
+        className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] text-[hsl(var(--paper-ink-3))]"
+        aria-label="Apri menu"
+      >
+        <LayoutGrid className="w-5 h-5" />
+        <span>Altro</span>
+      </button>
+    </nav>
   );
 };
 
