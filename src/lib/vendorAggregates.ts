@@ -181,6 +181,42 @@ export function vendorTotals(
   };
 }
 
+// Scenario-aware version: delegates to the centralised calculateExpenseAmount
+// (single source of truth) so vendor totals match the Budget page values.
+import { calculateExpenseAmount, type ExpenseItem as CalcExpenseItem, type ExpenseLineItem as CalcLineItem, type GuestCounts } from './expenseCalculations';
+
+export function vendorTotalsScenario(
+  expenseItems: DbExpenseItem[],
+  lineItemsByExpenseItem: Record<string, DbLineItem[]>,
+  payments: DbPayment[],
+  mode: 'planned' | 'expected' | 'confirmed',
+  guestCounts: GuestCounts | null,
+): VendorTotals {
+  const counts: GuestCounts = guestCounts ?? {
+    planned: { adults: 0, children: 0, staff: 0 },
+    expected: { adults: 0, children: 0, staff: 0 },
+    confirmed: { adults: 0, children: 0, staff: 0 },
+  };
+  const committed = expenseItems.reduce((s, it) => {
+    const lines = (lineItemsByExpenseItem[it.id] || []) as unknown as CalcLineItem[];
+    return s + calculateExpenseAmount(it as unknown as CalcExpenseItem, lines, mode, counts);
+  }, 0);
+  const paid = payments
+    .filter(p => isPaymentPaid(p.status))
+    .reduce((s, p) => s + Number(p.amount), 0);
+  const hasVariable = expenseItems.some(it => {
+    const t = (it.expense_type ?? '').toLowerCase();
+    return t === 'variable' || t === 'mixed';
+  });
+  return {
+    committed,
+    paid,
+    remaining: Math.max(0, committed - paid),
+    pct: committed > 0 ? Math.min(100, (paid / committed) * 100) : 0,
+    hasVariable,
+  };
+}
+
 export function isPaymentPaid(status: string | null | undefined): boolean {
   if (!status) return false;
   const s = status.toLowerCase();

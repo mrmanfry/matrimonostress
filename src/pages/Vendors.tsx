@@ -19,9 +19,13 @@ import { DeleteVendorDialog } from '@/components/vendors/v2/DeleteVendorDialog';
 import {
   VENDOR_STATUSES, VendorStatusId, normalizeStatus, statusById,
   fmtEUR, fmtDateShort, daysFromToday,
-  vendorTotals, nextPayment, isPaymentPaid, countsByStatus,
+  vendorTotalsScenario, nextPayment, isPaymentPaid, countsByStatus,
   DbExpenseItem, DbLineItem, DbPayment, expenseItemTotal,
 } from '@/lib/vendorAggregates';
+import { ScenarioSelector, type ScenarioMode } from '@/components/budget/v2/ScenarioSelector';
+import { ScenarioHeadcountBar } from '@/components/budget/v2/ScenarioHeadcountBar';
+import type { GuestCounts } from '@/lib/expenseCalculations';
+import { isGuestConfirmed } from '@/lib/rsvpHelpers';
 
 interface VendorRow {
   id: string;
@@ -54,6 +58,7 @@ const Vendors = () => {
   const [formOpen, setFormOpen] = React.useState(false);
   const [editingVendor, setEditingVendor] = React.useState<VendorRow | null>(null);
   const [deletingVendorId, setDeletingVendorId] = React.useState<string | null>(null);
+  const [mode, setMode] = React.useState<ScenarioMode>('planned');
 
   // Resolve wedding id
   const { data: weddingId } = useQuery({
@@ -144,10 +149,81 @@ const Vendors = () => {
   const vendors = data?.vendors || [];
   const categories = data?.categories || [];
 
+  // Wedding + guests → scenario mode (shared with Budget via weddings.calculation_mode) + guest counts.
+  const { data: scenarioData, refetch: refetchScenario } = useQuery({
+    queryKey: ['vendors-v2-scenario', weddingId],
+    enabled: !!weddingId,
+    queryFn: async () => {
+      const [wRes, gRes, vRes] = await Promise.all([
+        supabase.from('weddings')
+          .select('calculation_mode, target_adults, target_children, target_staff')
+          .eq('id', weddingId!)
+          .maybeSingle(),
+        supabase.from('guests')
+          .select('id, rsvp_status, is_child, is_staff, is_couple_member, allow_plus_one, plus_one_name, plus_one_of_guest_id')
+          .eq('wedding_id', weddingId!),
+        supabase.from('vendors').select('staff_meals_count').eq('wedding_id', weddingId!),
+      ]);
+      const persistedMode = (wRes.data?.calculation_mode as ScenarioMode | null) ?? 'planned';
+      const guests = (gRes.data ?? []) as Array<{
+        id: string; rsvp_status: string | null;
+        is_child: boolean | null; is_staff: boolean | null; is_couple_member: boolean | null;
+        allow_plus_one: boolean | null; plus_one_name: string | null; plus_one_of_guest_id: string | null;
+      }>;
+      const vendorStaffMeals = (vRes.data ?? []).reduce(
+        (s, v: any) => s + Number(v.staff_meals_count || 0), 0
+      );
+      const hostsWithMaterializedPlusOne = new Set(
+        guests.filter(g => g.plus_one_of_guest_id).map(g => g.plus_one_of_guest_id as string)
+      );
+      const tally = (filterFn: (g: typeof guests[number]) => boolean) => {
+        let adults = 0, children = 0;
+        for (const g of guests) {
+          if (!filterFn(g)) continue;
+          if (g.is_staff) continue;
+          if (g.is_child) children += 1; else adults += 1;
+          if (g.allow_plus_one && g.plus_one_name && !hostsWithMaterializedPlusOne.has(g.id)) adults += 1;
+        }
+        return { adults, children, staff: vendorStaffMeals };
+      };
+      const guestCounts: GuestCounts = {
+        planned: {
+          adults: Number(wRes.data?.target_adults ?? 100),
+          children: Number(wRes.data?.target_children ?? 0),
+          staff: Number(wRes.data?.target_staff ?? vendorStaffMeals),
+        },
+        expected: tally(() => true),
+        confirmed: tally(g => isGuestConfirmed(g)),
+      };
+      return { persistedMode, guestCounts };
+    },
+  });
+
+  // Sync local mode with persisted value on first load / wedding change.
+  const persistedMode = scenarioData?.persistedMode;
+  React.useEffect(() => {
+    if (persistedMode) setMode(persistedMode);
+  }, [persistedMode]);
+
+  const guestCounts = scenarioData?.guestCounts ?? null;
+
+  const handleModeChange = (m: ScenarioMode) => {
+    setMode(m);
+    if (!weddingId) return;
+    supabase.from('weddings').update({ calculation_mode: m }).eq('id', weddingId).then(({ error }) => {
+      if (error) console.warn('Persist scenario failed', error);
+    });
+  };
+
+  const totalsFor = React.useCallback((v: VendorRow) =>
+    vendorTotalsScenario(v.expense_items || [], v.lineItemsByExpenseItem || {}, v.payments || [], mode, guestCounts),
+    [mode, guestCounts]
+  );
+
   // Stats
   const counts = countsByStatus(vendors);
-  const totalCommitted = vendors.reduce((s, v) => s + vendorTotals(v.expense_items || [], v.lineItemsByExpenseItem || {}, v.payments || []).committed, 0);
-  const totalPaid = vendors.reduce((s, v) => s + vendorTotals(v.expense_items || [], v.lineItemsByExpenseItem || {}, v.payments || []).paid, 0);
+  const totalCommitted = vendors.reduce((s, v) => s + totalsFor(v).committed, 0);
+  const totalPaid = vendors.reduce((s, v) => s + totalsFor(v).paid, 0);
   const confirmedCount = vendors.filter(v => normalizeStatus(v.status) === 'confirmed').length;
 
   // Filtering
@@ -252,6 +328,20 @@ const Vendors = () => {
           </PaperButton>
         </div>
 
+        {/* Scenario selector + headcount bar — shared with Budget via weddings.calculation_mode */}
+        {!vendorCostsHidden && (
+          <div style={{ display: 'grid', gap: 12, marginBottom: 20 }}>
+            <ScenarioSelector mode={mode} onModeChange={handleModeChange} counts={guestCounts} />
+            <ScenarioHeadcountBar
+              mode={mode}
+              weddingId={weddingId || ''}
+              counts={guestCounts}
+              onPlannedSaved={() => refetchScenario()}
+            />
+          </div>
+        )}
+
+
         {/* Status stats — clickable as filters */}
         <div className="vendors-status-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginBottom: 24 }}>
 
@@ -337,6 +427,8 @@ const Vendors = () => {
                 key={v.id}
                 v={v}
                 vendorCostsHidden={vendorCostsHidden}
+                totals={totalsFor(v)}
+                mode={mode}
                 onOpen={() => navigate(`/app/vendors/${v.id}`)}
                 onEdit={() => { setEditingVendor(v); setFormOpen(true); }}
               />
@@ -346,6 +438,7 @@ const Vendors = () => {
           <VendorTable
             rows={filtered}
             vendorCostsHidden={vendorCostsHidden}
+            totalsFor={totalsFor}
             onOpen={(id) => navigate(`/app/vendors/${id}`)}
           />
         )}
@@ -385,15 +478,22 @@ const segBtnStyle = (active: boolean): React.CSSProperties => ({
 });
 
 // ─── Vendor Card ───
+const MODE_LABELS: Record<ScenarioMode, string> = {
+  planned: 'pianificati',
+  expected: 'lista invitati',
+  confirmed: 'confermati',
+};
 const VendorCard: React.FC<{
   v: VendorRow;
   vendorCostsHidden: boolean;
+  totals: ReturnType<typeof vendorTotalsScenario>;
+  mode: ScenarioMode;
   onOpen: () => void;
   onEdit: () => void;
-}> = ({ v, vendorCostsHidden, onOpen }) => {
+}> = ({ v, vendorCostsHidden, totals, mode, onOpen }) => {
   const st = statusById(v.status);
-  const totals = vendorTotals(v.expense_items || [], v.lineItemsByExpenseItem || {}, v.payments || []);
   const next = nextPayment(v.payments || []);
+  const modeLabel = MODE_LABELS[mode];
 
   return (
     <div
@@ -446,7 +546,7 @@ const VendorCard: React.FC<{
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
             <span style={{ fontFamily: FONT_SERIF, fontSize: 20, fontWeight: 500, color: ink(), letterSpacing: '-0.2px' }}>
               {fmtEUR(totals.committed)}
-              {totals.hasVariable && <span style={{ fontSize: 11, color: ink(3), marginLeft: 6, fontFamily: FONT_MONO }}>previsti</span>}
+              {totals.hasVariable && <span style={{ fontSize: 11, color: ink(3), marginLeft: 6, fontFamily: FONT_MONO }}>{modeLabel}</span>}
             </span>
             <span style={{ fontSize: 12, color: totals.paid >= totals.committed ? success() : ink(2), fontFamily: FONT_MONO }}>
               {fmtEUR(totals.paid)} / {fmtEUR(totals.committed)}
@@ -497,8 +597,9 @@ const VendorCard: React.FC<{
 const VendorTable: React.FC<{
   rows: VendorRow[];
   vendorCostsHidden: boolean;
+  totalsFor: (v: VendorRow) => ReturnType<typeof vendorTotalsScenario>;
   onOpen: (id: string) => void;
-}> = ({ rows, vendorCostsHidden, onOpen }) => (
+}> = ({ rows, vendorCostsHidden, totalsFor, onOpen }) => (
   <PaperCard padding={0} style={{ overflow: 'hidden' }}>
     <div style={{
       display: 'grid', gridTemplateColumns: '1.6fr 1fr 1.2fr 1fr 40px',
@@ -514,7 +615,7 @@ const VendorTable: React.FC<{
     </div>
     {rows.map((v, i) => {
       const st = statusById(v.status);
-      const totals = vendorTotals(v.expense_items || [], v.lineItemsByExpenseItem || {}, v.payments || []);
+      const totals = totalsFor(v);
       const next = nextPayment(v.payments || []);
       return (
         <div
