@@ -149,10 +149,81 @@ const Vendors = () => {
   const vendors = data?.vendors || [];
   const categories = data?.categories || [];
 
+  // Wedding + guests → scenario mode (shared with Budget via weddings.calculation_mode) + guest counts.
+  const { data: scenarioData, refetch: refetchScenario } = useQuery({
+    queryKey: ['vendors-v2-scenario', weddingId],
+    enabled: !!weddingId,
+    queryFn: async () => {
+      const [wRes, gRes, vRes] = await Promise.all([
+        supabase.from('weddings')
+          .select('calculation_mode, target_adults, target_children, target_staff')
+          .eq('id', weddingId!)
+          .maybeSingle(),
+        supabase.from('guests')
+          .select('id, rsvp_status, is_child, is_staff, is_couple_member, allow_plus_one, plus_one_name, plus_one_of_guest_id')
+          .eq('wedding_id', weddingId!),
+        supabase.from('vendors').select('staff_meals_count').eq('wedding_id', weddingId!),
+      ]);
+      const persistedMode = (wRes.data?.calculation_mode as ScenarioMode | null) ?? 'planned';
+      const guests = (gRes.data ?? []) as Array<{
+        id: string; rsvp_status: string | null;
+        is_child: boolean | null; is_staff: boolean | null; is_couple_member: boolean | null;
+        allow_plus_one: boolean | null; plus_one_name: string | null; plus_one_of_guest_id: string | null;
+      }>;
+      const vendorStaffMeals = (vRes.data ?? []).reduce(
+        (s, v: any) => s + Number(v.staff_meals_count || 0), 0
+      );
+      const hostsWithMaterializedPlusOne = new Set(
+        guests.filter(g => g.plus_one_of_guest_id).map(g => g.plus_one_of_guest_id as string)
+      );
+      const tally = (filterFn: (g: typeof guests[number]) => boolean) => {
+        let adults = 0, children = 0;
+        for (const g of guests) {
+          if (!filterFn(g)) continue;
+          if (g.is_staff) continue;
+          if (g.is_child) children += 1; else adults += 1;
+          if (g.allow_plus_one && g.plus_one_name && !hostsWithMaterializedPlusOne.has(g.id)) adults += 1;
+        }
+        return { adults, children, staff: vendorStaffMeals };
+      };
+      const guestCounts: GuestCounts = {
+        planned: {
+          adults: Number(wRes.data?.target_adults ?? 100),
+          children: Number(wRes.data?.target_children ?? 0),
+          staff: Number(wRes.data?.target_staff ?? vendorStaffMeals),
+        },
+        expected: tally(() => true),
+        confirmed: tally(g => isGuestConfirmed(g)),
+      };
+      return { persistedMode, guestCounts };
+    },
+  });
+
+  // Sync local mode with persisted value on first load / wedding change.
+  const persistedMode = scenarioData?.persistedMode;
+  React.useEffect(() => {
+    if (persistedMode) setMode(persistedMode);
+  }, [persistedMode]);
+
+  const guestCounts = scenarioData?.guestCounts ?? null;
+
+  const handleModeChange = (m: ScenarioMode) => {
+    setMode(m);
+    if (!weddingId) return;
+    supabase.from('weddings').update({ calculation_mode: m }).eq('id', weddingId).then(({ error }) => {
+      if (error) console.warn('Persist scenario failed', error);
+    });
+  };
+
+  const totalsFor = React.useCallback((v: VendorRow) =>
+    vendorTotalsScenario(v.expense_items || [], v.lineItemsByExpenseItem || {}, v.payments || [], mode, guestCounts),
+    [mode, guestCounts]
+  );
+
   // Stats
   const counts = countsByStatus(vendors);
-  const totalCommitted = vendors.reduce((s, v) => s + vendorTotals(v.expense_items || [], v.lineItemsByExpenseItem || {}, v.payments || []).committed, 0);
-  const totalPaid = vendors.reduce((s, v) => s + vendorTotals(v.expense_items || [], v.lineItemsByExpenseItem || {}, v.payments || []).paid, 0);
+  const totalCommitted = vendors.reduce((s, v) => s + totalsFor(v).committed, 0);
+  const totalPaid = vendors.reduce((s, v) => s + totalsFor(v).paid, 0);
   const confirmedCount = vendors.filter(v => normalizeStatus(v.status) === 'confirmed').length;
 
   // Filtering
