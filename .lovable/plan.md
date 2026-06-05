@@ -1,77 +1,38 @@
-# Piano: Interfaccia Mobile WedsApp
+# Allineamento Fornitori ↔ Budget + Selettore Scenario
 
-Obiettivo: rendere tutte le pagine `/app/*` perfettamente utilizzabili sotto `md` (768px), **senza toccare backend, dati o logiche di business**. Solo layout/responsive.
+## Il problema
 
-## Stato attuale (cosa abbiamo già)
+Nella card di "International Catering" la pagina **Fornitori** mostra `1.890 € previsti` (3.550 € / 1.890 €), ma il Budget mostra valori diversi.
 
-- `index.html`: meta viewport già corretto (`width=device-width, initial-scale=1.0`) — il "fix dei 5 secondi" è già a posto.
-- `AppLayout.tsx` usa `SidebarProvider` di shadcn: su mobile la sidebar diventa **già un drawer off-canvas** (Sheet). Quindi il drawer del punto 1 dell'handoff è di fatto già presente.
-- Manca invece: **bottom-nav mobile**, **header mobile compatto**, padding-bottom per la safe-area, e i collassi di griglie pagina-per-pagina.
+Causa: `src/pages/Vendors.tsx` usa `vendorTotals()` (in `src/lib/vendorAggregates.ts`) che calcola il "committed" con `expenseItemTotal()` — una formula semplificata che:
+- somma `unit_price × quantity_fixed` ignorando `quantity_type` (`adults`, `children`, `total_guests`, `staff`),
+- ignora IVA (`tax_rate`, `price_is_tax_inclusive`),
+- non considera lo scenario (pianificati / lista invitati / confermati).
 
-## 1. Shell mobile (`src/pages/AppLayout.tsx`)
+Il Budget invece usa `calculateExpenseAmount()` (`src/lib/expenseCalculations.ts`) — fonte unica di verità per memoria di progetto — che applica scenario, IVA e quantità per ospite. Da qui la divergenza.
 
-- Aggiungere una **bottom-nav fissa** visibile solo `< md` (`flex md:hidden`), con 5 tab: Dashboard, Invitati, Budget, Checklist, **Altro**.
-  - "Altro" apre il drawer della sidebar via `setOpenMobile(true)`.
-  - Stile: `fixed bottom-0 inset-x-0 z-50 border-t bg-paper-surface pb-[env(safe-area-inset-bottom)]`.
-  - Tab attiva evidenziata in base a `location.pathname`.
-- Header (`<header>`): su mobile mostrare hamburger (`SidebarTrigger`) + titolo pagina compatto + TrialBadge. Nascondere il blocco countdown centrale (già `hidden md:flex`, ok). Il blocco brand a sinistra resta ma più corto.
-- `<main>`: aggiungere `pb-24 md:pb-6` per non sovrapporre l'ultima riga alla bottom-nav.
+In più la pagina Fornitori non ha il selettore di scenario, quindi i costi non si aggiornano in base al numero di invitati confermati/attesi.
 
-## 2. Collassi di griglie (mobile-first)
+## Cosa cambia
 
-Regola: ogni `grid-cols-N` fisso → `grid-cols-1 md:grid-cols-N`. I KPI rimangono `grid-cols-2 md:grid-cols-4`.
+### 1. Selettore di scenario nella pagina Fornitori
+- Riusare `ScenarioSelector` e `ScenarioHeadcountBar` già presenti nel Budget (`src/components/budget/v2/`).
+- Posizionarli nell'header di `src/pages/Vendors.tsx`, sotto il titolo e prima dei filtri.
+- Tre modalità: **Pianificati**, **Lista invitati**, **Confermati** (stessa label e logica del Budget).
+- Persistere la scelta sullo stesso storage usato dal Budget (per condividere lo stato fra le due pagine).
 
-Pagine da rivedere (interventi puramente di className):
+### 2. Calcolo totali fornitore basato sullo scenario
+- Caricare in `Vendors.tsx` gli stessi dati che usa Budget: `guestCounts` (planned/expected/confirmed) tramite l'hook/handler oggi usato in `Budget.tsx`.
+- Sostituire `vendorTotals()` con un wrapper che usa `calculateExpenseAmount(item, lineItems, mode, guestCounts)` per ogni `expense_item` del fornitore, sommando i risultati.
+- Mantenere il calcolo di `paid` invariato (somma `payments` con status pagato).
+- Aggiornare l'etichetta sulla card: invece di un fisso "previsti", mostrare la modalità attiva ("pianificati", "lista invitati", "confermati") e nasconderla quando il fornitore non ha spese variabili.
 
-- **Budget** (`src/pages/Budget.tsx` + `src/components/budget/v2/*`)
-  - Striscia KPI → `grid-cols-2 md:grid-cols-4`.
-  - Riga Allocazione+Fondi → `grid-cols-1 md:grid-cols-[1.4fr_1fr]`.
-  - Header tabella spese → `flex-col md:flex-row`, search full-width su mobile.
-  - Callout prossimo pagamento → `flex-wrap`.
-  - `VendorDrawer` → `w-full` su mobile.
-  - Hero titolo `text-3xl md:text-4xl`.
-- **Fornitori** (`src/pages/Vendors.tsx`, `src/pages/VendorDetails.tsx`)
-  - Stat di stato → `grid-cols-2 md:grid-cols-4`.
-  - Header lista + filtri → `flex-col md:flex-row`, search full-width.
-  - Dettaglio: `md:grid-cols-[320px_1fr]` con 1 colonna su mobile; pannello profilo da `sticky` → `static` su mobile.
-- **Invitati** (`src/pages/Guests.tsx`, `src/components/guests/v2/detail/GuestsDetailPanel.tsx`)
-  - Già usa `Sheet` bottom su mobile per il dettaglio — ok.
-  - Verificare che lo split `md:grid-cols-[1fr_460px]` collassi correttamente.
-  - Topbar editoriale: nascondere nav centrale e contatore confermati (`hidden md:flex`).
-- **Tavoli** (`src/pages/Tables.tsx`, `src/components/tables/*`)
-  - Stats header → `flex-col` + `overflow-x-auto`.
-  - Barra azioni → `overflow-x-auto`.
-  - GuestPool sidebar → `hidden md:block` (su mobile niente drag&drop, si usa "Aggiungi ospite" dal pannello tavolo).
-  - Griglia card tavoli → 1 colonna su mobile (già `auto-fill minmax(~220px,1fr)`, verificare).
-  - Pannello dettaglio tavolo da `w-[380px]` fisso → `inset-x-2 bottom-2 w-auto max-h-[70vh]` su mobile.
-- **Campagne / Invitations** (`src/pages/Invitations.tsx`)
-  - Header → `grid-cols-1 md:grid-cols-[1fr_auto]`.
-  - Funnel 5 stati → `grid-cols-2 md:grid-cols-5`.
-  - Card azione / campagne / print → `grid-cols-1 md:grid-cols-2`.
-- **Checklist** (`src/pages/Checklist.tsx`)
-  - Header → `grid-cols-1 md:grid-cols-[1fr_auto]`.
-  - Vista Calendario → `grid-cols-1 md:grid-cols-[minmax(0,1fr)_360px]`.
+### 3. File toccati
+- `src/pages/Vendors.tsx` — header con selettore + headcount bar, caricamento `guestCounts`, passaggio `mode` ai calcoli.
+- `src/lib/vendorAggregates.ts` — nuova funzione `vendorTotalsScenario(items, lineItemsMap, payments, mode, guestCounts)` che delega a `calculateExpenseAmount`. La vecchia `vendorTotals` resta per retrocompatibilità ma non viene più usata dalla pagina.
+- Nessuna modifica a DB o a `Budget.tsx`.
 
-Altre pagine (`Dashboard`, `Catering`, `Accommodation`, `Calendar`, `Memories`, `MassBooklet`, `Timeline`, `Settings`, `Chat`): pass rapido a verificare che eventuali `grid-cols-N` o pannelli fissi diventino mobile-friendly con la stessa regola. Niente rifacimenti.
-
-## 3. Pannelli & Drawer
-
-- Tutti i Drawer/Sheet già esistenti che hanno larghezze fisse → su mobile `w-full` o `inset-x-2`.
-- Elementi `sticky` con altezze calcolate (es. `h-[calc(100vh-110px)]`) → `static h-auto md:sticky md:h-[calc(100vh-110px)]`.
-
-## 4. Cosa NON tocchiamo
-
-- Nessuna modifica a query Supabase, edge functions, RLS, calcoli (`calculateExpenseAmount`, classificazione ospiti), routing.
-- Nessuna nuova libreria.
-- Nessuna modifica a `src/integrations/supabase/*`, schemi DB, `.env`.
-
-## Approccio di esecuzione
-
-1. **Shell**: bottom-nav + padding main + header mobile in `AppLayout.tsx`. (1 file)
-2. **Pagina per pagina**: applicare i collassi e i fix `sticky→static` / `w-full`, partendo dalle 5 prioritarie (Budget, Fornitori, Invitati, Tavoli, Checklist), poi le altre.
-3. Verifica visiva nel preview a 375px, 414px e 768px.
-
-## Domande aperte
-
-- **Bottom-nav, quali 5 tab?** L'handoff propone Dashboard / Invitati / Budget / Checklist / Altro. Confermi o preferisci sostituirne una (es. Fornitori al posto di Checklist, visto che è uno dei moduli centrali della tesoreria)?
-- **Procedo tutto in una sola passata** (shell + tutte le pagine) o preferisci una **prima PR solo con lo shell** (bottom-nav + header mobile + drawer già funzionante) così la vedi subito girare, e poi pagina-per-pagina?
+## Risultato atteso
+- I totali nella card "International Catering" coincidono con quelli del Budget per la stessa modalità.
+- Cambiando scenario in Fornitori (o in Budget) i costi previsti dei fornitori si aggiornano coerentemente.
+- Nessun impatto su pagamenti, stato fornitore o altri flussi.
