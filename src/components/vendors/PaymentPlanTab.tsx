@@ -70,6 +70,8 @@ export function PaymentPlanTab({
   const [editingAllocations, setEditingAllocations] = useState<Array<{contributor_id: string, amount: string}>>([]);
   const [editingPaymentIndex, setEditingPaymentIndex] = useState<number | null>(null);
   const [originalPaymentData, setOriginalPaymentData] = useState<Payment | null>(null);
+  // Aliquote ereditate dal preventivo (line_items) — usate come default per nuove rate.
+  const [inheritedTax, setInheritedTax] = useState<{ tax_rate: string; tax_inclusive: boolean }>({ tax_rate: '22', tax_inclusive: true });
   const { toast } = useToast();
 
   // Sincronizza i totali interni quando cambiano i props
