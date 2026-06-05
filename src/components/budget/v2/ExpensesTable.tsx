@@ -201,6 +201,8 @@ function ExpenseRow({ row, onOpen, onMarkPaid }: { row: Row; onOpen: () => void;
   const daysLeft = nextDue ? daysFromToday(nextDue.due) : null;
   const statusTone = status === 'paid' ? 'success' : status === 'partial' ? 'warn' : 'neutral';
   const statusLabel = status === 'paid' ? 'Saldato' : status === 'partial' ? 'Parziale' : 'Da avviare';
+  const ratesOverflow = vendor.scheduled - vendor.total;
+  const showRatesAlert = ratesOverflow > 0.5;
 
   return (
     <tr
@@ -210,7 +212,23 @@ function ExpenseRow({ row, onOpen, onMarkPaid }: { row: Row; onOpen: () => void;
       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
     >
       <Td>
-        <div style={{ fontWeight: 500, color: ink() }}>{vendor.name}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <span style={{ fontWeight: 500, color: ink() }}>{vendor.name}</span>
+          {showRatesAlert && (
+            <span
+              title={`Rate pianificate ${fmt(vendor.scheduled)} > prezzo previsto ${fmt(vendor.total)} (Δ +${fmt(ratesOverflow)}).\nPu\u00f2 succedere se: il piano rate \u00e8 stato firmato con uno scenario diverso da quello attuale, il contratto copre una capienza superiore agli ospiti attuali, o le rate sono state sovrastimate.\nCosa puoi fare: cambia scenario, aggiorna le righe-costo del fornitore, oppure modifica l'importo delle rate future.`}
+              style={{
+                fontSize: 10, fontWeight: 600, letterSpacing: '0.04em',
+                padding: '2px 7px', borderRadius: 999,
+                background: 'hsl(36 28% 92%)', color: ink(2),
+                border: `1px solid ${border()}`, cursor: 'help',
+                fontFamily: FONT_UI, whiteSpace: 'nowrap',
+              }}
+            >
+              Rate &gt; prezzo previsto · +{fmt(ratesOverflow)}
+            </span>
+          )}
+        </div>
         <div style={{ fontSize: 11, color: ink(3), marginTop: 2 }}>
           {vendor.items.length} {vendor.items.length === 1 ? 'voce' : 'voci'} · {vendor.payments.length} {vendor.payments.length === 1 ? 'rata' : 'rate'}
         </div>
