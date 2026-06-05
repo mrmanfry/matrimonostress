@@ -239,7 +239,7 @@ export default function Budget() {
         guestCounts={guestCounts}
       />
 
-      <div style={{ maxWidth: 1320, margin: '0 auto', padding: '28px 40px 60px', display: 'grid', gap: 24 }}>
+      <div className="budget-page-body" style={{ maxWidth: 1320, margin: '0 auto', display: 'grid', gap: 24 }}>
         <ScenarioHeadcountBar
           mode={mode}
           weddingId={weddingId}
