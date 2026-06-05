@@ -58,6 +58,7 @@ const Vendors = () => {
   const [formOpen, setFormOpen] = React.useState(false);
   const [editingVendor, setEditingVendor] = React.useState<VendorRow | null>(null);
   const [deletingVendorId, setDeletingVendorId] = React.useState<string | null>(null);
+  const [mode, setMode] = React.useState<ScenarioMode>('planned');
 
   // Resolve wedding id
   const { data: weddingId } = useQuery({
