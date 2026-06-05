@@ -325,7 +325,7 @@ const Vendors = () => {
             />
           </PaperCard>
         ) : view === 'grid' ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 14 }}>
+          <div className="vendors-cards-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 14 }}>
             {filtered.map(v => (
               <VendorCard
                 key={v.id}
