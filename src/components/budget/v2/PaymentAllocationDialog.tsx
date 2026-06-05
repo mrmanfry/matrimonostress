@@ -33,6 +33,9 @@ interface Props {
   vendorName?: string;
   contributors: AllocContributor[];
   existingAllocations?: ExistingAllocation[];
+  /** Se true, il pagamento è stato calcolato live (balance/percentage). Su mark, l'importo dinamico
+   *  va materializzato nel DB come 'fixed' per congelare lo snapshot del cash reale. */
+  paymentIsDynamic?: boolean;
   /** Called after successful save. Used by parent to refresh data. */
   onSaved: () => void | Promise<void>;
 }
