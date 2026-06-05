@@ -546,7 +546,7 @@ const VendorCard: React.FC<{
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
             <span style={{ fontFamily: FONT_SERIF, fontSize: 20, fontWeight: 500, color: ink(), letterSpacing: '-0.2px' }}>
               {fmtEUR(totals.committed)}
-              {totals.hasVariable && <span style={{ fontSize: 11, color: ink(3), marginLeft: 6, fontFamily: FONT_MONO }}>previsti</span>}
+              {totals.hasVariable && <span style={{ fontSize: 11, color: ink(3), marginLeft: 6, fontFamily: FONT_MONO }}>{modeLabel}</span>}
             </span>
             <span style={{ fontSize: 12, color: totals.paid >= totals.committed ? success() : ink(2), fontFamily: FONT_MONO }}>
               {fmtEUR(totals.paid)} / {fmtEUR(totals.committed)}
