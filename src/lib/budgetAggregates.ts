@@ -248,7 +248,9 @@ export function buildTotals(budget: number, vendors: UiVendor[]): UiTotals {
     committed,
     paid,
     remaining: Math.max(0, budget - committed),
-    toPay: Math.max(0, committed - paid),
+    // SIGNED: positivo = ancora da pagare; negativo = anticipi versati > prezzo previsto.
+    // Il clipping a zero \u00e8 demandato alla UI, che mostra "Anticipo +\u20acX" quando \u00e8 negativo.
+    toPay: committed - paid,
   };
 }
 
