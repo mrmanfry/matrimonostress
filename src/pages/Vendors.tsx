@@ -597,8 +597,9 @@ const VendorCard: React.FC<{
 const VendorTable: React.FC<{
   rows: VendorRow[];
   vendorCostsHidden: boolean;
+  totalsFor: (v: VendorRow) => ReturnType<typeof vendorTotalsScenario>;
   onOpen: (id: string) => void;
-}> = ({ rows, vendorCostsHidden, onOpen }) => (
+}> = ({ rows, vendorCostsHidden, totalsFor, onOpen }) => (
   <PaperCard padding={0} style={{ overflow: 'hidden' }}>
     <div style={{
       display: 'grid', gridTemplateColumns: '1.6fr 1fr 1.2fr 1fr 40px',
@@ -614,7 +615,7 @@ const VendorTable: React.FC<{
     </div>
     {rows.map((v, i) => {
       const st = statusById(v.status);
-      const totals = vendorTotals(v.expense_items || [], v.lineItemsByExpenseItem || {}, v.payments || []);
+      const totals = totalsFor(v);
       const next = nextPayment(v.payments || []);
       return (
         <div
