@@ -18,6 +18,7 @@ export interface InvitationGuest {
   last_reminder_sent_at: string | null;
   std_response: string | null;
   std_responded_at: string | null;
+  updated_at: string;
 }
 
 export interface InvitationParty {

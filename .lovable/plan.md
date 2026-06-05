@@ -1,38 +1,30 @@
-# Allineamento Fornitori ↔ Budget + Selettore Scenario
+## Problema
 
-## Il problema
+Nel box "Attività recente" della pagina Inviti, gli ultimi RSVP confermati/declinati non compaiono in ordine corretto (es. Cristina Calò manca anche se ha appena confermato).
 
-Nella card di "International Catering" la pagina **Fornitori** mostra `1.890 € previsti` (3.550 € / 1.890 €), ma il Budget mostra valori diversi.
+## Causa
 
-Causa: `src/pages/Vendors.tsx` usa `vendorTotals()` (in `src/lib/vendorAggregates.ts`) che calcola il "committed" con `expenseItemTotal()` — una formula semplificata che:
-- somma `unit_price × quantity_fixed` ignorando `quantity_type` (`adults`, `children`, `total_guests`, `staff`),
-- ignora IVA (`tax_rate`, `price_is_tax_inclusive`),
-- non considera lo scenario (pianificati / lista invitati / confermati).
+In `src/pages/Invitations.tsx` (riga 175 `recentActivity`):
 
-Il Budget invece usa `calculateExpenseAmount()` (`src/lib/expenseCalculations.ts`) — fonte unica di verità per memoria di progetto — che applica scenario, IVA e quantità per ospite. Da qui la divergenza.
+1. **Timestamp sbagliato per i confermati/declinati**: viene usato `g.formal_invite_sent_at` (= quando è stato spedito l'invito, spesso uguale per tutto il batch) invece del momento in cui l'ospite ha effettivamente risposto. Di conseguenza la lista è ordinata sulla data di invio, non sulla risposta, e Cristina (invito spedito tempo fa, conferma di oggi) finisce in fondo e viene tagliata dallo `slice(0, 4)`.
+2. **Dedupe troppo aggressivo**: `map.set(\`${who}|${what}\`)` deduplica per `party_name + azione`, quindi se due nuclei diversi hanno lo stesso `party_name` (caso raro) o se più membri dello stesso nucleo confermano, viene mostrata solo una voce. Il "who" inoltre mostra solo il nome del nucleo, non la persona.
+3. Nessuna colonna `rsvp_responded_at` esiste in DB: come proxy affidabile dell'ultima azione del guest c'è `updated_at` (cambia quando il guest risponde all'RSVP).
 
-In più la pagina Fornitori non ha il selettore di scenario, quindi i costi non si aggiornano in base al numero di invitati confermati/attesi.
+## Cambiamenti (solo frontend)
 
-## Cosa cambia
+### 1. `src/hooks/useInvitationsData.ts`
+- Aggiungere `updated_at` (e `last_name`, già presente; verificare) alla select di `guests`.
+- Aggiungere il campo `updated_at: string` all'interfaccia `InvitationGuest`.
 
-### 1. Selettore di scenario nella pagina Fornitori
-- Riusare `ScenarioSelector` e `ScenarioHeadcountBar` già presenti nel Budget (`src/components/budget/v2/`).
-- Posizionarli nell'header di `src/pages/Vendors.tsx`, sotto il titolo e prima dei filtri.
-- Tre modalità: **Pianificati**, **Lista invitati**, **Confermati** (stessa label e logica del Budget).
-- Persistere la scelta sullo stesso storage usato dal Budget (per condividere lo stato fra le due pagine).
+### 2. `src/pages/Invitations.tsx` — `recentActivity` useMemo
+- Per le voci `rsvp_status === 'confirmed' | 'declined'`: usare `g.updated_at` come `ts` e per `when` (fallback su `formal_invite_sent_at` se mancante).
+- Dedupe per `guest.id + tipo evento` invece che per `party_name + what`, così non si perdono persone diverse con la stessa azione.
+- "who": mostrare il **nome del singolo guest** (`${first_name} ${last_name}`) per le azioni RSVP confermato/declinato (è la persona che ha risposto), mantenendo `party_name` per le voci aggregate STD se preferito — per coerenza visiva usiamo nome del guest in tutte le voci.
+- Aumentare lo `slice` da 4 a 6 voci per dare più contesto.
 
-### 2. Calcolo totali fornitore basato sullo scenario
-- Caricare in `Vendors.tsx` gli stessi dati che usa Budget: `guestCounts` (planned/expected/confirmed) tramite l'hook/handler oggi usato in `Budget.tsx`.
-- Sostituire `vendorTotals()` con un wrapper che usa `calculateExpenseAmount(item, lineItems, mode, guestCounts)` per ogni `expense_item` del fornitore, sommando i risultati.
-- Mantenere il calcolo di `paid` invariato (somma `payments` con status pagato).
-- Aggiornare l'etichetta sulla card: invece di un fisso "previsti", mostrare la modalità attiva ("pianificati", "lista invitati", "confermati") e nasconderla quando il fornitore non ha spese variabili.
+### 3. Freschezza dati
+- Ridurre `staleTime` di `invitations-guests` da 30s a 0 (o aggiungere `refetchOnWindowFocus: true`) così tornando sulla pagina i nuovi RSVP appaiono subito.
 
-### 3. File toccati
-- `src/pages/Vendors.tsx` — header con selettore + headcount bar, caricamento `guestCounts`, passaggio `mode` ai calcoli.
-- `src/lib/vendorAggregates.ts` — nuova funzione `vendorTotalsScenario(items, lineItemsMap, payments, mode, guestCounts)` che delega a `calculateExpenseAmount`. La vecchia `vendorTotals` resta per retrocompatibilità ma non viene più usata dalla pagina.
-- Nessuna modifica a DB o a `Budget.tsx`.
-
-## Risultato atteso
-- I totali nella card "International Catering" coincidono con quelli del Budget per la stessa modalità.
-- Cambiando scenario in Fornitori (o in Budget) i costi previsti dei fornitori si aggiornano coerentemente.
-- Nessun impatto su pagamenti, stato fornitore o altri flussi.
+## Fuori scope
+- Nessuna modifica DB / migration.
+- Nessuna modifica al funnel o agli altri widget.
