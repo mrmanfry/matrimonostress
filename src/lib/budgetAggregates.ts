@@ -31,6 +31,10 @@ export interface DbPayment {
   paid_on_date: string | null;
   tax_inclusive?: boolean | null;
   tax_rate?: number | null;
+  amount_type?: 'fixed' | 'percentage' | 'balance' | null;
+  percentage_value?: number | null;
+  balance_base?: 'planned' | 'actual' | null;
+  percentage_base?: 'planned' | 'actual' | null;
 }
 
 /**
@@ -77,6 +81,10 @@ export interface UiPayment {
   amount: number;
   due: string;            // ISO date
   status: 'paid' | 'due';
+  /** True se l'importo è ricalcolato live (balance/percentage non pagati) e non letto dal DB. */
+  isDynamic?: boolean;
+  /** Tipo originale del pagamento dal DB, utile per UI. */
+  amountType?: 'fixed' | 'percentage' | 'balance';
 }
 
 export interface UiUnplannedCommitment {
@@ -169,26 +177,80 @@ export function buildVendors(
       const lines = lineItemsMap[it.id] ?? [];
       const itemTotal = calculateExpenseAmount(it, lines, mode, safeGuestCounts);
       const linkedPayments = paymentsByItem.get(it.id) ?? [];
+
+      // === Calcolo dinamico delle rate ===
+      // I pagamenti 'Pagato' mantengono SEMPRE il loro valore storico (cash reale uscito).
+      // Per i 'Da Pagare' di tipo 'percentage' e 'balance' ricalcoliamo live sullo scenario attivo.
+      // 1) Somma cash effettivo per pagato + fixed non pagato + percentage non pagato.
+      // 2) Il residuo (itemTotal − somma_step_1) viene distribuito equamente sui balance non pagati.
+      const effectiveAmount = new Map<string, number>();
+      const dynamicFlag = new Map<string, boolean>();
+
+      // Step 1: pagati (storici), fixed, percentage
+      let baseSum = 0;
+      const balanceUnpaid: typeof linkedPayments = [];
+      for (const p of linkedPayments) {
+        const isPaid = p.status === 'Pagato';
+        const type = (p.amount_type ?? 'fixed') as 'fixed' | 'percentage' | 'balance';
+
+        if (isPaid) {
+          const v = paymentCashAmount(p);
+          effectiveAmount.set(p.id, v);
+          dynamicFlag.set(p.id, false);
+          baseSum += v;
+          continue;
+        }
+
+        if (type === 'percentage' && p.percentage_value != null) {
+          const v = Math.max(0, itemTotal * (Number(p.percentage_value) / 100));
+          effectiveAmount.set(p.id, v);
+          dynamicFlag.set(p.id, true);
+          baseSum += v;
+        } else if (type === 'balance') {
+          balanceUnpaid.push(p);
+          // verrà settato in step 2
+        } else {
+          // fixed (o tipo non riconosciuto) → valore storico
+          const v = paymentCashAmount(p);
+          effectiveAmount.set(p.id, v);
+          dynamicFlag.set(p.id, false);
+          baseSum += v;
+        }
+      }
+
+      // Step 2: distribuisci residuo (clamp 0) sui balance non pagati
+      if (balanceUnpaid.length > 0) {
+        const residue = Math.max(0, itemTotal - baseSum);
+        const each = residue / balanceUnpaid.length;
+        for (const p of balanceUnpaid) {
+          effectiveAmount.set(p.id, each);
+          dynamicFlag.set(p.id, true);
+        }
+      }
+
       const itemPaid = linkedPayments
         .filter(p => p.status === 'Pagato')
-        .reduce((s, p) => s + paymentCashAmount(p), 0);
+        .reduce((s, p) => s + (effectiveAmount.get(p.id) ?? 0), 0);
       const itemScheduled = linkedPayments
-        .reduce((s, p) => s + paymentCashAmount(p), 0);
+        .reduce((s, p) => s + (effectiveAmount.get(p.id) ?? 0), 0);
       total += itemTotal;
       paid += itemPaid;
       scheduled += itemScheduled;
       uiItems.push({ id: it.id, desc: it.description, total: itemTotal, paid: itemPaid, scheduled: itemScheduled });
 
       for (const p of linkedPayments) {
+        const type = (p.amount_type ?? 'fixed') as 'fixed' | 'percentage' | 'balance';
         uiPayments.push({
           id: p.id,
           vendorId: it.vendor_id ?? '',
           vendorName: '',
           categoryId: it.category_id ?? it.vendors?.expense_categories?.id ?? 'uncategorized',
           desc: p.description,
-          amount: paymentCashAmount(p),
+          amount: effectiveAmount.get(p.id) ?? paymentCashAmount(p),
           due: p.due_date,
           status: p.status === 'Pagato' ? 'paid' : 'due',
+          isDynamic: dynamicFlag.get(p.id) ?? false,
+          amountType: type,
         });
       }
     }

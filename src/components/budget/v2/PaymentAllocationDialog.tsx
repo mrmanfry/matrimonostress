@@ -33,6 +33,9 @@ interface Props {
   vendorName?: string;
   contributors: AllocContributor[];
   existingAllocations?: ExistingAllocation[];
+  /** Se true, il pagamento è stato calcolato live (balance/percentage). Su mark, l'importo dinamico
+   *  va materializzato nel DB come 'fixed' per congelare lo snapshot del cash reale. */
+  paymentIsDynamic?: boolean;
   /** Called after successful save. Used by parent to refresh data. */
   onSaved: () => void | Promise<void>;
 }
@@ -41,7 +44,7 @@ type Strategy = 'single' | 'split';
 
 export function PaymentAllocationDialog({
   open, onOpenChange, mode, paymentId, paymentAmount, paymentDescription,
-  vendorName, contributors, existingAllocations, onSaved,
+  vendorName, contributors, existingAllocations, paymentIsDynamic, onSaved,
 }: Props) {
   const { toast } = useToast();
   const [strategy, setStrategy] = React.useState<Strategy>('single');
@@ -96,9 +99,25 @@ export function PaymentAllocationDialog({
     try {
       // 1. If "mark" mode → update payment to Pagato
       if (mode === 'mark') {
+        // Se il pagamento era dinamico (saldo/percentuale calcolato live),
+        // materializziamo l'importo corrente e lo congeliamo come 'fixed' per
+        // evitare che cambi retroattivamente quando lo scenario evolve.
+        const update: Record<string, unknown> = {
+          status: 'Pagato',
+          paid_on_date: new Date().toISOString().slice(0, 10),
+        };
+        if (paymentIsDynamic) {
+          update.amount = paymentAmount;
+          update.amount_type = 'fixed';
+          update.tax_inclusive = true; // paymentAmount è già cash effettivo
+          update.tax_rate = null;
+          update.percentage_value = null;
+          update.balance_base = null;
+          update.percentage_base = null;
+        }
         const { error: updErr } = await supabase
           .from('payments')
-          .update({ status: 'Pagato', paid_on_date: new Date().toISOString().slice(0, 10) })
+          .update(update)
           .eq('id', paymentId);
         if (updErr) throw updErr;
       }

@@ -181,7 +181,19 @@ function PaymentTimeline({ payments, onMarkPaid }: { payments: UiPayment[]; onMa
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
               <div>
-                <div style={{ fontSize: 13, color: ink(), fontWeight: 500 }}>{p.desc}</div>
+                <div style={{ fontSize: 13, color: ink(), fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                  <span>{p.desc}</span>
+                  {p.isDynamic && (
+                    <span
+                      title="Importo ricalcolato live sullo scenario attivo: prezzo previsto − acconti già pianificati. Si aggiorna quando cambia lo scenario o gli ospiti confermati. Verrà congelato al momento del pagamento."
+                      style={{
+                        padding: '1px 6px', borderRadius: 999,
+                        background: 'hsl(36 28% 94%)', border: `1px solid ${border()}`,
+                        fontSize: 10, color: ink(2), fontWeight: 600, cursor: 'help',
+                      }}
+                    >↻ {p.amountType === 'balance' ? 'Saldo dinamico' : 'Calcolato'}</span>
+                  )}
+                </div>
                 <div style={{ fontSize: 11, color: ink(3), marginTop: 2 }}>
                   {fmtDate(p.due)}{!isPaid && days >= 0 ? ` · tra ${days} gg` : ''}
                 </div>
