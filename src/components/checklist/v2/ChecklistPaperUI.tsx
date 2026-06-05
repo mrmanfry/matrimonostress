@@ -125,7 +125,7 @@ export function ChkHeader({ stats, view, setView, search, setSearch, onNew, expo
           </div>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "flex-end", minWidth: 320 }}>
+        <div className="chk-header-side" style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "flex-end", minWidth: 320 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, width: "100%" }}>
             <div style={{ flex: 1, position: "relative" }}>
               <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: P.ink3, pointerEvents: "none", display: "inline-flex" }}>
