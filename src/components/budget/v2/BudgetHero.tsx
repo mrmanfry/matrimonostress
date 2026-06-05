@@ -53,17 +53,17 @@ export function BudgetHero({ partner1, partner2, totals: t, next, vendorCount, m
     : undefined;
 
   return (
-    <div style={{
+    <div className="budget-hero" style={{
       padding: '32px 40px 24px',
       background: surface(),
       borderBottom: `1px solid ${border()}`,
     }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 40, marginBottom: 28, flexWrap: 'wrap' }}>
+      <div className="budget-hero-top" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 40, marginBottom: 28, flexWrap: 'wrap' }}>
         <div>
           <div style={{ fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: ink(3), marginBottom: 8, fontFamily: FONT_UI }}>
             Budget · {couple}
           </div>
-          <h1 style={{
+          <h1 className="budget-hero-h1" style={{
             margin: 0, fontFamily: FONT_SERIF, fontWeight: 400, fontSize: 40,
             letterSpacing: -0.5, color: ink(),
           }}>
@@ -78,7 +78,7 @@ export function BudgetHero({ partner1, partner2, totals: t, next, vendorCount, m
         </div>
       </div>
 
-      <div style={{
+      <div className="budget-hero-kpis" style={{
         display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 0,
         borderTop: `1px solid ${border()}`, borderBottom: `1px solid ${border()}`,
       }}>
@@ -99,6 +99,20 @@ export function BudgetHero({ partner1, partner2, totals: t, next, vendorCount, m
           last
         />
       </div>
+      <style>{`
+        @media (max-width: 767px) {
+          .budget-hero { padding: 18px 14px 16px !important; }
+          .budget-hero-top { gap: 16px !important; margin-bottom: 16px !important; }
+          .budget-hero-h1 { font-size: 26px !important; }
+          .budget-hero-kpis { grid-template-columns: repeat(2, 1fr) !important; }
+          .budget-hero-kpis > div { border-right: 1px solid hsl(var(--paper-border)) !important; padding: 12px 14px !important; }
+          .budget-hero-kpis > div:nth-child(2n) { border-right: none !important; }
+          .budget-hero-kpis > div:nth-child(-n+2) { border-bottom: 1px solid hsl(var(--paper-border)); }
+          .budget-hero-kpis > div:first-child { padding-left: 0 !important; }
+          .budget-hero-kpis > div:last-child { padding-right: 0 !important; }
+        }
+      `}</style>
+
 
       <div style={{ marginTop: 20, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
         <div style={{
