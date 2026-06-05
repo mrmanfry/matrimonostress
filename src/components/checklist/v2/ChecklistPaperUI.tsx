@@ -80,8 +80,17 @@ export function ChkHeader({ stats, view, setView, search, setSearch, onNew, expo
     { id: "calendar", label: "Calendario", Icon: CalendarIcon },
   ];
   return (
-    <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 14, padding: 22, boxShadow: P.shadowSm }}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 24, alignItems: "flex-start" }}>
+    <div className="chk-header-card" style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 14, padding: 22, boxShadow: P.shadowSm }}>
+      <style>{`
+        @media (max-width: 767px) {
+          .chk-header-card { padding: 16px !important; }
+          .chk-header-grid { grid-template-columns: 1fr !important; gap: 16px !important; }
+          .chk-header-side { min-width: 0 !important; align-items: stretch !important; }
+          .chk-header-h1 { font-size: 22px !important; }
+        }
+      `}</style>
+      <div className="chk-header-grid" style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 24, alignItems: "flex-start" }}>
+
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 6 }}>
             <div style={{ width: 38, height: 38, borderRadius: 10, background: "linear-gradient(135deg, hsl(var(--paper-brand-tint)), #E8DFFC)", color: P.brandInk, display: "inline-flex", alignItems: "center", justifyContent: "center", border: "1px solid #E3D9FB" }}>
