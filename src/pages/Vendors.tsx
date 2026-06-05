@@ -220,6 +220,10 @@ const Vendors = () => {
           .vendors-status-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
           .vendors-status-grid button { padding: 12px !important; }
           .vendors-cards-grid { grid-template-columns: 1fr !important; }
+          .vendors-filters-bar > div:first-child { flex: 1 1 100% !important; max-width: none !important; min-width: 0 !important; }
+          .vendors-filters-bar select { width: 100% !important; }
+          .vendors-filters-bar > select,
+          .vendors-filters-bar [data-paper-select] { flex: 1 1 100% !important; width: 100% !important; }
         }
       `}</style>
       <div className="vendors-page-wrap" style={{ maxWidth: 1320, margin: '0 auto', padding: '20px 24px' }}>
