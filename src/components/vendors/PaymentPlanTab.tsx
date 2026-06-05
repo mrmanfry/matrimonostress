@@ -221,8 +221,31 @@ export function PaymentPlanTab({
       loadPayments();
       loadWeddingDate();
       loadContributors();
+      loadInheritedTax();
     }
   }, [expenseItemId]);
+
+  const loadInheritedTax = async () => {
+    try {
+      const { data } = await supabase
+        .from('expense_line_items')
+        .select('tax_rate, price_is_tax_inclusive')
+        .eq('expense_item_id', expenseItemId)
+        .order('order_index', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (data) {
+        setInheritedTax({
+          tax_rate: String(data.tax_rate ?? 22),
+          tax_inclusive: data.price_is_tax_inclusive !== false,
+        });
+      }
+    } catch (e) {
+      // fallback silenzioso ai default
+    }
+  };
+
+
 
   const loadWeddingDate = async () => {
     try {
