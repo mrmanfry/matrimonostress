@@ -163,9 +163,9 @@ export function buildVendors(
       const linkedPayments = paymentsByItem.get(it.id) ?? [];
       const itemPaid = linkedPayments
         .filter(p => p.status === 'Pagato')
-        .reduce((s, p) => s + Number(p.amount || 0), 0);
+        .reduce((s, p) => s + paymentCashAmount(p), 0);
       const itemScheduled = linkedPayments
-        .reduce((s, p) => s + Number(p.amount || 0), 0);
+        .reduce((s, p) => s + paymentCashAmount(p), 0);
       total += itemTotal;
       paid += itemPaid;
       scheduled += itemScheduled;
@@ -178,7 +178,7 @@ export function buildVendors(
           vendorName: '',
           categoryId: it.category_id ?? it.vendors?.expense_categories?.id ?? 'uncategorized',
           desc: p.description,
-          amount: Number(p.amount || 0),
+          amount: paymentCashAmount(p),
           due: p.due_date,
           status: p.status === 'Pagato' ? 'paid' : 'due',
         });
