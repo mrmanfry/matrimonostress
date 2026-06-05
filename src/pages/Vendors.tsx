@@ -328,6 +328,20 @@ const Vendors = () => {
           </PaperButton>
         </div>
 
+        {/* Scenario selector + headcount bar — shared with Budget via weddings.calculation_mode */}
+        {!vendorCostsHidden && (
+          <div style={{ display: 'grid', gap: 12, marginBottom: 20 }}>
+            <ScenarioSelector mode={mode} onModeChange={handleModeChange} counts={guestCounts} />
+            <ScenarioHeadcountBar
+              mode={mode}
+              weddingId={weddingId || ''}
+              counts={guestCounts}
+              onPlannedSaved={() => refetchScenario()}
+            />
+          </div>
+        )}
+
+
         {/* Status stats — clickable as filters */}
         <div className="vendors-status-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginBottom: 24 }}>
 
