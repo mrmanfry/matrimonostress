@@ -44,7 +44,7 @@ function PaperCard({ title, children }: { title: string; children: React.ReactNo
   );
 }
 
-export function GiftCoverageWidget({ forecast, isPrivate, budgetTotal, scenarioLabel }: Props) {
+export function GiftCoverageWidget({ forecast, isPrivate, budgetTotal, scenarioLabel, scenarioPersons }: Props) {
   const { total_cash_received, total_forecast } = forecast;
   const total_expenses = budgetTotal != null ? budgetTotal : forecast.total_expenses;
   const total = total_cash_received + total_forecast;
