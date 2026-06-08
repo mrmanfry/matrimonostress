@@ -37,7 +37,7 @@ function partyStatus(party: PartyRow, gifts: GiftRow[]) {
   return 'simulated';
 }
 
-export function GiftPartyList({ parties, gifts, weddingId, avgEstimate, isPrivate, personsPerParty }: Props) {
+export function GiftPartyList({ parties, gifts, weddingId, avgEstimate, isPrivate, personsPerParty, guestNamesByParty }: Props) {
   const [dialogParty, setDialogParty] = useState<PartyRow | null>(null);
   const [search, setSearch] = useState('');
   const [rsvpFilter, setRsvpFilter] = useState<RsvpFilter>('all');
