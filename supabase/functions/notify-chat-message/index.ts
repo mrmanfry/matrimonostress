@@ -63,9 +63,7 @@ Deno.serve(async (req) => {
         metadata: { claimed_sender_id: rawBody.sender_id },
       });
     }
-
-
-    const body = await req.json();
+    const body = rawBody;
     console.log("[notify-chat-message] received body:", JSON.stringify(body));
     const { wedding_id, content, visibility } = body;
 
