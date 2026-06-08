@@ -1433,6 +1433,60 @@ export type Database = {
           },
         ]
       }
+      security_audit_log: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          ip: string | null
+          metadata: Json
+          reason: string
+          resource: string
+          user_agent: string | null
+          user_id: string | null
+          wedding_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          ip?: string | null
+          metadata?: Json
+          reason: string
+          resource: string
+          user_agent?: string | null
+          user_id?: string | null
+          wedding_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          ip?: string | null
+          metadata?: Json
+          reason?: string
+          resource?: string
+          user_agent?: string | null
+          user_id?: string | null
+          wedding_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "security_audit_log_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "security_audit_log_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings_camera_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sync_tokens: {
         Row: {
           created_at: string
