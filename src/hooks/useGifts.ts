@@ -11,6 +11,7 @@ export interface GiftForecast {
   total_cash_received: number;
   total_expenses: number;
   eligible_parties_count: number;
+  eligible_persons_count: number;
   total_forecast: number;
   projected_liquidity: number;
   net_budget_coverage: number;
@@ -49,6 +50,7 @@ export function useGiftForecast(weddingId: string | null, avgEstimate: number) {
         total_cash_received: Number(row?.total_cash_received ?? 0),
         total_expenses: Number(row?.total_expenses ?? 0),
         eligible_parties_count: Number(row?.eligible_parties_count ?? 0),
+        eligible_persons_count: Number((row as any)?.eligible_persons_count ?? 0),
         total_forecast: Number(row?.total_forecast ?? 0),
         projected_liquidity: Number(row?.projected_liquidity ?? 0),
         net_budget_coverage: Number(row?.net_budget_coverage ?? 0),

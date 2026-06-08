@@ -2409,6 +2409,7 @@ export type Database = {
         Args: { p_avg_estimate?: number; p_wedding_id: string }
         Returns: {
           eligible_parties_count: number
+          eligible_persons_count: number
           net_budget_coverage: number
           projected_liquidity: number
           total_cash_received: number
