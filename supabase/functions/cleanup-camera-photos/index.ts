@@ -12,18 +12,16 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Verify cron secret
-  const cronSecret = Deno.env.get("CRON_SECRET");
-  const authHeader = req.headers.get("Authorization");
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    // Also allow anon key for pg_cron
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
-    if (authHeader !== `Bearer ${anonKey}`) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+  // Verify cron secret — accept either X-Cron-Secret header or Authorization: Bearer <secret>
+  const expectedSecret = Deno.env.get("CRON_SECRET");
+  const providedSecret =
+    req.headers.get("X-Cron-Secret") ||
+    (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+  if (!expectedSecret || providedSecret !== expectedSecret) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   const supabaseAdmin = createClient(

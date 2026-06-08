@@ -14,24 +14,42 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const body = await req.json();
-    console.log("[notify-chat-message] received body:", JSON.stringify(body));
-    const { wedding_id, sender_id, content, visibility } = body;
-
-    if (!wedding_id || !sender_id || !content) {
-      console.log("[notify-chat-message] missing fields:", { wedding_id, sender_id, content });
-      return new Response(JSON.stringify({ error: "Missing fields" }), {
-        status: 400,
-        headers: corsHeaders,
-      });
-    }
-
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const resendApiKey = Deno.env.get("RESEND_API_KEY")!;
     const appUrl = Deno.env.get("APP_URL") || "https://matrimonostress.lovable.app";
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+    // Validate the caller's JWT — sender_id must come from the verified token, not the body
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: corsHeaders,
+      });
+    }
+    const jwt = authHeader.replace(/^Bearer\s+/i, "");
+    const { data: userData, error: userErr } = await supabase.auth.getUser(jwt);
+    if (userErr || !userData?.user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: corsHeaders,
+      });
+    }
+    const sender_id = userData.user.id;
+
+    const body = await req.json();
+    console.log("[notify-chat-message] received body:", JSON.stringify(body));
+    const { wedding_id, content, visibility } = body;
+
+    if (!wedding_id || !content) {
+      console.log("[notify-chat-message] missing fields:", { wedding_id, content });
+      return new Response(JSON.stringify({ error: "Missing fields" }), {
+        status: 400,
+        headers: corsHeaders,
+      });
+    }
 
     // 1. Get sender's role in this wedding
     const { data: senderRole } = await supabase
