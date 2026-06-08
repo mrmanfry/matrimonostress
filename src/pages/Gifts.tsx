@@ -22,6 +22,8 @@ const ESTIMATE_KEY = 'gifts_avg_estimate_per_person';
 type GuestRow = {
   id: string;
   party_id: string | null;
+  first_name: string | null;
+  last_name: string | null;
   is_couple_member: boolean | null;
   is_staff: boolean | null;
   is_child: boolean | null;
