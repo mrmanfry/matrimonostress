@@ -103,7 +103,7 @@ export function GiftPartyList({ parties, gifts, weddingId, avgEstimate, isPrivat
           <div style={{ position: 'relative' }}>
             <Search className="w-4 h-4" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--paper-ink-3))' }} />
             <Input
-              placeholder="Cerca nucleo familiare…"
+              placeholder="Cerca per nucleo o nome e cognome…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9 h-9 bg-paper-surface border-paper-border text-paper-ink placeholder:text-paper-ink-3"
