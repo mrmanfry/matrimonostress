@@ -158,7 +158,7 @@ export function GiftCoverageWidget({ forecast, isPrivate, budgetTotal, scenarioL
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, textAlign: 'center' }}>
           <LegendItem swatch={C_CASH} label="Incassato" value={mask(total_cash_received, isPrivate)} />
           <LegendItem swatch={C_FORECAST} label="Stimato" value={mask(total_forecast, isPrivate)} dashed />
-          <BudgetLegendItem value={mask(total_expenses, isPrivate)} />
+          <BudgetLegendItem value={mask(total_expenses, isPrivate)} scenarioLabel={scenarioLabel} />
         </div>
       </div>
     </PaperCard>
