@@ -40,12 +40,20 @@ serve(async (req) => {
         .eq("role", "co_planner")
         .maybeSingle();
       if (!roleRow) {
+        await logSecurityEvent(req, {
+          event_type: "forbidden_wedding_access",
+          resource: "edge:check-subscription",
+          reason: "Caller is not co_planner on supplied weddingId (subscription IDOR attempt)",
+          user_id: user.id,
+          wedding_id: weddingId,
+        });
         return new Response(JSON.stringify({ error: "Forbidden" }), {
           status: 403,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
     }
+
 
     const stripe = createStripeClient(environment);
     const customers = await stripe.customers.list({ email: user.email, limit: 1 });
