@@ -183,7 +183,7 @@ function LegendItem({ swatch, label, value, dashed }: { swatch: string; label: s
   );
 }
 
-function BudgetLegendItem({ value }: { value: string }) {
+function BudgetLegendItem({ value, scenarioLabel }: { value: string; scenarioLabel?: string }) {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, marginBottom: 4 }}>
@@ -202,12 +202,17 @@ function BudgetLegendItem({ value }: { value: string }) {
               </button>
             </TooltipTrigger>
             <TooltipContent className="max-w-xs">
-              Somma di tutte le voci di spesa registrate nella sezione Budget. Aggiorna le tue voci di spesa per modificare questo valore.
+              Somma del prezzo previsto delle voci di spesa nella sezione Budget, ricalcolato secondo lo scenario selezionato (pianificato / lista invitati / confermati).
             </TooltipContent>
           </UiTooltip>
         </TooltipProvider>
       </div>
       <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 14, fontWeight: 500, color: 'hsl(var(--paper-ink))' }}>{value}</div>
+      {scenarioLabel && (
+        <div style={{ fontSize: 10.5, color: 'hsl(var(--paper-ink-3))', marginTop: 2 }}>
+          scenario: {scenarioLabel}
+        </div>
+      )}
       <Link
         to="/app/budget"
         style={{ display: 'inline-block', marginTop: 4, fontSize: 11, color: 'hsl(var(--paper-brand))', textDecoration: 'none' }}
