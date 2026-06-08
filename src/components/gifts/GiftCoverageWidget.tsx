@@ -74,6 +74,37 @@ export function GiftCoverageWidget({ forecast, isPrivate, budgetTotal, scenarioL
           </p>
         </div>
 
+        {/* Secondary KPIs: totale & media per persona */}
+        <div style={{
+          display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12,
+          padding: '14px 12px',
+          background: 'hsl(var(--paper-sunk))',
+          border: '1px solid hsl(var(--paper-border))',
+          borderRadius: 12,
+        }}>
+          <div style={{ textAlign: 'center', borderRight: '1px solid hsl(var(--paper-border))' }}>
+            <div style={{ fontSize: 11, color: 'hsl(var(--paper-ink-3))', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
+              Totale (incassato + stimato)
+            </div>
+            <div style={{ fontFamily: "'Fraunces', Georgia, serif", fontWeight: 500, fontSize: 22, color: 'hsl(var(--paper-ink))' }}>
+              {mask(total, isPrivate)}
+            </div>
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 11, color: 'hsl(var(--paper-ink-3))', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
+              Media regalo / persona
+            </div>
+            <div style={{ fontFamily: "'Fraunces', Georgia, serif", fontWeight: 500, fontSize: 22, color: 'hsl(var(--paper-ink))' }}>
+              {scenarioPersons && scenarioPersons > 0 ? mask(total / scenarioPersons, isPrivate) : '—'}
+            </div>
+            {scenarioPersons != null && (
+              <div style={{ fontSize: 10.5, color: 'hsl(var(--paper-ink-3))', marginTop: 2 }}>
+                su {scenarioPersons} persone{scenarioLabel ? ` (${scenarioLabel})` : ''}
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Custom segmented bar */}
         <TooltipProvider delayDuration={150}>
           <div>
