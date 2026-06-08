@@ -708,6 +708,57 @@ export type Database = {
           },
         ]
       }
+      gifts: {
+        Row: {
+          id: string
+          wedding_id: string
+          party_id: string
+          gift_category: Database["public"]["Enums"]["gift_category_enum"]
+          amount: number | null
+          notes: string | null
+          thank_you_status: Database["public"]["Enums"]["thank_you_status_enum"]
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          wedding_id: string
+          party_id: string
+          gift_category?: Database["public"]["Enums"]["gift_category_enum"]
+          amount?: number | null
+          notes?: string | null
+          thank_you_status?: Database["public"]["Enums"]["thank_you_status_enum"]
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          wedding_id?: string
+          party_id?: string
+          gift_category?: Database["public"]["Enums"]["gift_category_enum"]
+          amount?: number | null
+          notes?: string | null
+          thank_you_status?: Database["public"]["Enums"]["thank_you_status_enum"]
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gifts_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gifts_party_id_fkey"
+            columns: ["party_id"]
+            isOneToOne: false
+            referencedRelation: "invite_parties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       guest_conflicts: {
         Row: {
           created_at: string
@@ -2388,8 +2439,10 @@ export type Database = {
     }
     Enums: {
       app_role: "co_planner" | "manager" | "guest" | "planner"
+      gift_category_enum: "cash" | "physical_registry" | "other"
       rsvp_status_enum: "In attesa" | "Confermato" | "Rifiutato"
       send_status_enum: "Non Inviato" | "Inviato" | "Fallito"
+      thank_you_status_enum: "pending" | "sent"
     }
     CompositeTypes: {
       [_ in never]: never

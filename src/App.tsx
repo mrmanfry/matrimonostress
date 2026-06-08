@@ -37,6 +37,7 @@ import MemoriesReel from "./pages/MemoriesReel";
 import CameraPublic from "./pages/CameraPublic";
 import Invitations from "./pages/Invitations";
 import MassBooklet from "./pages/MassBooklet";
+import Gifts from "./pages/Gifts";
 import HelpCenter from "./pages/HelpCenter";
 import Funzionalita from "./pages/Funzionalita";
 import ComeFunziona from "./pages/ComeFunziona";
@@ -111,6 +112,7 @@ const App = () => (
               <Route path="invitations" element={<Invitations />} />
               <Route path="memories" element={<MemoriesReel />} />
               <Route path="mass-booklet" element={<MassBooklet />} />
+              <Route path="gifts" element={<Gifts />} />
               <Route path="timeline" element={<Timeline />} />
               <Route path="settings" element={<Settings />} />
               <Route path="chat" element={<Chat />} />

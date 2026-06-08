@@ -3,16 +3,16 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { 
-  Heart, 
-  LayoutDashboard, 
+  Heart,
+  LayoutDashboard,
   LayoutGrid,
-  Users, 
-  Euro, 
-  CheckSquare, 
-  LogOut, 
-  Settings, 
-  Package, 
-  UtensilsCrossed, 
+  Users,
+  Euro,
+  CheckSquare,
+  LogOut,
+  Settings,
+  Package,
+  UtensilsCrossed,
   Calendar,
   CalendarDays,
   TrendingUp,
@@ -23,6 +23,7 @@ import {
   Send,
   BookOpen,
   HelpCircle,
+  Gift,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -215,6 +216,7 @@ const AppLayoutInner = ({
       { name: "Invitati", href: "/app/guests", icon: Users },
       { name: "Campagne", href: "/app/invitations", icon: Send },
       { name: "Budget", href: "/app/budget", icon: Euro, hidden: isCollaborator && !activePermissions?.budget?.view },
+      { name: "Regali", href: "/app/gifts", icon: Gift, hidden: isCollaborator },
       
       { name: "Fornitori", href: "/app/vendors", icon: Package },
       { name: "Checklist", href: "/app/checklist", icon: CheckSquare },
