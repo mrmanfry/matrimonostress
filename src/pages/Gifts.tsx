@@ -74,7 +74,7 @@ export default function Gifts() {
     setPartiesLoading(true);
     Promise.all([
       supabase.from('invite_parties').select('id, party_name, rsvp_status').eq('wedding_id', weddingId).order('party_name'),
-      supabase.from('guests').select('id, party_id, is_couple_member, is_staff, is_child, rsvp_status, allow_plus_one, plus_one_name, plus_one_of_guest_id').eq('wedding_id', weddingId),
+      supabase.from('guests').select('id, party_id, first_name, last_name, is_couple_member, is_staff, is_child, rsvp_status, allow_plus_one, plus_one_name, plus_one_of_guest_id').eq('wedding_id', weddingId),
     ]).then(([pRes, gRes]) => {
       if (!pRes.error && pRes.data) setParties(pRes.data as PartyRow[]);
       if (!gRes.error && gRes.data) setGuests(gRes.data as GuestRow[]);
