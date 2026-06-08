@@ -36,6 +36,20 @@ serve(async (req) => {
       throw new Error('Wedding ID is required');
     }
 
+    // Verify the caller has a role on this wedding
+    const { data: roleRow } = await supabase
+      .from('user_roles')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('wedding_id', weddingId)
+      .maybeSingle();
+    if (!roleRow) {
+      return new Response(
+        JSON.stringify({ error: 'Forbidden' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Generate secure token
     const tokenBytes = new Uint8Array(32);
     crypto.getRandomValues(tokenBytes);
