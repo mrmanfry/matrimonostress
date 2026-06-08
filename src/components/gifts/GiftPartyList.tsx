@@ -21,6 +21,7 @@ interface Props {
   avgEstimate: number;
   isPrivate: boolean;
   personsPerParty: Record<string, number>;
+  guestNamesByParty?: Record<string, string[]>;
 }
 
 const fmt = (n: number) => n.toLocaleString('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
