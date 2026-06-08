@@ -192,6 +192,17 @@ export default function Gifts() {
     return map;
   }, [guests]);
 
+  const guestNamesByParty = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    for (const g of guests) {
+      if (!g.party_id) continue;
+      const name = `${g.first_name ?? ''} ${g.last_name ?? ''}`.trim();
+      if (!name) continue;
+      (map[g.party_id] ??= []).push(name);
+    }
+    return map;
+  }, [guests]);
+
   const togglePrivacy = () => {
     const next = !isPrivate;
     setIsPrivate(next);
