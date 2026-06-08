@@ -274,6 +274,7 @@ export default function Gifts() {
               isPrivate={isPrivate}
               budgetTotal={currentBudgetTotal}
               scenarioLabel={SCENARIO_LABEL[scenario]}
+              scenarioPersons={scenarioPersons}
             />
             <GiftSimulatorSlider
               value={avgEstimate}
