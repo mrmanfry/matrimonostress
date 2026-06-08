@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { type StripeEnv, createStripeClient, corsHeaders } from "../_shared/stripe.ts";
+import { logSecurityEvent } from "../_shared/audit.ts";
+
 
 const log = (s: string, d?: unknown) => console.log(`[CHECK-SUBSCRIPTION] ${s}${d ? " - " + JSON.stringify(d) : ""}`);
 
