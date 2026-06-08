@@ -59,7 +59,12 @@ export function GiftPartyList({ parties, gifts, weddingId, avgEstimate, isPrivat
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return parties.filter((p) => {
-      if (q && !p.party_name.toLowerCase().includes(q)) return false;
+      if (q) {
+        const inPartyName = p.party_name.toLowerCase().includes(q);
+        const names = guestNamesByParty?.[p.id] ?? [];
+        const inGuestNames = names.some((n) => n.toLowerCase().includes(q));
+        if (!inPartyName && !inGuestNames) return false;
+      }
       if (rsvpFilter !== 'all' && p.rsvp_status !== rsvpFilter) return false;
       const partyGifts = gifts.filter((g) => g.party_id === p.id);
       const hasGift = partyGifts.length > 0;
@@ -71,7 +76,7 @@ export function GiftPartyList({ parties, gifts, weddingId, avgEstimate, isPrivat
       }
       return true;
     });
-  }, [parties, gifts, search, rsvpFilter, giftFilter]);
+  }, [parties, gifts, search, rsvpFilter, giftFilter, guestNamesByParty]);
 
   const anyFilter = !!search || rsvpFilter !== 'all' || giftFilter !== 'all';
 
