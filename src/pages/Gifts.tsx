@@ -288,6 +288,7 @@ export default function Gifts() {
                 avgEstimate={avgEstimate}
                 isPrivate={isPrivate}
                 personsPerParty={personsPerParty}
+                guestNamesByParty={guestNamesByParty}
               />
             )}
           </>
