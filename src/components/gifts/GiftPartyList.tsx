@@ -183,7 +183,7 @@ export function GiftPartyList({ parties, gifts, weddingId, avgEstimate, isPrivat
                         {partyGifts.map((g) => (
                           <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'hsl(var(--paper-ink-2))' }}>
                             <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                              {g.gift_category === 'cash' ? 'Contanti' : g.gift_category === 'physical_registry' ? 'Lista nozze' : 'Altro'}
+                              {g.gift_category === 'cash' ? 'Contanti / Bonifico' : g.gift_category === 'physical_registry' ? 'Lista nozze' : 'Altro'}
                               {g.amount != null && !isPrivate ? ` — ${fmt(g.amount)}` : g.amount != null ? ' — ***€' : ''}
                             </span>
                             <button
