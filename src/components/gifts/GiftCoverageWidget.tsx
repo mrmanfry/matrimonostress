@@ -9,6 +9,10 @@ import type { GiftForecast } from '@/hooks/useGifts';
 interface Props {
   forecast: GiftForecast;
   isPrivate: boolean;
+  /** Override del totale budget calcolato in pagina secondo lo scenario attivo. */
+  budgetTotal?: number;
+  /** Etichetta dello scenario attivo, mostrata come hint sotto il budget. */
+  scenarioLabel?: string;
 }
 
 const fmt = (n: number) => n.toLocaleString('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
@@ -37,15 +41,17 @@ function PaperCard({ title, children }: { title: string; children: React.ReactNo
   );
 }
 
-export function GiftCoverageWidget({ forecast, isPrivate }: Props) {
-  const { total_cash_received, total_forecast, total_expenses, net_budget_coverage } = forecast;
+export function GiftCoverageWidget({ forecast, isPrivate, budgetTotal, scenarioLabel }: Props) {
+  const { total_cash_received, total_forecast } = forecast;
+  const total_expenses = budgetTotal != null ? budgetTotal : forecast.total_expenses;
   const total = total_cash_received + total_forecast;
   const hasBudget = total_expenses > 0;
   const overBudget = total > total_expenses && hasBudget;
-  // Scale: when over budget, extend the axis to "total"; otherwise use budget
   const scaleMax = overBudget ? total : Math.max(total_expenses, 1);
   const cashPct = scaleMax > 0 ? Math.min(100, (total_cash_received / scaleMax) * 100) : 0;
   const forecastPct = scaleMax > 0 ? Math.min(100 - cashPct, (total_forecast / scaleMax) * 100) : 0;
+
+  const net_budget_coverage = hasBudget ? Math.round((total / total_expenses) * 1000) / 10 : 0;
 
   const coverageColor =
     net_budget_coverage >= 100 ? C_CASH :
