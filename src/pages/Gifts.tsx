@@ -181,6 +181,7 @@ export default function Gifts() {
   }, [vendors, items, payments, lineItemsMap, guestCounts]);
 
   const currentBudgetTotal = scenarioTotals ? scenarioTotals[scenario] : 0;
+  const scenarioPersons = guestCounts ? (guestCounts[scenario].adults + guestCounts[scenario].children) : 0;
 
   const personsPerParty = useMemo(() => {
     const map: Record<string, number> = {};
@@ -273,6 +274,7 @@ export default function Gifts() {
               isPrivate={isPrivate}
               budgetTotal={currentBudgetTotal}
               scenarioLabel={SCENARIO_LABEL[scenario]}
+              scenarioPersons={scenarioPersons}
             />
             <GiftSimulatorSlider
               value={avgEstimate}
