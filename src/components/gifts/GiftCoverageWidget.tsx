@@ -13,9 +13,12 @@ interface Props {
   budgetTotal?: number;
   /** Etichetta dello scenario attivo, mostrata come hint sotto il budget. */
   scenarioLabel?: string;
+  /** Numero di persone nello scenario attivo (per media regalo). */
+  scenarioPersons?: number;
 }
 
 const fmt = (n: number) => n.toLocaleString('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
+const fmt2 = (n: number) => n.toLocaleString('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
 const mask = (n: number, priv: boolean) => (priv ? '***€' : fmt(n));
 
 const C_CASH = 'hsl(142 71% 29%)';
