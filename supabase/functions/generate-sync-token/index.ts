@@ -21,6 +21,11 @@ serve(async (req) => {
     // Get user from auth header
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
+      await logSecurityEvent(req, {
+        event_type: "auth_missing",
+        resource: "edge:generate-sync-token",
+        reason: "Missing Authorization header",
+      });
       throw new Error('No authorization header');
     }
 
@@ -29,6 +34,11 @@ serve(async (req) => {
     );
 
     if (authError || !user) {
+      await logSecurityEvent(req, {
+        event_type: "auth_invalid",
+        resource: "edge:generate-sync-token",
+        reason: "Invalid or expired JWT",
+      });
       throw new Error('Unauthorized');
     }
 
@@ -46,11 +56,19 @@ serve(async (req) => {
       .eq('wedding_id', weddingId)
       .maybeSingle();
     if (!roleRow) {
+      await logSecurityEvent(req, {
+        event_type: "forbidden_wedding_access",
+        resource: "edge:generate-sync-token",
+        reason: "Caller has no role on supplied weddingId (IDOR attempt)",
+        user_id: user.id,
+        wedding_id: weddingId,
+      });
       return new Response(
         JSON.stringify({ error: 'Forbidden' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
 
     // Generate secure token
     const tokenBytes = new Uint8Array(32);
