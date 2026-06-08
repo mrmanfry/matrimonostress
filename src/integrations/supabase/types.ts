@@ -708,6 +708,64 @@ export type Database = {
           },
         ]
       }
+      gifts: {
+        Row: {
+          amount: number | null
+          created_at: string
+          gift_category: Database["public"]["Enums"]["gift_category_enum"]
+          id: string
+          notes: string | null
+          party_id: string
+          thank_you_status: Database["public"]["Enums"]["thank_you_status_enum"]
+          updated_at: string
+          wedding_id: string
+        }
+        Insert: {
+          amount?: number | null
+          created_at?: string
+          gift_category?: Database["public"]["Enums"]["gift_category_enum"]
+          id?: string
+          notes?: string | null
+          party_id: string
+          thank_you_status?: Database["public"]["Enums"]["thank_you_status_enum"]
+          updated_at?: string
+          wedding_id: string
+        }
+        Update: {
+          amount?: number | null
+          created_at?: string
+          gift_category?: Database["public"]["Enums"]["gift_category_enum"]
+          id?: string
+          notes?: string | null
+          party_id?: string
+          thank_you_status?: Database["public"]["Enums"]["thank_you_status_enum"]
+          updated_at?: string
+          wedding_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gifts_party_id_fkey"
+            columns: ["party_id"]
+            isOneToOne: false
+            referencedRelation: "invite_parties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gifts_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gifts_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings_camera_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       guest_conflicts: {
         Row: {
           created_at: string
@@ -2347,6 +2405,17 @@ export type Database = {
           id: string
         }[]
       }
+      get_gift_forecast: {
+        Args: { p_avg_estimate?: number; p_wedding_id: string }
+        Returns: {
+          eligible_parties_count: number
+          net_budget_coverage: number
+          projected_liquidity: number
+          total_cash_received: number
+          total_expenses: number
+          total_forecast: number
+        }[]
+      }
       get_user_context: { Args: never; Returns: Json }
       get_user_email: { Args: { _user_id: string }; Returns: string }
       get_vendor_financials: {
@@ -2388,8 +2457,10 @@ export type Database = {
     }
     Enums: {
       app_role: "co_planner" | "manager" | "guest" | "planner"
+      gift_category_enum: "cash" | "physical_registry" | "other"
       rsvp_status_enum: "In attesa" | "Confermato" | "Rifiutato"
       send_status_enum: "Non Inviato" | "Inviato" | "Fallito"
+      thank_you_status_enum: "pending" | "sent"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2518,8 +2589,10 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["co_planner", "manager", "guest", "planner"],
+      gift_category_enum: ["cash", "physical_registry", "other"],
       rsvp_status_enum: ["In attesa", "Confermato", "Rifiutato"],
       send_status_enum: ["Non Inviato", "Inviato", "Fallito"],
+      thank_you_status_enum: ["pending", "sent"],
     },
   },
 } as const
