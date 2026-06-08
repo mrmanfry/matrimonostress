@@ -1,27 +1,28 @@
-## Diagnosi
 
-Sul sito pubblicato `https://wedsapp.it` la console mostra:
+## Cosa farò
 
-- `index-DWY2mOel.js` → **404 Not Found**
-- `index-BPYvqYe0.css` → servito con MIME `text/plain` (rifiutato dal browser)
-- `wedsapp-logo-horizontal.svg` → 404
+Applico la migration `20260608120000_gifts_simulator.sql` tramite il tool di migration di Lovable Cloud (non dal SQL Editor di Supabase), così resta tracciata nel repo e i types TypeScript vengono rigenerati automaticamente.
 
-L'`index.html` deployato sta richiedendo file con hash che **non esistono più** sul CDN. Questo è il classico sintomo di un deploy parzialmente fallito o disallineato: l'HTML è di una build, gli asset di un'altra (o non sono stati caricati).
+Prima di eseguirla risolvo **3 problemi** che ho trovato leggendo il file:
 
-Il preview Lovable funziona perché serve sempre l'ultima build dal sandbox; solo il dominio pubblicato è rotto.
+### 1. Mancano i `GRANT` sulla tabella `gifts` 🔴 bloccante
+Su Lovable Cloud le tabelle `public` non ricevono privilegi di default. Senza `GRANT` la pagina Regali caricherebbe ma **ogni query restituirebbe "permission denied"** — esattamente il sintomo che lo sviluppatore ti ha descritto come "non salverà nulla", ma in realtà non leggerebbe nemmeno. Aggiungo:
+```sql
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.gifts TO authenticated;
+GRANT ALL ON public.gifts TO service_role;
+```
 
-## Piano
+### 2. La RPC `get_gift_forecast` è un buco di sicurezza 🔴 critico
+È `SECURITY DEFINER` ma **non verifica che l'utente abbia accesso al `wedding_id` passato**. Chiunque autenticato potrebbe chiamarla con un wedding_id altrui e ottenere cash ricevuto, spese totali e nuclei eleggibili di un altro matrimonio. Aggiungo il check `has_wedding_access(auth.uid(), p_wedding_id)` in cima alla funzione + `GRANT EXECUTE ... TO authenticated`.
 
-1. **Re-publish** del progetto dal pannello Lovable (oppure tramite il pulsante "Publish" in alto a destra). Questo rigenera `index.html` + asset hash coerenti e li ricarica sul CDN del dominio custom `wedsapp.it`.
-2. Dopo il deploy (~1 minuto), hard-refresh del browser (Cmd/Ctrl+Shift+R) per scaricare il nuovo `index.html` invece di quello in cache.
-3. Verificare in console che non ci siano più 404 sugli asset.
+### 3. Allineamento ruoli da confermare ⚠️
+La policy RLS limita l'accesso ai soli `co_planner` (la coppia). Ma nel resto dell'app i **`planner`** (wedding planner B2B) hanno accesso al budget, e i regali sono parte della tesoreria. Due opzioni:
+- **A**: Lascio come scritto (solo coppia vede i regali — sono dati sensibili, il planner non li gestisce).
+- **B**: Allargo a `planner` come fa il budget, così il wedding planner può aiutare a tracciarli.
 
-## Se il problema persiste dopo il re-publish
+## Domanda per te
 
-- Controllare in **Project Settings → Domains** che `wedsapp.it` sia in stato **Active** (non Offline/Failed).
-- Verificare che le variabili `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY` non siano state svuotate (causa build rotta senza errori visibili).
-- Eventualmente disconnettere e riconnettere il dominio custom.
+Prima di lanciare la migration devo sapere la scelta sul punto 3.
 
-## Note
-
-Nessuna modifica al codice è necessaria: il codice è OK (il preview gira), è il deploy del dominio custom ad essere disallineato. Confermami e procedo a ripubblicare.
+## Nota tecnica
+Non tocco il file `.sql` esistente nel repo (resta come riferimento storico del branch); creo una nuova migration con le correzioni — è il modo corretto di gestire migrazioni versionate su Lovable Cloud.
