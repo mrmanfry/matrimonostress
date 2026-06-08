@@ -119,10 +119,8 @@ export default function Gifts() {
           setPayments([]);
         }
 
-        // Guest counts mirror Budget page logic
-        const vendorStaffMeals = (vendorsRes.data ?? []).reduce(
-          (sum, v: any) => sum + Number(v.staff_meals_count || 0), 0
-        );
+        // Guest counts are computed in a separate effect once guests load.
+
       } catch (err) {
         console.error('Gifts budget load error', err);
       } finally {
