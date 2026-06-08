@@ -132,7 +132,7 @@ export default function Gifts() {
 
   // Recompute guest counts whenever guests/vendors change
   useEffect(() => {
-    if (!weddingId || guests.length === 0 && vendors.length === 0) return;
+    if (!weddingId) return;
     (async () => {
       const { data: wed } = await supabase.from('weddings').select('target_adults, target_children, target_staff').eq('id', weddingId).maybeSingle();
       const vendorStaffMeals = vendors.reduce((s: number, v: any) => s + Number(v.staff_meals_count || 0), 0);
