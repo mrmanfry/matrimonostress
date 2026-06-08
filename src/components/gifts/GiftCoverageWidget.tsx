@@ -1,5 +1,9 @@
-// src/components/gifts/GiftCoverageWidget.tsx — RESTYLED (paper tokens, Fraunces, soft palette)
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
+// src/components/gifts/GiftCoverageWidget.tsx — Custom bar (no recharts), paper tokens
+import { Info } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import {
+  Tooltip as UiTooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+} from '@/components/ui/tooltip';
 import type { GiftForecast } from '@/hooks/useGifts';
 
 interface Props {
@@ -10,10 +14,9 @@ interface Props {
 const fmt = (n: number) => n.toLocaleString('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
 const mask = (n: number, priv: boolean) => (priv ? '***€' : fmt(n));
 
-// Soft palette aligned to the WedsApp "paper" system
-const C_CASH = 'hsl(142 71% 29%)';   // --paper-success
-const C_FORECAST = 'hsl(39 48% 47%)'; // --paper-gold
-const C_BUDGET = 'hsl(0 73% 41%)';    // --paper-danger
+const C_CASH = 'hsl(142 71% 29%)';
+const C_FORECAST = 'hsl(39 48% 47%)';
+const C_BUDGET = 'hsl(0 73% 41%)';
 
 function PaperCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -37,19 +40,22 @@ function PaperCard({ title, children }: { title: string; children: React.ReactNo
 export function GiftCoverageWidget({ forecast, isPrivate }: Props) {
   const { total_cash_received, total_forecast, total_expenses, net_budget_coverage } = forecast;
   const total = total_cash_received + total_forecast;
+  const hasBudget = total_expenses > 0;
+  const overBudget = total > total_expenses && hasBudget;
+  // Scale: when over budget, extend the axis to "total"; otherwise use budget
+  const scaleMax = overBudget ? total : Math.max(total_expenses, 1);
+  const cashPct = scaleMax > 0 ? Math.min(100, (total_cash_received / scaleMax) * 100) : 0;
+  const forecastPct = scaleMax > 0 ? Math.min(100 - cashPct, (total_forecast / scaleMax) * 100) : 0;
 
-  // Coverage uses the same restrained semantic colors as the rest of the app
   const coverageColor =
     net_budget_coverage >= 100 ? C_CASH :
     net_budget_coverage >= 60  ? C_FORECAST :
                                   C_BUDGET;
 
-  const chartData = [{ name: 'Budget', cash: total_cash_received, forecast: total_forecast }];
-
   return (
     <PaperCard title="Copertura Budget">
       <div style={{ display: 'grid', gap: 18 }}>
-        {/* KPI principale — Fraunces, grande */}
+        {/* KPI grande */}
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontFamily: "'Fraunces', Georgia, serif", fontWeight: 500, fontSize: 44, lineHeight: 1, letterSpacing: '-0.02em', color: coverageColor }}>
             {isPrivate ? '***%' : `${net_budget_coverage}%`}
@@ -59,48 +65,149 @@ export function GiftCoverageWidget({ forecast, isPrivate }: Props) {
           </p>
         </div>
 
-        {/* Stacked bar — su superficie incassata (sunk) */}
-        <div style={{ height: 56, background: 'hsl(var(--paper-sunk))', borderRadius: 10, padding: '8px 10px' }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} layout="vertical" margin={{ top: 0, right: 6, bottom: 0, left: 0 }}>
-              <XAxis type="number" hide domain={[0, Math.max(total_expenses * 1.1, total + 1)]} />
-              <YAxis type="category" hide />
-              <Tooltip
-                cursor={{ fill: 'transparent' }}
-                contentStyle={{ borderRadius: 10, border: '1px solid hsl(var(--paper-border))', fontSize: 12, fontFamily: 'Inter, sans-serif' }}
-                formatter={(value: number, name: string) => [
-                  isPrivate ? '***€' : fmt(value),
-                  name === 'cash' ? 'Incassato' : 'Stimato',
-                ]}
-              />
-              <Bar dataKey="cash" stackId="a" fill={C_CASH} radius={[6, 0, 0, 6]} name="cash" />
-              <Bar dataKey="forecast" stackId="a" fill={C_FORECAST} radius={[0, 6, 6, 0]} opacity={0.55} name="forecast" />
-              {total_expenses > 0 && (
-                <ReferenceLine x={total_expenses} stroke={C_BUDGET} strokeWidth={2} strokeDasharray="4 3" />
+        {/* Custom segmented bar */}
+        <TooltipProvider delayDuration={150}>
+          <div>
+            <div
+              style={{
+                position: 'relative',
+                height: 22,
+                background: 'hsl(var(--paper-sunk))',
+                borderRadius: 999,
+                overflow: 'hidden',
+                border: '1px solid hsl(var(--paper-border))',
+              }}
+            >
+              {cashPct > 0 && (
+                <UiTooltip>
+                  <TooltipTrigger asChild>
+                    <div
+                      style={{
+                        position: 'absolute', left: 0, top: 0, bottom: 0,
+                        width: `${cashPct}%`,
+                        background: C_CASH,
+                        transition: 'width 240ms ease',
+                      }}
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent>Incassato: {mask(total_cash_received, isPrivate)}</TooltipContent>
+                </UiTooltip>
               )}
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+              {forecastPct > 0 && (
+                <UiTooltip>
+                  <TooltipTrigger asChild>
+                    <div
+                      style={{
+                        position: 'absolute', top: 0, bottom: 0,
+                        left: `${cashPct}%`,
+                        width: `${forecastPct}%`,
+                        background: `repeating-linear-gradient(135deg, ${C_FORECAST} 0 6px, hsl(39 48% 60%) 6px 12px)`,
+                        opacity: 0.85,
+                        transition: 'width 240ms ease, left 240ms ease',
+                      }}
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent>Stimato: {mask(total_forecast, isPrivate)}</TooltipContent>
+                </UiTooltip>
+              )}
+              {/* Budget marker when over-budget */}
+              {overBudget && (
+                <div
+                  title={`Budget: ${mask(total_expenses, isPrivate)}`}
+                  style={{
+                    position: 'absolute', top: -2, bottom: -2,
+                    left: `${(total_expenses / scaleMax) * 100}%`,
+                    width: 2, background: C_BUDGET,
+                  }}
+                />
+              )}
+            </div>
+
+            {/* Axis labels */}
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', marginTop: 8,
+              fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: 'hsl(var(--paper-ink-3))',
+            }}>
+              <span>0&nbsp;€</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                {hasBudget ? mask(total_expenses, isPrivate) : '—'}
+                {overBudget && (
+                  <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 999, background: 'hsl(var(--paper-success-tint))', color: C_CASH, fontFamily: 'Inter, sans-serif' }}>
+                    +{Math.round(((total - total_expenses) / total_expenses) * 100)}% sopra budget
+                  </span>
+                )}
+              </span>
+            </div>
+
+            {/* Empty state inline message */}
+            {total === 0 && (
+              <p style={{ margin: '10px 0 0', fontSize: 12, color: 'hsl(var(--paper-ink-3))', textAlign: 'center', fontStyle: 'italic' }}>
+                Nessun regalo ancora registrato.
+              </p>
+            )}
+          </div>
+        </TooltipProvider>
 
         {/* Legenda */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, textAlign: 'center' }}>
           <LegendItem swatch={C_CASH} label="Incassato" value={mask(total_cash_received, isPrivate)} />
-          <LegendItem swatch={C_FORECAST} label="Stimato" value={mask(total_forecast, isPrivate)} dim />
-          <LegendItem swatch={C_BUDGET} label="Budget" value={mask(total_expenses, isPrivate)} />
+          <LegendItem swatch={C_FORECAST} label="Stimato" value={mask(total_forecast, isPrivate)} dashed />
+          <BudgetLegendItem value={mask(total_expenses, isPrivate)} />
         </div>
       </div>
     </PaperCard>
   );
 }
 
-function LegendItem({ swatch, label, value, dim }: { swatch: string; label: string; value: string; dim?: boolean }) {
+function LegendItem({ swatch, label, value, dashed }: { swatch: string; label: string; value: string; dashed?: boolean }) {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 4 }}>
-        <span style={{ width: 10, height: 10, borderRadius: 3, background: swatch, opacity: dim ? 0.55 : 1 }} />
+        <span style={{
+          width: 12, height: 10, borderRadius: 3,
+          background: dashed
+            ? `repeating-linear-gradient(135deg, ${swatch} 0 3px, hsl(39 48% 60%) 3px 6px)`
+            : swatch,
+          opacity: dashed ? 0.85 : 1,
+        }} />
         <span style={{ fontSize: 11.5, color: 'hsl(var(--paper-ink-3))', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
       </div>
       <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 14, fontWeight: 500, color: 'hsl(var(--paper-ink))' }}>{value}</div>
+    </div>
+  );
+}
+
+function BudgetLegendItem({ value }: { value: string }) {
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, marginBottom: 4 }}>
+        <span style={{ fontSize: 11.5, color: 'hsl(var(--paper-ink-3))', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          Budget totale
+        </span>
+        <TooltipProvider delayDuration={150}>
+          <UiTooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                aria-label="Da dove arriva il budget"
+                style={{ display: 'inline-flex', background: 'transparent', border: 'none', padding: 0, cursor: 'help', color: 'hsl(var(--paper-ink-3))' }}
+              >
+                <Info className="w-3 h-3" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-xs">
+              Somma di tutte le voci di spesa registrate nella sezione Budget. Aggiorna le tue voci di spesa per modificare questo valore.
+            </TooltipContent>
+          </UiTooltip>
+        </TooltipProvider>
+      </div>
+      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 14, fontWeight: 500, color: 'hsl(var(--paper-ink))' }}>{value}</div>
+      <Link
+        to="/app/budget"
+        style={{ display: 'inline-block', marginTop: 4, fontSize: 11, color: 'hsl(var(--paper-brand))', textDecoration: 'none' }}
+      >
+        Vai al Budget →
+      </Link>
     </div>
   );
 }

@@ -1,14 +1,15 @@
-// src/components/gifts/GiftSimulatorSlider.tsx — RESTYLED (paper tokens, Fraunces)
+// src/components/gifts/GiftSimulatorSlider.tsx — RESTYLED (per persona)
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
 
 interface Props {
   value: number;
   onChange: (v: number) => void;
-  eligibleCount: number;
+  eligibleCount: number;       // parties
+  eligiblePersons: number;     // persons
 }
 
-export function GiftSimulatorSlider({ value, onChange, eligibleCount }: Props) {
+export function GiftSimulatorSlider({ value, onChange, eligibleCount, eligiblePersons }: Props) {
   return (
     <div style={{
       background: 'hsl(var(--paper-surface))',
@@ -24,13 +25,13 @@ export function GiftSimulatorSlider({ value, onChange, eligibleCount }: Props) {
       <div style={{ display: 'grid', gap: 14 }}>
         <div style={{ display: 'grid', gap: 8 }}>
           <label style={{ fontSize: 13, fontWeight: 500, color: 'hsl(var(--paper-ink-2))' }}>
-            Media regalo per nucleo familiare
+            Media regalo per persona
           </label>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <Slider
               min={0}
-              max={1000}
-              step={50}
+              max={500}
+              step={10}
               value={[value]}
               onValueChange={([v]) => onChange(v)}
               className="flex-1 [&_[data-orientation]>span]:bg-[hsl(var(--paper-brand))] [&_[role=slider]]:border-[hsl(var(--paper-brand))]"
@@ -45,7 +46,7 @@ export function GiftSimulatorSlider({ value, onChange, eligibleCount }: Props) {
                 type="number"
                 min={0}
                 max={5000}
-                step={50}
+                step={10}
                 value={value}
                 onChange={(e) => onChange(Number(e.target.value))}
                 className="w-20 text-right border-0 bg-transparent font-mono focus-visible:ring-0"
@@ -61,7 +62,10 @@ export function GiftSimulatorSlider({ value, onChange, eligibleCount }: Props) {
           border: '1px solid hsl(258 100% 92%)',
           borderRadius: 8, padding: '10px 12px',
         }}>
-          La stima si applica a <strong style={{ color: 'hsl(var(--paper-brand-ink))', fontWeight: 600 }}>{eligibleCount}</strong>{' '}
+          La stima si applica a{' '}
+          <strong style={{ color: 'hsl(var(--paper-brand-ink))', fontWeight: 600 }}>{eligiblePersons}</strong>{' '}
+          person{eligiblePersons === 1 ? 'a' : 'e'} in{' '}
+          <strong style={{ color: 'hsl(var(--paper-brand-ink))', fontWeight: 600 }}>{eligibleCount}</strong>{' '}
           nucle{eligibleCount === 1 ? 'o' : 'i'} familiare{eligibleCount !== 1 ? 'i' : ''} con RSVP confermato o in attesa senza regalo registrato.
         </div>
       </div>

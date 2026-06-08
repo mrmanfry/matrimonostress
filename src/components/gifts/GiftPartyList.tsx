@@ -1,7 +1,8 @@
-// src/components/gifts/GiftPartyList.tsx — RESTYLED (paper tokens, Fraunces, soft badges)
-import { useState } from 'react';
-import { Clock, Check, Gift, X, Trash2, Mail } from 'lucide-react';
+// src/components/gifts/GiftPartyList.tsx — RESTYLED + filters
+import { useState, useMemo } from 'react';
+import { Clock, Check, Gift, X, Trash2, Mail, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { AddGiftDialog } from './AddGiftDialog';
 import type { Gift as GiftRow } from '@/hooks/useGifts';
 import { useDeleteGift, useUpdateGiftThankYou } from '@/hooks/useGifts';
@@ -19,9 +20,13 @@ interface Props {
   weddingId: string;
   avgEstimate: number;
   isPrivate: boolean;
+  personsPerParty: Record<string, number>;
 }
 
 const fmt = (n: number) => n.toLocaleString('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
+
+type RsvpFilter = 'all' | 'Confermato' | 'In attesa' | 'Rifiutato';
+type GiftFilter = 'all' | 'registered' | 'missing' | 'cash' | 'physical';
 
 function partyStatus(party: PartyRow, gifts: GiftRow[]) {
   const partyGifts = gifts.filter((g) => g.party_id === party.id);
@@ -31,8 +36,12 @@ function partyStatus(party: PartyRow, gifts: GiftRow[]) {
   return 'simulated';
 }
 
-export function GiftPartyList({ parties, gifts, weddingId, avgEstimate, isPrivate }: Props) {
+export function GiftPartyList({ parties, gifts, weddingId, avgEstimate, isPrivate, personsPerParty }: Props) {
   const [dialogParty, setDialogParty] = useState<PartyRow | null>(null);
+  const [search, setSearch] = useState('');
+  const [rsvpFilter, setRsvpFilter] = useState<RsvpFilter>('all');
+  const [giftFilter, setGiftFilter] = useState<GiftFilter>('all');
+
   const deleteGift = useDeleteGift(weddingId);
   const updateThankYou = useUpdateGiftThankYou(weddingId);
 
@@ -46,6 +55,25 @@ export function GiftPartyList({ parties, gifts, weddingId, avgEstimate, isPrivat
     catch { toast.error('Errore aggiornamento stato'); }
   };
 
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return parties.filter((p) => {
+      if (q && !p.party_name.toLowerCase().includes(q)) return false;
+      if (rsvpFilter !== 'all' && p.rsvp_status !== rsvpFilter) return false;
+      const partyGifts = gifts.filter((g) => g.party_id === p.id);
+      const hasGift = partyGifts.length > 0;
+      switch (giftFilter) {
+        case 'registered': if (!hasGift) return false; break;
+        case 'missing':    if (hasGift) return false; break;
+        case 'cash':       if (!partyGifts.some(g => g.gift_category === 'cash')) return false; break;
+        case 'physical':   if (!partyGifts.some(g => g.gift_category === 'physical_registry')) return false; break;
+      }
+      return true;
+    });
+  }, [parties, gifts, search, rsvpFilter, giftFilter]);
+
+  const anyFilter = !!search || rsvpFilter !== 'all' || giftFilter !== 'all';
+
   return (
     <>
       <div style={{
@@ -55,16 +83,70 @@ export function GiftPartyList({ parties, gifts, weddingId, avgEstimate, isPrivat
         boxShadow: '0 1px 2px hsl(24 14% 15% / 0.04)',
         overflow: 'hidden',
       }}>
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid hsl(var(--paper-border))' }}>
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid hsl(var(--paper-border))', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <h2 style={{ margin: 0, fontFamily: "'Fraunces', Georgia, serif", fontWeight: 500, fontSize: 17, letterSpacing: '-0.01em', color: 'hsl(var(--paper-ink))' }}>
             Nuclei Familiari
           </h2>
+          <span style={{ fontSize: 12, color: 'hsl(var(--paper-ink-3))', fontFamily: "'JetBrains Mono', monospace" }}>
+            {filtered.length} {filtered.length === parties.length ? `nucle${parties.length === 1 ? 'o' : 'i'}` : `su ${parties.length}`}
+          </span>
+        </div>
+
+        {/* Filters */}
+        <div style={{ padding: '12px 20px', borderBottom: '1px solid hsl(var(--paper-border))', background: 'hsl(var(--paper-bg) / 0.4)', display: 'grid', gap: 10 }}>
+          <div style={{ position: 'relative' }}>
+            <Search className="w-4 h-4" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--paper-ink-3))' }} />
+            <Input
+              placeholder="Cerca nucleo familiare…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 h-9 bg-paper-surface border-paper-border text-paper-ink placeholder:text-paper-ink-3"
+            />
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            <ChipGroup
+              label="RSVP"
+              value={rsvpFilter}
+              onChange={(v) => setRsvpFilter(v as RsvpFilter)}
+              options={[
+                { v: 'all', l: 'Tutti' },
+                { v: 'Confermato', l: 'Confermato' },
+                { v: 'In attesa', l: 'In attesa' },
+                { v: 'Rifiutato', l: 'Rifiutato' },
+              ]}
+            />
+            <ChipGroup
+              label="Regalo"
+              value={giftFilter}
+              onChange={(v) => setGiftFilter(v as GiftFilter)}
+              options={[
+                { v: 'all', l: 'Tutti' },
+                { v: 'registered', l: 'Registrato' },
+                { v: 'missing', l: 'Da registrare' },
+                { v: 'cash', l: 'Solo contanti' },
+                { v: 'physical', l: 'Solo lista' },
+              ]}
+            />
+            {anyFilter && (
+              <button
+                onClick={() => { setSearch(''); setRsvpFilter('all'); setGiftFilter('all'); }}
+                style={{
+                  marginLeft: 'auto', fontSize: 11.5, color: 'hsl(var(--paper-brand))',
+                  background: 'transparent', border: 'none', cursor: 'pointer', padding: '4px 8px',
+                }}
+              >
+                Azzera filtri
+              </button>
+            )}
+          </div>
         </div>
 
         <div>
-          {parties.map((party, i) => {
+          {filtered.map((party, i) => {
             const status = partyStatus(party, gifts);
             const partyGifts = gifts.filter((g) => g.party_id === party.id);
+            const personCount = personsPerParty[party.id] ?? 0;
+            const estimateForParty = avgEstimate * personCount;
 
             return (
               <div
@@ -72,7 +154,7 @@ export function GiftPartyList({ parties, gifts, weddingId, avgEstimate, isPrivat
                 style={{
                   padding: '14px 20px',
                   display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12,
-                  borderBottom: i < parties.length - 1 ? '1px solid hsl(var(--paper-border))' : 'none',
+                  borderBottom: i < filtered.length - 1 ? '1px solid hsl(var(--paper-border))' : 'none',
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, minWidth: 0 }}>
@@ -81,8 +163,13 @@ export function GiftPartyList({ parties, gifts, weddingId, avgEstimate, isPrivat
                     <div style={{ fontSize: 14, fontWeight: 500, color: 'hsl(var(--paper-ink))', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {party.party_name}
                     </div>
-                    <div style={{ marginTop: 4 }}>
+                    <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
                       <RsvpBadge status={party.rsvp_status} />
+                      {personCount > 0 && (
+                        <span style={{ fontSize: 11, color: 'hsl(var(--paper-ink-3))' }}>
+                          · {personCount} {personCount === 1 ? 'persona' : 'persone'}
+                        </span>
+                      )}
                     </div>
 
                     {partyGifts.length > 0 && (
@@ -113,9 +200,10 @@ export function GiftPartyList({ parties, gifts, weddingId, avgEstimate, isPrivat
                       </div>
                     )}
 
-                    {status === 'simulated' && avgEstimate > 0 && (
+                    {status === 'simulated' && estimateForParty > 0 && (
                       <div style={{ fontSize: 12, color: 'hsl(var(--paper-gold))', marginTop: 4 }}>
-                        Stima: {isPrivate ? '***€' : fmt(avgEstimate)}
+                        Stima: {isPrivate ? '***€' : fmt(estimateForParty)}
+                        <span style={{ color: 'hsl(var(--paper-ink-3))' }}> ({personCount} × {isPrivate ? '***€' : fmt(avgEstimate)})</span>
                       </div>
                     )}
                   </div>
@@ -136,9 +224,9 @@ export function GiftPartyList({ parties, gifts, weddingId, avgEstimate, isPrivat
             );
           })}
 
-          {parties.length === 0 && (
+          {filtered.length === 0 && (
             <div style={{ padding: '32px 20px', textAlign: 'center', fontSize: 13, color: 'hsl(var(--paper-ink-3))' }}>
-              Nessun nucleo familiare trovato.
+              {parties.length === 0 ? 'Nessun nucleo familiare trovato.' : 'Nessun nucleo corrisponde ai filtri.'}
             </div>
           )}
         </div>
@@ -154,6 +242,41 @@ export function GiftPartyList({ parties, gifts, weddingId, avgEstimate, isPrivat
         />
       )}
     </>
+  );
+}
+
+function ChipGroup({ label, value, onChange, options }: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: { v: string; l: string }[];
+}) {
+  return (
+    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+      <span style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'hsl(var(--paper-ink-3))', fontWeight: 600 }}>{label}</span>
+      {options.map((o) => {
+        const active = o.v === value;
+        return (
+          <button
+            key={o.v}
+            onClick={() => onChange(o.v)}
+            style={{
+              fontSize: 11.5,
+              padding: '4px 10px',
+              borderRadius: 999,
+              border: '1px solid',
+              borderColor: active ? 'hsl(var(--paper-brand))' : 'hsl(var(--paper-border))',
+              background: active ? 'hsl(var(--paper-brand-tint))' : 'hsl(var(--paper-surface))',
+              color: active ? 'hsl(var(--paper-brand-ink))' : 'hsl(var(--paper-ink-2))',
+              cursor: 'pointer',
+              fontWeight: active ? 600 : 500,
+            }}
+          >
+            {o.l}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
