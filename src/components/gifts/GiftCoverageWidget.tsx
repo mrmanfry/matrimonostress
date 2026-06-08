@@ -9,6 +9,10 @@ import type { GiftForecast } from '@/hooks/useGifts';
 interface Props {
   forecast: GiftForecast;
   isPrivate: boolean;
+  /** Override del totale budget calcolato in pagina secondo lo scenario attivo. */
+  budgetTotal?: number;
+  /** Etichetta dello scenario attivo, mostrata come hint sotto il budget. */
+  scenarioLabel?: string;
 }
 
 const fmt = (n: number) => n.toLocaleString('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
@@ -37,15 +41,17 @@ function PaperCard({ title, children }: { title: string; children: React.ReactNo
   );
 }
 
-export function GiftCoverageWidget({ forecast, isPrivate }: Props) {
-  const { total_cash_received, total_forecast, total_expenses, net_budget_coverage } = forecast;
+export function GiftCoverageWidget({ forecast, isPrivate, budgetTotal, scenarioLabel }: Props) {
+  const { total_cash_received, total_forecast } = forecast;
+  const total_expenses = budgetTotal != null ? budgetTotal : forecast.total_expenses;
   const total = total_cash_received + total_forecast;
   const hasBudget = total_expenses > 0;
   const overBudget = total > total_expenses && hasBudget;
-  // Scale: when over budget, extend the axis to "total"; otherwise use budget
   const scaleMax = overBudget ? total : Math.max(total_expenses, 1);
   const cashPct = scaleMax > 0 ? Math.min(100, (total_cash_received / scaleMax) * 100) : 0;
   const forecastPct = scaleMax > 0 ? Math.min(100 - cashPct, (total_forecast / scaleMax) * 100) : 0;
+
+  const net_budget_coverage = hasBudget ? Math.round((total / total_expenses) * 1000) / 10 : 0;
 
   const coverageColor =
     net_budget_coverage >= 100 ? C_CASH :
@@ -152,7 +158,7 @@ export function GiftCoverageWidget({ forecast, isPrivate }: Props) {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, textAlign: 'center' }}>
           <LegendItem swatch={C_CASH} label="Incassato" value={mask(total_cash_received, isPrivate)} />
           <LegendItem swatch={C_FORECAST} label="Stimato" value={mask(total_forecast, isPrivate)} dashed />
-          <BudgetLegendItem value={mask(total_expenses, isPrivate)} />
+          <BudgetLegendItem value={mask(total_expenses, isPrivate)} scenarioLabel={scenarioLabel} />
         </div>
       </div>
     </PaperCard>
@@ -177,7 +183,7 @@ function LegendItem({ swatch, label, value, dashed }: { swatch: string; label: s
   );
 }
 
-function BudgetLegendItem({ value }: { value: string }) {
+function BudgetLegendItem({ value, scenarioLabel }: { value: string; scenarioLabel?: string }) {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, marginBottom: 4 }}>
@@ -196,12 +202,17 @@ function BudgetLegendItem({ value }: { value: string }) {
               </button>
             </TooltipTrigger>
             <TooltipContent className="max-w-xs">
-              Somma di tutte le voci di spesa registrate nella sezione Budget. Aggiorna le tue voci di spesa per modificare questo valore.
+              Somma del prezzo previsto delle voci di spesa nella sezione Budget, ricalcolato secondo lo scenario selezionato (pianificato / lista invitati / confermati).
             </TooltipContent>
           </UiTooltip>
         </TooltipProvider>
       </div>
       <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 14, fontWeight: 500, color: 'hsl(var(--paper-ink))' }}>{value}</div>
+      {scenarioLabel && (
+        <div style={{ fontSize: 10.5, color: 'hsl(var(--paper-ink-3))', marginTop: 2 }}>
+          scenario: {scenarioLabel}
+        </div>
+      )}
       <Link
         to="/app/budget"
         style={{ display: 'inline-block', marginTop: 4, fontSize: 11, color: 'hsl(var(--paper-brand))', textDecoration: 'none' }}

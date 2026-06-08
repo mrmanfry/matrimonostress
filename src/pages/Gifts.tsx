@@ -8,11 +8,34 @@ import { useGifts, useGiftForecast } from '@/hooks/useGifts';
 import { GiftCoverageWidget } from '@/components/gifts/GiftCoverageWidget';
 import { GiftSimulatorSlider } from '@/components/gifts/GiftSimulatorSlider';
 import { GiftPartyList, type PartyRow } from '@/components/gifts/GiftPartyList';
+import { ScenarioSelector, type ScenarioMode } from '@/components/budget/v2/ScenarioSelector';
+import {
+  buildVendors, buildTotals,
+  type DbVendor, type DbExpenseItem, type DbPayment,
+} from '@/lib/budgetAggregates';
+import type { ExpenseLineItem, GuestCounts } from '@/lib/expenseCalculations';
+import { isGuestConfirmed } from '@/lib/rsvpHelpers';
 
 const PRIVACY_KEY = 'gifts_privacy_enabled';
 const ESTIMATE_KEY = 'gifts_avg_estimate_per_person';
 
-type GuestRow = { id: string; party_id: string | null; is_couple_member: boolean | null; is_staff: boolean | null };
+type GuestRow = {
+  id: string;
+  party_id: string | null;
+  is_couple_member: boolean | null;
+  is_staff: boolean | null;
+  is_child: boolean | null;
+  rsvp_status: string | null;
+  allow_plus_one: boolean | null;
+  plus_one_name: string | null;
+  plus_one_of_guest_id: string | null;
+};
+
+const SCENARIO_LABEL: Record<ScenarioMode, string> = {
+  planned: 'Pianificato',
+  expected: 'Lista invitati',
+  confirmed: 'Confermati',
+};
 
 export default function Gifts() {
   const { authState } = useAuth();
@@ -21,6 +44,15 @@ export default function Gifts() {
   const [parties, setParties] = useState<PartyRow[]>([]);
   const [partiesLoading, setPartiesLoading] = useState(true);
   const [guests, setGuests] = useState<GuestRow[]>([]);
+
+  // Budget-scenario data (mirrors what Budget page loads)
+  const [budgetLoading, setBudgetLoading] = useState(true);
+  const [vendors, setVendors] = useState<DbVendor[]>([]);
+  const [items, setItems] = useState<DbExpenseItem[]>([]);
+  const [payments, setPayments] = useState<DbPayment[]>([]);
+  const [lineItemsMap, setLineItemsMap] = useState<Record<string, ExpenseLineItem[]>>({});
+  const [guestCounts, setGuestCounts] = useState<GuestCounts | null>(null);
+  const [scenario, setScenario] = useState<ScenarioMode>('planned');
 
   const [isPrivate, setIsPrivate] = useState(() => {
     try { return localStorage.getItem(PRIVACY_KEY) === 'true'; } catch { return false; }
@@ -40,13 +72,113 @@ export default function Gifts() {
     setPartiesLoading(true);
     Promise.all([
       supabase.from('invite_parties').select('id, party_name, rsvp_status').eq('wedding_id', weddingId).order('party_name'),
-      supabase.from('guests').select('id, party_id, is_couple_member, is_staff').eq('wedding_id', weddingId),
+      supabase.from('guests').select('id, party_id, is_couple_member, is_staff, is_child, rsvp_status, allow_plus_one, plus_one_name, plus_one_of_guest_id').eq('wedding_id', weddingId),
     ]).then(([pRes, gRes]) => {
       if (!pRes.error && pRes.data) setParties(pRes.data as PartyRow[]);
       if (!gRes.error && gRes.data) setGuests(gRes.data as GuestRow[]);
       setPartiesLoading(false);
     });
   }, [weddingId]);
+
+  // Load budget data (vendors, items, payments, lines, guest counts) for scenario totals
+  useEffect(() => {
+    if (!weddingId) return;
+    let cancelled = false;
+    setBudgetLoading(true);
+    (async () => {
+      try {
+        const [weddingRes, vendorsRes, itemsRes] = await Promise.all([
+          supabase.from('weddings').select('calculation_mode, target_adults, target_children, target_staff').eq('id', weddingId).maybeSingle(),
+          supabase.from('vendors').select('id, name, category_id, expense_categories(id, name), staff_meals_count').eq('wedding_id', weddingId),
+          supabase.from('expense_items').select('*, vendors(name, expense_categories(id, name)), expense_categories(id, name)').eq('wedding_id', weddingId),
+        ]);
+        if (cancelled) return;
+
+        const persistedMode = (weddingRes.data?.calculation_mode as ScenarioMode | undefined) ?? 'planned';
+        setScenario(persistedMode);
+
+        setVendors((vendorsRes.data ?? []) as unknown as DbVendor[]);
+        const allItems = (itemsRes.data ?? []) as unknown as DbExpenseItem[];
+        setItems(allItems);
+
+        const ids = allItems.map(i => i.id);
+        if (ids.length > 0) {
+          const [linesRes, paysRes] = await Promise.all([
+            supabase.from('expense_line_items').select('*').in('expense_item_id', ids),
+            supabase.from('payments').select('*').in('expense_item_id', ids),
+          ]);
+          if (cancelled) return;
+          const map: Record<string, ExpenseLineItem[]> = {};
+          for (const l of (linesRes.data ?? []) as unknown as Array<ExpenseLineItem & { expense_item_id: string }>) {
+            (map[l.expense_item_id] ??= []).push(l);
+          }
+          setLineItemsMap(map);
+          setPayments((paysRes.data ?? []) as unknown as DbPayment[]);
+        } else {
+          setLineItemsMap({});
+          setPayments([]);
+        }
+
+        // Guest counts are computed in a separate effect once guests load.
+
+      } catch (err) {
+        console.error('Gifts budget load error', err);
+      } finally {
+        if (!cancelled) setBudgetLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [weddingId]);
+
+  // Recompute guest counts whenever guests/vendors change
+  useEffect(() => {
+    if (!weddingId) return;
+    (async () => {
+      const { data: wed } = await supabase.from('weddings').select('target_adults, target_children, target_staff').eq('id', weddingId).maybeSingle();
+      const vendorStaffMeals = vendors.reduce((s: number, v: any) => s + Number(v.staff_meals_count || 0), 0);
+      const hostsWithMaterializedPlusOne = new Set(
+        guests.filter(g => g.plus_one_of_guest_id).map(g => g.plus_one_of_guest_id as string)
+      );
+      const tally = (filterFn: (g: GuestRow) => boolean) => {
+        let adults = 0, children = 0;
+        for (const g of guests) {
+          if (!filterFn(g)) continue;
+          if (g.is_staff) continue;
+          if (g.is_child) children += 1;
+          else adults += 1;
+          if (g.allow_plus_one && g.plus_one_name && !hostsWithMaterializedPlusOne.has(g.id)) {
+            adults += 1;
+          }
+        }
+        return { adults, children, staff: vendorStaffMeals };
+      };
+      setGuestCounts({
+        planned: {
+          adults: Number(wed?.target_adults ?? 100),
+          children: Number(wed?.target_children ?? 0),
+          staff: Number(wed?.target_staff ?? vendorStaffMeals),
+        },
+        expected: tally(() => true),
+        confirmed: tally(g => isGuestConfirmed(g as any)),
+      });
+    })();
+  }, [weddingId, guests, vendors]);
+
+  // Compute the budget total for each scenario via the same engine as the Budget page
+  const scenarioTotals = useMemo(() => {
+    if (!guestCounts) return null;
+    const compute = (m: ScenarioMode) => {
+      const vs = buildVendors(vendors, items, payments, lineItemsMap, m, guestCounts);
+      return buildTotals(0, vs).committed;
+    };
+    return {
+      planned: compute('planned'),
+      expected: compute('expected'),
+      confirmed: compute('confirmed'),
+    };
+  }, [vendors, items, payments, lineItemsMap, guestCounts]);
+
+  const currentBudgetTotal = scenarioTotals ? scenarioTotals[scenario] : 0;
 
   const personsPerParty = useMemo(() => {
     const map: Record<string, number> = {};
@@ -67,8 +199,15 @@ export default function Gifts() {
     setAvgEstimate(v);
     try { localStorage.setItem(ESTIMATE_KEY, String(v)); } catch {}
   };
+  const handleScenarioChange = (m: ScenarioMode) => {
+    setScenario(m);
+    if (!weddingId) return;
+    supabase.from('weddings').update({ calculation_mode: m }).eq('id', weddingId).then(({ error }) => {
+      if (error) console.warn('Persist scenario failed', error);
+    });
+  };
 
-  const loading = giftsLoading || forecastLoading || partiesLoading;
+  const loading = giftsLoading || forecastLoading || partiesLoading || budgetLoading;
 
   const defaultForecast = {
     total_cash_received: 0, total_expenses: 0, eligible_parties_count: 0, eligible_persons_count: 0,
@@ -108,13 +247,20 @@ export default function Gifts() {
 
         {loading ? (
           <div style={{ display: 'grid', gap: 16 }}>
+            <Skeleton className="h-10 w-72" />
             <Skeleton className="h-48 w-full" />
             <Skeleton className="h-28 w-full" />
             <Skeleton className="h-64 w-full" />
           </div>
         ) : (
           <>
-            <GiftCoverageWidget forecast={forecast ?? defaultForecast} isPrivate={isPrivate} />
+            <ScenarioSelector mode={scenario} onModeChange={handleScenarioChange} counts={guestCounts} />
+            <GiftCoverageWidget
+              forecast={forecast ?? defaultForecast}
+              isPrivate={isPrivate}
+              budgetTotal={currentBudgetTotal}
+              scenarioLabel={SCENARIO_LABEL[scenario]}
+            />
             <GiftSimulatorSlider
               value={avgEstimate}
               onChange={handleEstimateChange}
