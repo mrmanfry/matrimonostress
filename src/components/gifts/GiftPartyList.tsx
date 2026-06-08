@@ -21,6 +21,7 @@ interface Props {
   avgEstimate: number;
   isPrivate: boolean;
   personsPerParty: Record<string, number>;
+  guestNamesByParty?: Record<string, string[]>;
 }
 
 const fmt = (n: number) => n.toLocaleString('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
@@ -36,7 +37,7 @@ function partyStatus(party: PartyRow, gifts: GiftRow[]) {
   return 'simulated';
 }
 
-export function GiftPartyList({ parties, gifts, weddingId, avgEstimate, isPrivate, personsPerParty }: Props) {
+export function GiftPartyList({ parties, gifts, weddingId, avgEstimate, isPrivate, personsPerParty, guestNamesByParty }: Props) {
   const [dialogParty, setDialogParty] = useState<PartyRow | null>(null);
   const [search, setSearch] = useState('');
   const [rsvpFilter, setRsvpFilter] = useState<RsvpFilter>('all');
@@ -58,7 +59,12 @@ export function GiftPartyList({ parties, gifts, weddingId, avgEstimate, isPrivat
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return parties.filter((p) => {
-      if (q && !p.party_name.toLowerCase().includes(q)) return false;
+      if (q) {
+        const inPartyName = p.party_name.toLowerCase().includes(q);
+        const names = guestNamesByParty?.[p.id] ?? [];
+        const inGuestNames = names.some((n) => n.toLowerCase().includes(q));
+        if (!inPartyName && !inGuestNames) return false;
+      }
       if (rsvpFilter !== 'all' && p.rsvp_status !== rsvpFilter) return false;
       const partyGifts = gifts.filter((g) => g.party_id === p.id);
       const hasGift = partyGifts.length > 0;
@@ -70,7 +76,7 @@ export function GiftPartyList({ parties, gifts, weddingId, avgEstimate, isPrivat
       }
       return true;
     });
-  }, [parties, gifts, search, rsvpFilter, giftFilter]);
+  }, [parties, gifts, search, rsvpFilter, giftFilter, guestNamesByParty]);
 
   const anyFilter = !!search || rsvpFilter !== 'all' || giftFilter !== 'all';
 
@@ -97,7 +103,7 @@ export function GiftPartyList({ parties, gifts, weddingId, avgEstimate, isPrivat
           <div style={{ position: 'relative' }}>
             <Search className="w-4 h-4" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--paper-ink-3))' }} />
             <Input
-              placeholder="Cerca nucleo familiare…"
+              placeholder="Cerca per nucleo o nome e cognome…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9 h-9 bg-paper-surface border-paper-border text-paper-ink placeholder:text-paper-ink-3"

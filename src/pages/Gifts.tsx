@@ -22,6 +22,8 @@ const ESTIMATE_KEY = 'gifts_avg_estimate_per_person';
 type GuestRow = {
   id: string;
   party_id: string | null;
+  first_name: string | null;
+  last_name: string | null;
   is_couple_member: boolean | null;
   is_staff: boolean | null;
   is_child: boolean | null;
@@ -72,7 +74,7 @@ export default function Gifts() {
     setPartiesLoading(true);
     Promise.all([
       supabase.from('invite_parties').select('id, party_name, rsvp_status').eq('wedding_id', weddingId).order('party_name'),
-      supabase.from('guests').select('id, party_id, is_couple_member, is_staff, is_child, rsvp_status, allow_plus_one, plus_one_name, plus_one_of_guest_id').eq('wedding_id', weddingId),
+      supabase.from('guests').select('id, party_id, first_name, last_name, is_couple_member, is_staff, is_child, rsvp_status, allow_plus_one, plus_one_name, plus_one_of_guest_id').eq('wedding_id', weddingId),
     ]).then(([pRes, gRes]) => {
       if (!pRes.error && pRes.data) setParties(pRes.data as PartyRow[]);
       if (!gRes.error && gRes.data) setGuests(gRes.data as GuestRow[]);
@@ -190,6 +192,17 @@ export default function Gifts() {
     return map;
   }, [guests]);
 
+  const guestNamesByParty = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    for (const g of guests) {
+      if (!g.party_id) continue;
+      const name = `${g.first_name ?? ''} ${g.last_name ?? ''}`.trim();
+      if (!name) continue;
+      (map[g.party_id] ??= []).push(name);
+    }
+    return map;
+  }, [guests]);
+
   const togglePrivacy = () => {
     const next = !isPrivate;
     setIsPrivate(next);
@@ -275,6 +288,7 @@ export default function Gifts() {
                 avgEstimate={avgEstimate}
                 isPrivate={isPrivate}
                 personsPerParty={personsPerParty}
+                guestNamesByParty={guestNamesByParty}
               />
             )}
           </>
