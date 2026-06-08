@@ -1,4 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logSecurityEvent } from "../_shared/audit.ts";
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -24,6 +26,11 @@ Deno.serve(async (req) => {
     // Validate the caller's JWT — sender_id must come from the verified token, not the body
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
+      await logSecurityEvent(req, {
+        event_type: "auth_missing",
+        resource: "edge:notify-chat-message",
+        reason: "Missing Authorization header on chat notification endpoint",
+      });
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: corsHeaders,
@@ -32,6 +39,11 @@ Deno.serve(async (req) => {
     const jwt = authHeader.replace(/^Bearer\s+/i, "");
     const { data: userData, error: userErr } = await supabase.auth.getUser(jwt);
     if (userErr || !userData?.user) {
+      await logSecurityEvent(req, {
+        event_type: "auth_invalid",
+        resource: "edge:notify-chat-message",
+        reason: "Invalid or expired JWT on chat notification endpoint",
+      });
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: corsHeaders,
@@ -39,7 +51,19 @@ Deno.serve(async (req) => {
     }
     const sender_id = userData.user.id;
 
-    const body = await req.json();
+    // Detect spoofing attempts: body-supplied sender_id that does not match verified token
+    const rawBody = await req.json();
+    if (rawBody?.sender_id && rawBody.sender_id !== sender_id) {
+      await logSecurityEvent(req, {
+        event_type: "spoofed_sender",
+        resource: "edge:notify-chat-message",
+        reason: "Body sender_id does not match verified JWT user",
+        user_id: sender_id,
+        wedding_id: rawBody?.wedding_id ?? null,
+        metadata: { claimed_sender_id: rawBody.sender_id },
+      });
+    }
+    const body = rawBody;
     console.log("[notify-chat-message] received body:", JSON.stringify(body));
     const { wedding_id, content, visibility } = body;
 

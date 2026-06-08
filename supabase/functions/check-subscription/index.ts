@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { type StripeEnv, createStripeClient, corsHeaders } from "../_shared/stripe.ts";
+import { logSecurityEvent } from "../_shared/audit.ts";
+
 
 const log = (s: string, d?: unknown) => console.log(`[CHECK-SUBSCRIPTION] ${s}${d ? " - " + JSON.stringify(d) : ""}`);
 
@@ -38,12 +40,20 @@ serve(async (req) => {
         .eq("role", "co_planner")
         .maybeSingle();
       if (!roleRow) {
+        await logSecurityEvent(req, {
+          event_type: "forbidden_wedding_access",
+          resource: "edge:check-subscription",
+          reason: "Caller is not co_planner on supplied weddingId (subscription IDOR attempt)",
+          user_id: user.id,
+          wedding_id: weddingId,
+        });
         return new Response(JSON.stringify({ error: "Forbidden" }), {
           status: 403,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
     }
+
 
     const stripe = createStripeClient(environment);
     const customers = await stripe.customers.list({ email: user.email, limit: 1 });
