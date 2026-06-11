@@ -617,7 +617,7 @@ export default function VendorDetails() {
           </div>
 
           {/* === Right: sections === */}
-          <div style={{ display: 'grid', gap: 28, minWidth: 0 }}>
+          <div className="vd-right" style={{ display: 'grid', gap: 28, minWidth: 0 }}>
 
             {/* Spese & Pagamenti */}
             {!vendorCostsHidden && (
