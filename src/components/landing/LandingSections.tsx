@@ -542,14 +542,16 @@ export const HowItWorks = () => {
   );
 };
 
-export const FinalCTA = () => (
-  <section style={{ padding: "96px 0" }}>
-    <div style={{ maxWidth: 980, margin: "0 auto", padding: "0 48px" }}>
+export const FinalCTA = () => {
+  const isMobile = useIsMobile();
+  return (
+  <section style={{ padding: isMobile ? "56px 0" : "96px 0" }}>
+    <div style={{ maxWidth: 980, margin: "0 auto", padding: isMobile ? "0 20px" : "0 48px" }}>
       <div
         style={{
           background: "linear-gradient(135deg, #4C1D95 0%, #6D3FE0 55%, #8B5CF6 100%)",
-          borderRadius: 24,
-          padding: "64px 56px",
+          borderRadius: isMobile ? 18 : 24,
+          padding: isMobile ? "40px 24px" : "64px 56px",
           position: "relative",
           overflow: "hidden",
           boxShadow: "0 24px 64px -20px rgba(76,29,149,.4)",
@@ -583,7 +585,7 @@ export const FinalCTA = () => (
             flexDirection: "column",
             alignItems: "center",
             textAlign: "center",
-            gap: 28,
+            gap: isMobile ? 22 : 28,
           }}
         >
           <div
@@ -609,7 +611,7 @@ export const FinalCTA = () => (
             style={{
               fontFamily: T.fontSerif,
               fontWeight: 400,
-              fontSize: 52,
+              fontSize: isMobile ? 34 : 52,
               letterSpacing: "-0.025em",
               lineHeight: 1.05,
               margin: 0,
@@ -623,7 +625,7 @@ export const FinalCTA = () => (
           </h2>
           <p
             style={{
-              fontSize: 17,
+              fontSize: isMobile ? 15 : 17,
               color: "rgba(250,247,242,.82)",
               margin: 0,
               maxWidth: 520,
@@ -633,12 +635,24 @@ export const FinalCTA = () => (
             30 secondi per iscrivervi. Nessuna carta di credito, nessun vincolo. Potete iniziare subito ad aggiungere
             invitati e fornitori.
           </p>
-          <div style={{ display: "flex", gap: 12, marginTop: 6, flexWrap: "wrap", justifyContent: "center" }}>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: isMobile ? "column" : "row",
+              gap: 12,
+              marginTop: 6,
+              flexWrap: "wrap",
+              justifyContent: "center",
+              alignItems: "stretch",
+              width: isMobile ? "100%" : "auto",
+            }}
+          >
             <a
               href="/auth"
               style={{
                 display: "inline-flex",
                 alignItems: "center",
+                justifyContent: "center",
                 gap: 10,
                 padding: "14px 24px",
                 borderRadius: 12,
@@ -657,6 +671,7 @@ export const FinalCTA = () => (
               style={{
                 display: "inline-flex",
                 alignItems: "center",
+                justifyContent: "center",
                 gap: 10,
                 padding: "14px 24px",
                 borderRadius: 12,
@@ -674,4 +689,5 @@ export const FinalCTA = () => (
       </div>
     </div>
   </section>
-);
+  );
+};
