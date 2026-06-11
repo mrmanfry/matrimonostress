@@ -236,14 +236,14 @@ const Dashboard = () => {
       const totalToBePaid = totalCommitment - totalPaid;
 
       setStats({
-        guestsTotal: nonStaffNonCouple.length,
+        guestsTotal: (guests as any[]).filter(g => !g.is_staff).length,
         adultsTotal: totalAdults,
         childrenTotal: totalChildren,
         guestsConfirmed: totalAdultsConfirmed + totalChildrenConfirmed,
         adultsConfirmed: totalAdultsConfirmed,
         childrenConfirmed: totalChildrenConfirmed,
-        guestsPending: nonStaffNonCouple.filter(g => g.rsvp_status === 'pending').length,
-        guestsDeclined: nonStaffNonCouple.filter(g => g.rsvp_status === 'declined').length,
+        guestsPending: (guests as any[]).filter(g => !g.is_staff && !g.is_couple_member && g.rsvp_status === 'pending').length,
+        guestsDeclined: (guests as any[]).filter(g => !g.is_staff && !g.is_couple_member && g.rsvp_status === 'declined').length,
         budgetTotal: weddingData.total_budget || 0,
         budgetSpent: totalCommitment,
         budgetPaid: totalPaid,
