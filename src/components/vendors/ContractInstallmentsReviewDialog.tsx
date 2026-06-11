@@ -125,7 +125,7 @@ export function ContractInstallmentsReviewDialog({
           .insert({
             vendor_id: vendorId,
             wedding_id: weddingId,
-            name: vendor?.name || "Fornitore",
+            description: vendor?.name || "Fornitore",
             category_id: vendor?.category_id ?? null,
             calculation_mode: "fixed",
           })
@@ -134,6 +134,7 @@ export function ContractInstallmentsReviewDialog({
         if (expErr) throw expErr;
         expenseItemId = newExp.id;
       }
+
 
       // 2. Build payment rows
       const paymentRows = selected.map((r) => {
