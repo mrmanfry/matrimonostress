@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send, Bell, Edit, Trash2, X } from "lucide-react";
+import { Send, Bell, Edit, Trash2 } from "lucide-react";
 import { GuestStatusDot, type GuestStatus } from "@/components/guests/GuestStatusDot";
 import { cn } from "@/lib/utils";
 import { PercorsoStepper, PercorsoStep } from "./PercorsoStepper";
