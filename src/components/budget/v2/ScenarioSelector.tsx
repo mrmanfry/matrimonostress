@@ -44,7 +44,8 @@ export function ScenarioSelector({ mode, onModeChange, counts }: Props) {
       >
         {ITEMS.map((it) => {
           const active = mode === it.id;
-          const n = counts?.[it.id]?.adults ?? 0;
+          const c = counts?.[it.id];
+          const n = c ? c.adults + c.children : 0;
           return (
             <button
               key={it.id}

@@ -25,8 +25,10 @@ export function GuestSummaryWidget({ stats, onClick }: GuestSummaryWidgetProps) 
   // Pie chart data for RSVP — Single Source of Truth: useGuestMetrics
   // Includiamo gli sposi (sempre confermati) per allineare con "Coperti Stimati".
   // Totale confermati visualizzato = ospiti confermati + coppia.
+  // Sposi esclusi: vengono già evidenziati nel riquadro "Sposi" sopra.
+  // Così il "Confermati" del pie coincide con il bottone "Confermati" dello scenario.
   const rsvpChartData = [
-    { name: "Confermati", value: (metrics.confirmedHeadCount ?? 0) + metrics.coupleCount, color: "#10b981" },
+    { name: "Confermati", value: metrics.confirmedHeadCount ?? 0, color: "#10b981" },
     { name: "In attesa", value: metrics.pendingHeadCount ?? stats.guestsPending, color: "#3b82f6" },
     { name: "Rifiutati", value: metrics.declinedHeadCount ?? stats.guestsDeclined, color: "#6b7280" },
   ];
