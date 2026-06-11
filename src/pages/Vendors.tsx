@@ -25,7 +25,7 @@ import {
 import { ScenarioSelector, type ScenarioMode } from '@/components/budget/v2/ScenarioSelector';
 import { ScenarioHeadcountBar } from '@/components/budget/v2/ScenarioHeadcountBar';
 import type { GuestCounts } from '@/lib/expenseCalculations';
-import { isGuestConfirmed } from '@/lib/rsvpHelpers';
+import { buildGuestScenarios } from '@/lib/guestScenarios';
 
 interface VendorRow {
   id: string;
@@ -165,35 +165,16 @@ const Vendors = () => {
         supabase.from('vendors').select('staff_meals_count').eq('wedding_id', weddingId!),
       ]);
       const persistedMode = (wRes.data?.calculation_mode as ScenarioMode | null) ?? 'planned';
-      const guests = (gRes.data ?? []) as Array<{
-        id: string; rsvp_status: string | null;
-        is_child: boolean | null; is_staff: boolean | null; is_couple_member: boolean | null;
-        allow_plus_one: boolean | null; plus_one_name: string | null; plus_one_of_guest_id: string | null;
-      }>;
-      const vendorStaffMeals = (vRes.data ?? []).reduce(
-        (s, v: any) => s + Number(v.staff_meals_count || 0), 0
-      );
-      const hostsWithMaterializedPlusOne = new Set(
-        guests.filter(g => g.plus_one_of_guest_id).map(g => g.plus_one_of_guest_id as string)
-      );
-      const tally = (filterFn: (g: typeof guests[number]) => boolean) => {
-        let adults = 0, children = 0;
-        for (const g of guests) {
-          if (!filterFn(g)) continue;
-          if (g.is_staff) continue;
-          if (g.is_child) children += 1; else adults += 1;
-          if (g.allow_plus_one && g.plus_one_name && !hostsWithMaterializedPlusOne.has(g.id)) adults += 1;
-        }
-        return { adults, children, staff: vendorStaffMeals };
-      };
+      const guests = (gRes.data ?? []) as any[];
+      const scenarios = buildGuestScenarios(guests, (vRes.data ?? []) as any[], {
+        target_adults: wRes.data?.target_adults,
+        target_children: wRes.data?.target_children,
+        target_staff: wRes.data?.target_staff,
+      });
       const guestCounts: GuestCounts = {
-        planned: {
-          adults: Number(wRes.data?.target_adults ?? 100),
-          children: Number(wRes.data?.target_children ?? 0),
-          staff: Number(wRes.data?.target_staff ?? vendorStaffMeals),
-        },
-        expected: tally(() => true),
-        confirmed: tally(g => isGuestConfirmed(g)),
+        planned: { adults: scenarios.planned.adults, children: scenarios.planned.children, staff: scenarios.planned.staff },
+        expected: { adults: scenarios.expected.adults, children: scenarios.expected.children, staff: scenarios.expected.staff },
+        confirmed: { adults: scenarios.confirmed.adults, children: scenarios.confirmed.children, staff: scenarios.confirmed.staff },
       };
       return { persistedMode, guestCounts };
     },

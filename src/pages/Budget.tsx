@@ -24,7 +24,7 @@ import {
 } from '@/lib/budgetAggregates';
 import { UnallocatedPaymentsDialog } from '@/components/budget/v2/UnallocatedPaymentsDialog';
 import type { ExpenseLineItem, GuestCounts } from '@/lib/expenseCalculations';
-import { isGuestConfirmed, isGuestDeclined } from '@/lib/rsvpHelpers';
+import { buildGuestScenarios } from '@/lib/guestScenarios';
 
 export default function Budget() {
   const { authState } = useAuth();
@@ -116,47 +116,17 @@ export default function Budget() {
         setAllocations([]);
       }
 
-      // Guest counts (for variable expense calculation) — 1 row = 1 person.
-      // Uses flag-based classification: is_child / is_staff / is_couple_member.
-      // Plus-ones promossi (plus_one_of_guest_id) sono già righe separate.
-      const guests = (guestsRes.data ?? []) as Array<{
-        id: string;
-        rsvp_status: string | null;
-        is_child: boolean | null; is_staff: boolean | null; is_couple_member: boolean | null;
-        allow_plus_one: boolean | null;
-        plus_one_name: string | null; plus_one_of_guest_id: string | null;
-      }>;
-      const vendorStaffMeals = (vendorsRes.data ?? []).reduce(
-        (sum, vendor: any) => sum + Number(vendor.staff_meals_count || 0),
-        0
-      );
-      const hostsWithMaterializedPlusOne = new Set(
-        guests.filter(g => g.plus_one_of_guest_id).map(g => g.plus_one_of_guest_id as string)
-      );
-      const tally = (filterFn: (g: typeof guests[number]) => boolean) => {
-        let adults = 0, children = 0;
-        for (const g of guests) {
-          if (!filterFn(g)) continue;
-          if (g.is_staff) continue;            // staff counted from vendors
-          // NOTE: sposi (is_couple_member) inclusi negli adulti — generano coperto/costo a testa.
-          if (g.is_child) children += 1;
-          else adults += 1;
-          // Textual +1 (not yet promoted to its own row) still counts as 1 adult head.
-          if (g.allow_plus_one && g.plus_one_name && !hostsWithMaterializedPlusOne.has(g.id)) {
-            adults += 1;
-          }
-        }
-        return { adults, children, staff: vendorStaffMeals };
-      };
-
+      // Single source of truth — sposi inclusi in confermati, staff dai vendors.
+      const guests = (guestsRes.data ?? []) as any[];
+      const scenarios = buildGuestScenarios(guests, (vendorsRes.data ?? []) as any[], {
+        target_adults: weddingRes.data?.target_adults,
+        target_children: weddingRes.data?.target_children,
+        target_staff: weddingRes.data?.target_staff,
+      });
       setGuestCounts({
-        planned: {
-          adults: Number(weddingRes.data?.target_adults ?? 100),
-          children: Number(weddingRes.data?.target_children ?? 0),
-          staff: Number(weddingRes.data?.target_staff ?? vendorStaffMeals),
-        },
-        expected: tally(() => true),
-        confirmed: tally(g => isGuestConfirmed(g)),
+        planned: { adults: scenarios.planned.adults, children: scenarios.planned.children, staff: scenarios.planned.staff },
+        expected: { adults: scenarios.expected.adults, children: scenarios.expected.children, staff: scenarios.expected.staff },
+        confirmed: { adults: scenarios.confirmed.adults, children: scenarios.confirmed.children, staff: scenarios.confirmed.staff },
       });
     } catch (err) {
       console.error('Budget load error', err);

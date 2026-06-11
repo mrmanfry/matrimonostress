@@ -22,13 +22,12 @@ export function GuestSummaryWidget({ stats, onClick }: GuestSummaryWidgetProps) 
   const metrics = useGuestMetrics();
   const isMobile = useIsMobile();
 
-  // Pie chart data for RSVP — Single Source of Truth: useGuestMetrics
-  // Includiamo gli sposi (sempre confermati) per allineare con "Coperti Stimati".
-  // Totale confermati visualizzato = ospiti confermati + coppia.
-  // Sposi esclusi: vengono già evidenziati nel riquadro "Sposi" sopra.
-  // Così il "Confermati" del pie coincide con il bottone "Confermati" dello scenario.
+  // Pie chart RSVP — Single source of truth allineata a buildGuestScenarios:
+  // gli sposi sono SEMPRE confermati e vengono inclusi qui (no card separata),
+  // così il numero coincide col bottone "Confermati" dello ScenarioSelector.
+  const confirmedWithCouple = (metrics.confirmedHeadCount ?? 0) + (metrics.coupleCount ?? 0);
   const rsvpChartData = [
-    { name: "Confermati", value: metrics.confirmedHeadCount ?? 0, color: "#10b981" },
+    { name: "Confermati", value: confirmedWithCouple, color: "#10b981" },
     { name: "In attesa", value: metrics.pendingHeadCount ?? stats.guestsPending, color: "#3b82f6" },
     { name: "Rifiutati", value: metrics.declinedHeadCount ?? stats.guestsDeclined, color: "#6b7280" },
   ];
@@ -71,24 +70,19 @@ export function GuestSummaryWidget({ stats, onClick }: GuestSummaryWidgetProps) 
             ({metrics.totalInvitations} inviti{metrics.plusOnesPotential > 0 && ` + ${metrics.plusOnesPotential} +1 potenziali`})
           </div>
           
-          <div className="grid grid-cols-4 gap-1.5 md:gap-2 max-w-md mx-auto">
+          <div className="grid grid-cols-3 gap-1.5 md:gap-2 max-w-md mx-auto">
             <div className="p-1.5 md:p-2 rounded-lg bg-blue-50 dark:bg-blue-950/20">
               <div className="text-lg md:text-xl font-bold text-blue-600">
-                {metrics.adultsCount || stats.adultsTotal}
+                {(metrics.adultsCount || stats.adultsTotal) + (metrics.coupleCount ?? 0)}
               </div>
               <div className="text-xs text-muted-foreground">Adulti</div>
+              <div className="text-[10px] text-muted-foreground/70">sposi inclusi</div>
             </div>
             <div className="p-1.5 md:p-2 rounded-lg bg-purple-50 dark:bg-purple-950/20">
               <div className="text-lg md:text-xl font-bold text-purple-600">
                 {metrics.childrenCount || stats.childrenTotal}
               </div>
               <div className="text-xs text-muted-foreground">Bambini</div>
-            </div>
-            <div className="p-1.5 md:p-2 rounded-lg bg-pink-50 dark:bg-pink-950/20">
-              <div className="text-lg md:text-xl font-bold text-pink-600">
-                {metrics.coupleCount}
-              </div>
-              <div className="text-xs text-muted-foreground">Sposi</div>
             </div>
             <TooltipProvider>
               <Tooltip>

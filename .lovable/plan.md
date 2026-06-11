@@ -1,48 +1,43 @@
-## Cosa sta succedendo (diagnosi dei 3 numeri)
+## Obiettivo
+Avere **un solo metodo** che calcola i 3 scenari di headcount, richiamato ovunque (Dashboard pie, ScenarioSelector, Budget, Vendors, Catering). Niente più drift tra widget.
 
-I numeri divergono perché ogni widget conta cose diverse:
+## Decisione semantica (confermata)
+Gli **sposi sono sempre dentro come adulti confermati** in tutti e 3 gli scenari. Lo staff resta separato. Il pie/KPI mostreranno gli sposi come parte di "Confermati Adulti" (non più card separata "Sposi" che crea confusione di totali).
 
-| Posto | Numero | Cosa conta davvero |
-|---|---|---|
-| **Pie chart "Confermati"** (Riepilogo Invitati) | es. ~110 | Ospiti `rsvp_status='confirmed'` (adulti **+ bambini**) **+ sposi** (`coupleCount`). Sorgente: `useGuestMetrics.confirmedHeadCount + coupleCount` |
-| **Bottone "Confermati" del selettore Scenario** | **102** | Solo **adulti** confermati (`guestCounts.confirmed.adults`). Esclude bambini e sposi. Sorgente: `Dashboard.tsx` riga 197-201 |
-| **Bottone "Lista invitati"** | **164** | Solo **adulti** in lista non-staff non-sposi. Esclude bambini. Sorgente: `expectedCalculator.adults` |
-| **Bottone "Pianificato"** | **170** | Valore manuale `weddings.target_adults` (fallback 100 se nullo). NON è calcolato dalla lista — è il target che hai impostato a mano nella ScenarioHeadcountBar / setup matrimonio |
+## Nuovo helper centralizzato
+File: `src/lib/guestScenarios.ts`
 
-Causa radice: `ScenarioSelector.tsx` riga 47 mostra `counts.adults` invece dell'headcount totale dello scenario. Il pie chart invece somma tutto. Quindi due fonti che dovrebbero coincidere sembrano contraddirsi.
+```ts
+export type ScenarioId = 'planned' | 'expected' | 'confirmed';
+export interface ScenarioCount { adults: number; children: number; staff: number; total: number; }
+export interface ScenarioBundle { planned: ScenarioCount; expected: ScenarioCount; confirmed: ScenarioCount; }
 
-## Piano di intervento
-
-### 1. Uniformare il numero mostrato sui bottoni scenario
-In `src/components/budget/v2/ScenarioSelector.tsx` riga 47, cambiare:
+export function buildGuestScenarios(
+  guests: Guest[],                // tutti gli ospiti del wedding (couple incluso)
+  vendorStaffTotal: number,       // somma staff_meals_count dai vendors
+  weddingTargets: { target_adults?: number|null; target_children?: number|null }
+): ScenarioBundle
 ```
-const n = counts?.[it.id]?.adults ?? 0;
-```
-in:
-```
-const c = counts?.[it.id];
-const n = c ? c.adults + c.children : 0;  // coperti "ospiti" (adulti+bambini)
-```
-Così "Confermati 102" diventa "Confermati = adulti+bambini confermati" e si allinea con il segmento verde del grafico (al netto degli sposi, che vengono mostrati a parte come "Sposi: 2" nel widget).
 
-### 2. Allineare anche il pie chart alla stessa base
-In `GuestSummaryWidget.tsx` riga 29, togliere `+ metrics.coupleCount` dal segmento "Confermati" del grafico RSVP. Gli sposi sono già evidenziati nel riquadro "Sposi" sopra: includerli nel pie crea la differenza che vedi. Risultato: il "Confermati" del pie e quello del bottone Scenario coincideranno (es. entrambi 102).
+Regole interne (uniche, riusate):
+- `adults` = righe non-staff e non-child (inclusi `is_couple_member`)
+- `children` = righe non-staff con `is_child`
+- `staff` = `vendorStaffTotal` (catering), **non** righe guest
+- **planned**: `target_adults / target_children` dal wedding (fallback: scenario expected); staff = vendorStaffTotal
+- **expected**: nucleus-aware via `calculateExpectedCounts` esistente (già scritto), + couple sempre incluso
+- **confirmed**: `countHeadsByRsvp(..., 'confirmed')` + **tutti i couple members** (gli sposi sono di fatto confermati) + staff
 
-### 3. Rendere esplicita l'origine di "Pianificato"
-"Pianificato 170" arriva da `weddings.target_adults` (target manuale). Oggi però il selettore mostra solo `adults`, ed è facile confonderlo con "in lista". Due opzioni — scegli quale preferisci:
-  - **A (consigliata):** Aggiungere un tooltip già presente (`hint`) e mostrare un piccolo "≈" davanti al numero pianificato per indicare che è una stima manuale, non una somma reale.
-  - **B:** Lasciare invariato e contare su tooltip esistenti.
+## Refactor (sostituzioni meccaniche)
+1. `src/pages/Dashboard.tsx` (l. 190–200) → `buildGuestScenarios(...)`
+2. `src/pages/Budget.tsx` (l. 150–160) → idem
+3. `src/pages/Vendors.tsx` (l. 189–200) → idem
+4. `src/components/dashboard/GuestSummaryWidget.tsx` → pie "Confermati" = `scenarios.confirmed.adults + .children` (sposi già dentro). Rimuovo segment/card "Sposi" separato per evitare doppi conteggi visivi; resta una piccola nota "include sposi".
+5. `src/components/budget/v2/ScenarioSelector.tsx` → già allineato (`adults + children`); ora i numeri tornano coerenti col pie.
 
-### 4. Verifica
-Dopo la modifica, sul tuo dato:
-- Pie "Confermati" = `bottone Confermati` (es. 102)
-- "Lista invitati" = totale adulti+bambini in lista (sarà probabilmente >164 perché ora include i bambini)
-- "Pianificato" = `target_adults + target_children` impostati (sarà coerente con la stima del coperto, non più solo adulti)
+## Aggiornamento memoria
+Aggiorno `mem://architectural-principles/unificazione-metrizzazione-ospiti` e la Core memory: **gli sposi rientrano negli adulti CONFERMATI in tutti gli scenari**. Il nuovo helper `buildGuestScenarios()` è obbligatorio per chiunque mostri conteggi di scenario.
 
-## Domanda prima di procedere
-
-Confermi che:
-- (a) i bottoni scenario devono mostrare **adulti+bambini** (coperti ospiti, sposi a parte), e
-- (b) il pie chart "Confermati" deve **escludere** gli sposi (che sono già nel riquadro "Sposi")?
-
-Se sì procedo con i 3 step. Se invece preferisci che TUTTI i numeri includano gli sposi (visione "coperti totali catering"), inverto la logica: aggiungo +couple ai bottoni Scenario invece di toglierlo dal pie.
+## Risultato atteso
+- Stessi numeri ovunque (Dashboard pie = bottone ScenarioSelector = Budget = Vendors).
+- Un solo punto da modificare in futuro (`guestScenarios.ts`).
+- Nessuna modifica DB.
