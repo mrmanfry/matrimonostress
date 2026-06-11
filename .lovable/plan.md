@@ -1,77 +1,48 @@
-# Sistemazione pagina Regali & Net Budget
+## Cosa sta succedendo (diagnosi dei 3 numeri)
 
-Quattro interventi mirati, solo sulla pagina `/app/gifts`. Nessuna modifica ad altre sezioni.
+I numeri divergono perché ogni widget conta cose diverse:
 
-## 1. Chiarire da dove arriva il "Budget" (1.829 €)
+| Posto | Numero | Cosa conta davvero |
+|---|---|---|
+| **Pie chart "Confermati"** (Riepilogo Invitati) | es. ~110 | Ospiti `rsvp_status='confirmed'` (adulti **+ bambini**) **+ sposi** (`coupleCount`). Sorgente: `useGuestMetrics.confirmedHeadCount + coupleCount` |
+| **Bottone "Confermati" del selettore Scenario** | **102** | Solo **adulti** confermati (`guestCounts.confirmed.adults`). Esclude bambini e sposi. Sorgente: `Dashboard.tsx` riga 197-201 |
+| **Bottone "Lista invitati"** | **164** | Solo **adulti** in lista non-staff non-sposi. Esclude bambini. Sorgente: `expectedCalculator.adults` |
+| **Bottone "Pianificato"** | **170** | Valore manuale `weddings.target_adults` (fallback 100 se nullo). NON è calcolato dalla lista — è il target che hai impostato a mano nella ScenarioHeadcountBar / setup matrimonio |
 
-Il valore è la **somma di tutte le voci di spesa del matrimonio** (tabella `expense_items`, usando l'importo "Importo unico" se in modalità `fixed`, altrimenti l'`estimated_amount`). Oggi viene mostrato come un secco "Budget" senza spiegazione → confusione.
+Causa radice: `ScenarioSelector.tsx` riga 47 mostra `counts.adults` invece dell'headcount totale dello scenario. Il pie chart invece somma tutto. Quindi due fonti che dovrebbero coincidere sembrano contraddirsi.
 
-Cambiamenti UI nella card **Copertura Budget**:
-- Etichetta esplicita: **"Budget totale matrimonio"** invece di solo "Budget".
-- Icona info (ℹ︎) accanto con tooltip: *"Somma di tutte le voci di spesa registrate nella sezione Budget. Aggiorna le tue voci di spesa per modificare questo valore."*
-- Link/azione discreta: *"Vai al Budget →"* che porta a `/app/budget`.
+## Piano di intervento
 
-Nessun cambio alla formula lato database — la fonte resta `get_gift_forecast` RPC.
-
-## 2. Ridisegno della barra "Copertura Budget"
-
-Problema attuale: barra Recharts con `ReferenceLine` rossa tratteggiata che, quando incassato+stimato = 0, appare visivamente "a inizio barra" perché la barra è vuota e l'asse non ha riferimenti visivi. Brutto e illeggibile.
-
-Sostituiamo l'intera barra Recharts con un **componente custom a segmenti** (div + CSS, niente Recharts):
-
-```text
-┌─────────────────────────────────────────────────┐
-│███████ 320 €  ▓▓▓▓▓ 800 €                       │  ← incassato (pieno) + stimato (tratteggiato)
-└─────────────────────────────────────────────────┘
- 0 €                                       1.829 €  ← scala con budget totale a destra
+### 1. Uniformare il numero mostrato sui bottoni scenario
+In `src/components/budget/v2/ScenarioSelector.tsx` riga 47, cambiare:
 ```
+const n = counts?.[it.id]?.adults ?? 0;
+```
+in:
+```
+const c = counts?.[it.id];
+const n = c ? c.adults + c.children : 0;  // coperti "ospiti" (adulti+bambini)
+```
+Così "Confermati 102" diventa "Confermati = adulti+bambini confermati" e si allinea con il segmento verde del grafico (al netto degli sposi, che vengono mostrati a parte come "Sposi: 2" nel widget).
 
-Comportamento:
-- **Sfondo neutro** (`--paper-sunk`) che rappresenta il 100% del budget.
-- **Segmento verde pieno** = `total_cash_received` (proporzionale al budget).
-- **Segmento giallo tratteggiato/opaco** = `total_forecast` (stima sopra l'incassato).
-- **Etichette scala**: "0 €" a sinistra, valore del budget a destra. Quando l'incassato supera il budget, mostriamo una scala estesa con badge "+X% sopra budget".
-- **Stato 0 €**: la barra resta visibile (sfondo grigio chiaro pieno) con messaggio inline *"Nessun regalo ancora registrato"*. Nessuna linea tratteggiata fantasma.
-- Tooltip sui segmenti con valori (rispetta il toggle privacy).
+### 2. Allineare anche il pie chart alla stessa base
+In `GuestSummaryWidget.tsx` riga 29, togliere `+ metrics.coupleCount` dal segmento "Confermati" del grafico RSVP. Gli sposi sono già evidenziati nel riquadro "Sposi" sopra: includerli nel pie crea la differenza che vedi. Risultato: il "Confermati" del pie e quello del bottone Scenario coincideranno (es. entrambi 102).
 
-KPI percentuale grande sopra resta com'è (con colore semantico verde/oro/rosso).
+### 3. Rendere esplicita l'origine di "Pianificato"
+"Pianificato 170" arriva da `weddings.target_adults` (target manuale). Oggi però il selettore mostra solo `adults`, ed è facile confonderlo con "in lista". Due opzioni — scegli quale preferisci:
+  - **A (consigliata):** Aggiungere un tooltip già presente (`hint`) e mostrare un piccolo "≈" davanti al numero pianificato per indicare che è una stima manuale, non una somma reale.
+  - **B:** Lasciare invariato e contare su tooltip esistenti.
 
-## 3. Slider: "Media regalo **per persona**" (non per nucleo)
+### 4. Verifica
+Dopo la modifica, sul tuo dato:
+- Pie "Confermati" = `bottone Confermati` (es. 102)
+- "Lista invitati" = totale adulti+bambini in lista (sarà probabilmente >164 perché ora include i bambini)
+- "Pianificato" = `target_adults + target_children` impostati (sarà coerente con la stima del coperto, non più solo adulti)
 
-Cambio di unità di misura del simulatore. La stima va moltiplicata per il numero di **persone invitate nei nuclei eligible** (RSVP Confermato o In attesa, senza regalo registrato), come scelto: *"Tutti gli invitati del nucleo"* — escludendo coppia e staff (regola standard del progetto), includendo bambini.
+## Domanda prima di procedere
 
-Modifiche:
-- **RPC `get_gift_forecast`** (migration): aggiungere campo `eligible_persons_count` calcolato come `COUNT(guests)` nei `invite_parties` eligible, escludendo righe con `is_couple_member = true` o `is_staff = true`. La formula del `total_forecast` diventa `eligible_persons_count * p_avg_estimate`. Il campo `eligible_parties_count` resta (lo usiamo nella copy del simulatore per dire "X nuclei / Y persone").
-- **`useGifts.ts`** (`GiftForecast` type): aggiunto `eligible_persons_count: number`.
-- **`GiftSimulatorSlider.tsx`**:
-  - Label: "Media regalo **per persona**".
-  - Copy aggiornata: *"La stima si applica a **{persons} persone** in {parties} nuclei familiari con RSVP confermato o in attesa senza regalo registrato."*
-  - Default value passato a 100 € (più realistico per persona che 200 € per nucleo). LocalStorage migra trasparentemente al nuovo default solo se non c'è ancora un valore salvato.
-- **`GiftPartyList.tsx`** — riga "Stima:" del singolo nucleo: mostrare `avgEstimate × (numero persone del nucleo escl. coppia/staff)` invece di solo `avgEstimate`. Servirà passare giù da `Gifts.tsx` anche il count guests per party (una query aggiuntiva su `guests` o conteggio client-side).
+Confermi che:
+- (a) i bottoni scenario devono mostrare **adulti+bambini** (coperti ospiti, sposi a parte), e
+- (b) il pie chart "Confermati" deve **escludere** gli sposi (che sono già nel riquadro "Sposi")?
 
-## 4. Filtri nella sezione "Nuclei Familiari"
-
-Stessa esperienza di `/app/guests`, scopo: cercare e filtrare velocemente i nuclei. Si introduce una **filter bar paper-styled** in cima alla card "Nuclei Familiari" con:
-
-- **Ricerca testuale** per nome nucleo (input con icona lente, debounce 150 ms).
-- **Filtro Stato RSVP** (chip group): Tutti · Confermato · In attesa · Rifiutato.
-- **Filtro Stato regalo** (chip group): Tutti · Registrato · Da registrare · Solo contanti · Solo lista nozze.
-- **Counter risultati** discreto in alto a destra: *"{n} su {tot} nuclei"*.
-- **Clear all** quando almeno un filtro è attivo.
-
-Filtraggio applicato client-side sul `parties[]` (già in memoria), nessuna query aggiuntiva. Stile coerente con `GuestsFilterBar.tsx` (token `--paper-*`).
-
-## File toccati
-
-- `supabase/migrations/<new>.sql` — aggiornamento RPC `get_gift_forecast` con `eligible_persons_count`.
-- `src/hooks/useGifts.ts` — type `GiftForecast` esteso.
-- `src/pages/Gifts.tsx` — fetch guests count per party, default slider 100, pass-through `personsPerParty` map.
-- `src/components/gifts/GiftCoverageWidget.tsx` — barra custom, etichetta budget + tooltip + link.
-- `src/components/gifts/GiftSimulatorSlider.tsx` — label/copy "per persona".
-- `src/components/gifts/GiftPartyList.tsx` — nuova `GiftPartyFilters` interna + logica filter/search; stima per nucleo proporzionale al numero di persone.
-
-## Dettagli tecnici
-
-- La RPC esiste già come `SECURITY DEFINER` con check `has_wedding_access`; aggiorneremo con `CREATE OR REPLACE FUNCTION` e re-`GRANT EXECUTE TO authenticated`.
-- Conteggio persone per nucleo lato client: nuova query parallela su `guests` (`id, party_id, is_couple_member, is_staff`) filtrata per `wedding_id`, raggruppata in `Map<party_id, count>`.
-- Nessuna nuova dipendenza npm.
+Se sì procedo con i 3 step. Se invece preferisci che TUTTI i numeri includano gli sposi (visione "coperti totali catering"), inverto la logica: aggiungo +couple ai bottoni Scenario invece di toglierlo dal pie.
