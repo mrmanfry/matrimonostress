@@ -324,8 +324,8 @@ const AppLayoutInner = ({
                 </span>
               </div>
             ) : weddingInfo ? (
-              <div className="flex items-baseline gap-2 min-w-0 overflow-hidden">
-                <span className="font-fraunces text-base font-semibold text-[hsl(var(--paper-ink))] truncate">
+              <div className="flex items-baseline gap-2 min-w-0">
+                <span className="font-fraunces text-base font-semibold text-[hsl(var(--paper-ink))]">
                   {weddingInfo.partner1} & {weddingInfo.partner2}
                 </span>
                 <span className="text-xs uppercase tracking-wider text-[hsl(var(--paper-ink-3))] hidden sm:inline">
@@ -345,7 +345,7 @@ const AppLayoutInner = ({
           )}
 
           {/* Right: trial badge */}
-          <div className="flex items-center gap-3 flex-1 justify-end">
+          <div className="flex items-center gap-3 justify-end flex-shrink-0">
             <TrialBadge />
           </div>
         </header>
