@@ -650,7 +650,7 @@ export default function VendorDetails() {
                 )}
 
                 {/* Scenario selector — keeps numbers aligned with /app/budget */}
-                <div style={{ marginTop: -8, marginBottom: 14, display: 'flex', justifyContent: 'flex-end' }}>
+                <div className="vd-scenario-wrap" style={{ marginTop: -8, marginBottom: 14, display: 'flex', justifyContent: 'flex-end' }}>
                   <ScenarioSelector mode={activeMode} onModeChange={handleModeChange} counts={data.guestCounts} />
                 </div>
 
