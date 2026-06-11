@@ -1001,7 +1001,7 @@ const ExpensesList: React.FC<{
                       {fmtEUR(Number(it.estimated_amount))} unitario
                     </div>
                   )}
-                  <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                  <div className="vd-expense-actions" style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
                     {!lockAmounts && (
                       <PaperButton
                         variant="ghost" size="sm" iconLeft={<Pencil size={11}/>}
