@@ -5,7 +5,9 @@ import { SectionEyebrow, ValueSection, HowItWorks, FinalCTA } from "@/components
 import { T } from "@/components/landing/LandingTokens";
 import { useIsMobile } from "@/hooks/use-mobile";
 
-const Nav = () => (
+const Nav = () => {
+  const isMobile = useIsMobile();
+  return (
   <header
     style={{
       position: "sticky",
@@ -20,7 +22,7 @@ const Nav = () => (
       style={{
         maxWidth: 1280,
         margin: "0 auto",
-        padding: "16px 48px",
+        padding: isMobile ? "14px 20px" : "16px 48px",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
@@ -28,22 +30,26 @@ const Nav = () => (
       }}
     >
       <LandingLogo size="sm" />
-      <nav style={{ display: "flex", gap: 32 }}>
-        {[
-          { l: "Funzionalità", to: "/funzionalita" },
-          { l: "Come funziona", to: "/come-funziona" },
-          { l: "Prezzi", to: "/prezzi" },
-          { l: "Risorse", to: "/risorse" },
-        ].map((it) => (
-          <a key={it.l} href={it.to} style={{ fontSize: 14, fontWeight: 500, color: T.ink2 }}>
-            {it.l}
-          </a>
-        ))}
-      </nav>
+      {!isMobile && (
+        <nav style={{ display: "flex", gap: 32 }}>
+          {[
+            { l: "Funzionalità", to: "/funzionalita" },
+            { l: "Come funziona", to: "/come-funziona" },
+            { l: "Prezzi", to: "/prezzi" },
+            { l: "Risorse", to: "/risorse" },
+          ].map((it) => (
+            <a key={it.l} href={it.to} style={{ fontSize: 14, fontWeight: 500, color: T.ink2 }}>
+              {it.l}
+            </a>
+          ))}
+        </nav>
+      )}
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <a href="/auth" style={{ fontSize: 14, fontWeight: 500, color: T.ink2, padding: "8px 14px" }}>
-          Accedi
-        </a>
+        {!isMobile && (
+          <a href="/auth" style={{ fontSize: 14, fontWeight: 500, color: T.ink2, padding: "8px 14px" }}>
+            Accedi
+          </a>
+        )}
         <a
           href="/auth"
           style={{
@@ -65,7 +71,8 @@ const Nav = () => (
       </div>
     </div>
   </header>
-);
+  );
+};
 
 const Hero = () => (
   <section style={{ position: "relative", overflow: "hidden" }}>
