@@ -429,6 +429,7 @@ export const ValueSection = () => {
 };
 
 export const HowItWorks = () => {
+  const isMobile = useIsMobile();
   const steps = [
     {
       n: "01",
@@ -448,7 +449,7 @@ export const HowItWorks = () => {
   ];
 
   return (
-    <section style={{ background: T.bgDeep, padding: "96px 0", position: "relative", overflow: "hidden" }}>
+    <section style={{ background: T.bgDeep, padding: isMobile ? "56px 0" : "96px 0", position: "relative", overflow: "hidden" }}>
       <div
         style={{
           position: "absolute",
@@ -459,8 +460,8 @@ export const HowItWorks = () => {
           background: "radial-gradient(circle, rgba(176,138,62,.10) 0%, transparent 70%)",
         }}
       />
-      <div style={{ maxWidth: 1140, margin: "0 auto", padding: "0 48px", position: "relative" }}>
-        <div style={{ textAlign: "center", marginBottom: 64 }}>
+      <div style={{ maxWidth: 1140, margin: "0 auto", padding: isMobile ? "0 20px" : "0 48px", position: "relative" }}>
+        <div style={{ textAlign: "center", marginBottom: isMobile ? 40 : 64 }}>
           <div style={{ display: "inline-block" }}>
             <SectionTitle
               eyebrow="Come funziona"
@@ -474,17 +475,19 @@ export const HowItWorks = () => {
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 28, position: "relative" }}>
-          <div
-            style={{
-              position: "absolute",
-              top: 48,
-              left: "16%",
-              right: "16%",
-              height: 1,
-              background: `repeating-linear-gradient(90deg, ${T.borderStrong} 0 6px, transparent 6px 14px)`,
-            }}
-          />
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)", gap: isMobile ? 14 : 28, position: "relative" }}>
+          {!isMobile && (
+            <div
+              style={{
+                position: "absolute",
+                top: 48,
+                left: "16%",
+                right: "16%",
+                height: 1,
+                background: `repeating-linear-gradient(90deg, ${T.borderStrong} 0 6px, transparent 6px 14px)`,
+              }}
+            />
+          )}
           {steps.map((s, i) => (
             <div
               key={i}
