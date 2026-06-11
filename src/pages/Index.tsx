@@ -214,20 +214,21 @@ const Hero = () => {
 };
 
 const Footer = () => {
+  const isMobile = useIsMobile();
   const links: Record<string, string[]> = {
     Prodotto: ["Funzionalità", "Prezzi", "Novità"],
     Risorse: ["Guida completa", "Blog", "FAQ"],
     Legale: ["Privacy", "Termini", "Cookie"],
   };
   return (
-    <footer style={{ background: "#1F1A16", color: "#E8E1D4", padding: "64px 0 32px" }}>
-      <div style={{ maxWidth: 1140, margin: "0 auto", padding: "0 48px" }}>
+    <footer style={{ background: "#1F1A16", color: "#E8E1D4", padding: isMobile ? "48px 0 24px" : "64px 0 32px" }}>
+      <div style={{ maxWidth: 1140, margin: "0 auto", padding: isMobile ? "0 20px" : "0 48px" }}>
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "1.5fr 1fr 1fr 1fr",
-            gap: 48,
-            marginBottom: 48,
+            gridTemplateColumns: isMobile ? "1fr 1fr" : "1.5fr 1fr 1fr 1fr",
+            gap: isMobile ? 28 : 48,
+            marginBottom: isMobile ? 32 : 48,
           }}
         >
           <div>
