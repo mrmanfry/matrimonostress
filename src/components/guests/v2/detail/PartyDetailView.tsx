@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send, Bell, Edit, UtensilsCrossed, Trash2, X, ChevronRight } from "lucide-react";
+import { Send, Bell, Edit, UtensilsCrossed, Trash2, ChevronRight } from "lucide-react";
 import { GuestStatusDot, deriveNucleusStatus, type GuestStatus } from "@/components/guests/GuestStatusDot";
 import { cn } from "@/lib/utils";
 import { PercorsoStepper, PercorsoStep } from "./PercorsoStepper";
@@ -208,9 +208,6 @@ export function PartyDetailView({
               <GuestStatusDot status={nucleusStatus} size="xs" />
               {statusLabel}
             </Badge>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose} title="Chiudi">
-              <X className="w-4 h-4" />
-            </Button>
           </div>
         </div>
       </div>
