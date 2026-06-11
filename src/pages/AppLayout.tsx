@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { LoadingScreen } from "@/components/shared/LoadingScreen";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
