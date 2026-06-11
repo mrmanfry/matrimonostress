@@ -3,6 +3,7 @@ import LandingLogo from "@/components/landing/LandingLogo";
 import HeroCollage from "@/components/landing/HeroCollage";
 import { SectionEyebrow, ValueSection, HowItWorks, FinalCTA } from "@/components/landing/LandingSections";
 import { T } from "@/components/landing/LandingTokens";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const Nav = () => (
   <header
