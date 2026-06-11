@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Heart, RefreshCw, LogOut, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { LoadingScreen } from "@/components/shared/LoadingScreen";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -20,14 +21,7 @@ export function ProtectedRoute({
   const location = useLocation();
 
   if (authState.status === "loading") {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-hero">
-        <div className="text-center space-y-4">
-          <Heart className="w-16 h-16 text-accent fill-accent animate-pulse mx-auto" />
-          <p className="text-lg text-muted-foreground">Caricamento...</p>
-        </div>
-      </div>
-    );
+    return <LoadingScreen message="Caricamento..." />;
   }
 
   if (authState.status === "error") {

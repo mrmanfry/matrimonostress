@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { LoadingScreen } from "@/components/shared/LoadingScreen";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -106,14 +107,7 @@ const AppLayout = () => {
 
 
   if (loadingWedding) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <Heart className="w-12 h-12 text-accent fill-accent animate-pulse mx-auto mb-4" />
-          <p className="text-muted-foreground">Caricamento dati matrimonio...</p>
-        </div>
-      </div>
-    );
+    return <LoadingScreen message="Preparazione del tuo matrimonio..." />;
   }
 
 
