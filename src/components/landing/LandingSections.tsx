@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { T } from "./LandingTokens";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export const SectionEyebrow = ({ children }: { children: ReactNode }) => (
   <div
@@ -344,6 +345,7 @@ const MockFrame = ({ kind }: { kind: "mockBudget" | "mockGuests" | "mockChecklis
 
 // ——— Sezioni
 export const ValueSection = () => {
+  const isMobile = useIsMobile();
   const items: { eyebrow: string; title: string; body: string; page: "mockBudget" | "mockGuests" | "mockChecklist" }[] = [
     {
       eyebrow: "Centralizzare",
@@ -366,9 +368,9 @@ export const ValueSection = () => {
   ];
 
   return (
-    <section style={{ padding: "96px 0 64px" }}>
-      <div style={{ maxWidth: 1140, margin: "0 auto", padding: "0 48px" }}>
-        <div style={{ marginBottom: 64, textAlign: "center" }}>
+    <section style={{ padding: isMobile ? "56px 0 40px" : "96px 0 64px" }}>
+      <div style={{ maxWidth: 1140, margin: "0 auto", padding: isMobile ? "0 20px" : "0 48px" }}>
+        <div style={{ marginBottom: isMobile ? 40 : 64, textAlign: "center" }}>
           <div style={{ display: "inline-block" }}>
             <SectionTitle
               eyebrow="Cosa facciamo per voi"
@@ -385,16 +387,16 @@ export const ValueSection = () => {
           </div>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 96 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: isMobile ? 56 : 96 }}>
           {items.map((item, i) => (
             <div
               key={i}
               style={{
                 display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 72,
+                gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+                gap: isMobile ? 28 : 72,
                 alignItems: "center",
-                direction: i % 2 === 1 ? "rtl" : "ltr",
+                direction: !isMobile && i % 2 === 1 ? "rtl" : "ltr",
               }}
             >
               <div style={{ direction: "ltr", display: "flex", flexDirection: "column", gap: 18 }}>
@@ -403,7 +405,7 @@ export const ValueSection = () => {
                   style={{
                     fontFamily: T.fontSerif,
                     fontWeight: 400,
-                    fontSize: 34,
+                    fontSize: isMobile ? 28 : 34,
                     letterSpacing: "-0.015em",
                     lineHeight: 1.15,
                     margin: 0,
@@ -427,6 +429,7 @@ export const ValueSection = () => {
 };
 
 export const HowItWorks = () => {
+  const isMobile = useIsMobile();
   const steps = [
     {
       n: "01",
@@ -446,7 +449,7 @@ export const HowItWorks = () => {
   ];
 
   return (
-    <section style={{ background: T.bgDeep, padding: "96px 0", position: "relative", overflow: "hidden" }}>
+    <section style={{ background: T.bgDeep, padding: isMobile ? "56px 0" : "96px 0", position: "relative", overflow: "hidden" }}>
       <div
         style={{
           position: "absolute",
@@ -457,8 +460,8 @@ export const HowItWorks = () => {
           background: "radial-gradient(circle, rgba(176,138,62,.10) 0%, transparent 70%)",
         }}
       />
-      <div style={{ maxWidth: 1140, margin: "0 auto", padding: "0 48px", position: "relative" }}>
-        <div style={{ textAlign: "center", marginBottom: 64 }}>
+      <div style={{ maxWidth: 1140, margin: "0 auto", padding: isMobile ? "0 20px" : "0 48px", position: "relative" }}>
+        <div style={{ textAlign: "center", marginBottom: isMobile ? 40 : 64 }}>
           <div style={{ display: "inline-block" }}>
             <SectionTitle
               eyebrow="Come funziona"
@@ -472,17 +475,19 @@ export const HowItWorks = () => {
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 28, position: "relative" }}>
-          <div
-            style={{
-              position: "absolute",
-              top: 48,
-              left: "16%",
-              right: "16%",
-              height: 1,
-              background: `repeating-linear-gradient(90deg, ${T.borderStrong} 0 6px, transparent 6px 14px)`,
-            }}
-          />
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)", gap: isMobile ? 14 : 28, position: "relative" }}>
+          {!isMobile && (
+            <div
+              style={{
+                position: "absolute",
+                top: 48,
+                left: "16%",
+                right: "16%",
+                height: 1,
+                background: `repeating-linear-gradient(90deg, ${T.borderStrong} 0 6px, transparent 6px 14px)`,
+              }}
+            />
+          )}
           {steps.map((s, i) => (
             <div
               key={i}
@@ -537,14 +542,16 @@ export const HowItWorks = () => {
   );
 };
 
-export const FinalCTA = () => (
-  <section style={{ padding: "96px 0" }}>
-    <div style={{ maxWidth: 980, margin: "0 auto", padding: "0 48px" }}>
+export const FinalCTA = () => {
+  const isMobile = useIsMobile();
+  return (
+  <section style={{ padding: isMobile ? "56px 0" : "96px 0" }}>
+    <div style={{ maxWidth: 980, margin: "0 auto", padding: isMobile ? "0 20px" : "0 48px" }}>
       <div
         style={{
           background: "linear-gradient(135deg, #4C1D95 0%, #6D3FE0 55%, #8B5CF6 100%)",
-          borderRadius: 24,
-          padding: "64px 56px",
+          borderRadius: isMobile ? 18 : 24,
+          padding: isMobile ? "40px 24px" : "64px 56px",
           position: "relative",
           overflow: "hidden",
           boxShadow: "0 24px 64px -20px rgba(76,29,149,.4)",
@@ -578,7 +585,7 @@ export const FinalCTA = () => (
             flexDirection: "column",
             alignItems: "center",
             textAlign: "center",
-            gap: 28,
+            gap: isMobile ? 22 : 28,
           }}
         >
           <div
@@ -604,7 +611,7 @@ export const FinalCTA = () => (
             style={{
               fontFamily: T.fontSerif,
               fontWeight: 400,
-              fontSize: 52,
+              fontSize: isMobile ? 34 : 52,
               letterSpacing: "-0.025em",
               lineHeight: 1.05,
               margin: 0,
@@ -618,7 +625,7 @@ export const FinalCTA = () => (
           </h2>
           <p
             style={{
-              fontSize: 17,
+              fontSize: isMobile ? 15 : 17,
               color: "rgba(250,247,242,.82)",
               margin: 0,
               maxWidth: 520,
@@ -628,12 +635,24 @@ export const FinalCTA = () => (
             30 secondi per iscrivervi. Nessuna carta di credito, nessun vincolo. Potete iniziare subito ad aggiungere
             invitati e fornitori.
           </p>
-          <div style={{ display: "flex", gap: 12, marginTop: 6, flexWrap: "wrap", justifyContent: "center" }}>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: isMobile ? "column" : "row",
+              gap: 12,
+              marginTop: 6,
+              flexWrap: "wrap",
+              justifyContent: "center",
+              alignItems: "stretch",
+              width: isMobile ? "100%" : "auto",
+            }}
+          >
             <a
               href="/auth"
               style={{
                 display: "inline-flex",
                 alignItems: "center",
+                justifyContent: "center",
                 gap: 10,
                 padding: "14px 24px",
                 borderRadius: 12,
@@ -652,6 +671,7 @@ export const FinalCTA = () => (
               style={{
                 display: "inline-flex",
                 alignItems: "center",
+                justifyContent: "center",
                 gap: 10,
                 padding: "14px 24px",
                 borderRadius: 12,
@@ -669,4 +689,5 @@ export const FinalCTA = () => (
       </div>
     </div>
   </section>
-);
+  );
+};

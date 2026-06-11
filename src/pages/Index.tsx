@@ -3,8 +3,11 @@ import LandingLogo from "@/components/landing/LandingLogo";
 import HeroCollage from "@/components/landing/HeroCollage";
 import { SectionEyebrow, ValueSection, HowItWorks, FinalCTA } from "@/components/landing/LandingSections";
 import { T } from "@/components/landing/LandingTokens";
+import { useIsMobile } from "@/hooks/use-mobile";
 
-const Nav = () => (
+const Nav = () => {
+  const isMobile = useIsMobile();
+  return (
   <header
     style={{
       position: "sticky",
@@ -19,7 +22,7 @@ const Nav = () => (
       style={{
         maxWidth: 1280,
         margin: "0 auto",
-        padding: "16px 48px",
+        padding: isMobile ? "14px 20px" : "16px 48px",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
@@ -27,22 +30,26 @@ const Nav = () => (
       }}
     >
       <LandingLogo size="sm" />
-      <nav style={{ display: "flex", gap: 32 }}>
-        {[
-          { l: "Funzionalità", to: "/funzionalita" },
-          { l: "Come funziona", to: "/come-funziona" },
-          { l: "Prezzi", to: "/prezzi" },
-          { l: "Risorse", to: "/risorse" },
-        ].map((it) => (
-          <a key={it.l} href={it.to} style={{ fontSize: 14, fontWeight: 500, color: T.ink2 }}>
-            {it.l}
-          </a>
-        ))}
-      </nav>
+      {!isMobile && (
+        <nav style={{ display: "flex", gap: 32 }}>
+          {[
+            { l: "Funzionalità", to: "/funzionalita" },
+            { l: "Come funziona", to: "/come-funziona" },
+            { l: "Prezzi", to: "/prezzi" },
+            { l: "Risorse", to: "/risorse" },
+          ].map((it) => (
+            <a key={it.l} href={it.to} style={{ fontSize: 14, fontWeight: 500, color: T.ink2 }}>
+              {it.l}
+            </a>
+          ))}
+        </nav>
+      )}
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <a href="/auth" style={{ fontSize: 14, fontWeight: 500, color: T.ink2, padding: "8px 14px" }}>
-          Accedi
-        </a>
+        {!isMobile && (
+          <a href="/auth" style={{ fontSize: 14, fontWeight: 500, color: T.ink2, padding: "8px 14px" }}>
+            Accedi
+          </a>
+        )}
         <a
           href="/auth"
           style={{
@@ -64,9 +71,12 @@ const Nav = () => (
       </div>
     </div>
   </header>
-);
+  );
+};
 
-const Hero = () => (
+const Hero = () => {
+  const isMobile = useIsMobile();
+  return (
   <section style={{ position: "relative", overflow: "hidden" }}>
     <div
       style={{
@@ -81,22 +91,22 @@ const Hero = () => (
       style={{
         maxWidth: 1280,
         margin: "0 auto",
-        padding: "72px 48px 96px",
+        padding: isMobile ? "40px 20px 56px" : "72px 48px 96px",
         display: "grid",
-        gridTemplateColumns: "1.05fr 1fr",
-        gap: 72,
+        gridTemplateColumns: isMobile ? "1fr" : "1.05fr 1fr",
+        gap: isMobile ? 36 : 72,
         alignItems: "center",
         position: "relative",
       }}
     >
-      <div style={{ display: "flex", flexDirection: "column", gap: 26 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 26, order: isMobile ? 1 : 0 }}>
         <SectionEyebrow>Wedding planner digitale</SectionEyebrow>
 
         <h1
           style={{
             fontFamily: T.fontSerif,
             fontWeight: 400,
-            fontSize: 76,
+            fontSize: isMobile ? 44 : 76,
             letterSpacing: "-0.03em",
             lineHeight: 1,
             margin: 0,
@@ -108,17 +118,27 @@ const Hero = () => (
           <em style={{ fontStyle: "italic", color: T.brandInk }}>sotto controllo.</em>
         </h1>
 
-        <p style={{ fontSize: 19, color: T.ink2, margin: 0, maxWidth: 520, lineHeight: 1.55 }}>
+        <p style={{ fontSize: isMobile ? 16 : 19, color: T.ink2, margin: 0, maxWidth: 520, lineHeight: 1.55 }}>
           Budget, invitati, fornitori e checklist in un unico posto. Niente più fogli Excel, chat infinite e notti
           insonni — solo le cose che contano davvero.
         </p>
 
-        <div style={{ display: "flex", gap: 12, marginTop: 8, flexWrap: "wrap" }}>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: isMobile ? "column" : "row",
+            gap: 12,
+            marginTop: 8,
+            flexWrap: "wrap",
+            alignItems: isMobile ? "stretch" : "center",
+          }}
+        >
           <a
             href="/auth"
             style={{
               display: "inline-flex",
               alignItems: "center",
+              justifyContent: "center",
               gap: 10,
               padding: "15px 24px",
               borderRadius: 12,
@@ -137,6 +157,7 @@ const Hero = () => (
             style={{
               display: "inline-flex",
               alignItems: "center",
+              justifyContent: "center",
               gap: 10,
               padding: "15px 22px",
               borderRadius: 12,
@@ -154,7 +175,7 @@ const Hero = () => (
         <div
           style={{
             display: "flex",
-            gap: 24,
+            gap: isMobile ? 16 : 24,
             marginTop: 18,
             paddingTop: 24,
             borderTop: `1px dashed ${T.border}`,
@@ -184,28 +205,30 @@ const Hero = () => (
         </div>
       </div>
 
-      <div>
+      <div style={{ order: isMobile ? 2 : 0 }}>
         <HeroCollage />
       </div>
     </div>
   </section>
-);
+  );
+};
 
 const Footer = () => {
+  const isMobile = useIsMobile();
   const links: Record<string, string[]> = {
     Prodotto: ["Funzionalità", "Prezzi", "Novità"],
     Risorse: ["Guida completa", "Blog", "FAQ"],
     Legale: ["Privacy", "Termini", "Cookie"],
   };
   return (
-    <footer style={{ background: "#1F1A16", color: "#E8E1D4", padding: "64px 0 32px" }}>
-      <div style={{ maxWidth: 1140, margin: "0 auto", padding: "0 48px" }}>
+    <footer style={{ background: "#1F1A16", color: "#E8E1D4", padding: isMobile ? "48px 0 24px" : "64px 0 32px" }}>
+      <div style={{ maxWidth: 1140, margin: "0 auto", padding: isMobile ? "0 20px" : "0 48px" }}>
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "1.5fr 1fr 1fr 1fr",
-            gap: 48,
-            marginBottom: 48,
+            gridTemplateColumns: isMobile ? "1fr 1fr" : "1.5fr 1fr 1fr 1fr",
+            gap: isMobile ? 28 : 48,
+            marginBottom: isMobile ? 32 : 48,
           }}
         >
           <div>
