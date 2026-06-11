@@ -17,7 +17,7 @@ import { JoinWeddingDialog } from "@/components/workspace/JoinWeddingDialog";
 import WebsiteGeneratorCard from "@/components/website/WebsiteGeneratorCard";
 import { calculateExpenseAmount, resolveGuestCounts, inferExpenseType, formatCurrency } from "@/lib/expenseCalculations";
 import type { ExpenseItem, ExpenseLineItem, GuestCounts } from "@/lib/expenseCalculations";
-import { calculateExpectedCounts, calculateTotalVendorStaff } from "@/lib/expectedCalculator";
+import { buildGuestScenarios } from "@/lib/guestScenarios";
 import { ScenarioSelector, type ScenarioMode } from "@/components/budget/v2/ScenarioSelector";
 
 interface Wedding {
@@ -175,31 +175,21 @@ const Dashboard = () => {
         staff: weddingData.target_staff || 0,
       };
 
-      // 1 row = 1 person — flag-based classification, ignora couple_member e staff.
-      const nonStaffNonCouple = (guests as any[]).filter(g => !g.is_staff && !g.is_couple_member);
-      const confirmedNSNC = nonStaffNonCouple.filter(g => g.rsvp_status === 'confirmed');
-      const totalAdultsConfirmed = confirmedNSNC.filter(g => !g.is_child).length;
-      const totalChildrenConfirmed = confirmedNSNC.filter(g => g.is_child).length;
-      const totalAdults = nonStaffNonCouple.filter(g => !g.is_child).length;
-      const totalChildren = nonStaffNonCouple.filter(g => g.is_child).length;
-
-      // Calculate expected counts
-      const vendorStaffTotal = calculateTotalVendorStaff(vendors);
-      const expectedResult = calculateExpectedCounts(guests as any, guests as any, vendorStaffTotal);
-
+      // Single source of truth: 3 scenari unificati (sposi inclusi in confermati).
+      const scenarios = buildGuestScenarios(guests as any, vendors as any, {
+        target_adults: weddingData.target_adults,
+        target_children: weddingData.target_children,
+        target_staff: weddingData.target_staff,
+      });
       const guestCounts: GuestCounts = {
-        planned: targets,
-        expected: {
-          adults: expectedResult.adults,
-          children: expectedResult.children,
-          staff: expectedResult.staff,
-        },
-        confirmed: {
-          adults: totalAdultsConfirmed,
-          children: totalChildrenConfirmed,
-          staff: vendorStaffTotal,
-        },
+        planned: { adults: scenarios.planned.adults, children: scenarios.planned.children, staff: scenarios.planned.staff },
+        expected: { adults: scenarios.expected.adults, children: scenarios.expected.children, staff: scenarios.expected.staff },
+        confirmed: { adults: scenarios.confirmed.adults, children: scenarios.confirmed.children, staff: scenarios.confirmed.staff },
       };
+      const totalAdultsConfirmed = scenarios.confirmed.adults;
+      const totalChildrenConfirmed = scenarios.confirmed.children;
+      const totalAdults = scenarios.expected.adults;
+      const totalChildren = scenarios.expected.children;
       setGuestCounts(guestCounts);
 
       // Calculate total commitment using centralized logic (same as Treasury)
