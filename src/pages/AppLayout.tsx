@@ -337,11 +337,8 @@ const AppLayoutInner = ({
 
           {/* Center: countdown */}
           {weddingInfo && !isOnCockpit && (
-            <div className="hidden md:flex flex-col items-center text-center px-4">
-              <span className="font-fraunces text-base font-semibold text-[hsl(var(--paper-ink))] leading-tight">
-                {weddingInfo.partner1} & {weddingInfo.partner2}
-              </span>
-              <span className="text-xs text-[hsl(var(--paper-ink-3))] leading-tight">
+            <div className="hidden md:flex items-center text-center px-4">
+              <span className="text-sm text-[hsl(var(--paper-ink-2))] leading-tight">
                 {weddingInfo.daysUntil} giorni al matrimonio
               </span>
             </div>
