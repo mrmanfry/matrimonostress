@@ -43,6 +43,7 @@ import Funzionalita from "./pages/Funzionalita";
 import ComeFunziona from "./pages/ComeFunziona";
 import Prezzi from "./pages/Prezzi";
 import Risorse from "./pages/Risorse";
+import RisorseArticle from "./pages/RisorseArticle";
 import NotFound from "./pages/NotFound";
 
 const AppIndexRedirect = () => {
@@ -65,6 +66,7 @@ const App = () => (
             <Route path="/come-funziona" element={<ComeFunziona />} />
             <Route path="/prezzi" element={<Prezzi />} />
             <Route path="/risorse" element={<Risorse />} />
+            <Route path="/risorse/:slug" element={<RisorseArticle />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
