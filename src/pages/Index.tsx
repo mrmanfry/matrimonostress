@@ -74,7 +74,9 @@ const Nav = () => {
   );
 };
 
-const Hero = () => (
+const Hero = () => {
+  const isMobile = useIsMobile();
+  return (
   <section style={{ position: "relative", overflow: "hidden" }}>
     <div
       style={{
@@ -89,22 +91,22 @@ const Hero = () => (
       style={{
         maxWidth: 1280,
         margin: "0 auto",
-        padding: "72px 48px 96px",
+        padding: isMobile ? "40px 20px 56px" : "72px 48px 96px",
         display: "grid",
-        gridTemplateColumns: "1.05fr 1fr",
-        gap: 72,
+        gridTemplateColumns: isMobile ? "1fr" : "1.05fr 1fr",
+        gap: isMobile ? 36 : 72,
         alignItems: "center",
         position: "relative",
       }}
     >
-      <div style={{ display: "flex", flexDirection: "column", gap: 26 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 26, order: isMobile ? 1 : 0 }}>
         <SectionEyebrow>Wedding planner digitale</SectionEyebrow>
 
         <h1
           style={{
             fontFamily: T.fontSerif,
             fontWeight: 400,
-            fontSize: 76,
+            fontSize: isMobile ? 44 : 76,
             letterSpacing: "-0.03em",
             lineHeight: 1,
             margin: 0,
@@ -116,17 +118,27 @@ const Hero = () => (
           <em style={{ fontStyle: "italic", color: T.brandInk }}>sotto controllo.</em>
         </h1>
 
-        <p style={{ fontSize: 19, color: T.ink2, margin: 0, maxWidth: 520, lineHeight: 1.55 }}>
+        <p style={{ fontSize: isMobile ? 16 : 19, color: T.ink2, margin: 0, maxWidth: 520, lineHeight: 1.55 }}>
           Budget, invitati, fornitori e checklist in un unico posto. Niente più fogli Excel, chat infinite e notti
           insonni — solo le cose che contano davvero.
         </p>
 
-        <div style={{ display: "flex", gap: 12, marginTop: 8, flexWrap: "wrap" }}>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: isMobile ? "column" : "row",
+            gap: 12,
+            marginTop: 8,
+            flexWrap: "wrap",
+            alignItems: isMobile ? "stretch" : "center",
+          }}
+        >
           <a
             href="/auth"
             style={{
               display: "inline-flex",
               alignItems: "center",
+              justifyContent: "center",
               gap: 10,
               padding: "15px 24px",
               borderRadius: 12,
@@ -145,6 +157,7 @@ const Hero = () => (
             style={{
               display: "inline-flex",
               alignItems: "center",
+              justifyContent: "center",
               gap: 10,
               padding: "15px 22px",
               borderRadius: 12,
@@ -162,7 +175,7 @@ const Hero = () => (
         <div
           style={{
             display: "flex",
-            gap: 24,
+            gap: isMobile ? 16 : 24,
             marginTop: 18,
             paddingTop: 24,
             borderTop: `1px dashed ${T.border}`,
@@ -192,12 +205,13 @@ const Hero = () => (
         </div>
       </div>
 
-      <div>
+      <div style={{ order: isMobile ? 2 : 0 }}>
         <HeroCollage />
       </div>
     </div>
   </section>
-);
+  );
+};
 
 const Footer = () => {
   const links: Record<string, string[]> = {
