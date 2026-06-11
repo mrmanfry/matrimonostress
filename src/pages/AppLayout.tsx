@@ -315,7 +315,7 @@ const AppLayoutInner = ({
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <SidebarTrigger className="text-[hsl(var(--paper-ink-2))] hover:text-[hsl(var(--paper-ink))]" />
             {isOnCockpit ? (
-              <div className="flex items-baseline gap-2 min-w-0">
+              <div className="flex items-baseline gap-2 min-w-0 overflow-hidden">
                 <span className="font-fraunces text-base font-semibold text-[hsl(var(--paper-ink))] truncate">
                   Cockpit Planner
                 </span>
@@ -324,7 +324,7 @@ const AppLayoutInner = ({
                 </span>
               </div>
             ) : weddingInfo ? (
-              <div className="flex items-baseline gap-2 min-w-0">
+              <div className="flex items-baseline gap-2 min-w-0 overflow-hidden">
                 <span className="font-fraunces text-base font-semibold text-[hsl(var(--paper-ink))] truncate">
                   {weddingInfo.partner1} & {weddingInfo.partner2}
                 </span>
