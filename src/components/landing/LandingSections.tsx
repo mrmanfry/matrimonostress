@@ -345,6 +345,7 @@ const MockFrame = ({ kind }: { kind: "mockBudget" | "mockGuests" | "mockChecklis
 
 // ——— Sezioni
 export const ValueSection = () => {
+  const isMobile = useIsMobile();
   const items: { eyebrow: string; title: string; body: string; page: "mockBudget" | "mockGuests" | "mockChecklist" }[] = [
     {
       eyebrow: "Centralizzare",
@@ -367,9 +368,9 @@ export const ValueSection = () => {
   ];
 
   return (
-    <section style={{ padding: "96px 0 64px" }}>
-      <div style={{ maxWidth: 1140, margin: "0 auto", padding: "0 48px" }}>
-        <div style={{ marginBottom: 64, textAlign: "center" }}>
+    <section style={{ padding: isMobile ? "56px 0 40px" : "96px 0 64px" }}>
+      <div style={{ maxWidth: 1140, margin: "0 auto", padding: isMobile ? "0 20px" : "0 48px" }}>
+        <div style={{ marginBottom: isMobile ? 40 : 64, textAlign: "center" }}>
           <div style={{ display: "inline-block" }}>
             <SectionTitle
               eyebrow="Cosa facciamo per voi"
@@ -386,16 +387,16 @@ export const ValueSection = () => {
           </div>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 96 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: isMobile ? 56 : 96 }}>
           {items.map((item, i) => (
             <div
               key={i}
               style={{
                 display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 72,
+                gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+                gap: isMobile ? 28 : 72,
                 alignItems: "center",
-                direction: i % 2 === 1 ? "rtl" : "ltr",
+                direction: !isMobile && i % 2 === 1 ? "rtl" : "ltr",
               }}
             >
               <div style={{ direction: "ltr", display: "flex", flexDirection: "column", gap: 18 }}>
@@ -404,7 +405,7 @@ export const ValueSection = () => {
                   style={{
                     fontFamily: T.fontSerif,
                     fontWeight: 400,
-                    fontSize: 34,
+                    fontSize: isMobile ? 28 : 34,
                     letterSpacing: "-0.015em",
                     lineHeight: 1.15,
                     margin: 0,
