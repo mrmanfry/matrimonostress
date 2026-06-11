@@ -208,9 +208,6 @@ export function PartyDetailView({
               <GuestStatusDot status={nucleusStatus} size="xs" />
               {statusLabel}
             </Badge>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose} title="Chiudi">
-              <X className="w-4 h-4" />
-            </Button>
           </div>
         </div>
       </div>
