@@ -130,16 +130,23 @@ const Dashboard = () => {
 
       setWedding(weddingData);
 
-      // Check if this is the first access (welcome state)
+      // Check if this is the first access (welcome state) - only for trial users
       const welcomeShown = sessionStorage.getItem(`welcome_shown_${weddingData.id}`);
-      if (!welcomeShown) {
+      const isTrialing = weddingData.subscription_status === "trialing" && weddingData.trial_ends_at;
+      if (!welcomeShown && isTrialing) {
+        const daysLeft = Math.max(
+          0,
+          Math.ceil((new Date(weddingData.trial_ends_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+        );
         setShowWelcome(true);
         sessionStorage.setItem(`welcome_shown_${weddingData.id}`, "true");
         toast({
           title: "Benvenuti! 🎉",
-          description: "Il vostro account Premium è attivo gratis per i prossimi 30 giorni. Godetevi l'organizzazione!",
+          description: `Il vostro account Premium è attivo gratis per i prossimi ${daysLeft} giorni. Godetevi l'organizzazione!`,
           duration: 8000,
         });
+      } else if (!welcomeShown) {
+        sessionStorage.setItem(`welcome_shown_${weddingData.id}`, "true");
       }
       // Calculate days until wedding
       const weddingDate = new Date(weddingData.wedding_date);
