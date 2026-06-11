@@ -345,7 +345,7 @@ const AppLayoutInner = ({
           )}
 
           {/* Right: trial badge */}
-          <div className="flex items-center gap-3 flex-1 justify-end">
+          <div className="flex items-center gap-3 justify-end flex-shrink-0">
             <TrialBadge />
           </div>
         </header>
