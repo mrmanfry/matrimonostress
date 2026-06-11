@@ -310,7 +310,7 @@ const AppLayoutInner = ({
       </Sidebar>
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="sticky top-0 z-40 h-16 border-b border-[hsl(var(--paper-border))] bg-[hsl(var(--paper-surface))] flex items-center px-4 md:px-6 gap-2 md:gap-4">
+        <header className="sticky top-0 z-40 border-b border-[hsl(var(--paper-border))] bg-[hsl(var(--paper-surface))] flex items-center px-4 md:px-6 gap-2 md:gap-4 pt-[env(safe-area-inset-top)] h-[calc(4rem+env(safe-area-inset-top))]">
           {/* Left: sidebar trigger + brand */}
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <SidebarTrigger className="text-[hsl(var(--paper-ink-2))] hover:text-[hsl(var(--paper-ink))]" />
