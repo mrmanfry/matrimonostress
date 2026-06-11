@@ -467,12 +467,16 @@ export default function VendorDetails() {
   };
 
   return (
-    <div style={{ background: surface('muted'), minHeight: '100%', padding: '8px 0 60px' }}>
+    <div style={{ background: surface('muted'), minHeight: '100%', padding: '8px 0 60px', overflowX: 'hidden' }}>
       <style>{`
         @media (max-width: 767px) {
-          .vd-page-wrap { padding: 14px !important; }
+          .vd-page-wrap { padding: 14px !important; max-width: 100vw !important; overflow-x: hidden; }
           .vd-grid { grid-template-columns: 1fr !important; gap: 16px !important; }
           .vd-profile { position: static !important; top: auto !important; }
+          .vd-right { min-width: 0 !important; max-width: 100% !important; }
+          .vd-right section { min-width: 0; max-width: 100%; }
+          .vd-expense-actions { flex-wrap: wrap !important; }
+          .vd-scenario-wrap { justify-content: flex-start !important; }
         }
       `}</style>
       <div className="vd-page-wrap" style={{ maxWidth: 1320, margin: '0 auto', padding: '20px 24px' }}>
@@ -613,7 +617,7 @@ export default function VendorDetails() {
           </div>
 
           {/* === Right: sections === */}
-          <div style={{ display: 'grid', gap: 28, minWidth: 0 }}>
+          <div className="vd-right" style={{ display: 'grid', gap: 28, minWidth: 0 }}>
 
             {/* Spese & Pagamenti */}
             {!vendorCostsHidden && (
@@ -646,7 +650,7 @@ export default function VendorDetails() {
                 )}
 
                 {/* Scenario selector — keeps numbers aligned with /app/budget */}
-                <div style={{ marginTop: -8, marginBottom: 14, display: 'flex', justifyContent: 'flex-end' }}>
+                <div className="vd-scenario-wrap" style={{ marginTop: -8, marginBottom: 14, display: 'flex', justifyContent: 'flex-end' }}>
                   <ScenarioSelector mode={activeMode} onModeChange={handleModeChange} counts={data.guestCounts} />
                 </div>
 
@@ -997,7 +1001,7 @@ const ExpensesList: React.FC<{
                       {fmtEUR(Number(it.estimated_amount))} unitario
                     </div>
                   )}
-                  <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                  <div className="vd-expense-actions" style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
                     {!lockAmounts && (
                       <PaperButton
                         variant="ghost" size="sm" iconLeft={<Pencil size={11}/>}
