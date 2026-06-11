@@ -467,12 +467,16 @@ export default function VendorDetails() {
   };
 
   return (
-    <div style={{ background: surface('muted'), minHeight: '100%', padding: '8px 0 60px' }}>
+    <div style={{ background: surface('muted'), minHeight: '100%', padding: '8px 0 60px', overflowX: 'hidden' }}>
       <style>{`
         @media (max-width: 767px) {
-          .vd-page-wrap { padding: 14px !important; }
+          .vd-page-wrap { padding: 14px !important; max-width: 100vw !important; overflow-x: hidden; }
           .vd-grid { grid-template-columns: 1fr !important; gap: 16px !important; }
           .vd-profile { position: static !important; top: auto !important; }
+          .vd-right { min-width: 0 !important; max-width: 100% !important; }
+          .vd-right section { min-width: 0; max-width: 100%; }
+          .vd-expense-actions { flex-wrap: wrap !important; }
+          .vd-scenario-wrap { justify-content: flex-start !important; }
         }
       `}</style>
       <div className="vd-page-wrap" style={{ maxWidth: 1320, margin: '0 auto', padding: '20px 24px' }}>
