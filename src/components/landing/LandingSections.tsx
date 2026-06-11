@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { T } from "./LandingTokens";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export const SectionEyebrow = ({ children }: { children: ReactNode }) => (
   <div
