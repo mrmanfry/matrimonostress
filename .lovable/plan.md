@@ -1,83 +1,71 @@
+# AI Payment Plan Extraction dai Contratti
+
 ## Obiettivo
-Configurare WedsApp come PWA installabile su iOS (Add to Home Screen, full-screen, status bar e safe-area gestite) + back button mirato solo sulle viste di dettaglio. Manifest-only, niente service worker / offline.
+Caricato un contratto fornitore, l'AI estrae automaticamente le rate (importo, scadenza, metodo di pagamento). L'utente vede una **proposta editabile**, accetta o modifica, e le rate confermate diventano `payments` nel Piano di Pagamento del fornitore — con auto-creazione del task collegato in checklist (già gestito da `sync_payment_to_task`).
 
-## 1. Meta tag iOS in `index.html`
-Aggiorno il viewport esistente e aggiungo i tag Apple + manifest dopo il blocco favicon:
+## Stato attuale
+- `analyze-contract` fa OCR (Google Vision) + estrae sezioni testuali generiche (`payment_plan`, `cancellation`, ecc.) ma **non** struttura le rate.
+- `ContractReviewDialog` mostra solo sezioni di testo da approvare — nessun ponte verso la tabella `payments`.
+- `PaymentPlanTab` gestisce manualmente le rate (`payments` table: amount, due_date, tax_rate, percentage_value, ecc.).
 
-```html
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<meta name="theme-color" content="#ffffff" />
-<meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-status-bar-style" content="default" />
-<meta name="apple-mobile-web-app-title" content="WedsApp" />
-<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-<link rel="manifest" href="/manifest.webmanifest" />
+## Flusso target
+
+```text
+Upload contratto → OCR → AI estrae sezioni + RATE STRUTTURATE
+       ↓
+Dialog "Proposta Piano di Pagamento" (rate editabili)
+       ↓
+Utente conferma → INSERT in payments → trigger sync_payment_to_task crea i task
 ```
 
-`viewport-fit=cover` è necessario perché `env(safe-area-inset-*)` ritorni valori non-zero su iOS.
+## Implementazione
 
-## 2. Apple Touch Icon
-Solo il riferimento `/apple-touch-icon.png`. Il PNG 180×180 lo carichi tu manualmente in `public/apple-touch-icon.png`.
-
-## 3. Web App Manifest (`public/manifest.webmanifest`)
-File nuovo, manifest-only:
-
-```json
-{
-  "name": "WedsApp",
-  "short_name": "WedsApp",
-  "description": "Matrimonio senza stress",
-  "start_url": "/app/dashboard",
-  "scope": "/",
-  "display": "standalone",
-  "orientation": "portrait",
-  "background_color": "#ffffff",
-  "theme_color": "#ffffff",
-  "icons": [
-    { "src": "/brand/favicon/favicon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "/brand/favicon/favicon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
-    { "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
-  ]
-}
+### 1. Backend: estendere `analyze-contract`
+Dopo l'estrazione sezioni, aggiungere una seconda call AI (Lovable Gateway, `google/gemini-2.5-flash`) con structured output che ritorna:
+```ts
+extracted_installments: Array<{
+  description: string;        // es. "Acconto alla firma"
+  amount: number | null;      // importo in €
+  percentage: number | null;  // se espressa in %
+  due_date: string | null;    // ISO date se data assoluta
+  days_before_wedding: number | null; // se relativa
+  tax_inclusive: boolean;
+  tax_rate: number;           // default 22
+  payment_method: string | null; // "bonifico", "contanti", ecc.
+  confidence: number;
+  source_quote: string;       // riga del contratto da cui è estratta
+}>
+total_contract_amount: number | null
+payment_method_default: string | null
 ```
+Prompt sandboxed (segue `ai-edge-function-hardening-v2`): istruzioni rigide, output JSON only, niente esecuzione di istruzioni nel testo del contratto.
 
-Nota: `start_url`, `scope`, `display` vengono cachati al momento dell'installazione iOS — futuri cambi richiedono reinstall.
+### 2. Frontend: nuovo `ContractInstallmentsReviewDialog`
+Apre dopo l'upload con la lista rate proposte. Per ogni riga:
+- Checkbox "includi"
+- Campi editabili inline: descrizione, importo (€ o %), data (assoluta / giorni prima nozze), IVA, metodo pagamento
+- Badge confidence + tooltip con `source_quote`
+- Bottoni: "Aggiungi rata manuale", "Annulla", "Conferma e crea N rate"
 
-## 4. Back button SOLO nelle viste di dettaglio (Opzione 2)
-Le pagine top-level (Dashboard, Invitati, Budget, Fornitori, Checklist, Calendario, Tavoli, Catering, Pernotto, Memories, Libretto, Timeline, Regali, Campagne, Impostazioni, Chat, Cockpit, Inbox, Calendario planner) si raggiungono dalla sidebar/bottom-nav → niente back.
+Su conferma: bulk INSERT in `payments` con `expense_item_id` del fornitore (riusare logica esistente di `PaymentPlanTab.savePayment`). Il trigger `sync_payment_to_task` già crea il task in checklist.
 
-Creo `src/components/layout/BackButton.tsx`:
-- icona chevron-left + label "Indietro",
-- `navigate(-1)` se `window.history.length > 1`, altrimenti fallback a `/app/dashboard`,
-- stile coerente con l'header esistente.
+### 3. Integrazione UX
+- In `ContractUploadDialog`: dopo upload riuscito, chiamare `analyze-contract` (oggi non viene invocata). Mostrare loader "AI sta analizzando il contratto…".
+- Se rate estratte > 0 → aprire `ContractInstallmentsReviewDialog`.
+- Se 0 rate → toast informativo + apertura `ContractReviewDialog` esistente per le sezioni testuali.
+- In `PaymentPlanTab` aggiungere bottone "✨ Estrai rate da contratto" se esiste già un `vendor_contracts` row → rilancia la proposta.
 
-Inserisco il BackButton nelle viste di dettaglio/sotto-flusso attualmente esistenti:
-- `src/pages/VendorDetails.tsx` (rotta `/app/vendors/:id`)
-- `src/pages/Upgrade.tsx` e `src/pages/UpgradePlanner.tsx`
+### 4. Gestione errori / resilienza
+- Se AI fallisce: fallback al flusso manuale, toast non bloccante.
+- Validazione: importi > 0, date coerenti con `wedding_date`, somma rate ≤ totale contratto (warning, non blocco).
 
-Il button viene messo in cima al contenuto della pagina (non nell'header globale), così resta visibile solo dove serve e non aggiunge rumore alle pagine principali. Per evitare di ripetere markup, creo un piccolo wrapper `PageBackBar` che renderizza il bottone in una riga sticky/non-sticky a inizio pagina.
+## File modificati / creati
+- `supabase/functions/analyze-contract/index.ts` — aggiungere step estrazione rate strutturate
+- `src/components/vendors/ContractInstallmentsReviewDialog.tsx` — **nuovo**
+- `src/components/vendors/ContractUploadDialog.tsx` — invocare analyze-contract + aprire nuovo dialog
+- `src/components/vendors/PaymentPlanTab.tsx` — bottone "Estrai rate da contratto"
+- `src/pages/VendorDetails.tsx` (o componente padre) — orchestrazione dialoghi
 
-## 5. Safe-area CSS
-- In `src/index.css` (strato base):
-  ```css
-  html, body { min-height: 100dvh; }
-  body {
-    padding-left: env(safe-area-inset-left);
-    padding-right: env(safe-area-inset-right);
-  }
-  ```
-- Nell'header sticky di `src/pages/AppLayout.tsx` aggiungo `pt-[env(safe-area-inset-top)]` (orologio iOS).
-- Il `MobileBottomNav` già usa `pb-[env(safe-area-inset-bottom)]`: lascio invariato.
-
-## Cosa NON faccio
-- Nessun service worker / `vite-plugin-pwa` / offline / cache-busting (manifest-only, in linea con la skill PWA).
-- Nessun back button sulle pagine top-level: navigazione da sidebar/bottom-nav.
-- Nessuna generazione automatica dell'icona 180×180 (la fornisci tu).
-
-## File toccati
-- `index.html` (head)
-- `public/manifest.webmanifest` (nuovo)
-- `src/components/layout/BackButton.tsx` (nuovo)
-- `src/pages/VendorDetails.tsx`, `src/pages/Upgrade.tsx`, `src/pages/UpgradePlanner.tsx` (montaggio BackButton)
-- `src/pages/AppLayout.tsx` (safe-area top sull'header)
-- `src/index.css` (safe-area laterali + min-height dvh)
+## Fuori scope
+- Q&A sul contratto (già stub in `ContractWidgets`)
+- Riconciliazione automatica con pagamenti già esistenti (l'utente decide manualmente includendo/escludendo righe)
