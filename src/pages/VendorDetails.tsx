@@ -754,6 +754,10 @@ export default function VendorDetails() {
                   ) : (
                     <PaymentTimeline
                       payments={data.payments}
+                      itemTotals={Object.fromEntries(data.items.map(it => {
+                        const lines = (data.lineItemsByExpenseItem[it.id] || []) as unknown as CalcLineItem[];
+                        return [it.id, calculateExpenseAmount(it as unknown as CalcExpenseItem, lines, activeMode, data.guestCounts)];
+                      }))}
                       onTogglePaid={markPaymentPaid}
                       onUpdate={updatePayment}
                       onDelete={deletePayment}
@@ -1099,28 +1103,48 @@ const ExpensesList: React.FC<{
 
 const PaymentTimeline: React.FC<{
   payments: DbPayment[];
+  itemTotals: Record<string, number>;
   onTogglePaid: (id: string, paid: boolean) => void;
   onUpdate: (id: string, patch: { description?: string; amount?: number; due_date?: string }) => void | Promise<void>;
   onDelete: (id: string) => void | Promise<void>;
-}> = ({ payments, onTogglePaid, onUpdate, onDelete }) => {
+}> = ({ payments, itemTotals, onTogglePaid, onUpdate, onDelete }) => {
   const sorted = [...payments].sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [draftDesc, setDraftDesc] = React.useState('');
   const [draftAmount, setDraftAmount] = React.useState('');
   const [draftDate, setDraftDate] = React.useState('');
+  const [draftIsSaldo, setDraftIsSaldo] = React.useState(false);
+
+  const isSaldoDesc = (s: string) => (s || '').trim().toLowerCase().startsWith('saldo');
+
+  const computeRemainder = (p: DbPayment) => {
+    const total = itemTotals[p.expense_item_id] ?? 0;
+    const sumOthers = payments
+      .filter(x => x.expense_item_id === p.expense_item_id && x.id !== p.id)
+      .reduce((s, x) => s + Number(x.amount || 0), 0);
+    return Math.max(0, Number((total - sumOthers).toFixed(2)));
+  };
 
   const startEdit = (p: DbPayment) => {
     setEditingId(p.id);
     setDraftDesc(p.description);
     setDraftAmount(String(p.amount));
     setDraftDate(p.due_date);
+    setDraftIsSaldo(isSaldoDesc(p.description));
   };
   const cancelEdit = () => setEditingId(null);
   const saveEdit = async (p: DbPayment) => {
     const amt = Number(draftAmount);
+    const useSaldo = draftIsSaldo;
+    const finalAmount = useSaldo
+      ? computeRemainder(p)
+      : (Number.isNaN(amt) ? Number(p.amount) : amt);
+    const finalDesc = useSaldo
+      ? (isSaldoDesc(draftDesc) ? draftDesc.trim() : 'Saldo')
+      : (draftDesc.trim() || p.description);
     await onUpdate(p.id, {
-      description: draftDesc.trim() || p.description,
-      amount: Number.isNaN(amt) ? Number(p.amount) : amt,
+      description: finalDesc,
+      amount: finalAmount,
       due_date: draftDate || p.due_date,
     });
     setEditingId(null);
@@ -1173,16 +1197,32 @@ const PaymentTimeline: React.FC<{
                     type="number"
                     min={0}
                     step="0.01"
-                    value={draftAmount}
+                    value={draftIsSaldo ? computeRemainder(p).toFixed(2) : draftAmount}
+                    disabled={draftIsSaldo}
                     onChange={e => setDraftAmount(e.target.value)}
                     placeholder="Importo €"
                     style={{
                       width: 130, fontSize: 13, padding: '6px 10px', borderRadius: 6,
-                      border: `1px solid ${border(true)}`, background: surface(),
+                      border: `1px solid ${border(true)}`,
+                      background: draftIsSaldo ? 'hsl(var(--paper-surface-muted))' : surface(),
                       color: ink(), fontFamily: FONT_MONO, outline: 'none', textAlign: 'right',
                     }}
                   />
                 </div>
+                <label style={{
+                  display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: ink(2),
+                  fontFamily: FONT_UI, cursor: 'pointer', userSelect: 'none',
+                }}>
+                  <input
+                    type="checkbox"
+                    checked={draftIsSaldo}
+                    onChange={e => {
+                      setDraftIsSaldo(e.target.checked);
+                      if (e.target.checked && !isSaldoDesc(draftDesc)) setDraftDesc('Saldo');
+                    }}
+                  />
+                  Imposta come <strong>Saldo</strong> · importo calcolato automaticamente ({fmtEUR(computeRemainder(p))})
+                </label>
                 <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
                   <PaperButton variant="ghost" size="sm" onClick={cancelEdit}>Annulla</PaperButton>
                   <PaperButton variant="primary" size="sm" onClick={() => saveEdit(p)}>Salva</PaperButton>
