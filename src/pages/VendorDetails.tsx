@@ -1103,28 +1103,48 @@ const ExpensesList: React.FC<{
 
 const PaymentTimeline: React.FC<{
   payments: DbPayment[];
+  itemTotals: Record<string, number>;
   onTogglePaid: (id: string, paid: boolean) => void;
   onUpdate: (id: string, patch: { description?: string; amount?: number; due_date?: string }) => void | Promise<void>;
   onDelete: (id: string) => void | Promise<void>;
-}> = ({ payments, onTogglePaid, onUpdate, onDelete }) => {
+}> = ({ payments, itemTotals, onTogglePaid, onUpdate, onDelete }) => {
   const sorted = [...payments].sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [draftDesc, setDraftDesc] = React.useState('');
   const [draftAmount, setDraftAmount] = React.useState('');
   const [draftDate, setDraftDate] = React.useState('');
+  const [draftIsSaldo, setDraftIsSaldo] = React.useState(false);
+
+  const isSaldoDesc = (s: string) => (s || '').trim().toLowerCase().startsWith('saldo');
+
+  const computeRemainder = (p: DbPayment) => {
+    const total = itemTotals[p.expense_item_id] ?? 0;
+    const sumOthers = payments
+      .filter(x => x.expense_item_id === p.expense_item_id && x.id !== p.id)
+      .reduce((s, x) => s + Number(x.amount || 0), 0);
+    return Math.max(0, Number((total - sumOthers).toFixed(2)));
+  };
 
   const startEdit = (p: DbPayment) => {
     setEditingId(p.id);
     setDraftDesc(p.description);
     setDraftAmount(String(p.amount));
     setDraftDate(p.due_date);
+    setDraftIsSaldo(isSaldoDesc(p.description));
   };
   const cancelEdit = () => setEditingId(null);
   const saveEdit = async (p: DbPayment) => {
     const amt = Number(draftAmount);
+    const useSaldo = draftIsSaldo;
+    const finalAmount = useSaldo
+      ? computeRemainder(p)
+      : (Number.isNaN(amt) ? Number(p.amount) : amt);
+    const finalDesc = useSaldo
+      ? (isSaldoDesc(draftDesc) ? draftDesc.trim() : 'Saldo')
+      : (draftDesc.trim() || p.description);
     await onUpdate(p.id, {
-      description: draftDesc.trim() || p.description,
-      amount: Number.isNaN(amt) ? Number(p.amount) : amt,
+      description: finalDesc,
+      amount: finalAmount,
       due_date: draftDate || p.due_date,
     });
     setEditingId(null);
