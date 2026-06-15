@@ -20,6 +20,14 @@ import {
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { useNavigate } from "react-router-dom";
 import { useInvitationsData } from "@/hooks/useInvitationsData";
 import { RSVPCampaignDialog } from "@/components/guests/RSVPCampaignDialog";
@@ -117,6 +125,7 @@ const Invitations = () => {
   const [stdConfigDialogOpen, setStdConfigDialogOpen] = useState(false);
   const [rsvpCampaignDialogOpen, setRsvpCampaignDialogOpen] = useState(false);
   const [rsvpConfigDialogOpen, setRsvpConfigDialogOpen] = useState(false);
+  const [activityDialogOpen, setActivityDialogOpen] = useState(false);
   const [blockEditorPage, setBlockEditorPage] = useState<PageKind | null>(null);
 
   const campaignsConfig: CampaignsConfig = rawCampaignsConfig || getDefaultCampaignsConfig();
@@ -226,7 +235,6 @@ const Invitations = () => {
     });
     return Array.from(map.values())
       .sort((a, b) => b.ts - a.ts)
-      .slice(0, 6)
       .map(({ key, ...rest }) => rest);
   }, [parties]);
 
@@ -561,43 +569,56 @@ const Invitations = () => {
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="m-0 font-serif text-[16px] font-medium">Attività recente</h3>
                     <button
-                      onClick={() => navigate("/app/guests")}
+                      onClick={() => setActivityDialogOpen(true)}
                       className="text-[12px] text-primary bg-transparent border-none cursor-pointer hover:underline"
                     >
                       Vedi tutto →
                     </button>
                   </div>
                   <div>
-                    {recentActivity.map((a, i) => (
-                      <div
-                        key={i}
-                        className={cn(
-                          "flex items-center gap-3 py-2.5",
-                          i < recentActivity.length - 1 && "border-b border-border"
-                        )}
-                      >
-                        <Avatar name={a.who} />
-                        <div className="flex-1 min-w-0 text-[13px] text-muted-foreground truncate">
-                          <strong className="text-foreground font-medium">{a.who}</strong> {a.what}
-                        </div>
-                        <span
-                          className={cn(
-                            "w-1.5 h-1.5 rounded-full flex-shrink-0",
-                            a.tone === "success" && "bg-emerald-500",
-                            a.tone === "danger" && "bg-red-500",
-                            a.tone === "brand" && "bg-primary"
-                          )}
-                        />
-                        <div className="text-[11.5px] text-muted-foreground min-w-[80px] text-right">
-                          {a.when}
-                        </div>
-                      </div>
+                    {recentActivity.slice(0, 6).map((a, i, arr) => (
+                      <ActivityRow key={i} a={a} isLast={i === arr.length - 1} />
                     ))}
                   </div>
                 </Card>
               )}
             </div>
           )}
+
+          {/* Cronologia completa attività */}
+          <Dialog open={activityDialogOpen} onOpenChange={setActivityDialogOpen}>
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle className="font-serif">Cronologia attività</DialogTitle>
+                <DialogDescription>
+                  Tutte le risposte ricevute da invitati e nuclei
+                </DialogDescription>
+              </DialogHeader>
+              <div className="max-h-[60vh] overflow-y-auto -mx-1 px-1">
+                {recentActivity.length === 0 ? (
+                  <p className="text-[13px] text-muted-foreground py-6 text-center">
+                    Nessuna attività ancora registrata.
+                  </p>
+                ) : (
+                  recentActivity.map((a, i, arr) => (
+                    <ActivityRow key={i} a={a} isLast={i === arr.length - 1} />
+                  ))
+                )}
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setActivityDialogOpen(false);
+                    navigate("/app/guests");
+                  }}
+                >
+                  Vai agli invitati →
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
 
           {/* ========================================================
            * TAB 2 — Pagine Pubbliche
@@ -1006,5 +1027,30 @@ const Avatar = ({ name }: AvatarProps) => {
     </div>
   );
 };
+
+const ActivityRow = ({ a, isLast }: { a: ActivityEntry; isLast: boolean }) => (
+  <div
+    className={cn(
+      "flex items-center gap-3 py-2.5",
+      !isLast && "border-b border-border"
+    )}
+  >
+    <Avatar name={a.who} />
+    <div className="flex-1 min-w-0 text-[13px] text-muted-foreground truncate">
+      <strong className="text-foreground font-medium">{a.who}</strong> {a.what}
+    </div>
+    <span
+      className={cn(
+        "w-1.5 h-1.5 rounded-full flex-shrink-0",
+        a.tone === "success" && "bg-emerald-500",
+        a.tone === "danger" && "bg-red-500",
+        a.tone === "brand" && "bg-primary"
+      )}
+    />
+    <div className="text-[11.5px] text-muted-foreground min-w-[80px] text-right">
+      {a.when}
+    </div>
+  </div>
+);
 
 export default Invitations;
