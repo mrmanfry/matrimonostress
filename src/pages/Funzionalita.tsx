@@ -136,6 +136,7 @@ const Funzionalita = () => {
       </div>
     </section>
   </ContentPageShell>
-);
+  );
+};
 
 export default Funzionalita;
