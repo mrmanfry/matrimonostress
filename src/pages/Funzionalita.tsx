@@ -1,5 +1,6 @@
 import ContentPageShell from "@/components/landing/ContentPageShell";
 import { T } from "@/components/landing/LandingTokens";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const features = [
   {
