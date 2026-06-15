@@ -20,6 +20,14 @@ import {
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { useNavigate } from "react-router-dom";
 import { useInvitationsData } from "@/hooks/useInvitationsData";
 import { RSVPCampaignDialog } from "@/components/guests/RSVPCampaignDialog";
