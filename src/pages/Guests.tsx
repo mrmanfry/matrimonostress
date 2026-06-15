@@ -60,6 +60,7 @@ import { GuestsFilterBar } from "@/components/guests/v2/GuestsFilterBar";
 import { GuestsListView } from "@/components/guests/v2/GuestsListView";
 import { GuestsAnalyticsPanel } from "@/components/guests/v2/GuestsAnalyticsPanel";
 import { GuestsDetailPanel, DetailSelection } from "@/components/guests/v2/detail/GuestsDetailPanel";
+import { quickSendInvite } from "@/lib/invitations/quickSend";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -111,6 +112,8 @@ interface Wedding {
   id: string;
   partner1_name: string;
   partner2_name: string;
+  slug?: string | null;
+  campaigns_config?: any;
 }
 
 const Guests = () => {
@@ -245,7 +248,7 @@ const Guests = () => {
     try {
       const { data: weddingData } = await supabase
         .from("weddings")
-        .select("id, partner1_name, partner2_name")
+        .select("id, partner1_name, partner2_name, slug, campaigns_config")
         .eq("id", authState.activeWeddingId)
         .single();
 
@@ -786,14 +789,58 @@ const Guests = () => {
   const [editingDetailGuest, setEditingDetailGuest] = useState<Guest | null>(null);
   const [editingDetailGuestOpen, setEditingDetailGuestOpen] = useState(false);
 
-  const handleDetailSendInvite = (sel: { kind: "party" | "guest"; id: string }) => {
-    const params = sel.kind === "party" ? `party=${sel.id}` : `guest=${sel.id}`;
-    navigate(`/app/invitations?${params}`);
+  const runQuickSend = async (
+    sel: { kind: "party" | "guest"; id: string },
+    mode: "auto" | "remind",
+  ) => {
+    if (!wedding) return;
+    // Risolvi il nucleo + (se selezione guest) il guest preferito
+    let party: InviteParty | undefined;
+    let preferredGuestId: string | undefined;
+    if (sel.kind === "party") {
+      party = parties.find((p) => p.id === sel.id);
+    } else {
+      party = parties.find((p) => p.guests.some((g) => g.id === sel.id));
+      preferredGuestId = sel.id;
+    }
+    if (!party) {
+      toast({ title: "Nucleo non trovato", variant: "destructive" });
+      return;
+    }
+
+    const result = await quickSendInvite(
+      party as any,
+      {
+        weddingSlug: wedding.slug ?? null,
+        coupleName: `${wedding.partner1_name} & ${wedding.partner2_name}`,
+        campaignsConfig: wedding.campaigns_config ?? null,
+      },
+      { mode, preferredGuestId },
+    );
+
+    if (!result.ok) {
+      toast({ title: "Impossibile inviare", description: result.error, variant: "destructive" });
+      return;
+    }
+
+    const stageLabel =
+      result.stage === "save_the_date"
+        ? "Save the Date"
+        : result.stage === "formal_rsvp"
+        ? "Invito RSVP"
+        : "Promemoria RSVP";
+    toast({
+      title: `WhatsApp aperto — ${stageLabel}`,
+      description: `Messaggio precompilato per ${result.referentName}. Premi invio in WhatsApp per spedirlo.`,
+    });
+    // Refresh per mostrare aggiornamento tracking
+    loadData();
   };
-  const handleDetailRemind = (sel: { kind: "party" | "guest"; id: string }) => {
-    const params = sel.kind === "party" ? `reminder=${sel.id}&type=party` : `reminder=${sel.id}&type=guest`;
-    navigate(`/app/invitations?${params}`);
-  };
+
+  const handleDetailSendInvite = (sel: { kind: "party" | "guest"; id: string }) =>
+    runQuickSend(sel, "auto");
+  const handleDetailRemind = (sel: { kind: "party" | "guest"; id: string }) =>
+    runQuickSend(sel, "remind");
   const handleDetailEditNucleus = (party: InviteParty) => {
     setEditingParty(party);
     setPartyDialogOpen(true);
