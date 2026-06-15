@@ -372,34 +372,85 @@ export default function VendorDetails() {
     queryClient.invalidateQueries({ queryKey: ['vendor-detail-v2'] });
   };
 
+  // Recalcola automaticamente la rata "Saldo" (non pagata) di una spesa,
+  // così che la somma delle rate quadri con il totale della spesa.
+  // Identifica il saldo per descrizione (case-insensitive, inizia con "saldo")
+  // e lo aggiorna solo se diverso dal valore corrente.
+  const recalcSaldoForItem = async (expenseItemId: string, excludePaymentId?: string) => {
+    if (!data) return;
+    const item = data.items.find(i => i.id === expenseItemId);
+    if (!item) return;
+    const activeModeLocal: ScenarioMode = mode ?? data.defaultMode;
+    const lines = (data.lineItemsByExpenseItem[expenseItemId] || []) as unknown as CalcLineItem[];
+    const total = calculateExpenseAmount(
+      item as unknown as CalcExpenseItem, lines, activeModeLocal, data.guestCounts,
+    );
+    // Rileggi le rate dal DB (post mutazione) per evitare cache stale
+    const { data: pays } = await supabase
+      .from('payments')
+      .select('id, description, amount, status')
+      .eq('expense_item_id', expenseItemId);
+    if (!pays) return;
+    const saldo = pays.find(p =>
+      (p.description || '').trim().toLowerCase().startsWith('saldo')
+      && !isPaymentPaid(p.status)
+      && p.id !== excludePaymentId,
+    );
+    if (!saldo) return;
+    const sumOthers = pays
+      .filter(p => p.id !== saldo.id)
+      .reduce((s, p) => s + Number(p.amount || 0), 0);
+    const newAmount = Math.max(0, Number((total - sumOthers).toFixed(2)));
+    if (Math.abs(Number(saldo.amount) - newAmount) < 0.005) return;
+    await supabase.from('payments').update({ amount: newAmount }).eq('id', saldo.id);
+  };
+
   const updatePayment = async (
     paymentId: string,
     patch: { description?: string; amount?: number; due_date?: string },
   ) => {
     const { error } = await supabase.from('payments').update(patch).eq('id', paymentId);
     if (error) { toast({ title: 'Errore', description: error.message, variant: 'destructive' }); return; }
+    // Se l'utente ha modificato una rata NON saldo, riequilibra il saldo
+    const target = data?.payments.find(p => p.id === paymentId);
+    const isSaldo = !!target && (target.description || '').trim().toLowerCase().startsWith('saldo');
+    if (target?.expense_item_id && !isSaldo) {
+      await recalcSaldoForItem(target.expense_item_id, paymentId);
+    }
     toast({ title: 'Rata aggiornata' });
     queryClient.invalidateQueries({ queryKey: ['vendor-detail-v2'] });
   };
 
   const deletePayment = async (paymentId: string) => {
     if (!window.confirm('Eliminare questa rata?')) return;
+    const target = data?.payments.find(p => p.id === paymentId);
     const { error } = await supabase.from('payments').delete().eq('id', paymentId);
     if (error) { toast({ title: 'Errore', description: error.message, variant: 'destructive' }); return; }
+    if (target?.expense_item_id) await recalcSaldoForItem(target.expense_item_id);
     toast({ title: 'Rata eliminata' });
     queryClient.invalidateQueries({ queryKey: ['vendor-detail-v2'] });
   };
 
   const addPaymentRow = async (expenseItemId: string) => {
+    const existing = (data?.payments || []).filter(p => p.expense_item_id === expenseItemId);
+    const nonSaldoCount = existing.filter(
+      p => !(p.description || '').trim().toLowerCase().startsWith('saldo'),
+    ).length;
+    const description = `Rata ${nonSaldoCount + 1}`;
     const { error } = await supabase.from('payments').insert([{
       expense_item_id: expenseItemId,
-      description: 'Nuova rata',
+      description,
       amount: 0,
       due_date: new Date().toISOString().slice(0, 10),
       status: 'Da Pagare',
     }]);
     if (error) { toast({ title: 'Errore', description: error.message, variant: 'destructive' }); return; }
-    toast({ title: 'Rata aggiunta', description: 'Modificala per impostare importo e data.' });
+    // Il saldo si riequilibra automaticamente quando l'utente imposta l'importo della nuova rata
+    await recalcSaldoForItem(expenseItemId);
+    toast({
+      title: 'Rata aggiunta',
+      description: 'Imposta importo e data: il saldo si ricalcola in automatico per quadrare il totale.',
+    });
     queryClient.invalidateQueries({ queryKey: ['vendor-detail-v2'] });
   };
 
