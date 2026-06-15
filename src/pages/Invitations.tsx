@@ -226,7 +226,6 @@ const Invitations = () => {
     });
     return Array.from(map.values())
       .sort((a, b) => b.ts - a.ts)
-      .slice(0, 6)
       .map(({ key, ...rest }) => rest);
   }, [parties]);
 
