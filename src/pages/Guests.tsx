@@ -60,6 +60,7 @@ import { GuestsFilterBar } from "@/components/guests/v2/GuestsFilterBar";
 import { GuestsListView } from "@/components/guests/v2/GuestsListView";
 import { GuestsAnalyticsPanel } from "@/components/guests/v2/GuestsAnalyticsPanel";
 import { GuestsDetailPanel, DetailSelection } from "@/components/guests/v2/detail/GuestsDetailPanel";
+import { quickSendInvite } from "@/lib/invitations/quickSend";
 import {
   AlertDialog,
   AlertDialogAction,
