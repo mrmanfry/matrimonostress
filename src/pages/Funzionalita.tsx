@@ -1,5 +1,6 @@
 import ContentPageShell from "@/components/landing/ContentPageShell";
 import { T } from "@/components/landing/LandingTokens";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const features = [
   {
@@ -40,7 +41,9 @@ const features = [
   },
 ];
 
-const Funzionalita = () => (
+const Funzionalita = () => {
+  const isMobile = useIsMobile();
+  return (
   <ContentPageShell
     active="funzionalita"
     eyebrow="Funzionalità"
@@ -54,9 +57,9 @@ const Funzionalita = () => (
     metaTitle="Funzionalità — WedsApp"
     metaDescription="Tesoreria, invitati, fornitori, checklist, libretto messa e disposizione tavoli. Sei moduli integrati per organizzare il matrimonio senza stress."
   >
-    <section style={{ padding: "40px 0 96px" }}>
-      <div style={{ maxWidth: 1140, margin: "0 auto", padding: "0 48px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 20 }}>
+    <section style={{ padding: isMobile ? "24px 0 64px" : "40px 0 96px" }}>
+      <div style={{ maxWidth: 1140, margin: "0 auto", padding: isMobile ? "0 20px" : "0 48px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)", gap: isMobile ? 14 : 20 }}>
           {features.map((f) => (
             <div
               key={f.title}
@@ -64,7 +67,7 @@ const Funzionalita = () => (
                 background: T.surface,
                 borderRadius: 16,
                 border: `1px solid ${T.border}`,
-                padding: "32px 28px",
+                padding: isMobile ? "22px 20px" : "32px 28px",
                 boxShadow: T.shadowSm,
                 display: "flex",
                 flexDirection: "column",
@@ -133,6 +136,7 @@ const Funzionalita = () => (
       </div>
     </section>
   </ContentPageShell>
-);
+  );
+};
 
 export default Funzionalita;

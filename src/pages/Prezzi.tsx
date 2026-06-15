@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import ContentPageShell from "@/components/landing/ContentPageShell";
 import { T } from "@/components/landing/LandingTokens";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const plans = [
   {
@@ -131,7 +132,9 @@ const FaqItem = ({ q, a }: { q: string; a: string }) => {
   );
 };
 
-const Prezzi = () => (
+const Prezzi = () => {
+  const isMobile = useIsMobile();
+  return (
   <ContentPageShell
     active="prezzi"
     eyebrow="Prezzi"
@@ -145,13 +148,13 @@ const Prezzi = () => (
     metaTitle="Prezzi — WedsApp"
     metaDescription="Tre piani pensati per ogni coppia: Free, Sposi e Atelier. Paghi una volta sola, nessun abbonamento, nessuna sorpresa."
   >
-    <section style={{ padding: "40px 0 96px" }}>
-      <div style={{ maxWidth: 1140, margin: "0 auto", padding: "0 48px" }}>
+    <section style={{ padding: isMobile ? "24px 0 64px" : "40px 0 96px" }}>
+      <div style={{ maxWidth: 1140, margin: "0 auto", padding: isMobile ? "0 20px" : "0 48px" }}>
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gap: 20,
+            gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)",
+            gap: isMobile ? 16 : 20,
             alignItems: "stretch",
           }}
         >
@@ -165,7 +168,7 @@ const Prezzi = () => (
                 color: p.highlighted ? "#FAF7F2" : T.ink,
                 borderRadius: 18,
                 border: `1px solid ${p.highlighted ? "transparent" : T.border}`,
-                padding: "32px 28px",
+                padding: isMobile ? "26px 22px" : "32px 28px",
                 position: "relative",
                 boxShadow: p.highlighted
                   ? "0 24px 48px -16px rgba(76,29,149,.4)"
@@ -173,7 +176,7 @@ const Prezzi = () => (
                 display: "flex",
                 flexDirection: "column",
                 gap: 18,
-                transform: p.highlighted ? "scale(1.03)" : "none",
+                transform: !isMobile && p.highlighted ? "scale(1.03)" : "none",
               }}
             >
               {p.highlighted && (
@@ -367,6 +370,7 @@ const Prezzi = () => (
       </div>
     </section>
   </ContentPageShell>
-);
+  );
+};
 
 export default Prezzi;
