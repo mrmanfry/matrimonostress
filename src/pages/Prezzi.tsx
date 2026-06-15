@@ -370,6 +370,7 @@ const Prezzi = () => {
       </div>
     </section>
   </ContentPageShell>
-);
+  );
+};
 
 export default Prezzi;
