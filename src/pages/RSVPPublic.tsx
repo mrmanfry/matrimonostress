@@ -327,6 +327,27 @@ export default function RSVPPublic({ forceStdMode }: RSVPPublicProps) {
         return;
       }
 
+      // Link evolutivo: se l'ospite apre un link Save-the-Date ma ha già ricevuto
+      // l'invito formale, redirigiamo trasparentemente alla pagina RSVP formale
+      // (stesso token). Evita confusione tra i due URL.
+      if (isStdMode) {
+        const selfMember = data.party?.members?.find(
+          (m: GuestMember & { formal_invite_sent_at?: string | null }) => m.id === data.guest?.id
+        ) as (GuestMember & { formal_invite_sent_at?: string | null }) | undefined;
+        if (selfMember?.formal_invite_sent_at) {
+          const toastKey = `rsvp-evolved-${token}`;
+          if (typeof window !== "undefined" && !sessionStorage.getItem(toastKey)) {
+            sessionStorage.setItem(toastKey, "1");
+            toast.info("Il tuo invito è stato aggiornato con i dettagli definitivi.");
+          }
+          const target = coupleSlug
+            ? `/${coupleSlug}/rsvp/${token}`
+            : `/rsvp/${token}`;
+          navigate(target, { replace: true });
+          return;
+        }
+      }
+
       setRsvpData(data);
 
       const initialMemberData: Record<string, any> = {};
