@@ -1,32 +1,31 @@
-## Problemi rilevati
+# "Vedi tutto" — Cronologia completa attività
 
-1. **Home `/` — Footer non cliccabile**: in `src/pages/Index.tsx` (riga 262-267) le voci del footer ("Funzionalità", "Prezzi", "Privacy"...) sono semplici `<li>` di testo, non `<Link>`. Da mobile (e desktop) non puoi navigarci.
-2. **Home `/` — Nav mobile vuota**: la barra in alto su mobile nasconde tutti i link di navigazione e mostra solo "Inizia gratis". Non c'è hamburger → da mobile non puoi raggiungere `/funzionalita`, `/prezzi`, ecc.
-3. **Pagine `/funzionalita`, `/come-funziona`, `/prezzi`, `/risorse`**: usano `PageNav`, `PageHero`, `LandingFooter` in `src/components/landing/PageChrome.tsx` con stili inline **senza alcuna gestione mobile**:
-   - Nav: padding 48px fisso, link sempre orizzontali → overflow
-   - Hero: titolo 60px e padding 88px/48px → testo troppo grande, taglia sui lati
-   - Footer: griglia `1.5fr 1fr 1fr 1fr` fissa → 4 colonne schiacciate, padding 48px
+## Comportamento attuale
+Nella card *Attività recente* (tab Panoramica di `/app/invitations`):
+- Mostra max **6** attività più recenti (slice in `recentActivity`, riga 229).
+- Il link **"Vedi tutto →"** porta direttamente a `/app/guests`, ma l'utente non vede mai lo storico completo delle attività perché in Invitati non esiste una vista timeline.
 
-## Modifiche
+## Cosa cambia
 
-### 1. `src/components/landing/PageChrome.tsx`
-- `PageNav`: usare `useIsMobile()`. Su mobile: padding ridotto (`14px 20px`), nascondere link orizzontali, mostrare hamburger (`Menu` da lucide-react) che apre un `Sheet` shadcn con i 4 link + "Accedi" + "Inizia gratis". Su desktop: comportamento attuale.
-- `PageHero`: font title responsive (40px mobile / 60px desktop), padding `56px 20px 40px` mobile, lede 16px mobile.
-- `LandingFooter`: grid `1fr 1fr` mobile (con il blocco logo a tutta larghezza in cima via `gridColumn: '1 / -1'`) / `1.5fr 1fr 1fr 1fr` desktop; padding `20px` mobile; bottom-row con `flex-direction: column` mobile.
+1. **Rimuovere il limite di 6 nel calcolo** — costruire la lista completa di attività (mantenendo dedupe + ordinamento per data desc). La card in Panoramica continua comunque a mostrarne solo 6 (`.slice(0,6)` spostato nel render).
 
-### 2. `src/pages/Index.tsx`
-- `Footer`: trasformare le voci in oggetti `{label, to}` e renderizzarle come `<Link>` di `react-router-dom`. Mappatura:
-  - Prodotto → `/funzionalita`, `/prezzi`, `/risorse`
-  - Risorse → `/risorse`, `/risorse`, `/help`
-  - Legale → tutte a `/risorse` (placeholder coerente con `LandingFooter`)
-- `Nav`: su mobile aggiungere hamburger con `Sheet` (stessa UX di `PageNav`) per esporre i 4 link di navigazione + "Accedi".
+2. **Trasformare "Vedi tutto →" in apertura dialog** invece che navigazione diretta. Il dialog (`Dialog` di shadcn) mostra:
+   - Titolo: *"Cronologia attività"*
+   - Sottotitolo: *"Tutte le risposte ricevute da invitati e nuclei"*
+   - Lista scrollabile (max-height ~70vh) con lo **stesso stile** delle righe attuali (avatar iniziali + testo + pallino colorato + tempo relativo).
+   - Eventuale stato vuoto se non ci sono attività oltre alle 6 mostrate.
 
-## Risultato atteso
-- Da mobile la home ha hamburger funzionante e footer con link cliccabili che portano alle pagine reali.
-- Le pagine `/funzionalita`, `/come-funziona`, `/prezzi`, `/risorse` si adattano alla viewport 390px senza overflow orizzontale e con navigazione mobile coerente.
+3. **Footer del dialog**: un pulsante secondario **"Vai agli invitati →"** che chiude il dialog e naviga a `/app/guests`, così l'utente può approfondire / agire sui singoli ospiti.
 
-## File toccati
-- `src/components/landing/PageChrome.tsx` (modificato)
-- `src/pages/Index.tsx` (modificato)
+## Dettagli tecnici
 
-Nessuna modifica a logica di business o backend.
+File toccato: `src/pages/Invitations.tsx`.
+
+- `recentActivity` (riga 175-231): restituire l'array completo ordinato; rimuovere `.slice(0, 6)` dal `useMemo`.
+- Render card (riga 559-598): usare `recentActivity.slice(0, 6).map(...)`.
+- Nuovo state `const [activityDialogOpen, setActivityDialogOpen] = useState(false)`.
+- Il bottone "Vedi tutto →" → `onClick={() => setActivityDialogOpen(true)}` (non più `navigate`).
+- Nuovo componente inline `Dialog` (già usato altrove nel file) con la lista completa, riusando il markup riga 572-594 estratto in un piccolo helper locale `ActivityRow` per evitare duplicazione.
+- Footer dialog: `Button variant="outline"` con `onClick={() => { setActivityDialogOpen(false); navigate("/app/guests"); }}`.
+
+Nessuna modifica a dati / query / business logic — solo presentation layer.
