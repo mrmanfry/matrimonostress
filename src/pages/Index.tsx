@@ -1,9 +1,18 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { Menu, X } from "lucide-react";
 import LandingLogo from "@/components/landing/LandingLogo";
 import HeroCollage from "@/components/landing/HeroCollage";
 import { SectionEyebrow, ValueSection, HowItWorks, FinalCTA } from "@/components/landing/LandingSections";
 import { T } from "@/components/landing/LandingTokens";
 import { useIsMobile } from "@/hooks/use-mobile";
+
+const NAV_LINKS = [
+  { l: "Funzionalità", to: "/funzionalita" },
+  { l: "Come funziona", to: "/come-funziona" },
+  { l: "Prezzi", to: "/prezzi" },
+  { l: "Risorse", to: "/risorse" },
+];
 
 const Nav = () => {
   const isMobile = useIsMobile();
