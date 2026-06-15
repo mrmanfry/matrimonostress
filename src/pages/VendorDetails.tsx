@@ -1197,16 +1197,32 @@ const PaymentTimeline: React.FC<{
                     type="number"
                     min={0}
                     step="0.01"
-                    value={draftAmount}
+                    value={draftIsSaldo ? computeRemainder(p).toFixed(2) : draftAmount}
+                    disabled={draftIsSaldo}
                     onChange={e => setDraftAmount(e.target.value)}
                     placeholder="Importo €"
                     style={{
                       width: 130, fontSize: 13, padding: '6px 10px', borderRadius: 6,
-                      border: `1px solid ${border(true)}`, background: surface(),
+                      border: `1px solid ${border(true)}`,
+                      background: draftIsSaldo ? 'hsl(var(--paper-surface-muted))' : surface(),
                       color: ink(), fontFamily: FONT_MONO, outline: 'none', textAlign: 'right',
                     }}
                   />
                 </div>
+                <label style={{
+                  display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: ink(2),
+                  fontFamily: FONT_UI, cursor: 'pointer', userSelect: 'none',
+                }}>
+                  <input
+                    type="checkbox"
+                    checked={draftIsSaldo}
+                    onChange={e => {
+                      setDraftIsSaldo(e.target.checked);
+                      if (e.target.checked && !isSaldoDesc(draftDesc)) setDraftDesc('Saldo');
+                    }}
+                  />
+                  Imposta come <strong>Saldo</strong> · importo calcolato automaticamente ({fmtEUR(computeRemainder(p))})
+                </label>
                 <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
                   <PaperButton variant="ghost" size="sm" onClick={cancelEdit}>Annulla</PaperButton>
                   <PaperButton variant="primary" size="sm" onClick={() => saveEdit(p)}>Salva</PaperButton>
