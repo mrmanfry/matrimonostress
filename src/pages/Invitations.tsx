@@ -1028,4 +1028,29 @@ const Avatar = ({ name }: AvatarProps) => {
   );
 };
 
+const ActivityRow = ({ a, isLast }: { a: ActivityEntry; isLast: boolean }) => (
+  <div
+    className={cn(
+      "flex items-center gap-3 py-2.5",
+      !isLast && "border-b border-border"
+    )}
+  >
+    <Avatar name={a.who} />
+    <div className="flex-1 min-w-0 text-[13px] text-muted-foreground truncate">
+      <strong className="text-foreground font-medium">{a.who}</strong> {a.what}
+    </div>
+    <span
+      className={cn(
+        "w-1.5 h-1.5 rounded-full flex-shrink-0",
+        a.tone === "success" && "bg-emerald-500",
+        a.tone === "danger" && "bg-red-500",
+        a.tone === "brand" && "bg-primary"
+      )}
+    />
+    <div className="text-[11.5px] text-muted-foreground min-w-[80px] text-right">
+      {a.when}
+    </div>
+  </div>
+);
+
 export default Invitations;
