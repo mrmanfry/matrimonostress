@@ -754,6 +754,10 @@ export default function VendorDetails() {
                   ) : (
                     <PaymentTimeline
                       payments={data.payments}
+                      itemTotals={Object.fromEntries(data.items.map(it => {
+                        const lines = (data.lineItemsByExpenseItem[it.id] || []) as unknown as CalcLineItem[];
+                        return [it.id, calculateExpenseAmount(it as unknown as CalcExpenseItem, lines, activeMode, data.guestCounts)];
+                      }))}
                       onTogglePaid={markPaymentPaid}
                       onUpdate={updatePayment}
                       onDelete={deletePayment}
