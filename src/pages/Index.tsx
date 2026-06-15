@@ -314,10 +314,22 @@ const Hero = () => {
 
 const Footer = () => {
   const isMobile = useIsMobile();
-  const links: Record<string, string[]> = {
-    Prodotto: ["Funzionalità", "Prezzi", "Novità"],
-    Risorse: ["Guida completa", "Blog", "FAQ"],
-    Legale: ["Privacy", "Termini", "Cookie"],
+  const links: Record<string, { label: string; to: string }[]> = {
+    Prodotto: [
+      { label: "Funzionalità", to: "/funzionalita" },
+      { label: "Prezzi", to: "/prezzi" },
+      { label: "Come funziona", to: "/come-funziona" },
+    ],
+    Risorse: [
+      { label: "Guide", to: "/risorse" },
+      { label: "Centro assistenza", to: "/help" },
+      { label: "FAQ", to: "/risorse" },
+    ],
+    Legale: [
+      { label: "Privacy", to: "/risorse" },
+      { label: "Termini", to: "/risorse" },
+      { label: "Cookie", to: "/risorse" },
+    ],
   };
   return (
     <footer style={{ background: "#1F1A16", color: "#E8E1D4", padding: isMobile ? "48px 0 24px" : "64px 0 32px" }}>
@@ -330,7 +342,7 @@ const Footer = () => {
             marginBottom: isMobile ? 32 : 48,
           }}
         >
-          <div>
+          <div style={{ gridColumn: isMobile ? "1 / -1" : "auto" }}>
             <LandingLogo size="md" onDark />
             <p
               style={{
@@ -360,8 +372,10 @@ const Footer = () => {
               </div>
               <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 10 }}>
                 {items.map((l) => (
-                  <li key={l} style={{ fontSize: 14, color: "rgba(232,225,212,.82)" }}>
-                    {l}
+                  <li key={l.label} style={{ fontSize: 14 }}>
+                    <Link to={l.to} style={{ color: "rgba(232,225,212,.82)" }}>
+                      {l.label}
+                    </Link>
                   </li>
                 ))}
               </ul>
@@ -373,12 +387,13 @@ const Footer = () => {
             paddingTop: 24,
             borderTop: "1px solid rgba(232,225,212,.12)",
             display: "flex",
+            flexDirection: isMobile ? "column" : "row",
             justifyContent: "space-between",
-            alignItems: "center",
+            alignItems: isMobile ? "flex-start" : "center",
             fontSize: 12,
             color: "rgba(232,225,212,.55)",
             flexWrap: "wrap",
-            gap: 12,
+            gap: 8,
           }}
         >
           <span>© {new Date().getFullYear()} WedsApp. Fatto con amore in Italia.</span>
