@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logSecurityEvent } from "../_shared/audit.ts";
+import { escHtml } from "../_shared/html-escape.ts";
 
 
 const corsHeaders = {
