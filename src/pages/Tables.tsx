@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Download, Heart, Users, Sparkles, ToggleLeft, ToggleRight, Trash2, Eraser, MoreVertical } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { DndContext, DragEndEvent, DragOverlay, DragStartEvent } from "@dnd-kit/core";
+import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, pointerWithin } from "@dnd-kit/core";
 import { GuestPool } from "@/components/tables/GuestPool";
 import { TableCanvas } from "@/components/tables/TableCanvas";
 import { ConflictManager } from "@/components/tables/ConflictManager";
@@ -770,7 +770,7 @@ const Tables = () => {
             </div>
           </Card>
         ) : (
-          <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+          <DndContext collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
             {isMobile ? (
               /* Mobile: Tab-based layout */
               <Tabs defaultValue="sala" className="w-full">
