@@ -15,6 +15,7 @@ interface Props {
   groupColorMap: Record<string, string>;
   onRemove: (assignmentId: string) => void;
   onAssign: (guestId: string, tableId: string) => void;
+  onUpdateTable?: (tableId: string, updates: { name?: string; capacity?: number }) => Promise<void> | void;
 }
 
 export const TablesGridView = ({
@@ -25,6 +26,7 @@ export const TablesGridView = ({
   groupColorMap,
   onRemove,
   onAssign,
+  onUpdateTable,
 }: Props) => {
   const [view, setView] = useState<"grid" | "list">("grid");
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
