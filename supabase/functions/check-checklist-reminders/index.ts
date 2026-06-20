@@ -351,7 +351,7 @@ async function sendFallbackEmail(
         </p>
         
         <p style="font-size: 16px; margin-bottom: 20px;">
-          Ci sono <strong>${tasks.length}</strong> attività in scadenza domani per il matrimonio <strong>${weddingName}</strong>:
+          Ci sono <strong>${tasks.length}</strong> attività in scadenza domani per il matrimonio <strong>${escHtml(weddingName)}</strong>:
         </p>
         
         <ul style="background: white; padding: 20px 30px; border-radius: 8px; border-left: 4px solid #667eea;">
@@ -366,7 +366,7 @@ async function sendFallbackEmail(
         </div>
         
         <p style="font-size: 14px; color: #666; margin-top: 30px; text-align: center;">
-          Ricevi questa email perché sei un organizzatore del matrimonio ${weddingName}.
+          Ricevi questa email perché sei un organizzatore del matrimonio ${escHtml(weddingName)}.
         </p>
       </div>
     </body>

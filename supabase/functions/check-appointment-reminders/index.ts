@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { Resend } from "https://esm.sh/resend@4.0.0";
+import { escHtml } from "../_shared/html-escape.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -147,19 +148,19 @@ serve(async (req) => {
               ? vendorsData[0]?.name || "Fornitore"
               : vendorsData?.name || "Fornitore";
             const locationStr = apt.location
-              ? `<br/>📍 ${apt.location}`
+              ? `<br/>📍 ${escHtml(apt.location)}`
               : "";
             const purposeStr = apt.purpose
-              ? `<br/>📋 ${apt.purpose}`
+              ? `<br/>📋 ${escHtml(apt.purpose)}`
               : "";
 
             return `
               <div style="background: #f3f4f6; border-radius: 8px; padding: 16px; margin-bottom: 12px; border-left: 4px solid #8B5CF6;">
                 <div style="font-weight: 600; color: #1f2937; font-size: 16px;">
-                  ${apt.title}
+                  ${escHtml(apt.title)}
                 </div>
                 <div style="color: #6b7280; margin-top: 8px; font-size: 14px;">
-                  🏢 ${vendorName}<br/>
+                  🏢 ${escHtml(vendorName)}<br/>
                   🕐 ${timeStr}
                   ${locationStr}
                   ${purposeStr}
