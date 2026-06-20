@@ -150,6 +150,7 @@ export const TablesGridView = ({
         onClose={() => setSelectedTableId(null)}
         onRemove={handleRemoveSeated}
         onAssign={onAssign}
+        onUpdateTable={onUpdateTable}
       />
     </div>
   );
