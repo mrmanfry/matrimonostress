@@ -43,7 +43,7 @@ export const TablesGridView = ({
     );
     for (const a of sorted) {
       const g = guestById.get(a.guest_id);
-      if (g && map[a.table_id]) map[a.table_id].push(g);
+      if (g && map[a.table_id]) map[a.table_id].push({ ...g, seat_position: a.seat_position ?? null });
     }
     return map;
   }, [tables, guests, assignments]);
