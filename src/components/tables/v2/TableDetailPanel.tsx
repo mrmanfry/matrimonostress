@@ -121,16 +121,20 @@ export const TableDetailPanel = ({
                   className="rounded-full flex-shrink-0"
                   style={{ width: 8, height: 8, background: color }}
                 />
-                <span className="flex-1 text-[13px] whitespace-nowrap overflow-hidden text-ellipsis">
+                <span className="flex-1 min-w-0 text-[13px] whitespace-nowrap overflow-hidden text-ellipsis">
                   {g.first_name} {g.last_name}
                 </span>
                 {g.dietary_restrictions && (
-                  <Badge variant="outline" className="text-[10px] h-5">
-                    {g.dietary_restrictions}
-                  </Badge>
+                  <span
+                    className="flex-shrink-0 inline-flex items-center justify-center h-5 w-5 rounded-full border text-[11px] cursor-help"
+                    title={g.dietary_restrictions}
+                    aria-label={`Restrizioni alimentari: ${g.dietary_restrictions}`}
+                  >
+                    🍽️
+                  </span>
                 )}
                 {g.is_child && (
-                  <Badge variant="secondary" className="text-[10px] h-5">
+                  <Badge variant="secondary" className="text-[10px] h-5 flex-shrink-0">
                     👶
                   </Badge>
                 )}
