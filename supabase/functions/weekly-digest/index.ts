@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { Resend } from "https://esm.sh/resend@4.0.0";
+import { escHtml } from "../_shared/html-escape.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -515,9 +516,9 @@ function buildDigestEmail({
             <li style="padding: 12px; margin-bottom: 8px; background: #F9FAFB; border-radius: 8px; border-left: 3px solid ${UPCOMING_COLOR};">
               <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                 <div>
-                  <strong style="color: #1F2937; display: block;">${task.title}</strong>
-                  ${task.vendor_name ? `<span style="font-size: 12px; color: ${UPCOMING_COLOR};">🏢 ${task.vendor_name}</span>` : ''}
-                  ${task.category && !task.vendor_name ? `<span style="font-size: 12px; color: #9CA3AF;">📁 ${task.category}</span>` : ''}
+                  <strong style="color: #1F2937; display: block;">${escHtml(task.title)}</strong>
+                  ${task.vendor_name ? `<span style="font-size: 12px; color: ${UPCOMING_COLOR};">🏢 ${escHtml(task.vendor_name)}</span>` : ''}
+                  ${task.category && !task.vendor_name ? `<span style="font-size: 12px; color: #9CA3AF;">📁 ${escHtml(task.category)}</span>` : ''}
                 </div>
                 <div style="text-align: right;">
                   ${task.priority ? `<span style="font-size: 11px; display: block;">${getPriorityBadge(task.priority)}</span>` : ''}
@@ -543,8 +544,8 @@ function buildDigestEmail({
             <li style="padding: 12px; margin-bottom: 8px; background: #ECFDF5; border-radius: 8px; border-left: 3px solid ${SHARED_COLOR};">
               <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                 <div>
-                  <strong style="color: #1F2937; display: block;">${task.title}</strong>
-                  ${task.vendor_name ? `<span style="font-size: 12px; color: ${SHARED_COLOR};">🏢 ${task.vendor_name}</span>` : ''}
+                  <strong style="color: #1F2937; display: block;">${escHtml(task.title)}</strong>
+                  ${task.vendor_name ? `<span style="font-size: 12px; color: ${SHARED_COLOR};">🏢 ${escHtml(task.vendor_name)}</span>` : ''}
                 </div>
                 <div style="text-align: right;">
                   ${task.due_date ? `<span style="font-size: 12px; color: #6B7280;">📅 ${formatDate(task.due_date)}</span>` : ''}
@@ -575,7 +576,7 @@ function buildDigestEmail({
           ${allPayments.map(payment => `
             <li style="padding: 10px; margin-bottom: 8px; background: #F9FAFB; border-radius: 6px; border-left: 3px solid ${new Date(payment.due_date) < new Date() ? '#DC2626' : '#F59E0B'};">
               <div style="display: flex; justify-content: space-between;">
-                <strong style="color: #1F2937;">${payment.description}</strong>
+                <strong style="color: #1F2937;">${escHtml(payment.description)}</strong>
                 <span style="font-weight: bold; color: #1F2937;">${formatCurrency(payment.amount)}</span>
               </div>
               <span style="font-size: 13px; color: ${new Date(payment.due_date) < new Date() ? '#DC2626' : '#6B7280'};">
@@ -608,10 +609,10 @@ function buildDigestEmail({
             <li style="padding: 12px; margin-bottom: 8px; background: #FAF5FF; border-radius: 8px; border-left: 3px solid ${APPOINTMENT_COLOR};">
               <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                 <div>
-                  <strong style="color: #1F2937; display: block;">${apt.title}</strong>
-                  ${apt.vendor_name ? `<span style="font-size: 12px; color: ${APPOINTMENT_COLOR};">🏢 ${apt.vendor_name}</span>` : ''}
-                  ${apt.location ? `<span style="font-size: 12px; color: #6B7280; display: block; margin-top: 2px;">📍 ${apt.location}</span>` : ''}
-                  ${apt.purpose ? `<span style="font-size: 12px; color: #9CA3AF; display: block; margin-top: 2px;">${apt.purpose}</span>` : ''}
+                  <strong style="color: #1F2937; display: block;">${escHtml(apt.title)}</strong>
+                  ${apt.vendor_name ? `<span style="font-size: 12px; color: ${APPOINTMENT_COLOR};">🏢 ${escHtml(apt.vendor_name)}</span>` : ''}
+                  ${apt.location ? `<span style="font-size: 12px; color: #6B7280; display: block; margin-top: 2px;">📍 ${escHtml(apt.location)}</span>` : ''}
+                  ${apt.purpose ? `<span style="font-size: 12px; color: #9CA3AF; display: block; margin-top: 2px;">${escHtml(apt.purpose)}</span>` : ''}
                 </div>
                 <div style="text-align: right; min-width: 70px;">
                   <span style="font-size: 11px; color: #6B7280; text-transform: uppercase;">${dayName}</span>
@@ -684,7 +685,7 @@ function buildDigestEmail({
       <!-- Footer -->
       <div style="background: #F9FAFB; padding: 20px; border-radius: 0 0 12px 12px; text-align: center;">
         <p style="font-size: 12px; color: #9CA3AF; margin: 0 0 8px 0;">
-          Ricevi questa email ogni lunedì perché sei un organizzatore del matrimonio ${weddingName}.
+          Ricevi questa email ogni lunedì perché sei un organizzatore del matrimonio ${escHtml(weddingName)}.
         </p>
         <a href="${appUrl}/app/settings" style="color: #667eea; text-decoration: underline; font-size: 12px;">
           Modifica preferenze email
