@@ -10,6 +10,7 @@ export type GuestV2 = {
   menu_choice?: string | null;
   is_plus_one?: boolean;
   plus_one_of_guest_id?: string;
+  seat_position?: number | null;
 };
 
 export type TableV2 = {
