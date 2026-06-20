@@ -846,6 +846,18 @@ const Tables = () => {
                   }
                   await handleAssignToSeat(tableId, guestId, nextSeat);
                 }}
+                onUpdateTable={async (tableId, updates) => {
+                  const { error } = await supabase
+                    .from("tables")
+                    .update(updates)
+                    .eq("id", tableId);
+                  if (error) {
+                    toast({ title: "Errore", description: error.message, variant: "destructive" });
+                    return;
+                  }
+                  toast({ title: "Tavolo aggiornato" });
+                  if (weddingId) await fetchTables(weddingId);
+                }}
               />
             )}
 

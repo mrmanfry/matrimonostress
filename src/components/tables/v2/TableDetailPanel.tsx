@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { X, Plus, Search } from "lucide-react";
+import { useState, useEffect } from "react";
+import { X, Plus, Search, Pencil, Check, X as XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,7 @@ interface Props {
   onClose: () => void;
   onRemove: (guestId: string) => void;
   onAssign: (guestId: string, tableId: string) => void;
+  onUpdateTable?: (tableId: string, updates: { name?: string; capacity?: number }) => Promise<void> | void;
 }
 
 export const TableDetailPanel = ({
@@ -27,11 +28,49 @@ export const TableDetailPanel = ({
   onClose,
   onRemove,
   onAssign,
+  onUpdateTable,
 }: Props) => {
   const [addSearch, setAddSearch] = useState("");
   const [addGroup, setAddGroup] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [draftName, setDraftName] = useState("");
+  const [draftCapacity, setDraftCapacity] = useState<string>("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (table) {
+      setDraftName(table.name);
+      setDraftCapacity(String(table.capacity));
+      setIsEditing(false);
+    }
+  }, [table?.id]);
 
   if (!table) return null;
+
+  const handleSave = async () => {
+    if (!onUpdateTable) return;
+    const name = draftName.trim();
+    const capacity = parseInt(draftCapacity, 10);
+    if (!name || !Number.isFinite(capacity) || capacity < 1) return;
+    if (capacity < seated.length) {
+      // Don't allow capacity below current seated count
+      return;
+    }
+    setSaving(true);
+    try {
+      await onUpdateTable(table.id, { name, capacity });
+      setIsEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setDraftName(table.name);
+    setDraftCapacity(String(table.capacity));
+    setIsEditing(false);
+  };
+
 
   const remaining = table.capacity - seated.length;
   const isFull = remaining <= 0;
@@ -69,31 +108,101 @@ export const TableDetailPanel = ({
           <div className="text-[11px] tracking-[0.14em] uppercase" style={{ color: "hsl(var(--muted-foreground))" }}>
             Tavolo
           </div>
-          <div
-            className="font-medium mt-0.5"
-            style={{ fontFamily: "var(--font-serif)", fontSize: 20, color: "hsl(var(--foreground))" }}
-          >
-            {table.name}
-          </div>
-          <div className="text-xs mt-0.5" style={{ color: "hsl(var(--muted-foreground))" }}>
-            {isImperial ? "Imperiale" : "Tondo"} · {seated.length}/{table.capacity} posti
-            {remaining > 0 && (
-              <span>
-                {" · "}
-                <span style={{ color: "hsl(var(--status-confirmed))" }}>{remaining} liberi</span>
-              </span>
-            )}
-            {isFull && (
-              <span>
-                {" · "}
-                <span style={{ color: "hsl(var(--status-urgent))" }}>pieno</span>
-              </span>
-            )}
-          </div>
+          {isEditing ? (
+            <div className="flex flex-col gap-2 mt-1">
+              <Input
+                value={draftName}
+                onChange={(e) => setDraftName(e.target.value)}
+                placeholder="Nome tavolo"
+                className="h-8 text-sm"
+                autoFocus
+              />
+              <div className="flex items-center gap-2">
+                <label className="text-[11px]" style={{ color: "hsl(var(--muted-foreground))" }}>
+                  Posti
+                </label>
+                <Input
+                  type="number"
+                  min={Math.max(1, seated.length)}
+                  value={draftCapacity}
+                  onChange={(e) => setDraftCapacity(e.target.value)}
+                  className="h-8 text-sm w-20"
+                />
+                {seated.length > 0 && (
+                  <span className="text-[10px]" style={{ color: "hsl(var(--muted-foreground))" }}>
+                    min {seated.length}
+                  </span>
+                )}
+              </div>
+            </div>
+          ) : (
+            <>
+              <div
+                className="font-medium mt-0.5"
+                style={{ fontFamily: "var(--font-serif)", fontSize: 20, color: "hsl(var(--foreground))" }}
+              >
+                {table.name}
+              </div>
+              <div className="text-xs mt-0.5" style={{ color: "hsl(var(--muted-foreground))" }}>
+                {isImperial ? "Imperiale" : "Tondo"} · {seated.length}/{table.capacity} posti
+                {remaining > 0 && (
+                  <span>
+                    {" · "}
+                    <span style={{ color: "hsl(var(--status-confirmed))" }}>{remaining} liberi</span>
+                  </span>
+                )}
+                {isFull && (
+                  <span>
+                    {" · "}
+                    <span style={{ color: "hsl(var(--status-urgent))" }}>pieno</span>
+                  </span>
+                )}
+              </div>
+            </>
+          )}
         </div>
-        <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7 flex-shrink-0">
-          <X className="w-4 h-4" />
-        </Button>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {onUpdateTable && !isEditing && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsEditing(true)}
+              className="h-7 w-7"
+              title="Modifica tavolo"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </Button>
+          )}
+          {isEditing && (
+            <>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleSave}
+                disabled={saving || !draftName.trim() || parseInt(draftCapacity, 10) < seated.length}
+                className="h-7 w-7"
+                title="Salva"
+              >
+                <Check className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleCancel}
+                disabled={saving}
+                className="h-7 w-7"
+                title="Annulla"
+              >
+                <XIcon className="w-4 h-4" />
+              </Button>
+            </>
+          )}
+          {!isEditing && (
+            <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7">
+              <X className="w-4 h-4" />
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* seated */}
