@@ -92,6 +92,7 @@ export const TableCardV2 = ({
       {isImperial ? (
         <div className="flex justify-center py-2">
           <ImperialTableSvg
+            tableId={table.id}
             seated={seated}
             capacity={cap}
             groupColorMap={groupColorMap}
