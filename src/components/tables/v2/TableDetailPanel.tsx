@@ -16,6 +16,7 @@ interface Props {
   onClose: () => void;
   onRemove: (guestId: string) => void;
   onAssign: (guestId: string, tableId: string) => void;
+  onUpdateTable?: (tableId: string, updates: { name?: string; capacity?: number }) => Promise<void> | void;
 }
 
 export const TableDetailPanel = ({
