@@ -28,11 +28,49 @@ export const TableDetailPanel = ({
   onClose,
   onRemove,
   onAssign,
+  onUpdateTable,
 }: Props) => {
   const [addSearch, setAddSearch] = useState("");
   const [addGroup, setAddGroup] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [draftName, setDraftName] = useState("");
+  const [draftCapacity, setDraftCapacity] = useState<string>("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (table) {
+      setDraftName(table.name);
+      setDraftCapacity(String(table.capacity));
+      setIsEditing(false);
+    }
+  }, [table?.id]);
 
   if (!table) return null;
+
+  const handleSave = async () => {
+    if (!onUpdateTable) return;
+    const name = draftName.trim();
+    const capacity = parseInt(draftCapacity, 10);
+    if (!name || !Number.isFinite(capacity) || capacity < 1) return;
+    if (capacity < seated.length) {
+      // Don't allow capacity below current seated count
+      return;
+    }
+    setSaving(true);
+    try {
+      await onUpdateTable(table.id, { name, capacity });
+      setIsEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setDraftName(table.name);
+    setDraftCapacity(String(table.capacity));
+    setIsEditing(false);
+  };
+
 
   const remaining = table.capacity - seated.length;
   const isFull = remaining <= 0;
