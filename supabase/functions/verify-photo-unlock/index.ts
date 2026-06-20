@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { type StripeEnv, createStripeClient, corsHeaders } from "../_shared/stripe.ts";
+import { logSecurityEvent } from "../_shared/audit.ts";
 
 /**
  * Fallback verifier for Memories one-time unlocks.
@@ -31,6 +32,28 @@ serve(async (req) => {
     const weddingId = body.weddingId;
     const environment = (body.environment || "sandbox") as StripeEnv;
     if (!weddingId) throw new Error("weddingId is required");
+
+    // Authorization: only co_planner on this wedding may verify/unlock photos
+    const { data: roleRow } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("wedding_id", weddingId)
+      .eq("role", "co_planner")
+      .maybeSingle();
+    if (!roleRow) {
+      await logSecurityEvent(req, {
+        event_type: "forbidden_wedding_access",
+        resource: "edge:verify-photo-unlock",
+        reason: "Caller is not co_planner on supplied weddingId",
+        user_id: user.id,
+        wedding_id: weddingId,
+      });
+      return new Response(JSON.stringify({ error: "Forbidden" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const stripe = createStripeClient(environment);
 
