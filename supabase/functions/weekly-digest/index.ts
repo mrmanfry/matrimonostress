@@ -648,9 +648,9 @@ function buildDigestEmail({
       
       <!-- Header con saluto personalizzato e messaggio motivazionale -->
       <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
-        <h1 style="color: white; margin: 0 0 8px 0; font-size: 24px;">Buon lunedì, ${recipientName}! 👋</h1>
-        <p style="color: rgba(255,255,255,0.85); margin: 0 0 12px 0; font-size: 14px; font-style: italic;">${motivationalMessage}</p>
-        <p style="color: rgba(255,255,255,0.95); margin: 0; font-size: 16px;">Ecco il punto della situazione per <strong>${weddingName}</strong></p>
+        <h1 style="color: white; margin: 0 0 8px 0; font-size: 24px;">Buon lunedì, ${escHtml(recipientName)}! 👋</h1>
+        <p style="color: rgba(255,255,255,0.85); margin: 0 0 12px 0; font-size: 14px; font-style: italic;">${escHtml(motivationalMessage)}</p>
+        <p style="color: rgba(255,255,255,0.95); margin: 0; font-size: 16px;">Ecco il punto della situazione per <strong>${escHtml(weddingName)}</strong></p>
       </div>
       
       <!-- Countdown -->
