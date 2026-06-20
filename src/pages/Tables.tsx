@@ -770,7 +770,7 @@ const Tables = () => {
             </div>
           </Card>
         ) : (
-          <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+          <DndContext collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
             {isMobile ? (
               /* Mobile: Tab-based layout */
               <Tabs defaultValue="sala" className="w-full">
