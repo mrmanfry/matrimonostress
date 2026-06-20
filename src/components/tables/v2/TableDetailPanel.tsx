@@ -259,7 +259,7 @@ export const TableDetailPanel = ({
             );
           })}
         </div>
-      </ScrollArea>
+      </div>
 
       {/* add */}
       <div
