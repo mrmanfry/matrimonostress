@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { Resend } from "https://esm.sh/resend@4.0.0";
+import { escHtml } from "../_shared/html-escape.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -251,8 +252,8 @@ function buildPersonalizedEmail(
         <ul style="background: white; padding: 15px 25px; border-radius: 8px; border-left: 4px solid #667eea; margin: 0;">
           ${personalTasks.map(task => `
             <li style="margin-bottom: 10px;">
-              <strong style="color: #333;">${task.title}</strong>
-              ${task.description ? `<br/><span style="color: #666; font-size: 14px;">${task.description}</span>` : ''}
+              <strong style="color: #333;">${escHtml(task.title)}</strong>
+              ${task.description ? `<br/><span style="color: #666; font-size: 14px;">${escHtml(task.description)}</span>` : ''}
             </li>
           `).join('')}
         </ul>
@@ -263,12 +264,12 @@ function buildPersonalizedEmail(
   if (sharedTasks.length > 0) {
     tasksHtml += `
       <div style="margin-bottom: 20px;">
-        <h3 style="color: #764ba2; margin-bottom: 10px; font-size: 16px;">👥 Attività condivise (con ${partnerName})</h3>
+        <h3 style="color: #764ba2; margin-bottom: 10px; font-size: 16px;">👥 Attività condivise (con ${escHtml(partnerName)})</h3>
         <ul style="background: white; padding: 15px 25px; border-radius: 8px; border-left: 4px solid #764ba2; margin: 0;">
           ${sharedTasks.map(task => `
             <li style="margin-bottom: 10px;">
-              <strong style="color: #333;">${task.title}</strong>
-              ${task.description ? `<br/><span style="color: #666; font-size: 14px;">${task.description}</span>` : ''}
+              <strong style="color: #333;">${escHtml(task.title)}</strong>
+              ${task.description ? `<br/><span style="color: #666; font-size: 14px;">${escHtml(task.description)}</span>` : ''}
             </li>
           `).join('')}
         </ul>
@@ -290,11 +291,11 @@ function buildPersonalizedEmail(
       
       <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
         <p style="font-size: 16px; margin-bottom: 20px;">
-          Ciao ${firstName}! 👋
+          Ciao ${escHtml(firstName)}! 👋
         </p>
         
         <p style="font-size: 16px; margin-bottom: 20px;">
-          Ci sono <strong>${totalTasks}</strong> attività in scadenza domani per il matrimonio <strong>${partner1Name} & ${partner2Name}</strong>:
+          Ci sono <strong>${totalTasks}</strong> attività in scadenza domani per il matrimonio <strong>${escHtml(partner1Name)} & ${escHtml(partner2Name)}</strong>:
         </p>
         
         ${tasksHtml}
@@ -307,7 +308,7 @@ function buildPersonalizedEmail(
         </div>
         
         <p style="font-size: 14px; color: #666; margin-top: 30px; text-align: center;">
-          Ricevi questa email perché sei un organizzatore del matrimonio ${partner1Name} & ${partner2Name}.
+          Ricevi questa email perché sei un organizzatore del matrimonio ${escHtml(partner1Name)} & ${escHtml(partner2Name)}.
         </p>
       </div>
     </body>
@@ -326,8 +327,8 @@ async function sendFallbackEmail(
   
   const tasksHtml = tasks.map(task => `
     <li style="margin-bottom: 15px;">
-      <strong style="color: #333;">${task.title}</strong>
-      ${task.description ? `<br/><span style="color: #666; font-size: 14px;">${task.description}</span>` : ''}
+      <strong style="color: #333;">${escHtml(task.title)}</strong>
+      ${task.description ? `<br/><span style="color: #666; font-size: 14px;">${escHtml(task.description)}</span>` : ''}
       <br/><span style="color: #999; font-size: 13px;">Scadenza: ${new Date(task.due_date).toLocaleDateString('it-IT')}</span>
     </li>
   `).join('');
@@ -350,7 +351,7 @@ async function sendFallbackEmail(
         </p>
         
         <p style="font-size: 16px; margin-bottom: 20px;">
-          Ci sono <strong>${tasks.length}</strong> attività in scadenza domani per il matrimonio <strong>${weddingName}</strong>:
+          Ci sono <strong>${tasks.length}</strong> attività in scadenza domani per il matrimonio <strong>${escHtml(weddingName)}</strong>:
         </p>
         
         <ul style="background: white; padding: 20px 30px; border-radius: 8px; border-left: 4px solid #667eea;">
@@ -365,7 +366,7 @@ async function sendFallbackEmail(
         </div>
         
         <p style="font-size: 14px; color: #666; margin-top: 30px; text-align: center;">
-          Ricevi questa email perché sei un organizzatore del matrimonio ${weddingName}.
+          Ricevi questa email perché sei un organizzatore del matrimonio ${escHtml(weddingName)}.
         </p>
       </div>
     </body>

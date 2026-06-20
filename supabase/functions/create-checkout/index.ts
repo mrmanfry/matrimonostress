@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
+import { logSecurityEvent } from "../_shared/audit.ts";
 import { type StripeEnv, createStripeClient, corsHeaders } from "../_shared/stripe.ts";
 
 const PREMIUM_LOOKUP_KEY = "premium_yearly_49";
@@ -9,16 +10,17 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const supabaseClient = createClient(
+  const supabaseAdmin = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    { auth: { persistSession: false } },
   );
 
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("No authorization header");
     const token = authHeader.replace("Bearer ", "");
-    const { data } = await supabaseClient.auth.getUser(token);
+    const { data } = await supabaseAdmin.auth.getUser(token);
     const user = data.user;
     if (!user?.email) throw new Error("User not authenticated");
 
@@ -26,6 +28,28 @@ serve(async (req) => {
     const weddingId = body.weddingId;
     const environment = (body.environment || "sandbox") as StripeEnv;
     if (!weddingId) throw new Error("weddingId is required");
+
+    // Authorization: only co_planner on this wedding may start checkout
+    const { data: roleRow } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("wedding_id", weddingId)
+      .eq("role", "co_planner")
+      .maybeSingle();
+    if (!roleRow) {
+      await logSecurityEvent(req, {
+        event_type: "forbidden_wedding_access",
+        resource: "edge:create-checkout",
+        reason: "Caller is not co_planner on supplied weddingId",
+        user_id: user.id,
+        wedding_id: weddingId,
+      });
+      return new Response(JSON.stringify({ error: "Forbidden" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const stripe = createStripeClient(environment);
 

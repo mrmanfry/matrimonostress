@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logSecurityEvent } from "../_shared/audit.ts";
+import { escHtml } from "../_shared/html-escape.ts";
 
 
 const corsHeaders = {
@@ -222,14 +223,14 @@ Deno.serve(async (req) => {
       <table width="100%" style="max-width:520px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
         <tr><td style="background:linear-gradient(135deg,#6366f1,#818cf8);padding:28px 24px;text-align:center;">
           <h1 style="margin:0;color:#ffffff;font-size:20px;font-weight:600;">💬 Nuovo Messaggio</h1>
-          <p style="margin:6px 0 0;color:rgba(255,255,255,0.85);font-size:13px;">${weddingLabel}</p>
+          <p style="margin:6px 0 0;color:rgba(255,255,255,0.85);font-size:13px;">${escHtml(weddingLabel)}</p>
         </td></tr>
         <tr><td style="padding:28px 24px;">
           <p style="margin:0 0 16px;color:#18181b;font-size:15px;line-height:1.5;">
-            <strong>${senderName}</strong> ti ha inviato un messaggio:
+            <strong>${escHtml(senderName)}</strong> ti ha inviato un messaggio:
           </p>
           <div style="background:#f4f4f5;border-radius:8px;padding:16px;margin:0 0 24px;">
-            <p style="margin:0;color:#3f3f46;font-size:14px;line-height:1.6;white-space:pre-wrap;">${contentPreview}</p>
+            <p style="margin:0;color:#3f3f46;font-size:14px;line-height:1.6;white-space:pre-wrap;">${escHtml(contentPreview)}</p>
           </div>
           <table width="100%" cellpadding="0" cellspacing="0">
             <tr><td align="center">

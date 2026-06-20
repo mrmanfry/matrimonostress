@@ -61,15 +61,21 @@ serve(async (req: Request) => {
     }
 
     // 4. Upload file to storage first
+    // Whitelist content type — never trust client-supplied MIME for a public bucket
+    const ALLOWED_TYPES = ["image/jpeg", "image/webp", "image/png"] as const;
+    const safeType = (ALLOWED_TYPES as readonly string[]).includes(file.type)
+      ? file.type
+      : "image/jpeg";
+
     const photoId = crypto.randomUUID();
-    const ext = file.type === "image/webp" ? "webp" : "jpg";
+    const ext = safeType === "image/webp" ? "webp" : safeType === "image/png" ? "png" : "jpg";
     const filePath = `${camera.id}/${photoId}.${ext}`;
 
     const arrayBuffer = await file.arrayBuffer();
     const { error: uploadErr } = await supabaseAdmin.storage
       .from("camera-photos")
       .upload(filePath, arrayBuffer, {
-        contentType: file.type || "image/webp",
+        contentType: safeType,
         upsert: false,
       });
 
