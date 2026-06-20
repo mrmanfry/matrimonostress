@@ -1,31 +1,26 @@
-# "Vedi tutto" — Cronologia completa attività
+## Problema
+Nella tab **Tavoli** (`/app/tables`), nel pannello dettaglio tavolo (sia lista "Seduti" sia lista "Aggiungi ospite"), il nome dell'invitato sparisce quando le restrizioni alimentari sono lunghe. Esempio reale: Sandra Baglioni ha `dietary_restrictions = "Pesce (tutti i tipi, inclusi crostacei e molluschi)"` → il `Badge` con il testo intero occupa tutta la riga e schiaccia lo span del nome (che ha `flex-1` ma senza `min-w-0`), lasciando visibile solo "Pesce…".
 
-## Comportamento attuale
-Nella card *Attività recente* (tab Panoramica di `/app/invitations`):
-- Mostra max **6** attività più recenti (slice in `recentActivity`, riga 229).
-- Il link **"Vedi tutto →"** porta direttamente a `/app/guests`, ma l'utente non vede mai lo storico completo delle attività perché in Invitati non esiste una vista timeline.
+## Causa
+File `src/components/tables/v2/TableDetailPanel.tsx`:
+- Riga ~124–131 (lista Seduti) e ~226–233 (lista Aggiungi): il `Badge` con `g.dietary_restrictions` non ha `max-width` né truncation, mentre lo span del nome non ha `min-w-0` → l'ellipsis del nome non scatta e il badge si prende tutto lo spazio.
 
-## Cosa cambia
+## Fix (solo UI, zero impatto su dati / logica)
+1. **Nome sempre prioritario e visibile**
+   - Aggiungere `min-w-0` allo span del nome in entrambe le liste, così l'ellipsis funziona davvero.
+2. **Badge dietary compatto**
+   - Sostituire il badge testuale con un piccolo indicatore icona (es. `🍽️` o icona `Utensils` lucide) `h-5 w-5`, con `title={g.dietary_restrictions}` (tooltip nativo) per leggere il testo completo al hover.
+   - Stessa cosa per il badge bambino (`👶`) — già compatto, lasciato com'è.
+3. Applicare lo stesso pattern nella riga "Seduti" e nella riga "Aggiungi ospite" del `TableDetailPanel`.
 
-1. **Rimuovere il limite di 6 nel calcolo** — costruire la lista completa di attività (mantenendo dedupe + ordinamento per data desc). La card in Panoramica continua comunque a mostrarne solo 6 (`.slice(0,6)` spostato nel render).
+Nessuna modifica a:
+- Dati / Supabase
+- `GuestPool.tsx` o `GuestPoolSidebar.tsx` (lì il dietary è già su riga sotto, non confligge col nome)
+- Logica di assegnazione, +1, scenari, ecc.
 
-2. **Trasformare "Vedi tutto →" in apertura dialog** invece che navigazione diretta. Il dialog (`Dialog` di shadcn) mostra:
-   - Titolo: *"Cronologia attività"*
-   - Sottotitolo: *"Tutte le risposte ricevute da invitati e nuclei"*
-   - Lista scrollabile (max-height ~70vh) con lo **stesso stile** delle righe attuali (avatar iniziali + testo + pallino colorato + tempo relativo).
-   - Eventuale stato vuoto se non ci sono attività oltre alle 6 mostrate.
+## File toccati
+- `src/components/tables/v2/TableDetailPanel.tsx` (sole modifiche di presentazione, ~6 righe)
 
-3. **Footer del dialog**: un pulsante secondario **"Vai agli invitati →"** che chiude il dialog e naviga a `/app/guests`, così l'utente può approfondire / agire sui singoli ospiti.
-
-## Dettagli tecnici
-
-File toccato: `src/pages/Invitations.tsx`.
-
-- `recentActivity` (riga 175-231): restituire l'array completo ordinato; rimuovere `.slice(0, 6)` dal `useMemo`.
-- Render card (riga 559-598): usare `recentActivity.slice(0, 6).map(...)`.
-- Nuovo state `const [activityDialogOpen, setActivityDialogOpen] = useState(false)`.
-- Il bottone "Vedi tutto →" → `onClick={() => setActivityDialogOpen(true)}` (non più `navigate`).
-- Nuovo componente inline `Dialog` (già usato altrove nel file) con la lista completa, riusando il markup riga 572-594 estratto in un piccolo helper locale `ActivityRow` per evitare duplicazione.
-- Footer dialog: `Button variant="outline"` con `onClick={() => { setActivityDialogOpen(false); navigate("/app/guests"); }}`.
-
-Nessuna modifica a dati / query / business logic — solo presentation layer.
+## Verifica
+- Riaprire il pannello tavolo dopo il fix: la riga di Sandra Baglioni mostra "Sandra Baglioni" + icona dietary a destra; hover sull'icona mostra il testo completo delle restrizioni.
+- Zero rischio in produzione: nessuna query, nessuna mutazione, nessuna logica condivisa toccata.
