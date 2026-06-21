@@ -91,7 +91,60 @@ export const TablesGridView = ({
           backgroundSize: "24px 24px",
         }}
       >
-        <div className="flex justify-end mb-3">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+            <Input
+              value={seatedSearch}
+              onChange={(e) => setSeatedSearch(e.target.value)}
+              placeholder="Cerca ospite seduto…"
+              className="h-8 pl-8 pr-8 text-xs"
+            />
+            {seatedSearch && (
+              <button
+                onClick={() => setSeatedSearch("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label="Pulisci"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+            {seatedSearch.trim() && (
+              <div className="absolute z-20 left-0 right-0 mt-1 rounded-md border bg-popover shadow-md max-h-72 overflow-y-auto">
+                {(() => {
+                  const q = seatedSearch.trim().toLowerCase();
+                  const matches = tables.flatMap((t) =>
+                    (guestsByTable[t.id] || [])
+                      .filter((g) => `${g.first_name} ${g.last_name}`.toLowerCase().includes(q))
+                      .map((g) => ({ guest: g, table: t }))
+                  ).slice(0, 25);
+                  if (matches.length === 0) {
+                    return (
+                      <div className="text-center text-xs text-muted-foreground py-3">
+                        Nessun ospite seduto trovato.
+                      </div>
+                    );
+                  }
+                  return matches.map(({ guest, table }) => (
+                    <button
+                      key={`${table.id}-${guest.id}`}
+                      onClick={() => {
+                        setSelectedTableId(table.id);
+                        setSeatedSearch("");
+                      }}
+                      className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-muted/40 border-b last:border-b-0"
+                    >
+                      <span className="text-sm truncate">{guest.first_name} {guest.last_name}</span>
+                      <span className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
+                        <MapPin className="w-3 h-3" />
+                        {table.name}
+                      </span>
+                    </button>
+                  ));
+                })()}
+              </div>
+            )}
+          </div>
           <div
             className="inline-flex rounded-md p-0.5"
             style={{ background: "hsl(var(--muted) / 0.2)", border: "1px solid hsl(var(--border))" }}
