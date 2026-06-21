@@ -109,6 +109,7 @@ const Tables = () => {
   const [vendorStaffTotal, setVendorStaffTotal] = useState(0);
   const [bulkAction, setBulkAction] = useState<'clear_all' | 'delete_all' | null>(null);
   const [partyNames, setPartyNames] = useState<Record<string, string>>({});
+  const [mobileSheetTableId, setMobileSheetTableId] = useState<string | null>(null);
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const { groups: guestGroupsList, groupColorMap } = useGuestGroups(weddingId);
