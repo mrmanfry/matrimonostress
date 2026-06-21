@@ -93,6 +93,7 @@ const DroppableTable = ({
   proposedGuestIds,
   isProposalMode,
   showConfirmedOnly,
+  onTap,
 }: {
   table: Table;
   guests: Guest[];
