@@ -769,9 +769,23 @@ const Guests = () => {
   };
 
   const handleAddGuestToParty = (guestId: string) => {
-    const guest = ungroupedGuests.find(g => g.id === guestId);
+    // Look in allGuests because single-member parties are rendered as singles
+    // but their guest already has a party_id (so isn't in ungroupedGuests).
+    const guest = allGuests.find(g => g.id === guestId);
     if (!guest) return;
-    
+
+    // If the guest already belongs to a party (single-member party), open
+    // that party in edit mode so the user can add more members to it.
+    if (guest.party_id) {
+      const existingParty = parties.find(p => p.id === guest.party_id);
+      if (existingParty) {
+        setEditingParty(existingParty);
+        setPartyDialogOpen(true);
+        return;
+      }
+    }
+
+    // Otherwise create a new nucleus seeded with this guest.
     setEditingParty({
       id: "",
       wedding_id: wedding?.id || "",
