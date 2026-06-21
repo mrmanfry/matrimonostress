@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
-import { LayoutGrid, List as ListIcon } from "lucide-react";
+import { LayoutGrid, List as ListIcon, Search, MapPin, X } from "lucide-react";
 import { GuestPoolSidebar } from "./GuestPoolSidebar";
 import { TableCardV2 } from "./TableCardV2";
 import { TableDetailPanel } from "./TableDetailPanel";
 import { TablesListView } from "./TablesListView";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import type { GuestV2, TableV2, AssignmentV2, GuestGroupV2 } from "./types";
 
 interface Props {
