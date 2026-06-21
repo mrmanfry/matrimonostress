@@ -431,6 +431,7 @@ export const TableCanvas = ({
                   proposedGuestIds={proposed?.guestIds}
                   isProposalMode={isProposalMode}
                   showConfirmedOnly={showConfirmedOnly}
+                  onTap={onTableTap ? () => onTableTap(table.id) : undefined}
                 />
               );
             })}
