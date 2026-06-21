@@ -12,6 +12,7 @@ import { TableCanvas } from "@/components/tables/TableCanvas";
 import { ConflictManager } from "@/components/tables/ConflictManager";
 import { SmartGrouperWizard } from "@/components/tables/SmartGrouperWizard";
 import { TablesGridView } from "@/components/tables/v2/TablesGridView";
+import { MobileTableSheet } from "@/components/tables/MobileTableSheet";
 import { useGuestGroups } from "@/components/tables/v2/useGuestGroups";
 import { Stat } from "@/components/tables/v2/Stat";
 import { calculateTotalVendorStaff } from "@/lib/expectedCalculator";
