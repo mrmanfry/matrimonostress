@@ -164,7 +164,13 @@ const DroppableTable = ({
   return (
     <Card
       ref={setNodeRef}
-      className={`p-4 min-h-[180px] transition-all relative ${
+      onClick={onTap ? (e) => {
+        // Don't trigger when interacting with buttons/inputs inside the card
+        const target = e.target as HTMLElement;
+        if (target.closest('button, input, [role="menuitem"]')) return;
+        onTap();
+      } : undefined}
+      className={`p-4 min-h-[180px] transition-all relative ${onTap ? 'cursor-pointer' : ''} ${
         isOver ? "ring-2 ring-primary shadow-lg scale-[1.02]" : ""
       } ${hasConflicts ? "border-2 border-destructive" : ""} ${
         isOverCapacity ? "border-2 border-amber-500" : ""
