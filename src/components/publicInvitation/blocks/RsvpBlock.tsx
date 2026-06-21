@@ -150,11 +150,12 @@ export function RsvpBlockView({
                         isDeclined && "bg-red-400",
                         !isConfirmed && !isDeclined && "bg-stone-300"
                       )}
+                      translate="no"
                     >
                       {member.first_name.charAt(0)}
                     </div>
                     <div>
-                      <p className="font-medium text-stone-800">
+                      <p className="font-medium text-stone-800" translate="no">
                         {member.first_name} {member.last_name}
                       </p>
                       {member.is_child && (
