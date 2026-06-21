@@ -931,6 +931,21 @@ const Tables = () => {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        <MobileTableSheet
+          open={!!mobileSheetTableId}
+          onOpenChange={(o) => !o && setMobileSheetTableId(null)}
+          table={tables.find(t => t.id === mobileSheetTableId) || null}
+          assignments={assignments}
+          guests={guests}
+          unassignedGuests={unassignedGuests}
+          onAssign={handleAssignToSeat}
+          onUnassign={(assignmentId) => {
+            void supabase.from("table_assignments").delete().eq("id", assignmentId).then(() => {
+              if (weddingId) fetchAssignments(weddingId);
+            });
+          }}
+        />
       </div>
     </div>
   );
