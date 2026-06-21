@@ -391,6 +391,7 @@ export const TableCanvas = ({
   isProposalMode,
   isMobile,
   showConfirmedOnly,
+  onTableTap,
 }: TableCanvasProps) => {
   const standardTables = tables.filter(t => t.table_type !== 'imperial');
   const imperialTables = tables.filter(t => t.table_type === 'imperial');
