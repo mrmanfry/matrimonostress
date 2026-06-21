@@ -76,6 +76,7 @@ type TableCanvasProps = {
   isProposalMode?: boolean;
   isMobile?: boolean;
   showConfirmedOnly?: boolean;
+  onTableTap?: (tableId: string) => void;
 };
 
 const DroppableTable = ({
