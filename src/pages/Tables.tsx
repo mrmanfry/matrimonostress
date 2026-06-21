@@ -798,7 +798,7 @@ const Tables = () => {
                   />
                 </TabsContent>
                 <TabsContent value="sala">
-                  <TableCanvas {...tableCanvasProps} isMobile={isMobile} />
+                  <TableCanvas {...tableCanvasProps} isMobile={isMobile} onTableTap={(id) => setMobileSheetTableId(id)} />
                 </TabsContent>
               </Tabs>
             ) : (
