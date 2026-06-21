@@ -108,6 +108,7 @@ const DroppableTable = ({
   proposedGuestIds?: string[];
   isProposalMode?: boolean;
   showConfirmedOnly?: boolean;
+  onTap?: () => void;
 }) => {
   const { setNodeRef, isOver } = useDroppable({ id: table.id });
   const [editing, setEditing] = useState(false);
