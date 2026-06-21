@@ -1189,7 +1189,7 @@ const Guests = () => {
   const hasNoGuests = allGuests.length === 0;
 
   return (
-    <div className="container mx-auto p-3 md:p-6 space-y-4 md:space-y-6 max-w-7xl overflow-x-hidden">
+    <div className="container mx-auto p-3 md:p-6 space-y-4 md:space-y-6 max-w-7xl">
       {/* Section Header v1 */}
       {(() => {
         const regularCount = allGuests.filter(g => !g.is_couple_member).length;
