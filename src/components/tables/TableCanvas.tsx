@@ -76,6 +76,7 @@ type TableCanvasProps = {
   isProposalMode?: boolean;
   isMobile?: boolean;
   showConfirmedOnly?: boolean;
+  onTableTap?: (tableId: string) => void;
 };
 
 const DroppableTable = ({
@@ -92,6 +93,7 @@ const DroppableTable = ({
   proposedGuestIds,
   isProposalMode,
   showConfirmedOnly,
+  onTap,
 }: {
   table: Table;
   guests: Guest[];
@@ -106,6 +108,7 @@ const DroppableTable = ({
   proposedGuestIds?: string[];
   isProposalMode?: boolean;
   showConfirmedOnly?: boolean;
+  onTap?: () => void;
 }) => {
   const { setNodeRef, isOver } = useDroppable({ id: table.id });
   const [editing, setEditing] = useState(false);
@@ -161,7 +164,13 @@ const DroppableTable = ({
   return (
     <Card
       ref={setNodeRef}
-      className={`p-4 min-h-[180px] transition-all relative ${
+      onClick={onTap ? (e) => {
+        // Don't trigger when interacting with buttons/inputs inside the card
+        const target = e.target as HTMLElement;
+        if (target.closest('button, input, [role="menuitem"]')) return;
+        onTap();
+      } : undefined}
+      className={`p-4 min-h-[180px] transition-all relative ${onTap ? 'cursor-pointer' : ''} ${
         isOver ? "ring-2 ring-primary shadow-lg scale-[1.02]" : ""
       } ${hasConflicts ? "border-2 border-destructive" : ""} ${
         isOverCapacity ? "border-2 border-amber-500" : ""
@@ -382,6 +391,7 @@ export const TableCanvas = ({
   isProposalMode,
   isMobile,
   showConfirmedOnly,
+  onTableTap,
 }: TableCanvasProps) => {
   const standardTables = tables.filter(t => t.table_type !== 'imperial');
   const imperialTables = tables.filter(t => t.table_type === 'imperial');
@@ -421,6 +431,7 @@ export const TableCanvas = ({
                   proposedGuestIds={proposed?.guestIds}
                   isProposalMode={isProposalMode}
                   showConfirmedOnly={showConfirmedOnly}
+                  onTap={onTableTap ? () => onTableTap(table.id) : undefined}
                 />
               );
             })}
@@ -445,6 +456,7 @@ export const TableCanvas = ({
               proposedGuestIds={proposed?.guestIds}
               isProposalMode={isProposalMode}
               showConfirmedOnly={showConfirmedOnly}
+              onTap={onTableTap ? () => onTableTap(table.id) : undefined}
             />
           );
         })}

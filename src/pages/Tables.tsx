@@ -12,6 +12,7 @@ import { TableCanvas } from "@/components/tables/TableCanvas";
 import { ConflictManager } from "@/components/tables/ConflictManager";
 import { SmartGrouperWizard } from "@/components/tables/SmartGrouperWizard";
 import { TablesGridView } from "@/components/tables/v2/TablesGridView";
+import { MobileTableSheet } from "@/components/tables/MobileTableSheet";
 import { useGuestGroups } from "@/components/tables/v2/useGuestGroups";
 import { Stat } from "@/components/tables/v2/Stat";
 import { calculateTotalVendorStaff } from "@/lib/expectedCalculator";
@@ -108,6 +109,7 @@ const Tables = () => {
   const [vendorStaffTotal, setVendorStaffTotal] = useState(0);
   const [bulkAction, setBulkAction] = useState<'clear_all' | 'delete_all' | null>(null);
   const [partyNames, setPartyNames] = useState<Record<string, string>>({});
+  const [mobileSheetTableId, setMobileSheetTableId] = useState<string | null>(null);
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const { groups: guestGroupsList, groupColorMap } = useGuestGroups(weddingId);
@@ -796,7 +798,7 @@ const Tables = () => {
                   />
                 </TabsContent>
                 <TabsContent value="sala">
-                  <TableCanvas {...tableCanvasProps} isMobile={isMobile} />
+                  <TableCanvas {...tableCanvasProps} isMobile={isMobile} onTableTap={(id) => setMobileSheetTableId(id)} />
                 </TabsContent>
               </Tabs>
             ) : (
@@ -929,6 +931,21 @@ const Tables = () => {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        <MobileTableSheet
+          open={!!mobileSheetTableId}
+          onOpenChange={(o) => !o && setMobileSheetTableId(null)}
+          table={tables.find(t => t.id === mobileSheetTableId) || null}
+          assignments={assignments}
+          guests={guests}
+          unassignedGuests={unassignedGuests}
+          onAssign={handleAssignToSeat}
+          onUnassign={(assignmentId) => {
+            void supabase.from("table_assignments").delete().eq("id", assignmentId).then(() => {
+              if (weddingId) fetchAssignments(weddingId);
+            });
+          }}
+        />
       </div>
     </div>
   );
