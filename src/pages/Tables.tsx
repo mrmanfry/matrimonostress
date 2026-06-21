@@ -13,6 +13,7 @@ import { ConflictManager } from "@/components/tables/ConflictManager";
 import { SmartGrouperWizard } from "@/components/tables/SmartGrouperWizard";
 import { TablesGridView } from "@/components/tables/v2/TablesGridView";
 import { MobileTableSheet } from "@/components/tables/MobileTableSheet";
+import { SeatedGuestSearch } from "@/components/tables/SeatedGuestSearch";
 import { useGuestGroups } from "@/components/tables/v2/useGuestGroups";
 import { Stat } from "@/components/tables/v2/Stat";
 import { calculateTotalVendorStaff } from "@/lib/expectedCalculator";
@@ -798,6 +799,12 @@ const Tables = () => {
                   />
                 </TabsContent>
                 <TabsContent value="sala">
+                  <SeatedGuestSearch
+                    guests={guests}
+                    tables={tables}
+                    assignments={assignments}
+                    onSelectTable={(id) => setMobileSheetTableId(id)}
+                  />
                   <TableCanvas {...tableCanvasProps} isMobile={isMobile} onTableTap={(id) => setMobileSheetTableId(id)} />
                 </TabsContent>
               </Tabs>

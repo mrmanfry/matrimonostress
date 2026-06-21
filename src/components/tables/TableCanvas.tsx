@@ -133,7 +133,9 @@ const DroppableTable = ({
     (!showConfirmedOnly || (guest!.plus_one_name?.trim()))
   );
 
-  const totalGuests = tableGuests.length + proposedGuests.length + phantomPlusOnes.length;
+  // Phantom +1 are visual placeholders only — they must NOT be counted in the capacity badge
+  // (otherwise a host with allow_plus_one but no +1 actually seated inflates the count).
+  const totalGuests = tableGuests.length + proposedGuests.length;
   const assignedGuestIds = [...tableGuests.map(({ guest }) => guest!.id), ...proposedGuestIds || []];
   
   const hasConflicts = conflicts.some(c => {
