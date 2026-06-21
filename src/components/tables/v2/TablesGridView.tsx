@@ -33,6 +33,7 @@ export const TablesGridView = ({
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [filterGroup, setFilterGroup] = useState<string | null>(null);
+  const [seatedSearch, setSeatedSearch] = useState("");
 
   // Build seated map: tableId -> guests, ordered by seat_position
   const guestsByTable = useMemo(() => {
