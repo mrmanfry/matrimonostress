@@ -6,6 +6,7 @@ import { TableDetailPanel } from "./TableDetailPanel";
 import { TablesListView } from "./TablesListView";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SeatActionDialog } from "../SeatActionDialog";
 import type { GuestV2, TableV2, AssignmentV2, GuestGroupV2 } from "./types";
 
 interface Props {
@@ -16,6 +17,7 @@ interface Props {
   groupColorMap: Record<string, string>;
   onRemove: (assignmentId: string) => void;
   onAssign: (guestId: string, tableId: string) => void;
+  onMoveToSeat?: (guestId: string, tableId: string, newSeat: number) => void | Promise<void>;
   onUpdateTable?: (tableId: string, updates: { name?: string; capacity?: number }) => Promise<void> | void;
 }
 
@@ -27,6 +29,7 @@ export const TablesGridView = ({
   groupColorMap,
   onRemove,
   onAssign,
+  onMoveToSeat,
   onUpdateTable,
 }: Props) => {
   const [view, setView] = useState<"grid" | "list">("grid");
@@ -34,6 +37,7 @@ export const TablesGridView = ({
   const [search, setSearch] = useState("");
   const [filterGroup, setFilterGroup] = useState<string | null>(null);
   const [seatedSearch, setSeatedSearch] = useState("");
+  const [seatAction, setSeatAction] = useState<{ guest: GuestV2; tableId: string } | null>(null);
 
   // Build seated map: tableId -> guests, ordered by seat_position
   const guestsByTable = useMemo(() => {
@@ -173,17 +177,26 @@ export const TablesGridView = ({
             className="grid gap-4"
             style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}
           >
-            {tables.map((t) => (
-              <TableCardV2
-                key={t.id}
-                table={t}
-                seated={guestsByTable[t.id] || []}
-                selected={selectedTableId === t.id}
-                groupColorMap={groupColorMap}
-                onSelect={setSelectedTableId}
-                onSeatClick={(g) => handleRemoveSeated(g.id)}
-              />
-            ))}
+            {tables.map((t) => {
+              const isImperial = t.shape?.toLowerCase() === "imperial" || t.table_type === "imperial";
+              return (
+                <TableCardV2
+                  key={t.id}
+                  table={t}
+                  seated={guestsByTable[t.id] || []}
+                  selected={selectedTableId === t.id}
+                  groupColorMap={groupColorMap}
+                  onSelect={setSelectedTableId}
+                  onSeatClick={(g) => {
+                    if (isImperial && onMoveToSeat) {
+                      setSeatAction({ guest: g, tableId: t.id });
+                    } else {
+                      handleRemoveSeated(g.id);
+                    }
+                  }}
+                />
+              );
+            })}
           </div>
         ) : (
           <TablesListView
@@ -207,6 +220,34 @@ export const TablesGridView = ({
         onAssign={onAssign}
         onUpdateTable={onUpdateTable}
       />
+
+      {(() => {
+        const t = seatAction ? tables.find((x) => x.id === seatAction.tableId) : null;
+        if (!seatAction || !t) return null;
+        const isImperial = t.shape?.toLowerCase() === "imperial" || t.table_type === "imperial";
+        const seated = guestsByTable[t.id] || [];
+        const me = seated.find((g) => g.id === seatAction.guest.id);
+        return (
+          <SeatActionDialog
+            open={!!seatAction}
+            onOpenChange={(o) => !o && setSeatAction(null)}
+            guest={seatAction.guest}
+            currentSeat={me?.seat_position ?? null}
+            tableId={t.id}
+            tableName={t.name}
+            capacity={t.capacity}
+            isImperial={isImperial}
+            seated={seated.map((g) => ({
+              id: g.id,
+              first_name: g.first_name,
+              last_name: g.last_name,
+              seat_position: g.seat_position ?? null,
+            }))}
+            onMoveToSeat={(gid, tid, seat) => onMoveToSeat?.(gid, tid, seat)}
+            onRemove={(gid) => handleRemoveSeated(gid)}
+          />
+        );
+      })()}
     </div>
   );
 };
