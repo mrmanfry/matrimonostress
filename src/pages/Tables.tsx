@@ -504,6 +504,61 @@ const Tables = () => {
     }
   };
 
+  /**
+   * Move a guest to a specific seat. If another guest occupies that seat on the
+   * same table, swap their seats (if the moving guest was already seated there)
+   * or push the occupant to "unpositioned".
+   */
+  const handleMoveToSeat = async (guestId: string, tableId: string, newSeat: number) => {
+    if (!weddingId) return;
+
+    const tableAssignments = assignments.filter((a) => a.table_id === tableId);
+    const myAssignment = assignments.find((a) => a.guest_id === guestId);
+    const occupant = tableAssignments.find(
+      (a) => a.seat_position === newSeat && a.guest_id !== guestId
+    );
+
+    try {
+      if (
+        occupant &&
+        myAssignment &&
+        myAssignment.table_id === tableId &&
+        myAssignment.seat_position != null
+      ) {
+        const oldSeat = myAssignment.seat_position;
+        // Two-step swap to avoid unique-constraint conflicts if any
+        await supabase.from("table_assignments").update({ seat_position: null }).eq("id", occupant.id);
+        await supabase.from("table_assignments").update({ seat_position: newSeat }).eq("id", myAssignment.id);
+        await supabase.from("table_assignments").update({ seat_position: oldSeat }).eq("id", occupant.id);
+      } else {
+        if (occupant) {
+          await supabase.from("table_assignments").update({ seat_position: null }).eq("id", occupant.id);
+        }
+        if (myAssignment) {
+          if (myAssignment.table_id === tableId) {
+            await supabase.from("table_assignments").update({ seat_position: newSeat }).eq("id", myAssignment.id);
+          } else {
+            await supabase.from("table_assignments").delete().eq("id", myAssignment.id);
+            await supabase.from("table_assignments").insert({
+              table_id: tableId,
+              guest_id: guestId,
+              seat_position: newSeat,
+            });
+          }
+        } else {
+          await supabase.from("table_assignments").insert({
+            table_id: tableId,
+            guest_id: guestId,
+            seat_position: newSeat,
+          });
+        }
+      }
+      fetchAssignments(weddingId);
+    } catch (e) {
+      toast({ title: "Errore", description: "Impossibile spostare l'ospite", variant: "destructive" });
+    }
+  };
+
   const handleAssignToSeat = async (tableId: string, guestId: string, seatPosition: number) => {
     if (!weddingId) return;
 
