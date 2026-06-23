@@ -289,52 +289,31 @@ const DroppableTable = ({
                 })()
               : null;
 
-            const assignedPlusOne = !isPlusOne && guest!.allow_plus_one && guest!.plus_one_name?.trim()
-              ? (() => {
-                  const plusOneId = `plusone_${guest!.id}`;
-                  const plusOneAssigned = tableGuests.find(tg => tg.guest?.id === plusOneId);
-                  if (plusOneAssigned) return null;
-                  const realPlusOne = tableGuests.find(tg => 
-                    tg.guest?.is_plus_one && tg.guest?.plus_one_of_guest_id === guest!.id
-                  );
-                  return realPlusOne ? null : guest!.plus_one_name;
-                })()
-              : null;
-
             return (
-              <div key={assignment.id}>
-                <div className="flex items-center justify-between p-2 bg-accent/10 rounded text-sm">
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    {isPlusOne && (
-                      <Badge variant="outline" className="text-[10px] shrink-0 px-1">+1</Badge>
-                    )}
-                    <span className="truncate">
-                      {guest!.first_name} {guest!.last_name}
-                    </span>
-                    {isPlusOne && plusOneOfName && (
-                      <span className="text-[10px] text-muted-foreground shrink-0">di {plusOneOfName}</span>
-                    )}
-                    {guest!.dietary_restrictions && (
-                      <Badge variant="outline" className="text-[10px] shrink-0">🍽️</Badge>
-                    )}
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => onUnassign(assignment.id)}
-                    className="h-6 w-6 p-0 shrink-0"
-                    disabled={table.is_locked}
-                  >
-                    <X className="w-3 h-3" />
-                  </Button>
+              <div key={assignment.id} className="flex items-center justify-between p-2 bg-accent/10 rounded text-sm">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  {isPlusOne && (
+                    <Badge variant="outline" className="text-[10px] shrink-0 px-1">+1</Badge>
+                  )}
+                  <span className="truncate">
+                    {guest!.first_name} {guest!.last_name}
+                  </span>
+                  {isPlusOne && plusOneOfName && (
+                    <span className="text-[10px] text-muted-foreground shrink-0">di {plusOneOfName}</span>
+                  )}
+                  {guest!.dietary_restrictions && (
+                    <Badge variant="outline" className="text-[10px] shrink-0">🍽️</Badge>
+                  )}
                 </div>
-                {assignedPlusOne && (
-                  <div className="flex items-center gap-2 p-1.5 pl-6 text-xs text-muted-foreground">
-                    <Badge variant="outline" className="text-[10px] px-1">+1</Badge>
-                    <span className="truncate">{assignedPlusOne}</span>
-                    <span className="text-[10px]">(non assegnato)</span>
-                  </div>
-                )}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => onUnassign(assignment.id)}
+                  className="h-6 w-6 p-0 shrink-0"
+                  disabled={table.is_locked}
+                >
+                  <X className="w-3 h-3" />
+                </Button>
               </div>
             );
           })}
@@ -349,20 +328,6 @@ const DroppableTable = ({
                   ✨ {guest.first_name} {guest.last_name}
                 </span>
               </div>
-            </div>
-          ))}
-
-          {phantomPlusOnes.map(({ guest }) => (
-            <div
-              key={`phantom_${guest!.id}`}
-              className="flex items-center gap-1.5 p-1.5 border border-dashed border-muted-foreground/15 rounded text-xs bg-muted/20"
-            >
-              <Badge variant="outline" className="text-[10px] shrink-0 px-1 opacity-60">+1</Badge>
-              <span className="truncate text-muted-foreground/60 italic">
-                {guest!.plus_one_name?.trim()
-                  ? guest!.plus_one_name
-                  : `${guest!.first_name} ${guest!.last_name}`}
-              </span>
             </div>
           ))}
 
