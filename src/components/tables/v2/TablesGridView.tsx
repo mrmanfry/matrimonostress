@@ -6,6 +6,7 @@ import { TableDetailPanel } from "./TableDetailPanel";
 import { TablesListView } from "./TablesListView";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SeatActionDialog } from "../SeatActionDialog";
 import type { GuestV2, TableV2, AssignmentV2, GuestGroupV2 } from "./types";
 
 interface Props {
@@ -16,6 +17,7 @@ interface Props {
   groupColorMap: Record<string, string>;
   onRemove: (assignmentId: string) => void;
   onAssign: (guestId: string, tableId: string) => void;
+  onMoveToSeat?: (guestId: string, tableId: string, newSeat: number) => void | Promise<void>;
   onUpdateTable?: (tableId: string, updates: { name?: string; capacity?: number }) => Promise<void> | void;
 }
 
@@ -27,6 +29,7 @@ export const TablesGridView = ({
   groupColorMap,
   onRemove,
   onAssign,
+  onMoveToSeat,
   onUpdateTable,
 }: Props) => {
   const [view, setView] = useState<"grid" | "list">("grid");
@@ -34,6 +37,7 @@ export const TablesGridView = ({
   const [search, setSearch] = useState("");
   const [filterGroup, setFilterGroup] = useState<string | null>(null);
   const [seatedSearch, setSeatedSearch] = useState("");
+  const [seatAction, setSeatAction] = useState<{ guest: GuestV2; tableId: string } | null>(null);
 
   // Build seated map: tableId -> guests, ordered by seat_position
   const guestsByTable = useMemo(() => {
