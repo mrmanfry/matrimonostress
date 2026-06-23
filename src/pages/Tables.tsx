@@ -1003,6 +1003,7 @@ const Tables = () => {
           guests={guests}
           unassignedGuests={unassignedGuests}
           onAssign={handleAssignToSeat}
+          onMoveToSeat={handleMoveToSeat}
           onUnassign={(assignmentId) => {
             void supabase.from("table_assignments").delete().eq("id", assignmentId).then(() => {
               if (weddingId) fetchAssignments(weddingId);
