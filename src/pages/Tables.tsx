@@ -910,6 +910,7 @@ const Tables = () => {
                   }
                   await handleAssignToSeat(tableId, guestId, nextSeat);
                 }}
+                onMoveToSeat={handleMoveToSeat}
                 onUpdateTable={async (tableId, updates) => {
                   const { error } = await supabase
                     .from("tables")
