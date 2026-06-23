@@ -1,26 +1,41 @@
 ## Problema
-Nella tab **Tavoli** (`/app/tables`), nel pannello dettaglio tavolo (sia lista "Seduti" sia lista "Aggiungi ospite"), il nome dell'invitato sparisce quando le restrizioni alimentari sono lunghe. Esempio reale: Sandra Baglioni ha `dietary_restrictions = "Pesce (tutti i tipi, inclusi crostacei e molluschi)"` → il `Badge` con il testo intero occupa tutta la riga e schiaccia lo span del nome (che ha `flex-1` ma senza `min-w-0`), lasciando visibile solo "Pesce…".
 
-## Causa
-File `src/components/tables/v2/TableDetailPanel.tsx`:
-- Riga ~124–131 (lista Seduti) e ~226–233 (lista Aggiungi): il `Badge` con `g.dietary_restrictions` non ha `max-width` né truncation, mentre lo span del nome non ha `min-w-0` → l'ellipsis del nome non scatta e il badge si prende tutto lo spazio.
+Sui tavoli imperiali non si riesce a riposizionare un ospite già seduto. Da desktop il click su un posto occupato lo rimuove e basta; da mobile la scheda tavolo mostra solo un elenco senza numeri di posto né azione "Sposta".
 
-## Fix (solo UI, zero impatto su dati / logica)
-1. **Nome sempre prioritario e visibile**
-   - Aggiungere `min-w-0` allo span del nome in entrambe le liste, così l'ellipsis funziona davvero.
-2. **Badge dietary compatto**
-   - Sostituire il badge testuale con un piccolo indicatore icona (es. `🍽️` o icona `Utensils` lucide) `h-5 w-5`, con `title={g.dietary_restrictions}` (tooltip nativo) per leggere il testo completo al hover.
-   - Stessa cosa per il badge bambino (`👶`) — già compatto, lasciato com'è.
-3. Applicare lo stesso pattern nella riga "Seduti" e nella riga "Aggiungi ospite" del `TableDetailPanel`.
+## Obiettivo
 
-Nessuna modifica a:
-- Dati / Supabase
-- `GuestPool.tsx` o `GuestPoolSidebar.tsx` (lì il dietary è già su riga sotto, non confligge col nome)
-- Logica di assegnazione, +1, scenari, ecc.
+Permettere, sia da mobile che da desktop, di **spostare un ospite già seduto in un altro posto del tavolo imperiale** (con swap automatico se il posto di destinazione è già occupato), in modo coerente con la logica già usata in `handleAssignToSeat` su `Tables.tsx` (che fa già lo swap se il posto è occupato).
 
-## File toccati
-- `src/components/tables/v2/TableDetailPanel.tsx` (sole modifiche di presentazione, ~6 righe)
+## Cosa cambia
+
+### 1. Desktop — `src/components/tables/v2/ImperialTableSvg.tsx`
+- Sostituire l'azione "click su posto occupato = rimuovi" con un piccolo **Popover** contestuale che mostra:
+  - Nome ospite (header)
+  - "Sposta in posto…" → apre una griglia compatta dei posti del tavolo (1…N), evidenziando liberi/occupati; selezionando un posto si chiama `onAssignToSeat(tableId, guest.id, nuovoPosto)` (lo swap è già gestito).
+  - "Rimuovi dal tavolo" → chiama l'attuale `onSeatClick` (unassign).
+- Rendere il `<g>` dell'ospite anche **draggable** (`useDraggable({ id: guest.id })`) così su desktop si può trascinare un ospite seduto in un altro posto dello stesso tavolo (o di un altro tavolo). Drop su `seat_*` è già gestito in `handleDragEnd`.
+- Nessuna modifica alle props pubbliche oltre all'aggiunta opzionale di `onMoveToSeat?: (guest, newSeat) => void`, che `TableCardV2` / `TablesGridView` mappano a `onAssignToSeat(tableId, guestId, seat)` già esistente.
+
+### 2. Mobile — `src/components/tables/MobileTableSheet.tsx`
+- Aggiungere `tableType`, `onAssign`/`onUnassign` già presenti; serve un nuovo prop opzionale `onMoveSeat(assignmentId, newSeat)` che mappa su `handleUpdateSeatPosition` di `Tables.tsx` (più swap, vedi sotto).
+- Per i tavoli **imperiali** mostrare gli ospiti seduti in **due colonne (Lato A / Lato B)** con il **numero di posto** davanti al nome.
+- Tap su un ospite seduto → apre un piccolo Sheet/Drawer con:
+  - "Sposta in un altro posto" → griglia 2 colonne dei posti A/B, ogni cella mostra n° posto + nome occupante (se c'è); selezionando si esegue lo spostamento (con swap se occupato).
+  - "Rimuovi dal tavolo".
+- Per i tavoli **tondi** mantenere l'UI attuale (non hanno seat_position significativa).
+
+### 3. Wiring in `src/pages/Tables.tsx`
+- Esporre/usare una funzione `handleMoveSeat(assignmentId, newSeat)` che riusa la stessa logica di swap già presente in `handleAssignToSeat` (cerca occupante del posto, lo libera, poi aggiorna).
+- Passarla a `MobileTableSheet` e a `TablesGridView` → `TableCardV2` → `ImperialTableSvg`.
+
+## Cosa NON cambia
+
+- Logica DB/RLS, schema `table_assignments`.
+- Comportamento dei tavoli tondi.
+- Drag&drop dalla pool ai tavoli (già funzionante).
+- Conteggi capacità (già corretti dopo il fix precedente sui +1).
 
 ## Verifica
-- Riaprire il pannello tavolo dopo il fix: la riga di Sandra Baglioni mostra "Sandra Baglioni" + icona dietary a destra; hover sull'icona mostra il testo completo delle restrizioni.
-- Zero rischio in produzione: nessuna query, nessuna mutazione, nessuna logica condivisa toccata.
+
+- Mobile: aprire un tavolo imperiale, toccare "Giuseppe Vecchio", scegliere "Sposta", selezionare il posto accanto a "Carlotta" → i due si scambiano se necessario.
+- Desktop: stessa cosa via Popover sul posto, e in più drag del cerchio ospite su un altro posto dello stesso tavolo.
