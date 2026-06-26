@@ -50,6 +50,9 @@ export function BlockEditorModal({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [previewWedding, setPreviewWedding] = useState<WeddingPublicData | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [deadlineDate, setDeadlineDate] = useState<string>("");
+  const [whatsappTemplate, setWhatsappTemplate] = useState<string>("");
 
   const editor = useInvitationPageEditor(
     pageKind === "rsvp" ? makeDefaultRsvpPage() : makeDefaultStdPage()
