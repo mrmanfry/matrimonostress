@@ -74,6 +74,8 @@ export const ExpenseWizard: React.FC<Props> = ({
       description: '',
       total: 0, unit: 0, qty: 0,
       audience: emptyAudienceMap(),
+      tax_rate: 22, tax_inclusive: true,
+
       computedTotal: 0,
       hasPayments: false,
       scheme: 'single',
