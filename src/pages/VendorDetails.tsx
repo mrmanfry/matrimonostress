@@ -1098,47 +1098,53 @@ const ExpensesList: React.FC<{
                       </div>
                     </div>
                     {isPerAudience ? (
-                      <div style={{
-                        fontSize: 12, color: ink(2), padding: '12px 14px',
-                        background: 'hsl(var(--paper-surface-muted))',
-                        border: `1px dashed ${border(true)}`, borderRadius: 8,
-                        display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12,
-                      }}>
-                        <span>Spesa per fasce (Adulti / Bambini / Staff). Apri l'editor dedicato per impostare i prezzi unitari.</span>
-                        <PaperButton variant="primary" size="sm" onClick={() => { cancelEdit(); onEditAudience(it.id); }}>
-                          Modifica prezzi
-                        </PaperButton>
+                      <div style={{ display: 'grid', gap: 10 }}>
+                        <AudienceEditor value={draftAudience} onChange={setDraftAudience} />
+                        <div style={{ fontSize: 11, color: ink(3), textAlign: 'right' }}>
+                          Totale ora: <span style={{ fontFamily: FONT_MONO }}>{fmtEUR(audienceTotal(draftAudience, guestCounts[mode]))}</span> · IVA inclusa.
+                        </div>
                       </div>
                     ) : (
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <div style={{ flex: 1, position: 'relative' }}>
-                          <input
-                            type="number"
-                            min={0}
-                            step="0.01"
-                            value={isPerPerson ? draftUnit : draftTotal}
-                            onChange={e => isPerPerson ? setDraftUnit(e.target.value) : setDraftTotal(e.target.value)}
-                            placeholder={isPerPerson ? 'Prezzo a persona €' : 'Importo €'}
-                            style={{
-                              width: '100%', fontSize: 14, padding: '8px 10px', borderRadius: 6,
-                              border: `1px solid ${border(true)}`, background: surface(),
-                              color: ink(), fontFamily: FONT_MONO, outline: 'none',
-                            }}
-                          />
-                          {isPerPerson && (
-                            <div style={{ fontSize: 11, color: ink(3), marginTop: 4 }}>
-                              Totale ora: <span style={{ fontFamily: FONT_MONO }}>{fmtEUR((Number(draftUnit) || 0) * (guestCounts[mode].adults + guestCounts[mode].children + guestCounts[mode].staff))}</span> · si ricalcola sugli invitati.
-                            </div>
+                      <div style={{ display: 'grid', gap: 10 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 130px 160px', gap: 8, alignItems: 'end' }}>
+                          <div>
+                            <PaperLabel>{isPerPerson ? 'Prezzo a persona' : 'Importo'}</PaperLabel>
+                            <Money value={draftAmount} onChange={setDraftAmount} placeholder={isPerPerson ? 'Prezzo a persona €' : 'Importo €'} />
+                          </div>
+                          <div>
+                            <PaperLabel>IVA %</PaperLabel>
+                            <PaperInput
+                              type="number" min={0} step="0.01"
+                              value={String(draftTaxRate)}
+                              onChange={e => setDraftTaxRate(Number((e.target as HTMLInputElement).value) || 0)}
+                            />
+                          </div>
+                          <div>
+                            <PaperLabel>Modalità IVA</PaperLabel>
+                            <PaperSelect
+                              value={draftTaxInclusive ? 'incl' : 'excl'}
+                              onChange={v => setDraftTaxInclusive(v === 'incl')}
+                              options={[
+                                { value: 'incl', label: 'IVA inclusa' },
+                                { value: 'excl', label: 'IVA da aggiungere' },
+                              ]}
+                            />
+                          </div>
+                        </div>
+                        <div style={{ fontSize: 11, color: ink(3) }}>
+                          {isPerPerson ? (
+                            <>Totale ora: <span style={{ fontFamily: FONT_MONO }}>{fmtEUR(grossOf(draftAmount) * (guestCounts[mode].adults + guestCounts[mode].children + guestCounts[mode].staff))}</span> · IVA inclusa, ricalcola sugli invitati.</>
+                          ) : (
+                            <>Totale finale (IVA inclusa): <span style={{ fontFamily: FONT_MONO }}>{fmtEUR(grossOf(draftAmount))}</span></>
                           )}
                         </div>
                       </div>
                     )}
                     <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                       <PaperButton variant="ghost" size="sm" onClick={cancelEdit}>Annulla</PaperButton>
-                      {!isPerAudience && (
-                        <PaperButton variant="primary" size="sm" onClick={() => saveEdit(it)}>Salva</PaperButton>
-                      )}
+                      <PaperButton variant="primary" size="sm" onClick={() => saveEdit(it)}>Salva</PaperButton>
                     </div>
+
                   </div>
                 );
               })()
