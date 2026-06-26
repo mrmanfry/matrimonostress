@@ -55,37 +55,56 @@ function BlockRow({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "group flex items-center gap-2 rounded-md border bg-card px-2 py-2 text-sm",
-        selected && "border-primary ring-1 ring-primary"
+        "group flex items-center gap-2.5 rounded-xl border bg-card px-2.5 py-2.5 text-sm shadow-sm transition-all cursor-pointer",
+        selected
+          ? "border-primary/40 bg-primary/5 ring-2 ring-primary/15"
+          : "border-border/60 hover:border-border hover:ring-2 hover:ring-primary/5",
+        !block.visible && "opacity-60"
       )}
+      onClick={onSelect}
     >
       <button
         type="button"
-        className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground touch-none"
+        className="cursor-grab active:cursor-grabbing text-muted-foreground/60 hover:text-foreground touch-none"
         {...attributes}
         {...listeners}
         aria-label="Trascina per riordinare"
+        onClick={(e) => e.stopPropagation()}
       >
         <GripVertical className="w-4 h-4" />
       </button>
-      <button
-        type="button"
-        onClick={onSelect}
-        className="flex-1 flex items-center gap-2 min-w-0 text-left"
+      <Icon
+        className={cn(
+          "w-4 h-4 shrink-0",
+          selected ? "text-primary" : "text-muted-foreground"
+        )}
+      />
+      <span
+        className={cn(
+          "flex-1 min-w-0 truncate",
+          selected ? "font-semibold text-primary" : "font-medium text-foreground/85",
+          !block.visible && "line-through"
+        )}
       >
-        <Icon className="w-4 h-4 shrink-0 text-muted-foreground" />
-        <span className={cn("truncate", !block.visible && "opacity-50 line-through")}>
-          {meta.label}
-        </span>
-      </button>
-      <div className="flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
+        {meta.label}
+      </span>
+      <div
+        className={cn(
+          "flex items-center gap-0.5 transition-opacity",
+          selected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+        )}
+      >
         <Button
           type="button"
           variant="ghost"
           size="icon"
           className="h-7 w-7"
-          onClick={onToggleVisibility}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleVisibility();
+          }}
           title={block.visible ? "Nascondi" : "Mostra"}
+          aria-label={block.visible ? "Nascondi blocco" : "Mostra blocco"}
         >
           {block.visible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
         </Button>
@@ -94,8 +113,12 @@ function BlockRow({
           variant="ghost"
           size="icon"
           className="h-7 w-7"
-          onClick={onDuplicate}
+          onClick={(e) => {
+            e.stopPropagation();
+            onDuplicate();
+          }}
           title="Duplica"
+          aria-label="Duplica blocco"
         >
           <Copy className="w-3.5 h-3.5" />
         </Button>
@@ -103,9 +126,13 @@ function BlockRow({
           type="button"
           variant="ghost"
           size="icon"
-          className="h-7 w-7 text-destructive hover:text-destructive"
-          onClick={onRemove}
+          className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove();
+          }}
           title="Elimina"
+          aria-label="Elimina blocco"
         >
           <Trash2 className="w-3.5 h-3.5" />
         </Button>
@@ -150,7 +177,7 @@ export function BlockListEditor({
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
       <SortableContext items={blocks.map((b) => b.id)} strategy={verticalListSortingStrategy}>
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           {blocks.map((b) => (
             <BlockRow
               key={b.id}
@@ -162,8 +189,6 @@ export function BlockListEditor({
               onRemove={() => onRemove(b.id)}
             />
           ))}
-          {/* enable arrayMove import side-effect for future use */}
-          {/* eslint-disable-next-line @typescript-eslint/no-unused-expressions */}
           {(() => {
             void arrayMove;
             return null;

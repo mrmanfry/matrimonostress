@@ -1,50 +1,45 @@
-## Obiettivo
+## Redesign Block Editor — Elevated sage workspace
 
-Eliminare la ridondanza tra il pulsante **Configura** (dialog form legacy) e **Layout** (block editor moderno) in `CampaignCard`, sia per Save The Date che per Invito Ufficiale. Un solo punto di ingresso, nessun campo duplicato in due UI diverse.
+Mantengo intatte tutte le funzionalità (undo/redo, drag&drop, visibility, duplicate, delete, inspector, style editor, salvataggio, impostazioni campagna, anteprima live). Cambia solo la presentazione, allineandola al prototipo scelto.
 
-## Diagnosi della sovrapposizione
+### Cosa cambia visivamente
 
-Il pulsante **Configura** apre `CampaignConfigDialog` e modifica:
-- Hero image, titolo/testo di benvenuto, FAQ, gift info → **già coperti dai blocchi** del Block Editor (hero, welcome, faq, gift)
-- Scadenza (`deadline_date`), template messaggio WhatsApp, stato → **NON presenti nel Block Editor**
+**Container modale**
+- Sfondo modale `bg-stone-200/50`, card `rounded-3xl`, ombra morbida `shadow-[0_32px_64px_-16px_rgba(0,0,0,0.15)]`, bordo `stone-200`.
+- Header più compatto, azioni (Undo/Redo/Default/Annulla/Salva) restano in alto a destra ma con spacing rivisto e Salva in verde sage (`emerald-800`).
 
-Il pulsante **Layout** apre `BlockEditorModal` che gestisce tutto il contenuto a blocchi della pagina pubblica (la sorgente di verità attualmente renderizzata, come confermato nel fix precedente sulle FAQ).
+**Sidebar sinistra (Blocchi)**
+- Sfondo `stone-50/50`, separatori `stone-100`.
+- "Impostazioni campagna" diventa un toggle pill pulito; quando aperto, il pannello collassabile (deadline + WhatsApp template) mantiene gli stessi campi.
+- "Aggiungi blocco" diventa CTA primaria sage piena (`bg-emerald-800`).
+- Ogni card blocco: pill bianca con bordo sottile, drag handle a sinistra, icona+label, azioni (eye/duplicate/delete) **rivelate solo on hover** per ridurre rumore visivo.
+- Stato attivo: sfondo `emerald-50` + ring `emerald-600/20`, label in `emerald-900` semibold.
+- Blocchi nascosti: opacity ridotta.
 
-Risultato attuale: l'utente modifica le stesse cose (FAQ, hero, testi) in due posti, e le impostazioni "non a blocchi" (scadenza, WhatsApp) sono nascoste solo dentro "Configura".
+**Pannello centrale (Anteprima)**
+- Sfondo `stone-100`.
+- Badge "Anteprima Live" in alto centro con dot verde pulsante.
+- Telefono con **bezel realistico**: cornice scura `stone-800` `rounded-[3rem]`, ring esterno `stone-900`, notch in alto. L'anteprima della pagina pubblica resta identica dentro lo schermo.
 
-## Soluzione
+**Sidebar destra (Inspector)**
+- Header sezione "Proprietà Blocco" con stile uppercase tracking.
+- Empty state ridisegnato: icona in tile arrotondata `stone-50`, titolo + descrizione su due righe.
+- Quando un blocco è selezionato: `BlockInspector` + `BlockStyleEditor` esistenti renderizzati nello stesso slot (zero modifiche alla logica dei campi).
+- **Stile Globale** spostato in un footer dedicato dentro la sidebar destra (non più barra a tutta larghezza sotto al modale): icona pill, grid 2 colonne (Font / Colore con swatch), riga Countdown con valore. Il vecchio `GlobalStyleBar` viene rimosso dal layout principale e i suoi controlli effettivi (font/colore/countdown) restano editabili — viene riusato lo stesso componente, integrato nel pannello destro.
 
-Un solo editor: il **Block Editor**, esteso con un pannello "Impostazioni campagna" per i pochi campi non-blocco. Il pulsante "Configura" sparisce.
+### Cosa NON cambia (zero disruption)
 
-### 1. `CampaignCard.tsx`
-- Rimuovere il pulsante **Configura** (e `onConfigure` dalle props).
-- Rinominare **Layout** → **Modifica** (icona invariata, `LayoutPanelLeft` o `Pencil`).
-- Mantenere **Anteprima** e **Attiva/Pausa** invariati.
+- Hook `useInvitationPageEditor`, schema dati `InvitationPageSchema`, salvataggio su `weddings.campaigns_config.pages`, retro-compatibilità con campi legacy (`deadline_date`, `whatsapp_message_template`).
+- Componenti figli: `BlockListEditor`, `AddBlockMenu`, `BlockInspector`, `BlockStyleEditor`, `PublicInvitationPage`. Solo il loro wrapper visivo cambia.
+- Drag&drop, undo/redo, toggle visibilità, duplica, elimina: identici.
 
-### 2. `BlockEditorModal.tsx`
-Aggiungere un piccolo pannello/sezione "Impostazioni campagna" (tab o accordion in cima alla colonna sinistra, sopra la lista blocchi) con SOLO i campi non duplicabili come blocchi:
-- **Scadenza RSVP** (`deadline_date`)
-- **Messaggio WhatsApp** template (`whatsapp_message_template`)
-- (Lo stato Attiva/Bozza/Pausa resta sui pulsanti della card, non si duplica qui.)
+### Dettagli tecnici
 
-Al salvataggio del Block Editor, scrivere questi due campi nel ramo legacy `campaigns_config.{save_the_date|rsvp}` mantenendo intatti gli altri campi legacy (welcome/hero/faqs/gift) come fallback per chi non ha ancora migrato allo schema a blocchi.
+File toccati:
+1. **`src/components/invitations/editor/BlockEditorModal.tsx`** — refactor del layout (header, 3 colonne, phone bezel, footer Stile Globale dentro sidebar destra). Nessuna modifica alle prop o alla logica di load/save.
+2. **`src/components/invitations/editor/BlockListEditor.tsx`** — restyling card blocco (pill bianca, hover-reveal azioni, stato attivo sage). Nessuna modifica all'API.
+3. **`src/components/invitations/editor/GlobalStyleBar.tsx`** (se presente come componente separato) — adattato per essere renderizzato compatto nel footer dell'inspector. In alternativa, inline nel modale mantenendo le stesse callback.
 
-### 3. `Invitations.tsx`
-- Rimuovere `stdConfigDialogOpen` / `rsvpCampaignDialogOpen` e i due `<CampaignConfigDialog />` montati.
-- Rimuovere `onConfigure` dalle `CampaignCard`.
-- Il Block Editor diventa l'unico entry point (già wired tramite `setBlockEditorPage`).
+Token: uso le classi Tailwind del prototipo (`stone-*`, `emerald-*`) — coerenti con la palette sage già adottata nell'app. Nessuna modifica a `index.css` o `tailwind.config.ts`.
 
-### 4. File legacy
-- `CampaignConfigDialog.tsx`: nessuna modifica funzionale, semplicemente non più referenziato dalla UI. Lo lasciamo in repo (zero rischio per produzione, può essere rimosso in una pulizia successiva).
-- La logica di sync FAQ → blocchi già introdotta resta valida (non più necessaria ma innocua).
-
-## Sicurezza in produzione
-
-- Nessuna modifica al DB, alle RLS o agli Edge Function.
-- Schema `campaigns_config` invariato: continuiamo a scrivere i campi legacy `deadline_date` e `whatsapp_message_template` esattamente come prima, solo da un punto diverso della UI.
-- I link pubblici RSVP/STD attivi non cambiano comportamento.
-- Rollback istantaneo: basta ripristinare il pulsante Configura nel `CampaignCard`.
-
-## Risultato per l'utente
-
-Un solo bottone **Modifica** per campagna. Dentro l'editor: in alto le impostazioni campagna (scadenza + WhatsApp), sotto i blocchi della pagina (hero, welcome, faq, gift, ecc.). Nessuna confusione su "dove modifico cosa".
+Nessuna modifica a DB, edge functions, RLS, o alla pagina pubblica RSVP/STD.
