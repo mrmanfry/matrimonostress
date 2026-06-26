@@ -474,6 +474,24 @@ export default function VendorDetails() {
     queryClient.invalidateQueries({ queryKey: ['vendor-detail-v2'] });
   };
 
+  // Scroll to anchored expense item when arriving via #item-<id>
+  React.useEffect(() => {
+    if (isLoading || !data?.vendor) return;
+    const hash = window.location.hash;
+    if (!hash.startsWith('#item-')) return;
+    const itemId = hash.slice('#item-'.length);
+    const t = setTimeout(() => {
+      const el = document.getElementById(`item-${itemId}`);
+      if (!el) return;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const prev = el.style.background;
+      el.style.background = 'hsl(var(--paper-warn-tint))';
+      setTimeout(() => { el.style.background = prev; }, 1400);
+    }, 250);
+    return () => clearTimeout(t);
+  }, [isLoading, data?.vendor?.id]);
+
+
   if (isLoading) {
     return (
       <div style={{ background: surface('muted'), minHeight: '100%', padding: 40 }}>
