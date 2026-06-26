@@ -26,7 +26,10 @@ export interface ExpenseWizardValues {
   unit: number;      // for 'per_person' / 'per_unit'
   qty: number;       // for 'per_unit'
   audience: AudienceMap; // for 'per_audience'
-  // computed at save-time
+  // VAT (for fixed / per_person / per_unit; per_audience has its own per row)
+  tax_rate: number;
+  tax_inclusive: boolean;
+  // computed at save-time (gross, IVA inclusa)
   computedTotal: number;
   // payments
   hasPayments: boolean;
@@ -35,6 +38,7 @@ export interface ExpenseWizardValues {
   n_rate: number;
   payments: SchedulePayment[];
 }
+
 
 interface Props {
   open: boolean;
