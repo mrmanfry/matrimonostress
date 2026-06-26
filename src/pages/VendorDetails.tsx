@@ -60,13 +60,14 @@ export default function VendorDetails() {
   const [taskOpen, setTaskOpen] = React.useState(false);
   const [taskType, setTaskType] = React.useState<'task' | 'appointment'>('task');
   const [activeSection, setActiveSection] = React.useState<ActiveSection>(
-    (searchParams.get('tab') as ActiveSection) || 'spese',
+    (searchParams.get('tab') as ActiveSection) || (typeof window !== 'undefined' && window.location.hash.startsWith('#item-') ? 'spese' : 'spese'),
   );
   const [allocPaymentId, setAllocPaymentId] = React.useState<string | null>(null);
   const [allocMode, setAllocMode] = React.useState<'mark' | 'edit'>('mark');
   const [editAudienceItemId, setEditAudienceItemId] = React.useState<string | null>(null);
   // Calculation scenario — synced with /app/budget via weddings.calculation_mode
   const [mode, setMode] = React.useState<ScenarioMode | null>(null);
+
 
   // Vendor + relations
   const { data, isLoading } = useQuery({
@@ -472,6 +473,24 @@ export default function VendorDetails() {
     });
     queryClient.invalidateQueries({ queryKey: ['vendor-detail-v2'] });
   };
+
+  // Scroll to anchored expense item when arriving via #item-<id>
+  React.useEffect(() => {
+    if (isLoading || !data?.vendor) return;
+    const hash = window.location.hash;
+    if (!hash.startsWith('#item-')) return;
+    const itemId = hash.slice('#item-'.length);
+    const t = setTimeout(() => {
+      const el = document.getElementById(`item-${itemId}`);
+      if (!el) return;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const prev = el.style.background;
+      el.style.background = 'hsl(var(--paper-warn-tint))';
+      setTimeout(() => { el.style.background = prev; }, 1400);
+    }, 250);
+    return () => clearTimeout(t);
+  }, [isLoading, data?.vendor?.id]);
+
 
   if (isLoading) {
     return (
@@ -1049,10 +1068,11 @@ const ExpensesList: React.FC<{
         const isEditing = editingId === it.id;
 
         return (
-          <div key={it.id} style={{
+          <div key={it.id} id={`item-${it.id}`} style={{
             padding: '14px 18px', borderBottom: i < items.length - 1 ? `1px solid ${border()}` : 'none',
-            fontFamily: FONT_UI,
+            fontFamily: FONT_UI, scrollMarginTop: 80, transition: 'background .6s',
           }}>
+
             {isEditing ? (
               (() => {
                 const isPerPerson = draftType === 'per_person';
