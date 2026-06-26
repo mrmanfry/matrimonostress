@@ -354,13 +354,18 @@ export default function VendorDetails() {
 
   const updateExpenseItem = async (
     itemId: string,
-    patch: { description?: string; total_amount?: number; fixed_amount?: number | null; estimated_amount?: number | null },
+    patch: { description?: string; total_amount?: number; fixed_amount?: number | null; estimated_amount?: number | null; expense_type?: string },
+    opts?: { clearLineItems?: boolean },
   ) => {
+    if (opts?.clearLineItems) {
+      await supabase.from('expense_line_items').delete().eq('expense_item_id', itemId);
+    }
     const { error } = await supabase.from('expense_items').update(patch).eq('id', itemId);
     if (error) { toast({ title: 'Errore', description: error.message, variant: 'destructive' }); return; }
     toast({ title: 'Spesa aggiornata' });
     queryClient.invalidateQueries({ queryKey: ['vendor-detail-v2'] });
   };
+
 
   const deleteExpenseItem = async (itemId: string) => {
     if (!window.confirm('Eliminare questa spesa? Verranno cancellate anche tutte le rate collegate.')) return;
@@ -927,7 +932,12 @@ const ExpensesList: React.FC<{
   mode: ScenarioMode;
   guestCounts: GuestCounts;
   lockAmounts?: boolean;
-  onUpdateItem: (id: string, patch: { description?: string; total_amount?: number; fixed_amount?: number | null; estimated_amount?: number | null }) => void | Promise<void>;
+  onUpdateItem: (
+    id: string,
+    patch: { description?: string; total_amount?: number; fixed_amount?: number | null; estimated_amount?: number | null; expense_type?: string },
+    opts?: { clearLineItems?: boolean },
+  ) => void | Promise<void>;
+
   onDeleteItem: (id: string) => void | Promise<void>;
   onAddPayment: (expenseItemId: string) => void | Promise<void>;
   onEditAudience: (expenseItemId: string) => void;
@@ -936,37 +946,44 @@ const ExpensesList: React.FC<{
   const [draftDesc, setDraftDesc] = React.useState('');
   const [draftTotal, setDraftTotal] = React.useState<string>('');
   const [draftUnit, setDraftUnit] = React.useState<string>('');
+  const [draftType, setDraftType] = React.useState<'fixed' | 'per_person' | 'per_audience'>('fixed');
 
   const startEdit = (it: DbExpenseItem, total: number) => {
+    const hasLI = ((lineItemsByExpenseItem[it.id] || []).length) > 0;
+    const isVar = (it.expense_type ?? '').toLowerCase() === 'variable';
+    const initialType: 'fixed' | 'per_person' | 'per_audience' =
+      isVar && hasLI ? 'per_audience' : isVar ? 'per_person' : 'fixed';
     setEditingId(it.id);
     setDraftDesc(it.description);
     setDraftTotal(String(total));
     setDraftUnit(it.estimated_amount != null ? String(it.estimated_amount) : '');
+    setDraftType(initialType);
   };
   const cancelEdit = () => { setEditingId(null); };
   const saveEdit = async (it: DbExpenseItem) => {
-    const isVariable = (it.expense_type ?? '').toLowerCase() === 'variable';
     const hasLineItems = ((lineItemsByExpenseItem[it.id] || []).length) > 0;
     const patch: any = { description: draftDesc.trim() || it.description };
-    if (isVariable) {
-      // Per spese variabili NON sovrascriviamo il totale (= prezzo unitario × invitati).
-      // Si modifica il prezzo unitario; per "per_audience" (con line items) si rimanda al wizard.
-      if (!hasLineItems) {
-        const newUnit = Number(draftUnit);
-        if (!Number.isNaN(newUnit) && newUnit >= 0) {
-          patch.estimated_amount = newUnit;
-        }
-      }
-    } else {
+    let clearLineItems = false;
+    if (draftType === 'per_person') {
+      patch.expense_type = 'variable';
+      const newUnit = Number(draftUnit);
+      if (!Number.isNaN(newUnit) && newUnit >= 0) patch.estimated_amount = newUnit;
+      if (hasLineItems) clearLineItems = true;
+    } else if (draftType === 'fixed') {
+      patch.expense_type = 'fixed';
       const newTotal = Number(draftTotal);
       if (!Number.isNaN(newTotal) && newTotal >= 0) {
         patch.total_amount = newTotal;
         patch.fixed_amount = newTotal;
+        patch.estimated_amount = newTotal;
       }
+      if (hasLineItems) clearLineItems = true;
     }
-    await onUpdateItem(it.id, patch);
+    // per_audience handled via dialog, not here
+    await onUpdateItem(it.id, patch, { clearLineItems });
     setEditingId(null);
   };
+
 
   return (
     <PaperCard padding={0} style={{ overflow: 'hidden' }}>
@@ -985,9 +1002,13 @@ const ExpensesList: React.FC<{
           }}>
             {isEditing ? (
               (() => {
-                const hasLineItems = ((lineItemsByExpenseItem[it.id] || []).length) > 0;
-                const editingPerAudience = isVariable && hasLineItems;
-                const editingPerPerson = isVariable && !hasLineItems;
+                const isPerPerson = draftType === 'per_person';
+                const isPerAudience = draftType === 'per_audience';
+                const typeOptions: Array<{ v: 'fixed' | 'per_person' | 'per_audience'; label: string }> = [
+                  { v: 'fixed', label: 'Fisso' },
+                  { v: 'per_person', label: 'Per persona' },
+                  { v: 'per_audience', label: 'Per fasce' },
+                ];
                 return (
                   <div style={{ display: 'grid', gap: 10 }}>
                     <input
@@ -1001,14 +1022,40 @@ const ExpensesList: React.FC<{
                         color: ink(), fontFamily: FONT_UI, outline: 'none',
                       }}
                     />
-                    {editingPerAudience ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 11, color: ink(3), textTransform: 'uppercase', letterSpacing: '0.08em' }}>Tipo prezzo</span>
+                      <div style={{ display: 'inline-flex', borderRadius: 999, background: 'hsl(var(--paper-surface-muted))', padding: 3, gap: 2 }}>
+                        {typeOptions.map(opt => {
+                          const active = draftType === opt.v;
+                          return (
+                            <button
+                              key={opt.v}
+                              type="button"
+                              onClick={() => setDraftType(opt.v)}
+                              style={{
+                                fontSize: 12, padding: '5px 12px', borderRadius: 999,
+                                border: 'none', cursor: 'pointer',
+                                background: active ? surface() : 'transparent',
+                                color: active ? ink() : ink(3),
+                                fontWeight: active ? 600 : 500,
+                                fontFamily: FONT_UI,
+                                boxShadow: active ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
+                              }}
+                            >
+                              {opt.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    {isPerAudience ? (
                       <div style={{
                         fontSize: 12, color: ink(2), padding: '12px 14px',
                         background: 'hsl(var(--paper-surface-muted))',
                         border: `1px dashed ${border(true)}`, borderRadius: 8,
                         display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12,
                       }}>
-                        <span>Spesa variabile per fasce (Adulti / Bambini / Staff). Apri l'editor dedicato per modificare i prezzi unitari.</span>
+                        <span>Spesa per fasce (Adulti / Bambini / Staff). Apri l'editor dedicato per impostare i prezzi unitari.</span>
                         <PaperButton variant="primary" size="sm" onClick={() => { cancelEdit(); onEditAudience(it.id); }}>
                           Modifica prezzi
                         </PaperButton>
@@ -1020,18 +1067,18 @@ const ExpensesList: React.FC<{
                             type="number"
                             min={0}
                             step="0.01"
-                            value={editingPerPerson ? draftUnit : draftTotal}
-                            onChange={e => editingPerPerson ? setDraftUnit(e.target.value) : setDraftTotal(e.target.value)}
-                            placeholder={editingPerPerson ? 'Prezzo a persona €' : 'Importo €'}
+                            value={isPerPerson ? draftUnit : draftTotal}
+                            onChange={e => isPerPerson ? setDraftUnit(e.target.value) : setDraftTotal(e.target.value)}
+                            placeholder={isPerPerson ? 'Prezzo a persona €' : 'Importo €'}
                             style={{
                               width: '100%', fontSize: 14, padding: '8px 10px', borderRadius: 6,
                               border: `1px solid ${border(true)}`, background: surface(),
                               color: ink(), fontFamily: FONT_MONO, outline: 'none',
                             }}
                           />
-                          {editingPerPerson && (
+                          {isPerPerson && (
                             <div style={{ fontSize: 11, color: ink(3), marginTop: 4 }}>
-                              Totale ora: <span style={{ fontFamily: FONT_MONO }}>{fmtEUR(total)}</span> · si ricalcola sugli invitati.
+                              Totale ora: <span style={{ fontFamily: FONT_MONO }}>{fmtEUR((Number(draftUnit) || 0) * (guestCounts[mode].adults + guestCounts[mode].children + guestCounts[mode].staff))}</span> · si ricalcola sugli invitati.
                             </div>
                           )}
                         </div>
@@ -1039,12 +1086,15 @@ const ExpensesList: React.FC<{
                     )}
                     <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                       <PaperButton variant="ghost" size="sm" onClick={cancelEdit}>Annulla</PaperButton>
-                      <PaperButton variant="primary" size="sm" onClick={() => saveEdit(it)}>Salva</PaperButton>
+                      {!isPerAudience && (
+                        <PaperButton variant="primary" size="sm" onClick={() => saveEdit(it)}>Salva</PaperButton>
+                      )}
                     </div>
                   </div>
                 );
               })()
             ) : (
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 20, alignItems: 'flex-start' }}>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
