@@ -1049,10 +1049,11 @@ const ExpensesList: React.FC<{
         const isEditing = editingId === it.id;
 
         return (
-          <div key={it.id} style={{
+          <div key={it.id} id={`item-${it.id}`} style={{
             padding: '14px 18px', borderBottom: i < items.length - 1 ? `1px solid ${border()}` : 'none',
-            fontFamily: FONT_UI,
+            fontFamily: FONT_UI, scrollMarginTop: 80, transition: 'background .6s',
           }}>
+
             {isEditing ? (
               (() => {
                 const isPerPerson = draftType === 'per_person';
