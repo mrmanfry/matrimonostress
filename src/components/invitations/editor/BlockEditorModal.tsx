@@ -127,7 +127,15 @@ export function BlockEditorModal({
       const cfg = (current?.campaigns_config as any) || {};
       const pages = { ...(cfg.pages || {}) };
       pages[pageKind] = editor.schema;
-      const updated = { ...cfg, pages };
+
+      // Persist campaign-level settings into the legacy campaign branch (used by
+      // public pages as fallback and by status/deadline checks).
+      const legacyCampaignKey = pageKind === "rsvp" ? "rsvp" : "save_the_date";
+      const legacyCampaign = { ...((cfg[legacyCampaignKey] as any) || {}) };
+      legacyCampaign.deadline_date = deadlineDate || null;
+      legacyCampaign.whatsapp_message_template = whatsappTemplate || null;
+
+      const updated = { ...cfg, pages, [legacyCampaignKey]: legacyCampaign };
 
       const { error } = await supabase
         .from("weddings")
