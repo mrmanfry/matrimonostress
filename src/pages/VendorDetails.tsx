@@ -1099,11 +1099,18 @@ const ExpensesList: React.FC<{
                     </div>
                     {isPerAudience ? (
                       <div style={{ display: 'grid', gap: 10 }}>
-                        <AudienceEditor value={draftAudience} onChange={setDraftAudience} />
-                        <div style={{ fontSize: 11, color: ink(3), textAlign: 'right' }}>
-                          Totale ora: <span style={{ fontFamily: FONT_MONO }}>{fmtEUR(audienceTotal(draftAudience, guestCounts[mode]))}</span> · IVA inclusa.
-                        </div>
+                        <AudienceEditor
+                          audience={draftAudience}
+                          onChange={setDraftAudience}
+                          countsPlanned={guestCounts.planned}
+                          countsConfirmed={guestCounts.confirmed}
+                          computed={{
+                            planned: audienceTotal(draftAudience, guestCounts.planned),
+                            confirmed: audienceTotal(draftAudience, guestCounts.confirmed),
+                          }}
+                        />
                       </div>
+
                     ) : (
                       <div style={{ display: 'grid', gap: 10 }}>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 130px 160px', gap: 8, alignItems: 'end' }}>
