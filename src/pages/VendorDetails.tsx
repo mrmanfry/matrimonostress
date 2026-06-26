@@ -1002,9 +1002,13 @@ const ExpensesList: React.FC<{
           }}>
             {isEditing ? (
               (() => {
-                const hasLineItems = ((lineItemsByExpenseItem[it.id] || []).length) > 0;
-                const editingPerAudience = isVariable && hasLineItems;
-                const editingPerPerson = isVariable && !hasLineItems;
+                const isPerPerson = draftType === 'per_person';
+                const isPerAudience = draftType === 'per_audience';
+                const typeOptions: Array<{ v: 'fixed' | 'per_person' | 'per_audience'; label: string }> = [
+                  { v: 'fixed', label: 'Fisso' },
+                  { v: 'per_person', label: 'Per persona' },
+                  { v: 'per_audience', label: 'Per fasce' },
+                ];
                 return (
                   <div style={{ display: 'grid', gap: 10 }}>
                     <input
@@ -1018,14 +1022,40 @@ const ExpensesList: React.FC<{
                         color: ink(), fontFamily: FONT_UI, outline: 'none',
                       }}
                     />
-                    {editingPerAudience ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 11, color: ink(3), textTransform: 'uppercase', letterSpacing: '0.08em' }}>Tipo prezzo</span>
+                      <div style={{ display: 'inline-flex', borderRadius: 999, background: 'hsl(var(--paper-surface-muted))', padding: 3, gap: 2 }}>
+                        {typeOptions.map(opt => {
+                          const active = draftType === opt.v;
+                          return (
+                            <button
+                              key={opt.v}
+                              type="button"
+                              onClick={() => setDraftType(opt.v)}
+                              style={{
+                                fontSize: 12, padding: '5px 12px', borderRadius: 999,
+                                border: 'none', cursor: 'pointer',
+                                background: active ? surface() : 'transparent',
+                                color: active ? ink() : ink(3),
+                                fontWeight: active ? 600 : 500,
+                                fontFamily: FONT_UI,
+                                boxShadow: active ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
+                              }}
+                            >
+                              {opt.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    {isPerAudience ? (
                       <div style={{
                         fontSize: 12, color: ink(2), padding: '12px 14px',
                         background: 'hsl(var(--paper-surface-muted))',
                         border: `1px dashed ${border(true)}`, borderRadius: 8,
                         display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12,
                       }}>
-                        <span>Spesa variabile per fasce (Adulti / Bambini / Staff). Apri l'editor dedicato per modificare i prezzi unitari.</span>
+                        <span>Spesa per fasce (Adulti / Bambini / Staff). Apri l'editor dedicato per impostare i prezzi unitari.</span>
                         <PaperButton variant="primary" size="sm" onClick={() => { cancelEdit(); onEditAudience(it.id); }}>
                           Modifica prezzi
                         </PaperButton>
@@ -1037,18 +1067,18 @@ const ExpensesList: React.FC<{
                             type="number"
                             min={0}
                             step="0.01"
-                            value={editingPerPerson ? draftUnit : draftTotal}
-                            onChange={e => editingPerPerson ? setDraftUnit(e.target.value) : setDraftTotal(e.target.value)}
-                            placeholder={editingPerPerson ? 'Prezzo a persona €' : 'Importo €'}
+                            value={isPerPerson ? draftUnit : draftTotal}
+                            onChange={e => isPerPerson ? setDraftUnit(e.target.value) : setDraftTotal(e.target.value)}
+                            placeholder={isPerPerson ? 'Prezzo a persona €' : 'Importo €'}
                             style={{
                               width: '100%', fontSize: 14, padding: '8px 10px', borderRadius: 6,
                               border: `1px solid ${border(true)}`, background: surface(),
                               color: ink(), fontFamily: FONT_MONO, outline: 'none',
                             }}
                           />
-                          {editingPerPerson && (
+                          {isPerPerson && (
                             <div style={{ fontSize: 11, color: ink(3), marginTop: 4 }}>
-                              Totale ora: <span style={{ fontFamily: FONT_MONO }}>{fmtEUR(total)}</span> · si ricalcola sugli invitati.
+                              Totale ora: <span style={{ fontFamily: FONT_MONO }}>{fmtEUR((Number(draftUnit) || 0) * (guestCounts.adults + guestCounts.children + guestCounts.staff))}</span> · si ricalcola sugli invitati.
                             </div>
                           )}
                         </div>
@@ -1056,12 +1086,15 @@ const ExpensesList: React.FC<{
                     )}
                     <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                       <PaperButton variant="ghost" size="sm" onClick={cancelEdit}>Annulla</PaperButton>
-                      <PaperButton variant="primary" size="sm" onClick={() => saveEdit(it)}>Salva</PaperButton>
+                      {!isPerAudience && (
+                        <PaperButton variant="primary" size="sm" onClick={() => saveEdit(it)}>Salva</PaperButton>
+                      )}
                     </div>
                   </div>
                 );
               })()
             ) : (
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 20, alignItems: 'flex-start' }}>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
