@@ -145,7 +145,11 @@ const CampaignConfigDialog = ({
         setGiftRegistryUrl("");
       }
     }
-  }, [currentConfig, open, campaignType, partnerNames]);
+    // Intentionally only re-init when the dialog opens or campaign type changes,
+    // NOT on every currentConfig identity change (parent re-renders can swap the
+    // reference and wipe user edits before they hit Save).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, campaignType]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
