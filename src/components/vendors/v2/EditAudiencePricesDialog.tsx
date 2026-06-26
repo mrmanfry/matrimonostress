@@ -356,7 +356,7 @@ export const EditAudiencePricesDialog: React.FC<Props> = ({
   );
 };
 
-function buildDraft(lineItems: LineItem[]): AudienceMap {
+export function buildDraft(lineItems: LineItem[]): AudienceMap {
   const base: AudienceMap = {
     adults:   { enabled: false, unit_price: 0, tax_rate: 10, tax_inclusive: true },
     children: { enabled: false, unit_price: 0, tax_rate: 10, tax_inclusive: true },
