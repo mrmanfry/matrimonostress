@@ -344,6 +344,8 @@ const StepImporto: React.FC<{
             />
           </div>
         </div>
+        <VatRow form={form} upd={upd} />
+
         {form.unit > 0 && form.qty > 0 && (
           <div style={{
             padding: '16px 18px', background: 'hsl(var(--paper-surface-muted))',
