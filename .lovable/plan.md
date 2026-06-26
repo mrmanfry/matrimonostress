@@ -1,41 +1,50 @@
-## Problema
-
-Sui tavoli imperiali non si riesce a riposizionare un ospite già seduto. Da desktop il click su un posto occupato lo rimuove e basta; da mobile la scheda tavolo mostra solo un elenco senza numeri di posto né azione "Sposta".
-
 ## Obiettivo
 
-Permettere, sia da mobile che da desktop, di **spostare un ospite già seduto in un altro posto del tavolo imperiale** (con swap automatico se il posto di destinazione è già occupato), in modo coerente con la logica già usata in `handleAssignToSeat` su `Tables.tsx` (che fa già lo swap se il posto è occupato).
+Eliminare la ridondanza tra il pulsante **Configura** (dialog form legacy) e **Layout** (block editor moderno) in `CampaignCard`, sia per Save The Date che per Invito Ufficiale. Un solo punto di ingresso, nessun campo duplicato in due UI diverse.
 
-## Cosa cambia
+## Diagnosi della sovrapposizione
 
-### 1. Desktop — `src/components/tables/v2/ImperialTableSvg.tsx`
-- Sostituire l'azione "click su posto occupato = rimuovi" con un piccolo **Popover** contestuale che mostra:
-  - Nome ospite (header)
-  - "Sposta in posto…" → apre una griglia compatta dei posti del tavolo (1…N), evidenziando liberi/occupati; selezionando un posto si chiama `onAssignToSeat(tableId, guest.id, nuovoPosto)` (lo swap è già gestito).
-  - "Rimuovi dal tavolo" → chiama l'attuale `onSeatClick` (unassign).
-- Rendere il `<g>` dell'ospite anche **draggable** (`useDraggable({ id: guest.id })`) così su desktop si può trascinare un ospite seduto in un altro posto dello stesso tavolo (o di un altro tavolo). Drop su `seat_*` è già gestito in `handleDragEnd`.
-- Nessuna modifica alle props pubbliche oltre all'aggiunta opzionale di `onMoveToSeat?: (guest, newSeat) => void`, che `TableCardV2` / `TablesGridView` mappano a `onAssignToSeat(tableId, guestId, seat)` già esistente.
+Il pulsante **Configura** apre `CampaignConfigDialog` e modifica:
+- Hero image, titolo/testo di benvenuto, FAQ, gift info → **già coperti dai blocchi** del Block Editor (hero, welcome, faq, gift)
+- Scadenza (`deadline_date`), template messaggio WhatsApp, stato → **NON presenti nel Block Editor**
 
-### 2. Mobile — `src/components/tables/MobileTableSheet.tsx`
-- Aggiungere `tableType`, `onAssign`/`onUnassign` già presenti; serve un nuovo prop opzionale `onMoveSeat(assignmentId, newSeat)` che mappa su `handleUpdateSeatPosition` di `Tables.tsx` (più swap, vedi sotto).
-- Per i tavoli **imperiali** mostrare gli ospiti seduti in **due colonne (Lato A / Lato B)** con il **numero di posto** davanti al nome.
-- Tap su un ospite seduto → apre un piccolo Sheet/Drawer con:
-  - "Sposta in un altro posto" → griglia 2 colonne dei posti A/B, ogni cella mostra n° posto + nome occupante (se c'è); selezionando si esegue lo spostamento (con swap se occupato).
-  - "Rimuovi dal tavolo".
-- Per i tavoli **tondi** mantenere l'UI attuale (non hanno seat_position significativa).
+Il pulsante **Layout** apre `BlockEditorModal` che gestisce tutto il contenuto a blocchi della pagina pubblica (la sorgente di verità attualmente renderizzata, come confermato nel fix precedente sulle FAQ).
 
-### 3. Wiring in `src/pages/Tables.tsx`
-- Esporre/usare una funzione `handleMoveSeat(assignmentId, newSeat)` che riusa la stessa logica di swap già presente in `handleAssignToSeat` (cerca occupante del posto, lo libera, poi aggiorna).
-- Passarla a `MobileTableSheet` e a `TablesGridView` → `TableCardV2` → `ImperialTableSvg`.
+Risultato attuale: l'utente modifica le stesse cose (FAQ, hero, testi) in due posti, e le impostazioni "non a blocchi" (scadenza, WhatsApp) sono nascoste solo dentro "Configura".
 
-## Cosa NON cambia
+## Soluzione
 
-- Logica DB/RLS, schema `table_assignments`.
-- Comportamento dei tavoli tondi.
-- Drag&drop dalla pool ai tavoli (già funzionante).
-- Conteggi capacità (già corretti dopo il fix precedente sui +1).
+Un solo editor: il **Block Editor**, esteso con un pannello "Impostazioni campagna" per i pochi campi non-blocco. Il pulsante "Configura" sparisce.
 
-## Verifica
+### 1. `CampaignCard.tsx`
+- Rimuovere il pulsante **Configura** (e `onConfigure` dalle props).
+- Rinominare **Layout** → **Modifica** (icona invariata, `LayoutPanelLeft` o `Pencil`).
+- Mantenere **Anteprima** e **Attiva/Pausa** invariati.
 
-- Mobile: aprire un tavolo imperiale, toccare "Giuseppe Vecchio", scegliere "Sposta", selezionare il posto accanto a "Carlotta" → i due si scambiano se necessario.
-- Desktop: stessa cosa via Popover sul posto, e in più drag del cerchio ospite su un altro posto dello stesso tavolo.
+### 2. `BlockEditorModal.tsx`
+Aggiungere un piccolo pannello/sezione "Impostazioni campagna" (tab o accordion in cima alla colonna sinistra, sopra la lista blocchi) con SOLO i campi non duplicabili come blocchi:
+- **Scadenza RSVP** (`deadline_date`)
+- **Messaggio WhatsApp** template (`whatsapp_message_template`)
+- (Lo stato Attiva/Bozza/Pausa resta sui pulsanti della card, non si duplica qui.)
+
+Al salvataggio del Block Editor, scrivere questi due campi nel ramo legacy `campaigns_config.{save_the_date|rsvp}` mantenendo intatti gli altri campi legacy (welcome/hero/faqs/gift) come fallback per chi non ha ancora migrato allo schema a blocchi.
+
+### 3. `Invitations.tsx`
+- Rimuovere `stdConfigDialogOpen` / `rsvpCampaignDialogOpen` e i due `<CampaignConfigDialog />` montati.
+- Rimuovere `onConfigure` dalle `CampaignCard`.
+- Il Block Editor diventa l'unico entry point (già wired tramite `setBlockEditorPage`).
+
+### 4. File legacy
+- `CampaignConfigDialog.tsx`: nessuna modifica funzionale, semplicemente non più referenziato dalla UI. Lo lasciamo in repo (zero rischio per produzione, può essere rimosso in una pulizia successiva).
+- La logica di sync FAQ → blocchi già introdotta resta valida (non più necessaria ma innocua).
+
+## Sicurezza in produzione
+
+- Nessuna modifica al DB, alle RLS o agli Edge Function.
+- Schema `campaigns_config` invariato: continuiamo a scrivere i campi legacy `deadline_date` e `whatsapp_message_template` esattamente come prima, solo da un punto diverso della UI.
+- I link pubblici RSVP/STD attivi non cambiano comportamento.
+- Rollback istantaneo: basta ripristinare il pulsante Configura nel `CampaignCard`.
+
+## Risultato per l'utente
+
+Un solo bottone **Modifica** per campagna. Dentro l'editor: in alto le impostazioni campagna (scadenza + WhatsApp), sotto i blocchi della pagina (hero, welcome, faq, gift, ecc.). Nessuna confusione su "dove modifico cosa".
