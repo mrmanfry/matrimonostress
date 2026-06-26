@@ -60,13 +60,14 @@ export default function VendorDetails() {
   const [taskOpen, setTaskOpen] = React.useState(false);
   const [taskType, setTaskType] = React.useState<'task' | 'appointment'>('task');
   const [activeSection, setActiveSection] = React.useState<ActiveSection>(
-    (searchParams.get('tab') as ActiveSection) || 'spese',
+    (searchParams.get('tab') as ActiveSection) || (typeof window !== 'undefined' && window.location.hash.startsWith('#item-') ? 'spese' : 'spese'),
   );
   const [allocPaymentId, setAllocPaymentId] = React.useState<string | null>(null);
   const [allocMode, setAllocMode] = React.useState<'mark' | 'edit'>('mark');
   const [editAudienceItemId, setEditAudienceItemId] = React.useState<string | null>(null);
   // Calculation scenario — synced with /app/budget via weddings.calculation_mode
   const [mode, setMode] = React.useState<ScenarioMode | null>(null);
+
 
   // Vendor + relations
   const { data, isLoading } = useQuery({
