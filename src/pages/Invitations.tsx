@@ -805,27 +805,8 @@ const Invitations = () => {
         weddingId={weddingId || ""}
       />
 
-      <CampaignConfigDialog
-        open={stdConfigDialogOpen}
-        onOpenChange={setStdConfigDialogOpen}
-        weddingId={weddingId || ""}
-        campaignType="save_the_date"
-        currentConfig={campaignsConfig}
-        partnerNames={partnerNames}
-        weddingDate={weddingDate}
-        onSave={() => refetch()}
-      />
 
-      <CampaignConfigDialog
-        open={rsvpCampaignDialogOpen}
-        onOpenChange={setRsvpCampaignDialogOpen}
-        weddingId={weddingId || ""}
-        campaignType="rsvp"
-        currentConfig={campaignsConfig}
-        partnerNames={partnerNames}
-        weddingDate={weddingDate}
-        onSave={() => refetch()}
-      />
+
 
       <RSVPConfigDialog
         open={rsvpConfigDialogOpen}
