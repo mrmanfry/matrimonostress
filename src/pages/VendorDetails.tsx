@@ -944,8 +944,8 @@ const ExpensesList: React.FC<{
   lockAmounts?: boolean;
   onUpdateItem: (
     id: string,
-    patch: { description?: string; total_amount?: number; fixed_amount?: number | null; estimated_amount?: number | null; expense_type?: string },
-    opts?: { clearLineItems?: boolean },
+    patch: { description?: string; total_amount?: number; fixed_amount?: number | null; estimated_amount?: number | null; expense_type?: string; tax_rate?: number | null; amount_is_tax_inclusive?: boolean },
+    opts?: { clearLineItems?: boolean; replaceLineItems?: Array<Record<string, any>> },
   ) => void | Promise<void>;
 
   onDeleteItem: (id: string) => void | Promise<void>;
@@ -954,45 +954,84 @@ const ExpensesList: React.FC<{
 }> = ({ items, lineItemsByExpenseItem, payments, mode, guestCounts, lockAmounts, onUpdateItem, onDeleteItem, onAddPayment, onEditAudience }) => {
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [draftDesc, setDraftDesc] = React.useState('');
-  const [draftTotal, setDraftTotal] = React.useState<string>('');
-  const [draftUnit, setDraftUnit] = React.useState<string>('');
+  const [draftAmount, setDraftAmount] = React.useState<number>(0);
+  const [draftTaxRate, setDraftTaxRate] = React.useState<number>(22);
+  const [draftTaxInclusive, setDraftTaxInclusive] = React.useState<boolean>(true);
   const [draftType, setDraftType] = React.useState<'fixed' | 'per_person' | 'per_audience'>('fixed');
+  const [draftAudience, setDraftAudience] = React.useState<AudienceMap>(() => buildAudienceDraft([]));
 
-  const startEdit = (it: DbExpenseItem, total: number) => {
-    const hasLI = ((lineItemsByExpenseItem[it.id] || []).length) > 0;
+  const startEdit = (it: DbExpenseItem) => {
+    const lis = lineItemsByExpenseItem[it.id] || [];
+    const hasLI = lis.length > 0;
     const isVar = (it.expense_type ?? '').toLowerCase() === 'variable';
     const initialType: 'fixed' | 'per_person' | 'per_audience' =
       isVar && hasLI ? 'per_audience' : isVar ? 'per_person' : 'fixed';
     setEditingId(it.id);
     setDraftDesc(it.description);
-    setDraftTotal(String(total));
-    setDraftUnit(it.estimated_amount != null ? String(it.estimated_amount) : '');
     setDraftType(initialType);
+    setDraftTaxRate(it.tax_rate != null ? Number(it.tax_rate) : 22);
+    setDraftTaxInclusive(it.amount_is_tax_inclusive ?? true);
+    if (initialType === 'fixed') {
+      setDraftAmount(Number(it.total_amount ?? it.fixed_amount ?? 0));
+    } else if (initialType === 'per_person') {
+      setDraftAmount(Number(it.estimated_amount ?? 0));
+    } else {
+      setDraftAmount(0);
+    }
+    setDraftAudience(buildAudienceDraft(lis as any));
   };
   const cancelEdit = () => { setEditingId(null); };
+
+  const grossOf = (net: number) => draftTaxInclusive ? net : net * (1 + (draftTaxRate || 0) / 100);
+
   const saveEdit = async (it: DbExpenseItem) => {
-    const hasLineItems = ((lineItemsByExpenseItem[it.id] || []).length) > 0;
-    const patch: any = { description: draftDesc.trim() || it.description };
-    let clearLineItems = false;
-    if (draftType === 'per_person') {
-      patch.expense_type = 'variable';
-      const newUnit = Number(draftUnit);
-      if (!Number.isNaN(newUnit) && newUnit >= 0) patch.estimated_amount = newUnit;
-      if (hasLineItems) clearLineItems = true;
-    } else if (draftType === 'fixed') {
-      patch.expense_type = 'fixed';
-      const newTotal = Number(draftTotal);
-      if (!Number.isNaN(newTotal) && newTotal >= 0) {
-        patch.total_amount = newTotal;
-        patch.fixed_amount = newTotal;
-        patch.estimated_amount = newTotal;
-      }
-      if (hasLineItems) clearLineItems = true;
+    const desc = draftDesc.trim() || it.description;
+    if (draftType === 'fixed') {
+      const gross = grossOf(draftAmount);
+      await onUpdateItem(it.id, {
+        description: desc,
+        expense_type: 'fixed',
+        total_amount: gross,
+        fixed_amount: gross,
+        estimated_amount: gross,
+        tax_rate: draftTaxRate,
+        amount_is_tax_inclusive: true,
+      }, { clearLineItems: true });
+    } else if (draftType === 'per_person') {
+      const unitGross = grossOf(draftAmount);
+      await onUpdateItem(it.id, {
+        description: desc,
+        expense_type: 'variable',
+        estimated_amount: unitGross,
+        fixed_amount: null,
+        tax_rate: draftTaxRate,
+        amount_is_tax_inclusive: true,
+      }, { clearLineItems: true });
+    } else {
+      // per_audience
+      const KEYS = ['adults', 'children', 'staff'] as const;
+      const rows = KEYS.map((k, idx) => {
+        const a = draftAudience[k];
+        if (!a.enabled || a.unit_price <= 0) return null;
+        return {
+          description: AUDIENCE_LABELS[k],
+          unit_price: a.unit_price,
+          quantity_type: k,
+          tax_rate: a.tax_rate,
+          price_is_tax_inclusive: a.tax_inclusive,
+          order_index: idx,
+        };
+      }).filter(Boolean) as Array<Record<string, any>>;
+      await onUpdateItem(it.id, {
+        description: desc,
+        expense_type: 'variable',
+        fixed_amount: null,
+      }, { replaceLineItems: rows });
     }
-    // per_audience handled via dialog, not here
-    await onUpdateItem(it.id, patch, { clearLineItems });
     setEditingId(null);
   };
+
+
 
 
   return (
