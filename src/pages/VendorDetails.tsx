@@ -253,6 +253,7 @@ export default function VendorDetails() {
   // Save expense from wizard → creates expense_items + payments
   const handleSaveExpense = async (values: ExpenseWizardValues) => {
     if (!data?.vendor?.id || !data?.vendor?.wedding_id) return;
+    const grossMul = values.tax_inclusive ? 1 : (1 + (values.tax_rate || 0) / 100);
     const expensePayload: any = {
       wedding_id: data.vendor.wedding_id,
       vendor_id: data.vendor.id,
@@ -260,12 +261,14 @@ export default function VendorDetails() {
       description: values.description,
       expense_type: values.kind === 'fixed' ? 'fixed' : 'variable',
       amount_is_tax_inclusive: true,
+      tax_rate: values.tax_rate,
     };
     if (values.kind === 'fixed') {
-      expensePayload.fixed_amount = values.total;
-      expensePayload.total_amount = values.total;
+      const gross = values.total * grossMul;
+      expensePayload.fixed_amount = gross;
+      expensePayload.total_amount = gross;
     } else if (values.kind === 'per_person') {
-      expensePayload.estimated_amount = values.unit;
+      expensePayload.estimated_amount = values.unit * grossMul;
       expensePayload.total_amount = values.computedTotal;
       expensePayload.planned_adults = data.guestsPlanned;
     } else if (values.kind === 'per_audience') {
@@ -274,9 +277,10 @@ export default function VendorDetails() {
       expensePayload.planned_children = data.guestCounts.planned.children;
       expensePayload.planned_staff = data.guestCounts.planned.staff;
     } else { // per_unit
-      expensePayload.estimated_amount = values.unit;
+      expensePayload.estimated_amount = values.unit * grossMul;
       expensePayload.total_amount = values.computedTotal;
     }
+
 
     const { data: insertedItem, error: itemErr } = await supabase
       .from('expense_items')
