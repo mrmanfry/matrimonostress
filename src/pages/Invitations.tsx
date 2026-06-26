@@ -34,7 +34,7 @@ import { RSVPCampaignDialog } from "@/components/guests/RSVPCampaignDialog";
 import PrintInvitationEditor from "@/components/print/PrintInvitationEditor";
 import PrintStudio from "@/components/invitations/PrintStudio";
 import CampaignCard, { CampaignsConfig } from "@/components/settings/CampaignCard";
-import CampaignConfigDialog from "@/components/settings/CampaignConfigDialog";
+
 import { RSVPConfigDialog } from "@/components/settings/RSVPConfigDialog";
 import { BlockEditorModal } from "@/components/invitations/editor/BlockEditorModal";
 import type { PageKind } from "@/lib/invitationBlocks/types";
