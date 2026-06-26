@@ -240,7 +240,7 @@ const StepTipo: React.FC<{
 );
 
 // ─── Step 1: Importo ───
-const Money: React.FC<{ value: number; onChange: (n: number) => void; placeholder?: string }> = ({ value, onChange, placeholder }) => (
+export const Money: React.FC<{ value: number; onChange: (n: number) => void; placeholder?: string }> = ({ value, onChange, placeholder }) => (
   <div style={{ position: 'relative' }}>
     <span style={{
       position: 'absolute', left: 12, top: 0, bottom: 0,
