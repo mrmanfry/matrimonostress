@@ -92,15 +92,17 @@ export const ExpenseWizard: React.FC<Props> = ({
   const cPlan = countsPlanned ?? { adults: guestsPlanned, children: 0, staff: 0 };
   const cConf = countsConfirmed ?? { adults: guestsConfirmed, children: 0, staff: 0 };
 
-  // Computed totals (planned vs confirmed scenario).
+  // Computed totals (planned vs confirmed scenario). Sempre lordi (IVA inclusa).
   const computed = React.useMemo(() => {
-    if (form.kind === 'per_person') return { planned: form.unit * guestsPlanned, confirmed: form.unit * guestsConfirmed };
-    if (form.kind === 'per_unit')   return { planned: form.unit * form.qty,      confirmed: form.unit * form.qty };
+    const grossMul = form.tax_inclusive ? 1 : (1 + (form.tax_rate || 0) / 100);
+    if (form.kind === 'per_person') return { planned: form.unit * grossMul * guestsPlanned, confirmed: form.unit * grossMul * guestsConfirmed };
+    if (form.kind === 'per_unit')   return { planned: form.unit * grossMul * form.qty,      confirmed: form.unit * grossMul * form.qty };
     if (form.kind === 'per_audience') {
       return { planned: audienceTotal(form.audience, cPlan), confirmed: audienceTotal(form.audience, cConf) };
     }
-    return { planned: form.total, confirmed: form.total };
-  }, [form.kind, form.unit, form.qty, form.total, form.audience, guestsPlanned, guestsConfirmed, cPlan, cConf]);
+    return { planned: form.total * grossMul, confirmed: form.total * grossMul };
+  }, [form.kind, form.unit, form.qty, form.total, form.audience, form.tax_rate, form.tax_inclusive, guestsPlanned, guestsConfirmed, cPlan, cConf]);
+
 
   const canNext = (): boolean => {
     if (step === 0) return form.description.trim().length > 0;
