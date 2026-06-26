@@ -1,6 +1,6 @@
 // Side drawer with vendor expense items + payment timeline.
 import * as React from 'react';
-import { X, Check, Edit, Plus } from 'lucide-react';
+import { X, Check, Edit, Plus, ChevronRight } from 'lucide-react';
 import { PaperBadge, FONT_SERIF, FONT_UI, FONT_MONO, ink, surface, border, success, warn, SectionLabel } from './paperPrimitives';
 import { fmt, fmtDate, daysFromToday, type UiVendor, type UiPayment } from '@/lib/budgetAggregates';
 
@@ -9,9 +9,11 @@ interface Props {
   onClose: () => void;
   onMarkPaid?: (payment: UiPayment) => void;
   onOpenVendorPage?: (vendorId: string) => void;
+  onOpenItem?: (vendorId: string, itemId: string) => void;
 }
 
-export function VendorDrawer({ vendor, onClose, onMarkPaid, onOpenVendorPage }: Props) {
+export function VendorDrawer({ vendor, onClose, onMarkPaid, onOpenVendorPage, onOpenItem }: Props) {
+
   if (!vendor) return null;
   const total = vendor.total;
   const paid = vendor.paid;
