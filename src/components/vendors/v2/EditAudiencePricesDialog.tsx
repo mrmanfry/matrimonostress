@@ -79,16 +79,19 @@ export const EditAudiencePricesDialog: React.FC<Props> = ({
       }
 
       if (mode === 'fixed') {
-        // Convert expense to fixed: no line_items, expense_type='fixed', store totals.
+        // Il totale "pagabile" è sempre IVA inclusa.
+        const grossTotal = fixedTaxInclusive
+          ? fixedAmount
+          : fixedAmount * (1 + (fixedTaxRate || 0) / 100);
         const { error: updErr } = await supabase
           .from('expense_items')
           .update({
             expense_type: 'fixed',
-            total_amount: fixedAmount,
-            fixed_amount: fixedAmount,
-            estimated_amount: fixedAmount,
+            total_amount: grossTotal,
+            fixed_amount: grossTotal,
+            estimated_amount: grossTotal,
             tax_rate: fixedTaxRate,
-            price_is_tax_inclusive: fixedTaxInclusive,
+            amount_is_tax_inclusive: true,
           })
           .eq('id', expenseItemId);
         if (updErr) {
