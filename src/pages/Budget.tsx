@@ -273,6 +273,8 @@ export default function Budget() {
         onClose={() => setOpenVendorId(null)}
         onMarkPaid={openMarkPaidDialog}
         onOpenVendorPage={(id) => navigate(`/app/vendors/${id}`)}
+        onOpenItem={(vendorId, itemId) => navigate(`/app/vendors/${vendorId}#item-${itemId}`)}
+
       />
 
       <PaymentAllocationDialog
