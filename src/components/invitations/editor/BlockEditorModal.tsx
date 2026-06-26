@@ -7,8 +7,11 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Undo2, Redo2, Smartphone, RotateCcw } from "lucide-react";
+import { Loader2, Undo2, Redo2, Smartphone, RotateCcw, Settings2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import type { InvitationPageSchema, PageKind } from "@/lib/invitationBlocks/types";
