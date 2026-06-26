@@ -84,6 +84,12 @@ export function BlockEditorModal({
           : makeDefaultStdPage();
       editor.reset(initial);
 
+      // Load campaign-level settings (legacy fields kept for backward compat)
+      const legacyCampaignKey = pageKind === "rsvp" ? "rsvp" : "save_the_date";
+      const legacyCampaign = (cfg[legacyCampaignKey] as any) || {};
+      setDeadlineDate(legacyCampaign.deadline_date || "");
+      setWhatsappTemplate(legacyCampaign.whatsapp_message_template || "");
+
       const [p1, p2] = (partnerNames || "").split("&").map((s) => s.trim());
       setPreviewWedding({
         partner1Name: p1 || partnerNames || "Anna",
