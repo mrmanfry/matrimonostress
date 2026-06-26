@@ -294,6 +294,8 @@ const StepImporto: React.FC<{
           <PaperLabel required hint="Il costo per ogni invitato">Prezzo a persona</PaperLabel>
           <Money value={form.unit} onChange={v => upd('unit', v)} placeholder="Es. 85"/>
         </div>
+        <VatRow form={form} upd={upd} />
+
         {form.unit > 0 && (
           <div style={{
             padding: '14px 16px', background: 'hsl(var(--paper-brand-tint))',
