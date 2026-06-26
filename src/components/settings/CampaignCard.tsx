@@ -63,20 +63,18 @@ interface CampaignCardProps {
     sent: number;
     responded: number;
   };
-  onConfigure: () => void;
   onPreview: () => void;
   onToggleStatus: () => void;
-  onAdvancedEditor?: () => void;
+  onEdit: () => void;
 }
 
 const CampaignCard = ({
   type,
   config,
   stats,
-  onConfigure,
   onPreview,
   onToggleStatus,
-  onAdvancedEditor,
+  onEdit,
 }: CampaignCardProps) => {
   const isSTD = type === "save_the_date";
   
