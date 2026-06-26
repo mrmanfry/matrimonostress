@@ -26,7 +26,10 @@ export interface ExpenseWizardValues {
   unit: number;      // for 'per_person' / 'per_unit'
   qty: number;       // for 'per_unit'
   audience: AudienceMap; // for 'per_audience'
-  // computed at save-time
+  // VAT (for fixed / per_person / per_unit; per_audience has its own per row)
+  tax_rate: number;
+  tax_inclusive: boolean;
+  // computed at save-time (gross, IVA inclusa)
   computedTotal: number;
   // payments
   hasPayments: boolean;
@@ -35,6 +38,7 @@ export interface ExpenseWizardValues {
   n_rate: number;
   payments: SchedulePayment[];
 }
+
 
 interface Props {
   open: boolean;
@@ -70,6 +74,8 @@ export const ExpenseWizard: React.FC<Props> = ({
       description: '',
       total: 0, unit: 0, qty: 0,
       audience: emptyAudienceMap(),
+      tax_rate: 22, tax_inclusive: true,
+
       computedTotal: 0,
       hasPayments: false,
       scheme: 'single',
@@ -86,15 +92,17 @@ export const ExpenseWizard: React.FC<Props> = ({
   const cPlan = countsPlanned ?? { adults: guestsPlanned, children: 0, staff: 0 };
   const cConf = countsConfirmed ?? { adults: guestsConfirmed, children: 0, staff: 0 };
 
-  // Computed totals (planned vs confirmed scenario).
+  // Computed totals (planned vs confirmed scenario). Sempre lordi (IVA inclusa).
   const computed = React.useMemo(() => {
-    if (form.kind === 'per_person') return { planned: form.unit * guestsPlanned, confirmed: form.unit * guestsConfirmed };
-    if (form.kind === 'per_unit')   return { planned: form.unit * form.qty,      confirmed: form.unit * form.qty };
+    const grossMul = form.tax_inclusive ? 1 : (1 + (form.tax_rate || 0) / 100);
+    if (form.kind === 'per_person') return { planned: form.unit * grossMul * guestsPlanned, confirmed: form.unit * grossMul * guestsConfirmed };
+    if (form.kind === 'per_unit')   return { planned: form.unit * grossMul * form.qty,      confirmed: form.unit * grossMul * form.qty };
     if (form.kind === 'per_audience') {
       return { planned: audienceTotal(form.audience, cPlan), confirmed: audienceTotal(form.audience, cConf) };
     }
-    return { planned: form.total, confirmed: form.total };
-  }, [form.kind, form.unit, form.qty, form.total, form.audience, guestsPlanned, guestsConfirmed, cPlan, cConf]);
+    return { planned: form.total * grossMul, confirmed: form.total * grossMul };
+  }, [form.kind, form.unit, form.qty, form.total, form.audience, form.tax_rate, form.tax_inclusive, guestsPlanned, guestsConfirmed, cPlan, cConf]);
+
 
   const canNext = (): boolean => {
     if (step === 0) return form.description.trim().length > 0;
@@ -256,6 +264,47 @@ export const Money: React.FC<{ value: number; onChange: (n: number) => void; pla
   </div>
 );
 
+const VatRow: React.FC<{
+  form: ExpenseWizardValues;
+  upd: <K extends keyof ExpenseWizardValues>(k: K, v: ExpenseWizardValues[K]) => void;
+}> = ({ form, upd }) => (
+  <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: 12 }}>
+    <div>
+      <PaperLabel>IVA %</PaperLabel>
+      <PaperInput
+        type="number" min={0} max={100} step="0.5"
+        value={form.tax_rate}
+        onChange={e => upd('tax_rate', parseFloat(e.target.value) || 0)}
+        style={{ fontFamily: FONT_MONO }}
+      />
+    </div>
+    <div>
+      <PaperLabel>Modalità IVA</PaperLabel>
+      <PaperSelect
+        value={form.tax_inclusive ? 'incl' : 'excl'}
+        onChange={v => upd('tax_inclusive', v === 'incl')}
+        options={[
+          { value: 'incl', label: 'IVA inclusa nel prezzo' },
+          { value: 'excl', label: 'IVA da aggiungere' },
+        ]}
+      />
+    </div>
+  </div>
+);
+
+const TotalPreview: React.FC<{ label: string; gross: number }> = ({ label, gross }) => (
+  <div style={{
+    padding: '14px 16px', background: 'hsl(var(--paper-brand-tint))',
+    border: `1px solid ${border()}`, borderRadius: 10,
+    display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+  }}>
+    <span style={{ fontSize: 13, color: ink(2) }}>{label} <span style={{ fontSize: 11, color: ink(3) }}>· IVA inclusa</span></span>
+    <span style={{ fontFamily: FONT_SERIF, fontSize: 20, fontWeight: 500, color: ink() }}>{fmtEUR(gross)}</span>
+  </div>
+);
+
+
+
 const StepImporto: React.FC<{
   form: ExpenseWizardValues;
   upd: <K extends keyof ExpenseWizardValues>(k: K, v: ExpenseWizardValues[K]) => void;
@@ -267,11 +316,18 @@ const StepImporto: React.FC<{
 }> = ({ form, upd, computed, guestsPlanned, guestsConfirmed, countsPlanned, countsConfirmed }) => (
   <div style={{ display: 'grid', gap: 18, fontFamily: FONT_UI }}>
     {form.kind === 'fixed' && (
-      <div>
-        <PaperLabel required>Importo totale</PaperLabel>
-        <Money value={form.total} onChange={v => upd('total', v)}/>
-      </div>
+      <>
+        <div>
+          <PaperLabel required>Importo totale</PaperLabel>
+          <Money value={form.total} onChange={v => upd('total', v)}/>
+        </div>
+        <VatRow form={form} upd={upd} />
+        {form.total > 0 && (
+          <TotalPreview label="Totale finale" gross={computed.planned} />
+        )}
+      </>
     )}
+
 
     {form.kind === 'per_person' && (
       <>
@@ -279,6 +335,8 @@ const StepImporto: React.FC<{
           <PaperLabel required hint="Il costo per ogni invitato">Prezzo a persona</PaperLabel>
           <Money value={form.unit} onChange={v => upd('unit', v)} placeholder="Es. 85"/>
         </div>
+        <VatRow form={form} upd={upd} />
+
         {form.unit > 0 && (
           <div style={{
             padding: '14px 16px', background: 'hsl(var(--paper-brand-tint))',
@@ -327,6 +385,8 @@ const StepImporto: React.FC<{
             />
           </div>
         </div>
+        <VatRow form={form} upd={upd} />
+
         {form.unit > 0 && form.qty > 0 && (
           <div style={{
             padding: '16px 18px', background: 'hsl(var(--paper-surface-muted))',
