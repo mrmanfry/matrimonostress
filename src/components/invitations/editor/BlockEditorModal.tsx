@@ -245,7 +245,50 @@ export function BlockEditorModal({
           <div className="flex-1 grid grid-cols-12 gap-0 min-h-0">
             {/* LEFT: block list */}
             <aside className="col-span-3 border-r flex flex-col min-h-0">
-              <div className="p-3 border-b">
+              <div className="p-3 border-b space-y-2">
+                <Button
+                  type="button"
+                  variant={settingsOpen ? "secondary" : "outline"}
+                  size="sm"
+                  className="w-full justify-start"
+                  onClick={() => setSettingsOpen((v) => !v)}
+                >
+                  <Settings2 className="w-4 h-4 mr-2" />
+                  Impostazioni campagna
+                </Button>
+                {settingsOpen && (
+                  <div className="rounded-md border bg-muted/30 p-3 space-y-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="campaign-deadline" className="text-xs">
+                        Scadenza {pageKind === "rsvp" ? "RSVP" : "Save The Date"}
+                      </Label>
+                      <Input
+                        id="campaign-deadline"
+                        type="date"
+                        value={deadlineDate}
+                        onChange={(e) => setDeadlineDate(e.target.value)}
+                      />
+                      <p className="text-[11px] text-muted-foreground">
+                        Dopo questa data la pagina pubblica viene chiusa.
+                      </p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="campaign-whatsapp" className="text-xs">
+                        Messaggio WhatsApp
+                      </Label>
+                      <Textarea
+                        id="campaign-whatsapp"
+                        value={whatsappTemplate}
+                        onChange={(e) => setWhatsappTemplate(e.target.value)}
+                        rows={4}
+                        placeholder="Ciao {nome}, ecco il link…"
+                      />
+                      <p className="text-[11px] text-muted-foreground">
+                        Usa {"{nome}"} e {"{link}"} come segnaposto.
+                      </p>
+                    </div>
+                  </div>
+                )}
                 <AddBlockMenu pageKind={pageKind} onAdd={editor.addBlock} />
               </div>
               <ScrollArea className="flex-1">
@@ -262,6 +305,7 @@ export function BlockEditorModal({
                 </div>
               </ScrollArea>
             </aside>
+
 
             {/* CENTER: live preview */}
             <main className="col-span-6 bg-muted/30 flex flex-col min-h-0">
