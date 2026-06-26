@@ -34,7 +34,7 @@ import { RSVPCampaignDialog } from "@/components/guests/RSVPCampaignDialog";
 import PrintInvitationEditor from "@/components/print/PrintInvitationEditor";
 import PrintStudio from "@/components/invitations/PrintStudio";
 import CampaignCard, { CampaignsConfig } from "@/components/settings/CampaignCard";
-import CampaignConfigDialog from "@/components/settings/CampaignConfigDialog";
+
 import { RSVPConfigDialog } from "@/components/settings/RSVPConfigDialog";
 import { BlockEditorModal } from "@/components/invitations/editor/BlockEditorModal";
 import type { PageKind } from "@/lib/invitationBlocks/types";
@@ -122,11 +122,10 @@ const Invitations = () => {
   const [printStudioOpen, setPrintStudioOpen] = useState(false);
 
   // Campaign dialog states
-  const [stdConfigDialogOpen, setStdConfigDialogOpen] = useState(false);
-  const [rsvpCampaignDialogOpen, setRsvpCampaignDialogOpen] = useState(false);
   const [rsvpConfigDialogOpen, setRsvpConfigDialogOpen] = useState(false);
   const [activityDialogOpen, setActivityDialogOpen] = useState(false);
   const [blockEditorPage, setBlockEditorPage] = useState<PageKind | null>(null);
+
 
   const campaignsConfig: CampaignsConfig = rawCampaignsConfig || getDefaultCampaignsConfig();
 
@@ -639,21 +638,20 @@ const Invitations = () => {
                   type="save_the_date"
                   config={campaignsConfig.save_the_date}
                   stats={campaignStats?.save_the_date || { sent: 0, responded: 0 }}
-                  onConfigure={() => setStdConfigDialogOpen(true)}
                   onPreview={() => handlePreviewCampaign("save_the_date")}
                   onToggleStatus={() => handleToggleCampaignStatus("save_the_date")}
-                  onAdvancedEditor={() => setBlockEditorPage("std")}
+                  onEdit={() => setBlockEditorPage("std")}
                 />
                 <CampaignCard
                   type="rsvp"
                   config={campaignsConfig.rsvp}
                   stats={campaignStats?.rsvp || { sent: 0, responded: 0 }}
-                  onConfigure={() => setRsvpCampaignDialogOpen(true)}
                   onPreview={() => handlePreviewCampaign("rsvp")}
                   onToggleStatus={() => handleToggleCampaignStatus("rsvp")}
-                  onAdvancedEditor={() => setBlockEditorPage("rsvp")}
+                  onEdit={() => setBlockEditorPage("rsvp")}
                 />
               </div>
+
 
               {/* Style global */}
               <Card className="p-4 md:p-5 shadow-sm">
@@ -806,27 +804,8 @@ const Invitations = () => {
         weddingId={weddingId || ""}
       />
 
-      <CampaignConfigDialog
-        open={stdConfigDialogOpen}
-        onOpenChange={setStdConfigDialogOpen}
-        weddingId={weddingId || ""}
-        campaignType="save_the_date"
-        currentConfig={campaignsConfig}
-        partnerNames={partnerNames}
-        weddingDate={weddingDate}
-        onSave={() => refetch()}
-      />
 
-      <CampaignConfigDialog
-        open={rsvpCampaignDialogOpen}
-        onOpenChange={setRsvpCampaignDialogOpen}
-        weddingId={weddingId || ""}
-        campaignType="rsvp"
-        currentConfig={campaignsConfig}
-        partnerNames={partnerNames}
-        weddingDate={weddingDate}
-        onSave={() => refetch()}
-      />
+
 
       <RSVPConfigDialog
         open={rsvpConfigDialogOpen}

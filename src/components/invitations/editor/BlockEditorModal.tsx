@@ -7,8 +7,11 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Undo2, Redo2, Smartphone, RotateCcw } from "lucide-react";
+import { Loader2, Undo2, Redo2, Smartphone, RotateCcw, Settings2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import type { InvitationPageSchema, PageKind } from "@/lib/invitationBlocks/types";
@@ -47,6 +50,9 @@ export function BlockEditorModal({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [previewWedding, setPreviewWedding] = useState<WeddingPublicData | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [deadlineDate, setDeadlineDate] = useState<string>("");
+  const [whatsappTemplate, setWhatsappTemplate] = useState<string>("");
 
   const editor = useInvitationPageEditor(
     pageKind === "rsvp" ? makeDefaultRsvpPage() : makeDefaultStdPage()
@@ -77,6 +83,12 @@ export function BlockEditorModal({
           ? makeDefaultRsvpPage()
           : makeDefaultStdPage();
       editor.reset(initial);
+
+      // Load campaign-level settings (legacy fields kept for backward compat)
+      const legacyCampaignKey = pageKind === "rsvp" ? "rsvp" : "save_the_date";
+      const legacyCampaign = (cfg[legacyCampaignKey] as any) || {};
+      setDeadlineDate(legacyCampaign.deadline_date || "");
+      setWhatsappTemplate(legacyCampaign.whatsapp_message_template || "");
 
       const [p1, p2] = (partnerNames || "").split("&").map((s) => s.trim());
       setPreviewWedding({
@@ -115,7 +127,15 @@ export function BlockEditorModal({
       const cfg = (current?.campaigns_config as any) || {};
       const pages = { ...(cfg.pages || {}) };
       pages[pageKind] = editor.schema;
-      const updated = { ...cfg, pages };
+
+      // Persist campaign-level settings into the legacy campaign branch (used by
+      // public pages as fallback and by status/deadline checks).
+      const legacyCampaignKey = pageKind === "rsvp" ? "rsvp" : "save_the_date";
+      const legacyCampaign = { ...((cfg[legacyCampaignKey] as any) || {}) };
+      legacyCampaign.deadline_date = deadlineDate || null;
+      legacyCampaign.whatsapp_message_template = whatsappTemplate || null;
+
+      const updated = { ...cfg, pages, [legacyCampaignKey]: legacyCampaign };
 
       const { error } = await supabase
         .from("weddings")
@@ -225,7 +245,50 @@ export function BlockEditorModal({
           <div className="flex-1 grid grid-cols-12 gap-0 min-h-0">
             {/* LEFT: block list */}
             <aside className="col-span-3 border-r flex flex-col min-h-0">
-              <div className="p-3 border-b">
+              <div className="p-3 border-b space-y-2">
+                <Button
+                  type="button"
+                  variant={settingsOpen ? "secondary" : "outline"}
+                  size="sm"
+                  className="w-full justify-start"
+                  onClick={() => setSettingsOpen((v) => !v)}
+                >
+                  <Settings2 className="w-4 h-4 mr-2" />
+                  Impostazioni campagna
+                </Button>
+                {settingsOpen && (
+                  <div className="rounded-md border bg-muted/30 p-3 space-y-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="campaign-deadline" className="text-xs">
+                        Scadenza {pageKind === "rsvp" ? "RSVP" : "Save The Date"}
+                      </Label>
+                      <Input
+                        id="campaign-deadline"
+                        type="date"
+                        value={deadlineDate}
+                        onChange={(e) => setDeadlineDate(e.target.value)}
+                      />
+                      <p className="text-[11px] text-muted-foreground">
+                        Dopo questa data la pagina pubblica viene chiusa.
+                      </p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="campaign-whatsapp" className="text-xs">
+                        Messaggio WhatsApp
+                      </Label>
+                      <Textarea
+                        id="campaign-whatsapp"
+                        value={whatsappTemplate}
+                        onChange={(e) => setWhatsappTemplate(e.target.value)}
+                        rows={4}
+                        placeholder="Ciao {nome}, ecco il link…"
+                      />
+                      <p className="text-[11px] text-muted-foreground">
+                        Usa {"{nome}"} e {"{link}"} come segnaposto.
+                      </p>
+                    </div>
+                  </div>
+                )}
                 <AddBlockMenu pageKind={pageKind} onAdd={editor.addBlock} />
               </div>
               <ScrollArea className="flex-1">
@@ -242,6 +305,7 @@ export function BlockEditorModal({
                 </div>
               </ScrollArea>
             </aside>
+
 
             {/* CENTER: live preview */}
             <main className="col-span-6 bg-muted/30 flex flex-col min-h-0">
