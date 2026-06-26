@@ -639,21 +639,20 @@ const Invitations = () => {
                   type="save_the_date"
                   config={campaignsConfig.save_the_date}
                   stats={campaignStats?.save_the_date || { sent: 0, responded: 0 }}
-                  onConfigure={() => setStdConfigDialogOpen(true)}
                   onPreview={() => handlePreviewCampaign("save_the_date")}
                   onToggleStatus={() => handleToggleCampaignStatus("save_the_date")}
-                  onAdvancedEditor={() => setBlockEditorPage("std")}
+                  onEdit={() => setBlockEditorPage("std")}
                 />
                 <CampaignCard
                   type="rsvp"
                   config={campaignsConfig.rsvp}
                   stats={campaignStats?.rsvp || { sent: 0, responded: 0 }}
-                  onConfigure={() => setRsvpCampaignDialogOpen(true)}
                   onPreview={() => handlePreviewCampaign("rsvp")}
                   onToggleStatus={() => handleToggleCampaignStatus("rsvp")}
-                  onAdvancedEditor={() => setBlockEditorPage("rsvp")}
+                  onEdit={() => setBlockEditorPage("rsvp")}
                 />
               </div>
+
 
               {/* Style global */}
               <Card className="p-4 md:p-5 shadow-sm">
