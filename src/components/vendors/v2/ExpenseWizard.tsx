@@ -347,7 +347,7 @@ const StepImporto: React.FC<{
 );
 
 // ─── Audience editor (per_audience) ───
-const AudienceEditor: React.FC<{
+export const AudienceEditor: React.FC<{
   audience: AudienceMap;
   onChange: (a: AudienceMap) => void;
   countsPlanned: { adults: number; children: number; staff: number };
