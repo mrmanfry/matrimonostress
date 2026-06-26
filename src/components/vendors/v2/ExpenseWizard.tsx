@@ -264,6 +264,47 @@ export const Money: React.FC<{ value: number; onChange: (n: number) => void; pla
   </div>
 );
 
+const VatRow: React.FC<{
+  form: ExpenseWizardValues;
+  upd: <K extends keyof ExpenseWizardValues>(k: K, v: ExpenseWizardValues[K]) => void;
+}> = ({ form, upd }) => (
+  <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: 12 }}>
+    <div>
+      <PaperLabel>IVA %</PaperLabel>
+      <PaperInput
+        type="number" min={0} max={100} step="0.5"
+        value={form.tax_rate}
+        onChange={e => upd('tax_rate', parseFloat(e.target.value) || 0)}
+        style={{ fontFamily: FONT_MONO }}
+      />
+    </div>
+    <div>
+      <PaperLabel>Modalità IVA</PaperLabel>
+      <PaperSelect
+        value={form.tax_inclusive ? 'incl' : 'excl'}
+        onChange={v => upd('tax_inclusive', v === 'incl')}
+        options={[
+          { value: 'incl', label: 'IVA inclusa nel prezzo' },
+          { value: 'excl', label: 'IVA da aggiungere' },
+        ]}
+      />
+    </div>
+  </div>
+);
+
+const TotalPreview: React.FC<{ label: string; gross: number }> = ({ label, gross }) => (
+  <div style={{
+    padding: '14px 16px', background: 'hsl(var(--paper-brand-tint))',
+    border: `1px solid ${border()}`, borderRadius: 10,
+    display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+  }}>
+    <span style={{ fontSize: 13, color: ink(2) }}>{label} <span style={{ fontSize: 11, color: ink(3) }}>· IVA inclusa</span></span>
+    <span style={{ fontFamily: FONT_SERIF, fontSize: 20, fontWeight: 500, color: ink() }}>{fmtEUR(gross)}</span>
+  </div>
+);
+
+
+
 const StepImporto: React.FC<{
   form: ExpenseWizardValues;
   upd: <K extends keyof ExpenseWizardValues>(k: K, v: ExpenseWizardValues[K]) => void;
