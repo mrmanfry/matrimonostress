@@ -308,13 +308,14 @@ const CampaignConfigDialog = ({
           };
 
       const isSTDCampaign = campaignType === "save_the_date";
+      const filteredFaqs = faqs.filter(f => f.question.trim() && f.answer.trim());
       updatedConfig[campaignType] = {
         ...updatedConfig[campaignType],
         hero_image_url: heroImageUrl,
         welcome_title: trimmedTitle || (isSTDCampaign ? "Save The Date!" : "Conferma la tua Presenza"),
         welcome_text: trimmedText || (isSTDCampaign ? "Segnati questa data!" : "Non vediamo l'ora di festeggiare con voi!"),
         deadline_date: deadlineDate || null,
-        faqs: faqs.filter(f => f.question.trim() && f.answer.trim()),
+        faqs: filteredFaqs,
         gift_info: {
           enabled: giftEnabled,
           message: giftMessage,
@@ -328,6 +329,42 @@ const CampaignConfigDialog = ({
         ceremony_image_url: ceremonyImageUrl || null,
         reception_image_url: receptionImageUrl || null,
       };
+
+      // Sync the FAQ block inside the new block-based page schema (pages.rsvp / pages.std)
+      // so edits made here are reflected on the live public invitation page, which renders
+      // from `campaigns_config.pages.<kind>` when present.
+      try {
+        const cfgAny = updatedConfig as any;
+        const pageKey = isSTDCampaign ? "std" : "rsvp";
+        const altKey = isSTDCampaign ? "save_the_date" : null;
+        const pages = cfgAny.pages;
+        const targetPage = pages?.[pageKey] || (altKey ? pages?.[altKey] : null);
+        if (targetPage && Array.isArray(targetPage.blocks)) {
+          const newBlocks = targetPage.blocks.map((b: any) => {
+            if (b?.type === "faq") {
+              const prevItems = Array.isArray(b.config?.items) ? b.config.items : [];
+              return {
+                ...b,
+                config: {
+                  ...b.config,
+                  items: filteredFaqs.map((f, i) => ({
+                    id: prevItems[i]?.id || (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `faq-${Date.now()}-${i}`),
+                    question: f.question,
+                    answer: f.answer,
+                  })),
+                },
+              };
+            }
+            return b;
+          });
+          cfgAny.pages = {
+            ...pages,
+            [pageKey]: { ...targetPage, blocks: newBlocks },
+          };
+        }
+      } catch (syncErr) {
+        console.warn("FAQ block sync skipped:", syncErr);
+      }
 
       updatedConfig.theme = {
         ...updatedConfig.theme,
