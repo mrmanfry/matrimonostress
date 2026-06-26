@@ -150,36 +150,26 @@ const CampaignCard = ({
         
         {/* Actions */}
         <div className="flex flex-wrap gap-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={onConfigure}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onEdit}
             className="flex-1"
+            title="Modifica contenuti e impostazioni della pagina"
           >
-            <Settings2 className="w-4 h-4 mr-1" />
-            Configura
+            <LayoutPanelLeft className="w-4 h-4 mr-1" />
+            Modifica
           </Button>
-          
-          <Button 
-            variant="outline" 
-            size="sm" 
+
+          <Button
+            variant="outline"
+            size="sm"
             onClick={onPreview}
           >
             <Eye className="w-4 h-4 mr-1" />
             Anteprima
           </Button>
 
-          {onAdvancedEditor && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onAdvancedEditor}
-              title="Editor a blocchi avanzato"
-            >
-              <LayoutPanelLeft className="w-4 h-4 mr-1" />
-              Layout
-            </Button>
-          )}
           
           {config.status !== "closed" && (
             <Button 
