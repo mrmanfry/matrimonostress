@@ -324,16 +324,31 @@ export const EditAudiencePricesDialog: React.FC<Props> = ({
                 />
               </div>
             </div>
-            <div style={{
-              padding: '14px 16px', background: 'hsl(var(--paper-brand-tint))',
-              border: `1px solid ${border()}`, borderRadius: 10,
-              display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
-            }}>
-              <span style={{ fontSize: 13, color: ink(2) }}>Totale</span>
-              <span style={{ fontFamily: FONT_SERIF, fontSize: 20, fontWeight: 500, color: ink() }}>
-                {fmtEUR(fixedAmount)}
-              </span>
-            </div>
+            {(() => {
+              const gross = fixedTaxInclusive
+                ? fixedAmount
+                : fixedAmount * (1 + (fixedTaxRate || 0) / 100);
+              return (
+                <div style={{
+                  padding: '14px 16px', background: 'hsl(var(--paper-brand-tint))',
+                  border: `1px solid ${border()}`, borderRadius: 10,
+                  display: 'grid', gap: 4,
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                    <span style={{ fontSize: 13, color: ink(2) }}>Totale (IVA inclusa)</span>
+                    <span style={{ fontFamily: FONT_SERIF, fontSize: 20, fontWeight: 500, color: ink() }}>
+                      {fmtEUR(gross)}
+                    </span>
+                  </div>
+                  {!fixedTaxInclusive && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: ink(3), fontSize: 12 }}>
+                      <span>Imponibile {fmtEUR(fixedAmount)} + IVA {fixedTaxRate}%</span>
+                      <span style={{ fontFamily: FONT_MONO }}>+{fmtEUR(gross - fixedAmount)}</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </>
         )}
       </div>
