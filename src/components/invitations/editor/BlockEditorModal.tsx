@@ -180,15 +180,15 @@ export function BlockEditorModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] w-full h-[92vh] p-0 flex flex-col overflow-hidden">
-        <DialogHeader className="px-4 pt-4 pb-2 border-b">
+      <DialogContent className="max-w-[95vw] w-full h-[92vh] p-0 flex flex-col overflow-hidden rounded-3xl border-border/60 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.18)] bg-background">
+        <DialogHeader className="px-5 py-3 border-b border-border/60 bg-background">
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
-              <DialogTitle>
+              <DialogTitle className="text-base">
                 Editor a blocchi —{" "}
                 {pageKind === "rsvp" ? "Invito RSVP" : "Save The Date"}
               </DialogTitle>
-              <DialogDescription>
+              <DialogDescription className="text-xs">
                 Riordina, mostra/nascondi e personalizza ogni sezione
               </DialogDescription>
             </div>
@@ -199,6 +199,7 @@ export function BlockEditorModal({
                 onClick={editor.undo}
                 disabled={!editor.canUndo}
                 title="Annulla"
+                aria-label="Annulla"
               >
                 <Undo2 className="w-4 h-4" />
               </Button>
@@ -208,6 +209,7 @@ export function BlockEditorModal({
                 onClick={editor.redo}
                 disabled={!editor.canRedo}
                 title="Ripeti"
+                aria-label="Ripeti"
               >
                 <Redo2 className="w-4 h-4" />
               </Button>
@@ -223,7 +225,11 @@ export function BlockEditorModal({
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 Annulla
               </Button>
-              <Button onClick={handleSave} disabled={saving || loading}>
+              <Button
+                onClick={handleSave}
+                disabled={saving || loading}
+                className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
+              >
                 {saving ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -244,22 +250,22 @@ export function BlockEditorModal({
         ) : (
           <div className="flex-1 grid grid-cols-12 gap-0 min-h-0">
             {/* LEFT: block list */}
-            <aside className="col-span-3 border-r flex flex-col min-h-0">
-              <div className="p-3 border-b space-y-2">
+            <aside className="col-span-3 border-r border-border/60 flex flex-col min-h-0 bg-muted/30">
+              <div className="p-4 border-b border-border/60 space-y-3 bg-background/50">
                 <Button
                   type="button"
-                  variant={settingsOpen ? "secondary" : "outline"}
+                  variant={settingsOpen ? "secondary" : "ghost"}
                   size="sm"
-                  className="w-full justify-start"
+                  className="w-full justify-start font-medium"
                   onClick={() => setSettingsOpen((v) => !v)}
                 >
-                  <Settings2 className="w-4 h-4 mr-2" />
+                  <Settings2 className="w-4 h-4 mr-2 text-muted-foreground" />
                   Impostazioni campagna
                 </Button>
                 {settingsOpen && (
-                  <div className="rounded-md border bg-muted/30 p-3 space-y-3">
+                  <div className="rounded-xl border border-border/60 bg-background p-3 space-y-3 shadow-sm">
                     <div className="space-y-1.5">
-                      <Label htmlFor="campaign-deadline" className="text-xs">
+                      <Label htmlFor="campaign-deadline" className="text-xs font-medium">
                         Scadenza {pageKind === "rsvp" ? "RSVP" : "Save The Date"}
                       </Label>
                       <Input
@@ -273,7 +279,7 @@ export function BlockEditorModal({
                       </p>
                     </div>
                     <div className="space-y-1.5">
-                      <Label htmlFor="campaign-whatsapp" className="text-xs">
+                      <Label htmlFor="campaign-whatsapp" className="text-xs font-medium">
                         Messaggio WhatsApp
                       </Label>
                       <Textarea
@@ -308,60 +314,72 @@ export function BlockEditorModal({
 
 
             {/* CENTER: live preview */}
-            <main className="col-span-6 bg-muted/30 flex flex-col min-h-0">
-              <div className="px-3 py-2 border-b flex items-center gap-2 text-xs text-muted-foreground">
-                <Smartphone className="w-3.5 h-3.5" />
-                Anteprima live
+            <main className="col-span-6 bg-muted/40 flex flex-col min-h-0 relative">
+              <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-background px-3 py-1.5 rounded-full border border-border/60 shadow-sm">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full rounded-full bg-primary opacity-60 animate-ping" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+                </span>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Anteprima Live
+                </span>
               </div>
               <ScrollArea className="flex-1">
-                <div className="p-6 flex justify-center">
-                  <div className="w-[380px] bg-background border rounded-2xl overflow-hidden shadow-xl">
-                    <PublicInvitationPage
-                      schema={{
-                        ...editor.schema,
-                        blocks: editor.schema.blocks.filter((b) => b.visible),
-                      }}
-                      pageKind={pageKind}
-                      wedding={previewWedding}
-                      members={previewMembers}
-                      memberData={{}}
-                      onMemberDataChange={() => {}}
-                      onSubmitRsvp={async () => {
-                        toast({ title: "Anteprima", description: "Solo test" });
-                      }}
-                      submitting={false}
-                      isReadOnly={false}
-                      deadlineDate={null}
-                      guestDisplayName="Mario"
-                      coupleName={partnerNames || "Anna & Marco"}
-                      weddingLocation={previewWedding.location}
-                      ceremonyStartTime={previewWedding.ceremonyStartTime}
-                      isPreview={true}
-                      onSubmitStd={async () => {
-                        toast({ title: "Anteprima", description: "Solo test" });
-                      }}
-                    />
+                <div className="p-8 flex justify-center">
+                  {/* Phone bezel */}
+                  <div className="relative w-[360px] bg-stone-900 rounded-[2.75rem] p-3 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.45)] ring-1 ring-stone-800">
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-28 h-5 bg-stone-900 rounded-b-2xl z-20" />
+                    <div className="bg-background rounded-[2rem] overflow-hidden">
+                      <PublicInvitationPage
+                        schema={{
+                          ...editor.schema,
+                          blocks: editor.schema.blocks.filter((b) => b.visible),
+                        }}
+                        pageKind={pageKind}
+                        wedding={previewWedding}
+                        members={previewMembers}
+                        memberData={{}}
+                        onMemberDataChange={() => {}}
+                        onSubmitRsvp={async () => {
+                          toast({ title: "Anteprima", description: "Solo test" });
+                        }}
+                        submitting={false}
+                        isReadOnly={false}
+                        deadlineDate={null}
+                        guestDisplayName="Mario"
+                        coupleName={partnerNames || "Anna & Marco"}
+                        weddingLocation={previewWedding.location}
+                        ceremonyStartTime={previewWedding.ceremonyStartTime}
+                        isPreview={true}
+                        onSubmitStd={async () => {
+                          toast({ title: "Anteprima", description: "Solo test" });
+                        }}
+                      />
+                    </div>
                   </div>
                 </div>
               </ScrollArea>
             </main>
 
             {/* RIGHT: inspector */}
-            <aside className="col-span-3 border-l flex flex-col min-h-0">
-              <div className="px-3 py-2 border-b">
-                <div className="text-sm font-semibold">
+            <aside className="col-span-3 border-l border-border/60 flex flex-col min-h-0 bg-background">
+              <div className="px-4 py-3 border-b border-border/60">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Proprietà blocco
+                </div>
+                <div className="text-sm font-semibold mt-0.5">
                   {selectedBlock
                     ? BLOCK_META[selectedBlock.type].label
                     : "Nessun blocco selezionato"}
                 </div>
                 {selectedBlock && (
-                  <div className="text-xs text-muted-foreground">
+                  <div className="text-xs text-muted-foreground mt-0.5">
                     {BLOCK_META[selectedBlock.type].description}
                   </div>
                 )}
               </div>
               <ScrollArea className="flex-1">
-                <div className="p-3 space-y-4">
+                <div className="p-4 space-y-4">
                   {selectedBlock ? (
                     <>
                       <BlockInspector
@@ -377,8 +395,16 @@ export function BlockEditorModal({
                       />
                     </>
                   ) : (
-                    <div className="text-sm text-muted-foreground text-center py-8">
-                      Seleziona un blocco a sinistra per modificarlo.
+                    <div className="flex flex-col items-center justify-center text-center py-12 px-4">
+                      <div className="w-16 h-16 bg-muted rounded-2xl flex items-center justify-center mb-4">
+                        <Settings2 className="w-7 h-7 text-muted-foreground/50" />
+                      </div>
+                      <p className="text-sm font-medium text-foreground/80">
+                        Nessun blocco selezionato
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1 leading-relaxed max-w-[220px]">
+                        Seleziona un blocco a sinistra per modificarne contenuti e design.
+                      </p>
                     </div>
                   )}
                 </div>
