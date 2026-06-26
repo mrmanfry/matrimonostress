@@ -946,37 +946,44 @@ const ExpensesList: React.FC<{
   const [draftDesc, setDraftDesc] = React.useState('');
   const [draftTotal, setDraftTotal] = React.useState<string>('');
   const [draftUnit, setDraftUnit] = React.useState<string>('');
+  const [draftType, setDraftType] = React.useState<'fixed' | 'per_person' | 'per_audience'>('fixed');
 
   const startEdit = (it: DbExpenseItem, total: number) => {
+    const hasLI = ((lineItemsByExpenseItem[it.id] || []).length) > 0;
+    const isVar = (it.expense_type ?? '').toLowerCase() === 'variable';
+    const initialType: 'fixed' | 'per_person' | 'per_audience' =
+      isVar && hasLI ? 'per_audience' : isVar ? 'per_person' : 'fixed';
     setEditingId(it.id);
     setDraftDesc(it.description);
     setDraftTotal(String(total));
     setDraftUnit(it.estimated_amount != null ? String(it.estimated_amount) : '');
+    setDraftType(initialType);
   };
   const cancelEdit = () => { setEditingId(null); };
   const saveEdit = async (it: DbExpenseItem) => {
-    const isVariable = (it.expense_type ?? '').toLowerCase() === 'variable';
     const hasLineItems = ((lineItemsByExpenseItem[it.id] || []).length) > 0;
     const patch: any = { description: draftDesc.trim() || it.description };
-    if (isVariable) {
-      // Per spese variabili NON sovrascriviamo il totale (= prezzo unitario × invitati).
-      // Si modifica il prezzo unitario; per "per_audience" (con line items) si rimanda al wizard.
-      if (!hasLineItems) {
-        const newUnit = Number(draftUnit);
-        if (!Number.isNaN(newUnit) && newUnit >= 0) {
-          patch.estimated_amount = newUnit;
-        }
-      }
-    } else {
+    let clearLineItems = false;
+    if (draftType === 'per_person') {
+      patch.expense_type = 'variable';
+      const newUnit = Number(draftUnit);
+      if (!Number.isNaN(newUnit) && newUnit >= 0) patch.estimated_amount = newUnit;
+      if (hasLineItems) clearLineItems = true;
+    } else if (draftType === 'fixed') {
+      patch.expense_type = 'fixed';
       const newTotal = Number(draftTotal);
       if (!Number.isNaN(newTotal) && newTotal >= 0) {
         patch.total_amount = newTotal;
         patch.fixed_amount = newTotal;
+        patch.estimated_amount = newTotal;
       }
+      if (hasLineItems) clearLineItems = true;
     }
-    await onUpdateItem(it.id, patch);
+    // per_audience handled via dialog, not here
+    await onUpdateItem(it.id, patch, { clearLineItems });
     setEditingId(null);
   };
+
 
   return (
     <PaperCard padding={0} style={{ overflow: 'hidden' }}>
