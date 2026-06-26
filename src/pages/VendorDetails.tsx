@@ -14,14 +14,17 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import {
   PaperButton, PaperProgress, PaperEmpty, PaperSectionHeader, ContactLine, PaperAvatar,
+  PaperInput, PaperSelect, PaperLabel,
   ink, surface, border, brand, success, warn, FONT_SERIF, FONT_UI, FONT_MONO,
 } from '@/components/vendors/v2/PaperUI';
 import { PaperBadge, PaperCard } from '@/components/budget/v2/paperPrimitives';
 import { PaymentAllocationDialog } from '@/components/budget/v2/PaymentAllocationDialog';
 import { VendorFormModal, VendorFormValues } from '@/components/vendors/v2/VendorFormModal';
 import { DeleteVendorDialog } from '@/components/vendors/v2/DeleteVendorDialog';
-import { ExpenseWizard, ExpenseWizardValues } from '@/components/vendors/v2/ExpenseWizard';
-import { EditAudiencePricesDialog } from '@/components/vendors/v2/EditAudiencePricesDialog';
+import { ExpenseWizard, ExpenseWizardValues, AudienceEditor, Money } from '@/components/vendors/v2/ExpenseWizard';
+import { EditAudiencePricesDialog, buildDraft as buildAudienceDraft } from '@/components/vendors/v2/EditAudiencePricesDialog';
+import { AUDIENCE_LABELS, audienceTotal, type AudienceMap } from '@/lib/vendorAggregates';
+
 import { VendorDocumentsWidget } from '@/components/vendors/widgets/VendorDocumentsWidget';
 import { VendorChecklistWidget } from '@/components/vendors/widgets/VendorChecklistWidget';
 import { VendorAppointmentsWidget } from '@/components/vendors/widgets/VendorAppointmentsWidget';
@@ -354,17 +357,24 @@ export default function VendorDetails() {
 
   const updateExpenseItem = async (
     itemId: string,
-    patch: { description?: string; total_amount?: number; fixed_amount?: number | null; estimated_amount?: number | null; expense_type?: string },
-    opts?: { clearLineItems?: boolean },
+    patch: { description?: string; total_amount?: number; fixed_amount?: number | null; estimated_amount?: number | null; expense_type?: string; tax_rate?: number | null; amount_is_tax_inclusive?: boolean },
+    opts?: { clearLineItems?: boolean; replaceLineItems?: Array<Record<string, any>> },
   ) => {
-    if (opts?.clearLineItems) {
+    if (opts?.clearLineItems || opts?.replaceLineItems) {
       await supabase.from('expense_line_items').delete().eq('expense_item_id', itemId);
+    }
+    if (opts?.replaceLineItems && opts.replaceLineItems.length > 0) {
+      const rows = opts.replaceLineItems.map(r => ({ ...r, expense_item_id: itemId }));
+      const { error: liErr } = await supabase.from('expense_line_items').insert(rows as any);
+
+      if (liErr) { toast({ title: 'Errore righe', description: liErr.message, variant: 'destructive' }); return; }
     }
     const { error } = await supabase.from('expense_items').update(patch).eq('id', itemId);
     if (error) { toast({ title: 'Errore', description: error.message, variant: 'destructive' }); return; }
     toast({ title: 'Spesa aggiornata' });
     queryClient.invalidateQueries({ queryKey: ['vendor-detail-v2'] });
   };
+
 
 
   const deleteExpenseItem = async (itemId: string) => {
@@ -934,8 +944,8 @@ const ExpensesList: React.FC<{
   lockAmounts?: boolean;
   onUpdateItem: (
     id: string,
-    patch: { description?: string; total_amount?: number; fixed_amount?: number | null; estimated_amount?: number | null; expense_type?: string },
-    opts?: { clearLineItems?: boolean },
+    patch: { description?: string; total_amount?: number; fixed_amount?: number | null; estimated_amount?: number | null; expense_type?: string; tax_rate?: number | null; amount_is_tax_inclusive?: boolean },
+    opts?: { clearLineItems?: boolean; replaceLineItems?: Array<Record<string, any>> },
   ) => void | Promise<void>;
 
   onDeleteItem: (id: string) => void | Promise<void>;
@@ -944,45 +954,84 @@ const ExpensesList: React.FC<{
 }> = ({ items, lineItemsByExpenseItem, payments, mode, guestCounts, lockAmounts, onUpdateItem, onDeleteItem, onAddPayment, onEditAudience }) => {
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [draftDesc, setDraftDesc] = React.useState('');
-  const [draftTotal, setDraftTotal] = React.useState<string>('');
-  const [draftUnit, setDraftUnit] = React.useState<string>('');
+  const [draftAmount, setDraftAmount] = React.useState<number>(0);
+  const [draftTaxRate, setDraftTaxRate] = React.useState<number>(22);
+  const [draftTaxInclusive, setDraftTaxInclusive] = React.useState<boolean>(true);
   const [draftType, setDraftType] = React.useState<'fixed' | 'per_person' | 'per_audience'>('fixed');
+  const [draftAudience, setDraftAudience] = React.useState<AudienceMap>(() => buildAudienceDraft([]));
 
-  const startEdit = (it: DbExpenseItem, total: number) => {
-    const hasLI = ((lineItemsByExpenseItem[it.id] || []).length) > 0;
+  const startEdit = (it: DbExpenseItem) => {
+    const lis = lineItemsByExpenseItem[it.id] || [];
+    const hasLI = lis.length > 0;
     const isVar = (it.expense_type ?? '').toLowerCase() === 'variable';
     const initialType: 'fixed' | 'per_person' | 'per_audience' =
       isVar && hasLI ? 'per_audience' : isVar ? 'per_person' : 'fixed';
     setEditingId(it.id);
     setDraftDesc(it.description);
-    setDraftTotal(String(total));
-    setDraftUnit(it.estimated_amount != null ? String(it.estimated_amount) : '');
     setDraftType(initialType);
+    setDraftTaxRate(it.tax_rate != null ? Number(it.tax_rate) : 22);
+    setDraftTaxInclusive(it.amount_is_tax_inclusive ?? true);
+    if (initialType === 'fixed') {
+      setDraftAmount(Number(it.total_amount ?? it.fixed_amount ?? 0));
+    } else if (initialType === 'per_person') {
+      setDraftAmount(Number(it.estimated_amount ?? 0));
+    } else {
+      setDraftAmount(0);
+    }
+    setDraftAudience(buildAudienceDraft(lis as any));
   };
   const cancelEdit = () => { setEditingId(null); };
+
+  const grossOf = (net: number) => draftTaxInclusive ? net : net * (1 + (draftTaxRate || 0) / 100);
+
   const saveEdit = async (it: DbExpenseItem) => {
-    const hasLineItems = ((lineItemsByExpenseItem[it.id] || []).length) > 0;
-    const patch: any = { description: draftDesc.trim() || it.description };
-    let clearLineItems = false;
-    if (draftType === 'per_person') {
-      patch.expense_type = 'variable';
-      const newUnit = Number(draftUnit);
-      if (!Number.isNaN(newUnit) && newUnit >= 0) patch.estimated_amount = newUnit;
-      if (hasLineItems) clearLineItems = true;
-    } else if (draftType === 'fixed') {
-      patch.expense_type = 'fixed';
-      const newTotal = Number(draftTotal);
-      if (!Number.isNaN(newTotal) && newTotal >= 0) {
-        patch.total_amount = newTotal;
-        patch.fixed_amount = newTotal;
-        patch.estimated_amount = newTotal;
-      }
-      if (hasLineItems) clearLineItems = true;
+    const desc = draftDesc.trim() || it.description;
+    if (draftType === 'fixed') {
+      const gross = grossOf(draftAmount);
+      await onUpdateItem(it.id, {
+        description: desc,
+        expense_type: 'fixed',
+        total_amount: gross,
+        fixed_amount: gross,
+        estimated_amount: gross,
+        tax_rate: draftTaxRate,
+        amount_is_tax_inclusive: true,
+      }, { clearLineItems: true });
+    } else if (draftType === 'per_person') {
+      const unitGross = grossOf(draftAmount);
+      await onUpdateItem(it.id, {
+        description: desc,
+        expense_type: 'variable',
+        estimated_amount: unitGross,
+        fixed_amount: null,
+        tax_rate: draftTaxRate,
+        amount_is_tax_inclusive: true,
+      }, { clearLineItems: true });
+    } else {
+      // per_audience
+      const KEYS = ['adults', 'children', 'staff'] as const;
+      const rows = KEYS.map((k, idx) => {
+        const a = draftAudience[k];
+        if (!a.enabled || a.unit_price <= 0) return null;
+        return {
+          description: AUDIENCE_LABELS[k],
+          unit_price: a.unit_price,
+          quantity_type: k,
+          tax_rate: a.tax_rate,
+          price_is_tax_inclusive: a.tax_inclusive,
+          order_index: idx,
+        };
+      }).filter(Boolean) as Array<Record<string, any>>;
+      await onUpdateItem(it.id, {
+        description: desc,
+        expense_type: 'variable',
+        fixed_amount: null,
+      }, { replaceLineItems: rows });
     }
-    // per_audience handled via dialog, not here
-    await onUpdateItem(it.id, patch, { clearLineItems });
     setEditingId(null);
   };
+
+
 
 
   return (
@@ -1049,47 +1098,60 @@ const ExpensesList: React.FC<{
                       </div>
                     </div>
                     {isPerAudience ? (
-                      <div style={{
-                        fontSize: 12, color: ink(2), padding: '12px 14px',
-                        background: 'hsl(var(--paper-surface-muted))',
-                        border: `1px dashed ${border(true)}`, borderRadius: 8,
-                        display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12,
-                      }}>
-                        <span>Spesa per fasce (Adulti / Bambini / Staff). Apri l'editor dedicato per impostare i prezzi unitari.</span>
-                        <PaperButton variant="primary" size="sm" onClick={() => { cancelEdit(); onEditAudience(it.id); }}>
-                          Modifica prezzi
-                        </PaperButton>
+                      <div style={{ display: 'grid', gap: 10 }}>
+                        <AudienceEditor
+                          audience={draftAudience}
+                          onChange={setDraftAudience}
+                          countsPlanned={guestCounts.planned}
+                          countsConfirmed={guestCounts.confirmed}
+                          computed={{
+                            planned: audienceTotal(draftAudience, guestCounts.planned),
+                            confirmed: audienceTotal(draftAudience, guestCounts.confirmed),
+                          }}
+                        />
                       </div>
+
                     ) : (
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <div style={{ flex: 1, position: 'relative' }}>
-                          <input
-                            type="number"
-                            min={0}
-                            step="0.01"
-                            value={isPerPerson ? draftUnit : draftTotal}
-                            onChange={e => isPerPerson ? setDraftUnit(e.target.value) : setDraftTotal(e.target.value)}
-                            placeholder={isPerPerson ? 'Prezzo a persona €' : 'Importo €'}
-                            style={{
-                              width: '100%', fontSize: 14, padding: '8px 10px', borderRadius: 6,
-                              border: `1px solid ${border(true)}`, background: surface(),
-                              color: ink(), fontFamily: FONT_MONO, outline: 'none',
-                            }}
-                          />
-                          {isPerPerson && (
-                            <div style={{ fontSize: 11, color: ink(3), marginTop: 4 }}>
-                              Totale ora: <span style={{ fontFamily: FONT_MONO }}>{fmtEUR((Number(draftUnit) || 0) * (guestCounts[mode].adults + guestCounts[mode].children + guestCounts[mode].staff))}</span> · si ricalcola sugli invitati.
-                            </div>
+                      <div style={{ display: 'grid', gap: 10 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 130px 160px', gap: 8, alignItems: 'end' }}>
+                          <div>
+                            <PaperLabel>{isPerPerson ? 'Prezzo a persona' : 'Importo'}</PaperLabel>
+                            <Money value={draftAmount} onChange={setDraftAmount} placeholder={isPerPerson ? 'Prezzo a persona €' : 'Importo €'} />
+                          </div>
+                          <div>
+                            <PaperLabel>IVA %</PaperLabel>
+                            <PaperInput
+                              type="number" min={0} step="0.01"
+                              value={String(draftTaxRate)}
+                              onChange={e => setDraftTaxRate(Number((e.target as HTMLInputElement).value) || 0)}
+                            />
+                          </div>
+                          <div>
+                            <PaperLabel>Modalità IVA</PaperLabel>
+                            <PaperSelect
+                              value={draftTaxInclusive ? 'incl' : 'excl'}
+                              onChange={v => setDraftTaxInclusive(v === 'incl')}
+                              options={[
+                                { value: 'incl', label: 'IVA inclusa' },
+                                { value: 'excl', label: 'IVA da aggiungere' },
+                              ]}
+                            />
+                          </div>
+                        </div>
+                        <div style={{ fontSize: 11, color: ink(3) }}>
+                          {isPerPerson ? (
+                            <>Totale ora: <span style={{ fontFamily: FONT_MONO }}>{fmtEUR(grossOf(draftAmount) * (guestCounts[mode].adults + guestCounts[mode].children + guestCounts[mode].staff))}</span> · IVA inclusa, ricalcola sugli invitati.</>
+                          ) : (
+                            <>Totale finale (IVA inclusa): <span style={{ fontFamily: FONT_MONO }}>{fmtEUR(grossOf(draftAmount))}</span></>
                           )}
                         </div>
                       </div>
                     )}
                     <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                       <PaperButton variant="ghost" size="sm" onClick={cancelEdit}>Annulla</PaperButton>
-                      {!isPerAudience && (
-                        <PaperButton variant="primary" size="sm" onClick={() => saveEdit(it)}>Salva</PaperButton>
-                      )}
+                      <PaperButton variant="primary" size="sm" onClick={() => saveEdit(it)}>Salva</PaperButton>
                     </div>
+
                   </div>
                 );
               })()
@@ -1110,11 +1172,8 @@ const ExpensesList: React.FC<{
                     {!lockAmounts && (
                       <PaperButton
                         variant="ghost" size="sm" iconLeft={<Pencil size={11}/>}
-                        onClick={() => {
-                          const hasLineItems = ((lineItemsByExpenseItem[it.id] || []).length) > 0;
-                          if (isVariable && hasLineItems) onEditAudience(it.id);
-                          else startEdit(it, total);
-                        }}
+                        onClick={() => startEdit(it)}
+
                       >
                         Modifica
                       </PaperButton>
