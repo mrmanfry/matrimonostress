@@ -94,23 +94,41 @@ export function VendorDrawer({ vendor, onClose, onMarkPaid, onOpenVendorPage, on
                 Nessuna voce di spesa registrata.
               </div>
             )}
-            {vendor.items.map((it, i) => (
-              <div key={it.id} style={{
-                padding: '12px 16px',
-                borderBottom: i < vendor.items.length - 1 ? `1px solid ${border()}` : 'none',
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12,
-              }}>
-                <span style={{ fontSize: 13, color: ink() }}>{it.desc}</span>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontFamily: FONT_MONO, fontSize: 13, color: ink() }}>{fmt(it.total)}</div>
-                  {it.paid > 0 && (
-                    <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: success() }}>
-                      {fmt(it.paid)} pagati
+            {vendor.items.map((it, i) => {
+              const clickable = !!onOpenItem && !isSynthetic;
+              return (
+                <div
+                  key={it.id}
+                  onClick={clickable ? () => onOpenItem!(vendor.id, it.id) : undefined}
+                  title={clickable ? 'Vedi composizione e modifica' : undefined}
+                  style={{
+                    padding: '12px 16px',
+                    borderBottom: i < vendor.items.length - 1 ? `1px solid ${border()}` : 'none',
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12,
+                    cursor: clickable ? 'pointer' : 'default',
+                    transition: 'background .15s',
+                  }}
+                  onMouseEnter={clickable ? e => (e.currentTarget.style.background = 'hsl(var(--paper-surface-muted))') : undefined}
+                  onMouseLeave={clickable ? e => (e.currentTarget.style.background = 'transparent') : undefined}
+                >
+                  <span style={{ fontSize: 13, color: ink(), display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    {it.desc}
+                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontFamily: FONT_MONO, fontSize: 13, color: ink() }}>{fmt(it.total)}</div>
+                      {it.paid > 0 && (
+                        <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: success() }}>
+                          {fmt(it.paid)} pagati
+                        </div>
+                      )}
                     </div>
-                  )}
+                    {clickable && <ChevronRight className="h-4 w-4" style={{ color: ink(3) }}/>}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
+
           </div>
 
           <SectionLabel style={{ marginTop: 24 }}>Piano pagamenti</SectionLabel>
