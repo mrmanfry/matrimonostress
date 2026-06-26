@@ -1,45 +1,44 @@
-## Redesign Block Editor — Elevated sage workspace
+## Problema
 
-Mantengo intatte tutte le funzionalità (undo/redo, drag&drop, visibility, duplicate, delete, inspector, style editor, salvataggio, impostazioni campagna, anteprima live). Cambia solo la presentazione, allineandola al prototipo scelto.
+Nell'editor inline di una voce di spesa in `VendorDetails.tsx`, quando la voce è marcata come `variable` senza line items, viene forzato un input "Prezzo a persona €" senza dare all'utente la possibilità di scegliere il tipo di prezzo. Risultato: una voce "Fiori" (tipicamente fissa) viene editata come prezzo a persona e mostra "Totale ora: 0 € · si ricalcola sugli invitati".
 
-### Cosa cambia visivamente
+## Soluzione
 
-**Container modale**
-- Sfondo modale `bg-stone-200/50`, card `rounded-3xl`, ombra morbida `shadow-[0_32px_64px_-16px_rgba(0,0,0,0.15)]`, bordo `stone-200`.
-- Header più compatto, azioni (Undo/Redo/Default/Annulla/Salva) restano in alto a destra ma con spacing rivisto e Salva in verde sage (`emerald-800`).
+Aggiungere un selettore "Tipo prezzo" in cima all'editor inline con 3 opzioni, allineate a quelle già usate altrove (es. `EditAudiencePricesDialog`):
 
-**Sidebar sinistra (Blocchi)**
-- Sfondo `stone-50/50`, separatori `stone-100`.
-- "Impostazioni campagna" diventa un toggle pill pulito; quando aperto, il pannello collassabile (deadline + WhatsApp template) mantiene gli stessi campi.
-- "Aggiungi blocco" diventa CTA primaria sage piena (`bg-emerald-800`).
-- Ogni card blocco: pill bianca con bordo sottile, drag handle a sinistra, icona+label, azioni (eye/duplicate/delete) **rivelate solo on hover** per ridurre rumore visivo.
-- Stato attivo: sfondo `emerald-50` + ring `emerald-600/20`, label in `emerald-900` semibold.
-- Blocchi nascosti: opacity ridotta.
+1. **Fisso** — un importo unico (`expense_type = 'fixed'`, `fixed_amount`/`total_amount`).
+2. **Per persona** — prezzo unitario × invitati (`expense_type = 'variable'`, `estimated_amount` come unitario, nessun line item).
+3. **Per fasce (Adulti/Bambini/Staff)** — apre `EditAudiencePricesDialog` esistente (line items per audience).
 
-**Pannello centrale (Anteprima)**
-- Sfondo `stone-100`.
-- Badge "Anteprima Live" in alto centro con dot verde pulsante.
-- Telefono con **bezel realistico**: cornice scura `stone-800` `rounded-[3rem]`, ring esterno `stone-900`, notch in alto. L'anteprima della pagina pubblica resta identica dentro lo schermo.
+### UI
 
-**Sidebar destra (Inspector)**
-- Header sezione "Proprietà Blocco" con stile uppercase tracking.
-- Empty state ridisegnato: icona in tile arrotondata `stone-50`, titolo + descrizione su due righe.
-- Quando un blocco è selezionato: `BlockInspector` + `BlockStyleEditor` esistenti renderizzati nello stesso slot (zero modifiche alla logica dei campi).
-- **Stile Globale** spostato in un footer dedicato dentro la sidebar destra (non più barra a tutta larghezza sotto al modale): icona pill, grid 2 colonne (Font / Colore con swatch), riga Countdown con valore. Il vecchio `GlobalStyleBar` viene rimosso dal layout principale e i suoi controlli effettivi (font/colore/countdown) restano editabili — viene riusato lo stesso componente, integrato nel pannello destro.
+```text
+[ Descrizione ......................... ]
+Tipo prezzo: ( • Fisso ) ( Per persona ) ( Per fasce )
+[ Importo € .............. ]          ← cambia label/placeholder in base al tipo
+Totale ora: X € · ...                  ← solo se "Per persona"
+                          [Annulla] [Salva]
+```
 
-### Cosa NON cambia (zero disruption)
+Se l'utente sceglie "Per fasce" viene chiuso l'editor inline e aperto il dialog dedicato (`onEditAudience(it.id)`), come già accade oggi quando ci sono line items.
 
-- Hook `useInvitationPageEditor`, schema dati `InvitationPageSchema`, salvataggio su `weddings.campaigns_config.pages`, retro-compatibilità con campi legacy (`deadline_date`, `whatsapp_message_template`).
-- Componenti figli: `BlockListEditor`, `AddBlockMenu`, `BlockInspector`, `BlockStyleEditor`, `PublicInvitationPage`. Solo il loro wrapper visivo cambia.
-- Drag&drop, undo/redo, toggle visibilità, duplica, elimina: identici.
+### Comportamento al salvataggio
 
-### Dettagli tecnici
+In `saveEdit(it)` (riga 945 ca.) ramificare sul tipo selezionato:
 
-File toccati:
-1. **`src/components/invitations/editor/BlockEditorModal.tsx`** — refactor del layout (header, 3 colonne, phone bezel, footer Stile Globale dentro sidebar destra). Nessuna modifica alle prop o alla logica di load/save.
-2. **`src/components/invitations/editor/BlockListEditor.tsx`** — restyling card blocco (pill bianca, hover-reveal azioni, stato attivo sage). Nessuna modifica all'API.
-3. **`src/components/invitations/editor/GlobalStyleBar.tsx`** (se presente come componente separato) — adattato per essere renderizzato compatto nel footer dell'inspector. In alternativa, inline nel modale mantenendo le stesse callback.
+- **Fisso**: patch `{ expense_type: 'fixed', fixed_amount: N, total_amount: N, estimated_amount: N }`. Se la voce era variabile con line items, eliminarli (chiamata esistente o nuovo helper) prima del patch.
+- **Per persona**: patch `{ expense_type: 'variable', estimated_amount: unit }` (nessuna modifica al totale, calcolato a runtime). Se aveva line items, eliminarli.
+- **Per fasce**: nessun salvataggio inline, si delega al dialog.
 
-Token: uso le classi Tailwind del prototipo (`stone-*`, `emerald-*`) — coerenti con la palette sage già adottata nell'app. Nessuna modifica a `index.css` o `tailwind.config.ts`.
+### Inizializzazione
 
-Nessuna modifica a DB, edge functions, RLS, o alla pagina pubblica RSVP/STD.
+All'apertura (`startEdit`), pre-popolare il tipo:
+- `fixed` o assente → "Fisso"
+- `variable` con line items → "Per fasce"
+- `variable` senza line items → "Per persona"
+
+## File toccati
+
+- `src/pages/VendorDetails.tsx` — unico file: nuovo stato `draftPriceType`, blocco di selezione (3 chip/radio), refactor del rendering input e di `saveEdit`. Conversione line items → riuso del pattern già presente in `EditAudiencePricesDialog` (delete dei line items dell'expense item quando si passa a fixed/per-persona).
+
+Nessuna modifica al DB o ad altri componenti.
