@@ -275,11 +275,18 @@ const StepImporto: React.FC<{
 }> = ({ form, upd, computed, guestsPlanned, guestsConfirmed, countsPlanned, countsConfirmed }) => (
   <div style={{ display: 'grid', gap: 18, fontFamily: FONT_UI }}>
     {form.kind === 'fixed' && (
-      <div>
-        <PaperLabel required>Importo totale</PaperLabel>
-        <Money value={form.total} onChange={v => upd('total', v)}/>
-      </div>
+      <>
+        <div>
+          <PaperLabel required>Importo totale</PaperLabel>
+          <Money value={form.total} onChange={v => upd('total', v)}/>
+        </div>
+        <VatRow form={form} upd={upd} />
+        {form.total > 0 && (
+          <TotalPreview label="Totale finale" gross={computed.planned} />
+        )}
+      </>
     )}
+
 
     {form.kind === 'per_person' && (
       <>
