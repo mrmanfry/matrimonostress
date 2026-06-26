@@ -354,17 +354,23 @@ export default function VendorDetails() {
 
   const updateExpenseItem = async (
     itemId: string,
-    patch: { description?: string; total_amount?: number; fixed_amount?: number | null; estimated_amount?: number | null; expense_type?: string },
-    opts?: { clearLineItems?: boolean },
+    patch: { description?: string; total_amount?: number; fixed_amount?: number | null; estimated_amount?: number | null; expense_type?: string; tax_rate?: number | null; amount_is_tax_inclusive?: boolean },
+    opts?: { clearLineItems?: boolean; replaceLineItems?: Array<Record<string, any>> },
   ) => {
-    if (opts?.clearLineItems) {
+    if (opts?.clearLineItems || opts?.replaceLineItems) {
       await supabase.from('expense_line_items').delete().eq('expense_item_id', itemId);
+    }
+    if (opts?.replaceLineItems && opts.replaceLineItems.length > 0) {
+      const rows = opts.replaceLineItems.map(r => ({ ...r, expense_item_id: itemId }));
+      const { error: liErr } = await supabase.from('expense_line_items').insert(rows);
+      if (liErr) { toast({ title: 'Errore righe', description: liErr.message, variant: 'destructive' }); return; }
     }
     const { error } = await supabase.from('expense_items').update(patch).eq('id', itemId);
     if (error) { toast({ title: 'Errore', description: error.message, variant: 'destructive' }); return; }
     toast({ title: 'Spesa aggiornata' });
     queryClient.invalidateQueries({ queryKey: ['vendor-detail-v2'] });
   };
+
 
 
   const deleteExpenseItem = async (itemId: string) => {
