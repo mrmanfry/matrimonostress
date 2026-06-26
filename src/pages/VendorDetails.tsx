@@ -14,14 +14,17 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import {
   PaperButton, PaperProgress, PaperEmpty, PaperSectionHeader, ContactLine, PaperAvatar,
+  PaperInput, PaperSelect, PaperLabel,
   ink, surface, border, brand, success, warn, FONT_SERIF, FONT_UI, FONT_MONO,
 } from '@/components/vendors/v2/PaperUI';
 import { PaperBadge, PaperCard } from '@/components/budget/v2/paperPrimitives';
 import { PaymentAllocationDialog } from '@/components/budget/v2/PaymentAllocationDialog';
 import { VendorFormModal, VendorFormValues } from '@/components/vendors/v2/VendorFormModal';
 import { DeleteVendorDialog } from '@/components/vendors/v2/DeleteVendorDialog';
-import { ExpenseWizard, ExpenseWizardValues } from '@/components/vendors/v2/ExpenseWizard';
-import { EditAudiencePricesDialog } from '@/components/vendors/v2/EditAudiencePricesDialog';
+import { ExpenseWizard, ExpenseWizardValues, AudienceEditor, Money } from '@/components/vendors/v2/ExpenseWizard';
+import { EditAudiencePricesDialog, buildDraft as buildAudienceDraft } from '@/components/vendors/v2/EditAudiencePricesDialog';
+import { AUDIENCE_LABELS, audienceTotal, type AudienceMap } from '@/lib/vendorAggregates';
+
 import { VendorDocumentsWidget } from '@/components/vendors/widgets/VendorDocumentsWidget';
 import { VendorChecklistWidget } from '@/components/vendors/widgets/VendorChecklistWidget';
 import { VendorAppointmentsWidget } from '@/components/vendors/widgets/VendorAppointmentsWidget';
