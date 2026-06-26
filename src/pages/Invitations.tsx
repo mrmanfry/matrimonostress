@@ -122,11 +122,10 @@ const Invitations = () => {
   const [printStudioOpen, setPrintStudioOpen] = useState(false);
 
   // Campaign dialog states
-  const [stdConfigDialogOpen, setStdConfigDialogOpen] = useState(false);
-  const [rsvpCampaignDialogOpen, setRsvpCampaignDialogOpen] = useState(false);
   const [rsvpConfigDialogOpen, setRsvpConfigDialogOpen] = useState(false);
   const [activityDialogOpen, setActivityDialogOpen] = useState(false);
   const [blockEditorPage, setBlockEditorPage] = useState<PageKind | null>(null);
+
 
   const campaignsConfig: CampaignsConfig = rawCampaignsConfig || getDefaultCampaignsConfig();
 
