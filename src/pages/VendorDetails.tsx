@@ -362,7 +362,8 @@ export default function VendorDetails() {
     }
     if (opts?.replaceLineItems && opts.replaceLineItems.length > 0) {
       const rows = opts.replaceLineItems.map(r => ({ ...r, expense_item_id: itemId }));
-      const { error: liErr } = await supabase.from('expense_line_items').insert(rows);
+      const { error: liErr } = await supabase.from('expense_line_items').insert(rows as any);
+
       if (liErr) { toast({ title: 'Errore righe', description: liErr.message, variant: 'destructive' }); return; }
     }
     const { error } = await supabase.from('expense_items').update(patch).eq('id', itemId);
