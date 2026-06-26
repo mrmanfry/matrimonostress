@@ -932,7 +932,12 @@ const ExpensesList: React.FC<{
   mode: ScenarioMode;
   guestCounts: GuestCounts;
   lockAmounts?: boolean;
-  onUpdateItem: (id: string, patch: { description?: string; total_amount?: number; fixed_amount?: number | null; estimated_amount?: number | null }) => void | Promise<void>;
+  onUpdateItem: (
+    id: string,
+    patch: { description?: string; total_amount?: number; fixed_amount?: number | null; estimated_amount?: number | null; expense_type?: string },
+    opts?: { clearLineItems?: boolean },
+  ) => void | Promise<void>;
+
   onDeleteItem: (id: string) => void | Promise<void>;
   onAddPayment: (expenseItemId: string) => void | Promise<void>;
   onEditAudience: (expenseItemId: string) => void;
