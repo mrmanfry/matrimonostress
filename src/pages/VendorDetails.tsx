@@ -1078,7 +1078,7 @@ const ExpensesList: React.FC<{
                           />
                           {isPerPerson && (
                             <div style={{ fontSize: 11, color: ink(3), marginTop: 4 }}>
-                              Totale ora: <span style={{ fontFamily: FONT_MONO }}>{fmtEUR((Number(draftUnit) || 0) * (guestCounts.adults + guestCounts.children + guestCounts.staff))}</span> · si ricalcola sugli invitati.
+                              Totale ora: <span style={{ fontFamily: FONT_MONO }}>{fmtEUR((Number(draftUnit) || 0) * (guestCounts[mode].adults + guestCounts[mode].children + guestCounts[mode].staff))}</span> · si ricalcola sugli invitati.
                             </div>
                           )}
                         </div>
