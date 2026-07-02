@@ -493,20 +493,25 @@ Deno.serve(async (req) => {
           });
         }
 
-        // Get wedding for deadline check
+        // Get wedding for deadline check (prefer new campaigns_config, fallback to legacy rsvp_config)
         const { data: wedding } = await supabase
           .from("weddings")
-          .select("rsvp_config")
+          .select("rsvp_config, campaigns_config")
           .eq("id", validGuest.wedding_id)
           .single();
 
-        const rsvpConfig = wedding?.rsvp_config as RSVPConfig | null;
-        if (rsvpConfig?.deadline_date && new Date(rsvpConfig.deadline_date) < new Date()) {
+        const campaignsConfig = wedding?.campaigns_config as CampaignsConfig | null;
+        const legacyConfig = wedding?.rsvp_config as RSVPConfig | null;
+        const effectiveDeadline =
+          campaignsConfig?.rsvp?.deadline_date ?? legacyConfig?.deadline_date ?? null;
+
+        if (effectiveDeadline && new Date(effectiveDeadline) < new Date()) {
           return new Response(JSON.stringify({ error: "RSVP deadline passed" }), {
             status: 403,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
+
 
         // Helper: promote, update or remove a +1 as a real guest record
         const syncPlusOneGuest = async (
