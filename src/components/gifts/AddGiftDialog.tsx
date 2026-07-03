@@ -16,7 +16,7 @@ import { useAddGift, type GiftCategory } from '@/hooks/useGifts';
 const schema = z.discriminatedUnion('gift_category', [
   z.object({
     gift_category: z.literal('cash'),
-    amount: z.coerce.number().positive('Inserisci un importo valido'),
+    amount: z.coerce.number({ invalid_type_error: 'Inserisci un importo valido' }).min(0, 'L\'importo non può essere negativo'),
     notes: z.string().optional(),
   }),
   z.object({
