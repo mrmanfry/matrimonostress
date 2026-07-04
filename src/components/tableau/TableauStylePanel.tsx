@@ -1,10 +1,11 @@
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { AlignLeft, AlignCenter, AlignRight } from "lucide-react";
-import { FONT_LABELS, GOOGLE_FONT_TTF_MAP, loadGoogleFontForPreview, type TableauStyle } from "@/lib/tableauGeneratorEngine";
+import { FONT_LABELS, GOOGLE_FONT_TTF_MAP, loadGoogleFontForPreview, type TableauStyle, type TableauBgFit } from "@/lib/tableauGeneratorEngine";
 import { useEffect } from "react";
 
 interface Props {
@@ -85,6 +86,43 @@ export function TableauStylePanel({ style, onChange }: Props) {
             <SelectItem value="family">Per Famiglia</SelectItem>
           </SelectContent>
         </Select>
+        {style.displayMode === "first" && (
+          <div className="flex items-center justify-between mt-3 gap-2">
+            <Label htmlFor="surname-init" className="text-xs cursor-pointer">
+              Iniziale cognome per omonimi
+            </Label>
+            <Switch
+              id="surname-init"
+              checked={!!style.surnameInitialForDuplicates}
+              onCheckedChange={(v) => onChange({ ...style, surnameInitialForDuplicates: v })}
+            />
+          </div>
+        )}
+      </div>
+
+      <div className="border-t pt-4">
+        <Label className="text-xs text-muted-foreground uppercase tracking-wide">Adattamento sfondo</Label>
+        <Select
+          value={style.bgFit ?? "cover"}
+          onValueChange={(v) => onChange({ ...style, bgFit: v as TableauBgFit })}
+        >
+          <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="contain">Adatta (bordi)</SelectItem>
+            <SelectItem value="cover">Riempi (ritaglia)</SelectItem>
+          </SelectContent>
+        </Select>
+        {(style.bgFit ?? "cover") === "contain" && (
+          <div className="flex items-center gap-2 mt-2">
+            <Label className="text-xs">Colore bordi</Label>
+            <input
+              type="color"
+              value={style.bgBandsColor ?? "#ffffff"}
+              onChange={(e) => onChange({ ...style, bgBandsColor: e.target.value })}
+              className="h-8 w-12 rounded border cursor-pointer"
+            />
+          </div>
+        )}
       </div>
     </div>
   );

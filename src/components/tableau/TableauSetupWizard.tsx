@@ -1,25 +1,36 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Upload, Loader2 } from "lucide-react";
+import { Upload, Loader2, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { computeEffectiveDPI, type TableauBgFit } from "@/lib/tableauGeneratorEngine";
 
 const PRESETS = [
-  { key: "70x100", label: "70×100 cm — Verticale", w: 70, h: 100, orient: "portrait" },
-  { key: "100x70", label: "100×70 cm — Orizzontale", w: 100, h: 70, orient: "landscape" },
-  { key: "50x70", label: "50×70 cm — Verticale", w: 50, h: 70, orient: "portrait" },
-  { key: "a1", label: "A1 (59.4×84.1 cm)", w: 59.4, h: 84.1, orient: "portrait" },
-  { key: "custom", label: "Personalizzato", w: 0, h: 0, orient: "portrait" },
+  { key: "auto", label: "Usa proporzioni dell'immagine (consigliato)", w: 0, h: 0 },
+  { key: "70x100", label: "70×100 cm — Verticale", w: 70, h: 100 },
+  { key: "100x70", label: "100×70 cm — Orizzontale", w: 100, h: 70 },
+  { key: "50x70", label: "50×70 cm — Verticale", w: 50, h: 70 },
+  { key: "a1", label: "A1 (59.4×84.1 cm)", w: 59.4, h: 84.1 },
+  { key: "custom", label: "Personalizzato", w: 0, h: 0 },
 ] as const;
+
+interface CreatedPayload {
+  background_path: string;
+  width_cm: number;
+  height_cm: number;
+  orientation: string;
+  bgFit: TableauBgFit;
+  bgBandsColor: string;
+}
 
 interface Props {
   open: boolean;
   weddingId: string;
-  onCreated: (payload: { background_path: string; width_cm: number; height_cm: number; orientation: string }) => Promise<void>;
+  onCreated: (payload: CreatedPayload) => Promise<void>;
   onOpenChange: (o: boolean) => void;
 }
 
@@ -29,9 +40,37 @@ export function TableauSetupWizard({ open, weddingId, onCreated, onOpenChange }:
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadedPath, setUploadedPath] = useState<string | null>(null);
-  const [preset, setPreset] = useState<string>("70x100");
+  const [imgPx, setImgPx] = useState<{ w: number; h: number } | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [preset, setPreset] = useState<string>("auto");
   const [customW, setCustomW] = useState<number>(70);
   const [customH, setCustomH] = useState<number>(100);
+  const [bgFit, setBgFit] = useState<TableauBgFit>("contain");
+  const [bandsColor, setBandsColor] = useState<string>("#ffffff");
+
+  // Reset when dialog closes
+  useEffect(() => {
+    if (!open) {
+      setStep(1);
+      setFile(null);
+      setUploadedPath(null);
+      setImgPx(null);
+      setPreviewUrl(null);
+      setPreset("auto");
+    }
+  }, [open]);
+
+  const readImageDims = (f: File) =>
+    new Promise<{ w: number; h: number }>((resolve, reject) => {
+      const url = URL.createObjectURL(f);
+      const img = new Image();
+      img.onload = () => {
+        resolve({ w: img.naturalWidth, h: img.naturalHeight });
+        setPreviewUrl(url);
+      };
+      img.onerror = reject;
+      img.src = url;
+    });
 
   const handleUpload = async () => {
     if (!file) return;
@@ -44,36 +83,60 @@ export function TableauSetupWizard({ open, weddingId, onCreated, onOpenChange }:
       return;
     }
     setUploading(true);
-    const ext = file.type === "image/png" ? "png" : "jpg";
-    const path = `${weddingId}/bg-${Date.now()}.${ext}`;
-    const { error } = await supabase.storage.from("tableau-backgrounds").upload(path, file, {
-      cacheControl: "3600",
-      upsert: true,
-      contentType: file.type,
-    });
-    setUploading(false);
-    if (error) {
-      toast({ title: "Errore upload", description: error.message, variant: "destructive" });
-      return;
+    try {
+      const dims = await readImageDims(file);
+      setImgPx(dims);
+      // Upload raw bytes — no re-encode.
+      const ext = file.type === "image/png" ? "png" : "jpg";
+      const path = `${weddingId}/bg-${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from("tableau-backgrounds").upload(path, file, {
+        cacheControl: "3600",
+        upsert: true,
+        contentType: file.type,
+      });
+      if (error) throw error;
+      setUploadedPath(path);
+      setStep(2);
+    } catch (e: any) {
+      toast({ title: "Errore upload", description: e?.message ?? "Riprova", variant: "destructive" });
+    } finally {
+      setUploading(false);
     }
-    setUploadedPath(path);
-    setStep(2);
   };
+
+  const chosen = useMemo(() => {
+    if (preset === "auto" && imgPx) {
+      // Derive cm from image ratio; anchor the long side to 70cm by default.
+      const ratio = imgPx.w / imgPx.h;
+      if (ratio >= 1) {
+        return { w: 100, h: +(100 / ratio).toFixed(1) };
+      }
+      return { w: +(70).toFixed(1), h: +(70 / ratio).toFixed(1) };
+    }
+    if (preset === "custom") return { w: customW, h: customH };
+    const p = PRESETS.find((x) => x.key === preset);
+    return p ? { w: p.w, h: p.h } : { w: 0, h: 0 };
+  }, [preset, customW, customH, imgPx]);
+
+  const imgRatio = imgPx ? imgPx.w / imgPx.h : null;
+  const chosenRatio = chosen.w && chosen.h ? chosen.w / chosen.h : null;
+  const ratioMismatch = imgRatio && chosenRatio ? Math.abs(imgRatio - chosenRatio) > 0.02 : false;
+  const dpi = imgPx && chosen.w ? computeEffectiveDPI(imgPx.w, chosen.w) : 0;
+  const lowDPI = dpi > 0 && dpi < 150;
 
   const handleConfirm = async () => {
     if (!uploadedPath) return;
-    const p = PRESETS.find((x) => x.key === preset)!;
-    const w = preset === "custom" ? customW : p.w;
-    const h = preset === "custom" ? customH : p.h;
-    if (!w || !h || w < 10 || h < 10) {
+    if (!chosen.w || !chosen.h || chosen.w < 10 || chosen.h < 10) {
       toast({ title: "Dimensioni non valide", description: "Minimo 10 cm per lato.", variant: "destructive" });
       return;
     }
     await onCreated({
       background_path: uploadedPath,
-      width_cm: w,
-      height_cm: h,
-      orientation: w > h ? "landscape" : "portrait",
+      width_cm: chosen.w,
+      height_cm: chosen.h,
+      orientation: chosen.w > chosen.h ? "landscape" : "portrait",
+      bgFit,
+      bgBandsColor: bandsColor,
     });
   };
 
@@ -85,7 +148,7 @@ export function TableauSetupWizard({ open, weddingId, onCreated, onOpenChange }:
           <DialogDescription>
             {step === 1
               ? "Carica lo sfondo grafico (es. esportato da Canva) su cui sovrapporremo i tavoli."
-              : "Scegli il formato di stampa. Le proporzioni verranno rispettate esattamente."}
+              : "Scegli il formato di stampa. L'immagine non verrà mai stirata."}
           </DialogDescription>
         </DialogHeader>
 
@@ -105,8 +168,8 @@ export function TableauSetupWizard({ open, weddingId, onCreated, onOpenChange }:
               )}
             </div>
             <p className="text-xs text-muted-foreground">
-              Formati: PNG o JPG. Massimo 15 MB. Consigliato: immagine ad alta risoluzione con proporzioni
-              coerenti col formato di stampa.
+              PNG o JPG, max 15 MB. Il file viene salvato senza compressione aggiuntiva
+              per preservare la qualità originale.
             </p>
             <div className="flex justify-end">
               <Button onClick={handleUpload} disabled={!file || uploading}>
@@ -118,6 +181,12 @@ export function TableauSetupWizard({ open, weddingId, onCreated, onOpenChange }:
 
         {step === 2 && (
           <div className="space-y-4">
+            {imgPx && (
+              <p className="text-xs text-muted-foreground">
+                Immagine originale: {imgPx.w}×{imgPx.h} px (proporzioni {(imgPx.w / imgPx.h).toFixed(3)})
+              </p>
+            )}
+
             <RadioGroup value={preset} onValueChange={setPreset} className="space-y-2">
               {PRESETS.map((p) => (
                 <div key={p.key} className="flex items-center gap-2">
@@ -137,6 +206,74 @@ export function TableauSetupWizard({ open, weddingId, onCreated, onOpenChange }:
                   <Label>Altezza (cm)</Label>
                   <Input type="number" min={10} value={customH} onChange={(e) => setCustomH(Number(e.target.value))} />
                 </div>
+              </div>
+            )}
+
+            {chosen.w > 0 && (
+              <div className="text-sm bg-muted/40 rounded p-2">
+                Formato scelto: <strong>{chosen.w}×{chosen.h} cm</strong>
+                {dpi > 0 && (
+                  <span className={lowDPI ? "text-amber-700 font-medium ml-2" : "text-muted-foreground ml-2"}>
+                    · ~{dpi} DPI
+                  </span>
+                )}
+              </div>
+            )}
+
+            {ratioMismatch && previewUrl && (
+              <div className="space-y-2 border rounded p-3 bg-amber-50/50">
+                <div className="flex items-start gap-2 text-sm text-amber-900">
+                  <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                  <span>
+                    Le proporzioni scelte non coincidono con quelle dell'immagine.
+                    Scegli come adattarla — non verrà mai stirata.
+                  </span>
+                </div>
+                <RadioGroup value={bgFit} onValueChange={(v) => setBgFit(v as TableauBgFit)} className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="contain" id="fit-contain" />
+                    <Label htmlFor="fit-contain" className="cursor-pointer text-sm">Adatta (bordi visibili)</Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="cover" id="fit-cover" />
+                    <Label htmlFor="fit-cover" className="cursor-pointer text-sm">Riempi (ritaglia)</Label>
+                  </div>
+                </RadioGroup>
+                {bgFit === "contain" && (
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs">Colore bordi</Label>
+                    <input
+                      type="color"
+                      value={bandsColor}
+                      onChange={(e) => setBandsColor(e.target.value)}
+                      className="h-7 w-10 rounded border cursor-pointer"
+                    />
+                  </div>
+                )}
+                <div
+                  className="rounded overflow-hidden border mx-auto"
+                  style={{
+                    width: 220,
+                    aspectRatio: `${chosen.w} / ${chosen.h}`,
+                    backgroundColor: bgFit === "contain" ? bandsColor : "transparent",
+                  }}
+                >
+                  <img
+                    src={previewUrl}
+                    alt=""
+                    style={{ width: "100%", height: "100%", objectFit: bgFit, display: "block" }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {lowDPI && (
+              <div className="text-xs bg-amber-50 border border-amber-200 rounded p-2 text-amber-900 flex gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>
+                  L'immagine è a bassa risoluzione per questo formato di stampa: ~{dpi} DPI.
+                  Consigliato ≥ 150, ideale 300. Esporta da Canva a risoluzione maggiore o riduci il formato.
+                </span>
               </div>
             )}
 

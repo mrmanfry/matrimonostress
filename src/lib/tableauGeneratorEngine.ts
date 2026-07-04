@@ -48,9 +48,12 @@ export const FONT_LABELS: Record<string, string> = {
 };
 
 export const CM_TO_PT = 28.3465;
+export const LINE_GAP = 1.35;
+export const TITLE_SIZE_MULT = 1.4;
 
 export type TableauDisplayMode = "full" | "first" | "family";
 export type TableauAlign = "left" | "center" | "right";
+export type TableauBgFit = "contain" | "cover";
 
 export interface TableauStyle {
   fontFamily: string;
@@ -58,19 +61,79 @@ export interface TableauStyle {
   baseFontSize: number;
   textAlign: TableauAlign;
   displayMode: TableauDisplayMode;
+  surnameInitialForDuplicates?: boolean;
+  bgFit?: TableauBgFit;
+  bgBandsColor?: string;
 }
 
-export interface TableauBlockPosition {
+export interface TableauTitlePos {
+  x_pct: number;
+  y_pct: number;
+  visible: boolean;
+}
+export interface TableauListPos {
+  x_pct: number;
+  y_pct: number;
+  w_pct: number;
+  columns: 1 | 2 | 3;
+}
+export interface TableauBlockEntry {
+  title: TableauTitlePos;
+  list: TableauListPos;
+}
+
+/** Legacy format kept for migration only. */
+export interface LegacyBlockPos {
   x_pct: number;
   y_pct: number;
   w_pct?: number;
 }
+/** Alias per backward-compat: alcuni file lo referenziano ancora. */
+export type TableauBlockPosition = LegacyBlockPos;
 
 export interface TableauRenderBlock {
   tableId: string;
   title: string;
   lines: string[];
-  position: TableauBlockPosition;
+  entry: TableauBlockEntry;
+}
+
+/**
+ * Migra una entry salvata (formato legacy piatto o nuovo) al nuovo schema.
+ */
+export function migrateBlockEntry(raw: any, fallbackIndex = 0): TableauBlockEntry {
+  if (raw && raw.list && raw.title) {
+    return {
+      title: {
+        x_pct: Number(raw.title.x_pct) || 0,
+        y_pct: Number(raw.title.y_pct) || 0,
+        visible: raw.title.visible !== false,
+      },
+      list: {
+        x_pct: Number(raw.list.x_pct) || 0,
+        y_pct: Number(raw.list.y_pct) || 0,
+        w_pct: Number(raw.list.w_pct) || 20,
+        columns: (Number(raw.list.columns) as 1 | 2 | 3) || 1,
+      },
+    };
+  }
+  if (raw && typeof raw.x_pct === "number") {
+    const x = Number(raw.x_pct);
+    const y = Number(raw.y_pct);
+    const w = Number(raw.w_pct) || 20;
+    return {
+      title: { x_pct: x, y_pct: Math.max(0, y - 5), visible: true },
+      list: { x_pct: x, y_pct: y, w_pct: w, columns: 1 },
+    };
+  }
+  const col = fallbackIndex % 4;
+  const row = Math.floor(fallbackIndex / 4);
+  const x = 8 + col * 22;
+  const y = 12 + row * 25;
+  return {
+    title: { x_pct: x, y_pct: y, visible: true },
+    list: { x_pct: x, y_pct: y + 5, w_pct: 18, columns: 1 },
+  };
 }
 
 export async function fetchGoogleFontBytes(fontKey: string): Promise<ArrayBuffer | null> {
@@ -96,9 +159,6 @@ export async function fetchGoogleFontBytes(fontKey: string): Promise<ArrayBuffer
   }
 }
 
-/**
- * Carica un font Google nel documento per l'anteprima (via <link> CSS).
- */
 export function loadGoogleFontForPreview(fontKey: string): void {
   const fontName = GOOGLE_FONT_TTF_MAP[fontKey];
   if (!fontName) return;
@@ -135,6 +195,29 @@ export interface TableauExportInput {
   blocks: TableauRenderBlock[];
 }
 
+function hexToRgb01(hex: string): [number, number, number] {
+  const h = hex.replace("#", "");
+  return [
+    parseInt(h.substring(0, 2), 16) / 255,
+    parseInt(h.substring(2, 4), 16) / 255,
+    parseInt(h.substring(4, 6), 16) / 255,
+  ];
+}
+
+/**
+ * Distribuisce N righe in K colonne (top-to-bottom, poi wrap).
+ * Restituisce { col, row } per ogni indice.
+ */
+export function layoutColumns(count: number, columns: number): { col: number; row: number }[] {
+  const cols = Math.max(1, Math.min(3, columns || 1));
+  const perCol = Math.ceil(count / cols);
+  const out: { col: number; row: number }[] = [];
+  for (let i = 0; i < count; i++) {
+    out.push({ col: Math.floor(i / perCol), row: i % perCol });
+  }
+  return out;
+}
+
 /**
  * Genera PDF vettoriale alle dimensioni fisiche reali.
  */
@@ -147,10 +230,17 @@ export async function generateTableauPDF(input: TableauExportInput): Promise<Blo
   const pdfDoc = await PDFDocument.create();
   const page = pdfDoc.addPage([pageW, pageH]);
 
-  // Background full-bleed
+  // Sfondo: rispetta bandsColor + fit contain/cover. Nessun re-encode: embed diretto.
+  const bandsHex = input.style.bgBandsColor ?? "#ffffff";
+  const [br, bg, bb] = hexToRgb01(bandsHex);
+  page.drawRectangle({ x: 0, y: 0, width: pageW, height: pageH, color: rgb(br, bg, bb) });
+
   const { bytes, isPng } = await loadImageAsBytes(input.backgroundUrl);
   const img = isPng ? await pdfDoc.embedPng(bytes) : await pdfDoc.embedJpg(bytes);
-  const scale = Math.max(pageW / img.width, pageH / img.height);
+  const fit = input.style.bgFit ?? "cover";
+  const scale = fit === "contain"
+    ? Math.min(pageW / img.width, pageH / img.height)
+    : Math.max(pageW / img.width, pageH / img.height);
   const scaledW = img.width * scale;
   const scaledH = img.height * scale;
   page.drawImage(img, {
@@ -174,31 +264,33 @@ export async function generateTableauPDF(input: TableauExportInput): Promise<Blo
     font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   }
 
-  const hex = input.style.fontColor.replace("#", "");
-  const rC = parseInt(hex.substring(0, 2), 16) / 255;
-  const gC = parseInt(hex.substring(2, 4), 16) / 255;
-  const bC = parseInt(hex.substring(4, 6), 16) / 255;
-  const color = rgb(rC, gC, bC);
+  const [tr, tg, tb] = hexToRgb01(input.style.fontColor);
+  const color = rgb(tr, tg, tb);
 
-  // Font size scaling: baseFontSize è in pt logici; scaliamo proporzionalmente alla larghezza.
-  // Usiamo direttamente baseFontSize come pt sul PDF (l'utente sceglie in pt).
   const baseSize = input.style.baseFontSize;
-  const titleSize = baseSize * 1.4;
-  const lineGap = 1.35;
+  const titleSize = baseSize * TITLE_SIZE_MULT;
 
   for (const block of input.blocks) {
-    const bx = (block.position.x_pct / 100) * pageW;
-    // y_pct è dall'alto; pdf-lib è bottom-up
-    const byTop = pageH - (block.position.y_pct / 100) * pageH;
-    const bw = ((block.position.w_pct ?? 20) / 100) * pageW;
+    const { title: titlePos, list: listPos } = block.entry;
+    const bw = (listPos.w_pct / 100) * pageW;
 
-    let cursorY = byTop - titleSize;
-    // Titolo
-    drawAlignedText(page, block.title, bx, cursorY, bw, titleSize, font, color, input.style.textAlign);
-    cursorY -= titleSize * lineGap;
-    for (const line of block.lines) {
-      drawAlignedText(page, line, bx, cursorY, bw, baseSize, font, color, input.style.textAlign);
-      cursorY -= baseSize * lineGap;
+    if (titlePos.visible) {
+      const tx = (titlePos.x_pct / 100) * pageW;
+      // y_pct dall'alto; pdf-lib bottom-up.
+      const ty = pageH - (titlePos.y_pct / 100) * pageH - titleSize;
+      drawAlignedText(page, block.title, tx, ty, bw, titleSize, font, color, input.style.textAlign);
+    }
+
+    const cols = listPos.columns || 1;
+    const colW = bw / cols;
+    const bx = (listPos.x_pct / 100) * pageW;
+    const listTopY = pageH - (listPos.y_pct / 100) * pageH;
+    const positions = layoutColumns(block.lines.length, cols);
+    for (let i = 0; i < block.lines.length; i++) {
+      const { col, row } = positions[i];
+      const cx = bx + col * colW;
+      const cy = listTopY - baseSize - row * baseSize * LINE_GAP;
+      drawAlignedText(page, block.lines[i], cx, cy, colW, baseSize, font, color, input.style.textAlign);
     }
   }
 
@@ -240,44 +332,57 @@ export async function generateTableauPNG(input: TableauExportInput): Promise<Blo
   canvas.width = pxW;
   canvas.height = pxH;
   const ctx = canvas.getContext("2d")!;
-  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = input.style.bgBandsColor ?? "#ffffff";
   ctx.fillRect(0, 0, pxW, pxH);
 
   const bg = await loadHtmlImage(input.backgroundUrl);
-  const scale = Math.max(pxW / bg.width, pxH / bg.height);
+  const fit = input.style.bgFit ?? "cover";
+  const scale = fit === "contain"
+    ? Math.min(pxW / bg.width, pxH / bg.height)
+    : Math.max(pxW / bg.width, pxH / bg.height);
   const sw = bg.width * scale;
   const sh = bg.height * scale;
   ctx.drawImage(bg, (pxW - sw) / 2, (pxH - sh) / 2, sw, sh);
 
-  // Assicura che il font sia caricato
   loadGoogleFontForPreview(input.style.fontFamily);
   await (document as any).fonts?.ready;
 
-  // baseFontSize è in pt (1pt = 1/72"). A 300dpi 1pt = 300/72 px = 4.1667px.
   const ptToPx = 300 / 72;
   const baseSize = input.style.baseFontSize * ptToPx;
-  const titleSize = baseSize * 1.4;
-  const lineGap = 1.35;
+  const titleSize = baseSize * TITLE_SIZE_MULT;
   ctx.fillStyle = input.style.fontColor;
   ctx.textBaseline = "top";
   ctx.textAlign = input.style.textAlign as CanvasTextAlign;
   const fam = cssFontFamily(input.style.fontFamily);
 
   for (const block of input.blocks) {
-    const bx = (block.position.x_pct / 100) * pxW;
-    const by = (block.position.y_pct / 100) * pxH;
-    const bw = ((block.position.w_pct ?? 20) / 100) * pxW;
-    let anchorX = bx;
-    if (input.style.textAlign === "center") anchorX = bx + bw / 2;
-    else if (input.style.textAlign === "right") anchorX = bx + bw;
+    const { title: titlePos, list: listPos } = block.entry;
+    const bw = (listPos.w_pct / 100) * pxW;
 
-    ctx.font = `700 ${titleSize}px ${fam}`;
-    ctx.fillText(block.title, anchorX, by);
-    let cursorY = by + titleSize * lineGap;
+    const anchor = (xPx: number, boxW: number) => {
+      if (input.style.textAlign === "center") return xPx + boxW / 2;
+      if (input.style.textAlign === "right") return xPx + boxW;
+      return xPx;
+    };
+
+    if (titlePos.visible) {
+      const tx = (titlePos.x_pct / 100) * pxW;
+      const ty = (titlePos.y_pct / 100) * pxH;
+      ctx.font = `700 ${titleSize}px ${fam}`;
+      ctx.fillText(block.title, anchor(tx, bw), ty);
+    }
+
+    const cols = listPos.columns || 1;
+    const colW = bw / cols;
+    const bx = (listPos.x_pct / 100) * pxW;
+    const by = (listPos.y_pct / 100) * pxH;
+    const positions = layoutColumns(block.lines.length, cols);
     ctx.font = `400 ${baseSize}px ${fam}`;
-    for (const line of block.lines) {
-      ctx.fillText(line, anchorX, cursorY);
-      cursorY += baseSize * lineGap;
+    for (let i = 0; i < block.lines.length; i++) {
+      const { col, row } = positions[i];
+      const cx = bx + col * colW;
+      const cy = by + row * baseSize * LINE_GAP;
+      ctx.fillText(block.lines[i], anchor(cx, colW), cy);
     }
   }
 
@@ -299,9 +404,6 @@ function loadHtmlImage(url: string): Promise<HTMLImageElement> {
   });
 }
 
-/**
- * Hash veloce del contenuto per detectare drift post-export.
- */
 export function hashBlocksContent(blocks: TableauRenderBlock[]): string {
   const flat = blocks
     .map((b) => `${b.tableId}|${b.title}|${b.lines.join(",")}`)
@@ -313,4 +415,10 @@ export function hashBlocksContent(blocks: TableauRenderBlock[]): string {
     h |= 0;
   }
   return String(h);
+}
+
+/** Effective DPI given image px width and physical width in cm. */
+export function computeEffectiveDPI(imgWidthPx: number, widthCm: number): number {
+  if (!widthCm) return 0;
+  return Math.round(imgWidthPx / (widthCm / 2.54));
 }
