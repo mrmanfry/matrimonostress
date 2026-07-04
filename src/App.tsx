@@ -29,6 +29,7 @@ import Calendar from "./pages/Calendar";
 import Upgrade from "./pages/Upgrade";
 import UpgradePlanner from "./pages/UpgradePlanner";
 import PlannerCockpit from "./pages/PlannerCockpit";
+import TableauGenerator from "./pages/TableauGenerator";
 import PlannerCalendarPage from "./pages/PlannerCalendarPage";
 import Chat from "./pages/Chat";
 import PlannerInbox from "./pages/PlannerInbox";
