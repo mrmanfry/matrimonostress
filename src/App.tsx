@@ -29,6 +29,7 @@ import Calendar from "./pages/Calendar";
 import Upgrade from "./pages/Upgrade";
 import UpgradePlanner from "./pages/UpgradePlanner";
 import PlannerCockpit from "./pages/PlannerCockpit";
+import TableauGenerator from "./pages/TableauGenerator";
 import PlannerCalendarPage from "./pages/PlannerCalendarPage";
 import Chat from "./pages/Chat";
 import PlannerInbox from "./pages/PlannerInbox";
@@ -109,6 +110,7 @@ const App = () => (
               <Route path="checklist" element={<Checklist />} />
               <Route path="calendar" element={<Calendar />} />
               <Route path="tables" element={<Tables />} />
+              <Route path="tableau" element={<TableauGenerator />} />
               <Route path="catering" element={<Catering />} />
               <Route path="accommodation" element={<Accommodation />} />
               <Route path="invitations" element={<Invitations />} />

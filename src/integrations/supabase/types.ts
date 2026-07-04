@@ -1629,6 +1629,63 @@ export type Database = {
           },
         ]
       }
+      tableau_layouts: {
+        Row: {
+          background_path: string | null
+          blocks: Json
+          created_at: string
+          height_cm: number
+          id: string
+          orientation: string
+          status: string
+          style: Json
+          updated_at: string
+          wedding_id: string
+          width_cm: number
+        }
+        Insert: {
+          background_path?: string | null
+          blocks?: Json
+          created_at?: string
+          height_cm?: number
+          id?: string
+          orientation?: string
+          status?: string
+          style?: Json
+          updated_at?: string
+          wedding_id: string
+          width_cm?: number
+        }
+        Update: {
+          background_path?: string | null
+          blocks?: Json
+          created_at?: string
+          height_cm?: number
+          id?: string
+          orientation?: string
+          status?: string
+          style?: Json
+          updated_at?: string
+          wedding_id?: string
+          width_cm?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tableau_layouts_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: true
+            referencedRelation: "weddings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tableau_layouts_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: true
+            referencedRelation: "weddings_camera_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tables: {
         Row: {
           capacity: number

@@ -4,7 +4,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Download, Heart, Users, Sparkles, ToggleLeft, ToggleRight, Trash2, Eraser, MoreVertical } from "lucide-react";
+import { Plus, Download, Heart, Users, Sparkles, ToggleLeft, ToggleRight, Trash2, Eraser, MoreVertical, LayoutTemplate } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, pointerWithin } from "@dnd-kit/core";
 import { GuestPool } from "@/components/tables/GuestPool";
@@ -93,6 +94,7 @@ type WeddingTargets = {
 };
 
 const Tables = () => {
+  const navigate = useNavigate();
   const { authState } = useAuth();
   const authWeddingId = authState.status === "authenticated" ? authState.activeWeddingId : null;
   const [weddingId, setWeddingId] = useState<string | null>(null);
@@ -691,6 +693,11 @@ const Tables = () => {
       <Button onClick={() => setWizardOpen(true)} variant="default" className="gap-2">
         <Sparkles className="w-4 h-4" />
         Smart Planner AI
+      </Button>
+
+      <Button onClick={() => navigate("/app/tableau")} variant="outline" className="gap-2">
+        <LayoutTemplate className="w-4 h-4" />
+        Genera Tableau
       </Button>
     </>
   );
