@@ -110,6 +110,7 @@ const App = () => (
               <Route path="checklist" element={<Checklist />} />
               <Route path="calendar" element={<Calendar />} />
               <Route path="tables" element={<Tables />} />
+              <Route path="tableau" element={<TableauGenerator />} />
               <Route path="catering" element={<Catering />} />
               <Route path="accommodation" element={<Accommodation />} />
               <Route path="invitations" element={<Invitations />} />
