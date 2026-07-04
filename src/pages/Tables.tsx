@@ -694,6 +694,11 @@ const Tables = () => {
         <Sparkles className="w-4 h-4" />
         Smart Planner AI
       </Button>
+
+      <Button onClick={() => navigate("/app/tableau")} variant="outline" className="gap-2">
+        <LayoutTemplate className="w-4 h-4" />
+        Genera Tableau
+      </Button>
     </>
   );
 
