@@ -7,7 +7,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import { Heart, Download, FileImage, ArrowLeft, AlertTriangle, Loader2, CheckCircle2 } from "lucide-react";
 import { TableauSetupWizard } from "@/components/tableau/TableauSetupWizard";
-import { TableauCanvas } from "@/components/tableau/TableauCanvas";
+import { TableauCanvas, type BlockMoveArgs } from "@/components/tableau/TableauCanvas";
 import { TableauStylePanel } from "@/components/tableau/TableauStylePanel";
 import { TableauStagingArea } from "@/components/tableau/TableauStagingArea";
 import { useTableauLayout, DEFAULT_STYLE, type TableauLayoutRow } from "@/hooks/useTableauLayout";
@@ -15,9 +15,11 @@ import {
   generateTableauPDF,
   generateTableauPNG,
   hashBlocksContent,
+  migrateBlockEntry,
+  computeEffectiveDPI,
   type TableauRenderBlock,
   type TableauStyle,
-  type TableauBlockPosition,
+  type TableauBlockEntry,
 } from "@/lib/tableauGeneratorEngine";
 
 interface Table { id: string; name: string; }
@@ -49,9 +51,9 @@ export default function TableauGenerator() {
   const [parties, setParties] = useState<Party[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
   const [bgUrl, setBgUrl] = useState<string | null>(null);
+  const [bgNaturalPx, setBgNaturalPx] = useState<{ w: number; h: number } | null>(null);
   const [exporting, setExporting] = useState(false);
 
-  // Data fetch
   useEffect(() => {
     if (!weddingId) return;
     (async () => {
@@ -73,7 +75,6 @@ export default function TableauGenerator() {
     })();
   }, [weddingId]);
 
-  // Signed URL for background
   useEffect(() => {
     if (!layout?.background_path) { setBgUrl(null); return; }
     (async () => {
@@ -82,7 +83,14 @@ export default function TableauGenerator() {
     })();
   }, [layout?.background_path]);
 
-  // Show wizard if no layout
+  // Probe image natural dimensions for DPI advisory.
+  useEffect(() => {
+    if (!bgUrl) { setBgNaturalPx(null); return; }
+    const img = new Image();
+    img.onload = () => setBgNaturalPx({ w: img.naturalWidth, h: img.naturalHeight });
+    img.src = bgUrl;
+  }, [bgUrl]);
+
   useEffect(() => {
     if (!loading && !layout) setWizardOpen(true);
   }, [loading, layout]);
@@ -92,7 +100,6 @@ export default function TableauGenerator() {
     ...(layout?.style ?? {}),
   }), [layout?.style]);
 
-  // Build guest lists per table + virtual +1s
   const virtualPlusOnes = useMemo<Guest[]>(() => {
     const promoted = new Set(guests.filter((g) => g.plus_one_of_guest_id).map((g) => g.plus_one_of_guest_id as string));
     return guests
@@ -113,7 +120,6 @@ export default function TableauGenerator() {
   const guestsById = useMemo(() => new Map(allGuestsForTables.map((g) => [g.id, g])), [allGuestsForTables]);
   const partyName = useMemo(() => new Map(parties.map((p) => [p.id, p.party_name])), [parties]);
 
-  // Extend assignments with virtual +1s: bind them to host's table
   const assignmentsWithVirtuals = useMemo(() => {
     const list = [...assignments];
     for (const p1 of virtualPlusOnes) {
@@ -124,11 +130,11 @@ export default function TableauGenerator() {
     return list;
   }, [assignments, virtualPlusOnes]);
 
-  // Build render blocks
   const { placedBlocks, stagedBlocks, contentHash } = useMemo(() => {
-    const savedPositions = (layout?.blocks ?? {}) as Record<string, TableauBlockPosition>;
+    const savedEntries = (layout?.blocks ?? {}) as Record<string, any>;
     const placed: TableauRenderBlock[] = [];
     const staged: TableauRenderBlock[] = [];
+    let stagedIdx = 0;
     for (const t of tables) {
       const rows = assignmentsWithVirtuals.filter((a) => a.table_id === t.id);
       const gs = rows.map((r) => guestsById.get(r.guest_id)).filter(Boolean) as Guest[];
@@ -136,7 +142,18 @@ export default function TableauGenerator() {
 
       let lines: string[] = [];
       if (style.displayMode === "first") {
-        lines = gs.map((g) => g.first_name);
+        const counts = new Map<string, number>();
+        for (const g of gs) {
+          const k = g.first_name.toLowerCase();
+          counts.set(k, (counts.get(k) ?? 0) + 1);
+        }
+        lines = gs.map((g) => {
+          const dup = (counts.get(g.first_name.toLowerCase()) ?? 0) > 1;
+          if (dup && style.surnameInitialForDuplicates && g.last_name) {
+            return `${g.first_name} ${g.last_name.charAt(0).toUpperCase()}.`;
+          }
+          return g.first_name;
+        });
       } else if (style.displayMode === "family") {
         const groups = new Map<string, Guest[]>();
         const singles: Guest[] = [];
@@ -155,19 +172,22 @@ export default function TableauGenerator() {
         lines = gs.map((g) => `${g.first_name} ${g.last_name}`.trim());
       }
 
+      const isPlaced = !!savedEntries[t.id];
+      const entry: TableauBlockEntry = isPlaced
+        ? migrateBlockEntry(savedEntries[t.id])
+        : migrateBlockEntry(null, stagedIdx++);
       const block: TableauRenderBlock = {
         tableId: t.id,
         title: t.name,
         lines,
-        position: savedPositions[t.id] ?? { x_pct: 40, y_pct: 40, w_pct: 20 },
+        entry,
       };
-      if (savedPositions[t.id]) placed.push(block); else staged.push(block);
+      if (isPlaced) placed.push(block); else staged.push(block);
     }
     const hash = hashBlocksContent([...placed, ...staged]);
     return { placedBlocks: placed, stagedBlocks: staged, contentHash: hash };
-  }, [tables, assignmentsWithVirtuals, guestsById, layout?.blocks, style.displayMode, partyName]);
+  }, [tables, assignmentsWithVirtuals, guestsById, layout?.blocks, style.displayMode, style.surnameInitialForDuplicates, partyName]);
 
-  // Alert about new tables to place
   const [alerted, setAlerted] = useState(false);
   useEffect(() => {
     if (!alerted && !loading && !dataLoading && layout && stagedBlocks.length > 0) {
@@ -178,16 +198,38 @@ export default function TableauGenerator() {
 
   const updateStyle = (s: TableauStyle) => patch({ style: { ...(layout?.style ?? {}), ...s } });
 
-  const moveBlock = (tableId: string, pos: TableauBlockPosition) => {
-    patch({ blocks: { ...(layout?.blocks ?? {}), [tableId]: pos } });
+  const upsertEntry = (tableId: string, updater: (e: TableauBlockEntry) => TableauBlockEntry) => {
+    const savedEntries = (layout?.blocks ?? {}) as Record<string, any>;
+    const current = migrateBlockEntry(savedEntries[tableId]);
+    patch({ blocks: { ...savedEntries, [tableId]: updater(current) } });
   };
-  const resizeBlock = (tableId: string, wPct: number) => {
-    const cur = (layout?.blocks ?? {})[tableId] ?? { x_pct: 40, y_pct: 40 };
-    patch({ blocks: { ...(layout?.blocks ?? {}), [tableId]: { ...cur, w_pct: wPct } } });
+
+  const handleBlockMove = ({ tableId, sub, x_pct, y_pct }: BlockMoveArgs) => {
+    upsertEntry(tableId, (e) => {
+      if (sub === "title") return { ...e, title: { ...e.title, x_pct, y_pct } };
+      return { ...e, list: { ...e.list, x_pct, y_pct } };
+    });
+  };
+  const handleWidth = (tableId: string, wPct: number) => {
+    upsertEntry(tableId, (e) => ({ ...e, list: { ...e.list, w_pct: wPct } }));
+  };
+  const handleColumns = (tableId: string, columns: 1 | 2 | 3) => {
+    upsertEntry(tableId, (e) => ({ ...e, list: { ...e.list, columns } }));
+  };
+  const handleToggleTitle = (tableId: string, visible: boolean) => {
+    upsertEntry(tableId, (e) => ({ ...e, title: { ...e.title, visible } }));
   };
   const placeStaged = (tableId: string) => {
-    patch({ blocks: { ...(layout?.blocks ?? {}), [tableId]: { x_pct: 40, y_pct: 40, w_pct: 20 } } });
+    const savedEntries = (layout?.blocks ?? {}) as Record<string, any>;
+    const idx = Object.keys(savedEntries).length;
+    const fresh = migrateBlockEntry(null, idx);
+    patch({ blocks: { ...savedEntries, [tableId]: fresh } });
   };
+
+  const effectiveDPI = useMemo(() => {
+    if (!bgNaturalPx || !layout) return 0;
+    return computeEffectiveDPI(bgNaturalPx.w, Number(layout.width_cm));
+  }, [bgNaturalPx, layout]);
 
   const doExport = async (kind: "pdf" | "png") => {
     if (!layout || !bgUrl) return;
@@ -237,7 +279,13 @@ export default function TableauGenerator() {
           weddingId={weddingId}
           onOpenChange={(o) => { setWizardOpen(o); if (!o) navigate("/app/tables"); }}
           onCreated={async (payload) => {
-            await createLayout({ ...payload, style: DEFAULT_STYLE });
+            await createLayout({
+              background_path: payload.background_path,
+              width_cm: payload.width_cm,
+              height_cm: payload.height_cm,
+              orientation: payload.orientation,
+              style: { ...DEFAULT_STYLE, bgFit: payload.bgFit, bgBandsColor: payload.bgBandsColor },
+            });
             setWizardOpen(false);
           }}
         />
@@ -247,10 +295,10 @@ export default function TableauGenerator() {
 
   const isFrozen = layout.status === "frozen";
   const driftDetected = isFrozen && layout.style?.lastExportHash && layout.style.lastExportHash !== contentHash;
+  const lowDPI = effectiveDPI > 0 && effectiveDPI < 150;
 
   return (
     <div className="h-[calc(100vh-4rem)] flex flex-col">
-      {/* Header */}
       <div className="border-b bg-card px-4 py-2 flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" onClick={() => navigate("/app/tables")} className="gap-1">
@@ -258,6 +306,11 @@ export default function TableauGenerator() {
           </Button>
           <h1 className="font-semibold">Generatore Tableau</h1>
           <span className="text-xs text-muted-foreground">{Number(layout.width_cm)}×{Number(layout.height_cm)} cm</span>
+          {effectiveDPI > 0 && (
+            <span className={`text-xs ${lowDPI ? "text-amber-700 font-medium" : "text-muted-foreground"}`}>
+              · ~{effectiveDPI} DPI
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {saving && <span className="text-xs text-muted-foreground flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Salvataggio…</span>}
@@ -271,7 +324,16 @@ export default function TableauGenerator() {
         </div>
       </div>
 
-      {/* Banner status */}
+      {lowDPI && (
+        <div className="px-4 py-2 text-sm bg-amber-50 border-b border-amber-200 text-amber-900 flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          <span>
+            L'immagine è a bassa risoluzione per questo formato di stampa: ~{effectiveDPI} DPI.
+            Consigliato ≥ 150, ideale 300. Esporta da Canva a risoluzione maggiore o riduci il formato.
+          </span>
+        </div>
+      )}
+
       {isFrozen && (
         <div className={`px-4 py-2 text-sm flex items-center justify-between gap-2 ${driftDetected ? "bg-amber-50 border-b border-amber-200 text-amber-900" : "bg-muted/50 border-b"}`}>
           <div className="flex items-center gap-2">
@@ -286,7 +348,6 @@ export default function TableauGenerator() {
         </div>
       )}
 
-      {/* Mobile notice */}
       {isMobile ? (
         <div className="p-4 flex-1 flex flex-col">
           <div className="rounded-md border p-3 bg-muted/40 text-sm mb-3">
@@ -302,6 +363,8 @@ export default function TableauGenerator() {
                 blocks={placedBlocks}
                 onBlockMove={() => {}}
                 onBlockWidth={() => {}}
+                onColumnsChange={() => {}}
+                onToggleTitle={() => {}}
                 readOnly
               />
             )}
@@ -309,12 +372,10 @@ export default function TableauGenerator() {
         </div>
       ) : (
         <div className="flex-1 flex min-h-0">
-          {/* Staging */}
           <aside className="w-60 border-r overflow-y-auto shrink-0">
             <TableauStagingArea staged={stagedBlocks} onPlace={placeStaged} />
           </aside>
 
-          {/* Canvas */}
           <main className="flex-1 min-w-0 p-4">
             {bgUrl ? (
               <TableauCanvas
@@ -323,15 +384,16 @@ export default function TableauGenerator() {
                 heightCm={Number(layout.height_cm)}
                 style={style}
                 blocks={placedBlocks}
-                onBlockMove={moveBlock}
-                onBlockWidth={resizeBlock}
+                onBlockMove={handleBlockMove}
+                onBlockWidth={handleWidth}
+                onColumnsChange={handleColumns}
+                onToggleTitle={handleToggleTitle}
               />
             ) : (
               <div className="h-full flex items-center justify-center text-muted-foreground">Caricamento sfondo…</div>
             )}
           </main>
 
-          {/* Style */}
           <aside className="w-72 border-l overflow-y-auto shrink-0">
             <TableauStylePanel style={style} onChange={updateStyle} />
           </aside>
