@@ -94,6 +94,7 @@ type WeddingTargets = {
 };
 
 const Tables = () => {
+  const navigate = useNavigate();
   const { authState } = useAuth();
   const authWeddingId = authState.status === "authenticated" ? authState.activeWeddingId : null;
   const [weddingId, setWeddingId] = useState<string | null>(null);
