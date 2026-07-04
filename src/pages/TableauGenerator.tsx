@@ -39,7 +39,7 @@ export default function TableauGenerator() {
   const { authState } = useAuth();
   const { toast } = useToast();
   const isMobile = useIsMobile();
-  const weddingId = authState.weddingId ?? null;
+  const weddingId = authState.status === "authenticated" ? authState.activeWeddingId : null;
 
   const { layout, loading, saving, savedAt, createLayout, patch, patchImmediate } = useTableauLayout(weddingId);
   const [wizardOpen, setWizardOpen] = useState(false);
