@@ -1,10 +1,11 @@
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { AlignLeft, AlignCenter, AlignRight } from "lucide-react";
-import { FONT_LABELS, GOOGLE_FONT_TTF_MAP, loadGoogleFontForPreview, type TableauStyle } from "@/lib/tableauGeneratorEngine";
+import { FONT_LABELS, GOOGLE_FONT_TTF_MAP, loadGoogleFontForPreview, type TableauStyle, type TableauBgFit } from "@/lib/tableauGeneratorEngine";
 import { useEffect } from "react";
 
 interface Props {
