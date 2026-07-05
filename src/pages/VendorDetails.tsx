@@ -1238,7 +1238,7 @@ const PaymentTimeline: React.FC<{
   payments: DbPayment[];
   itemTotals: Record<string, number>;
   onTogglePaid: (id: string, paid: boolean) => void;
-  onUpdate: (id: string, patch: { description?: string; amount?: number; due_date?: string }) => void | Promise<void>;
+  onUpdate: (id: string, patch: { description?: string; amount?: number; due_date?: string; tax_rate?: number | null; tax_inclusive?: boolean }) => void | Promise<void>;
   onDelete: (id: string) => void | Promise<void>;
 }> = ({ payments, itemTotals, onTogglePaid, onUpdate, onDelete }) => {
   const sorted = [...payments].sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
@@ -1247,6 +1247,8 @@ const PaymentTimeline: React.FC<{
   const [draftAmount, setDraftAmount] = React.useState('');
   const [draftDate, setDraftDate] = React.useState('');
   const [draftIsSaldo, setDraftIsSaldo] = React.useState(false);
+  const [draftTaxInclusive, setDraftTaxInclusive] = React.useState(true);
+  const [draftTaxRate, setDraftTaxRate] = React.useState<string>('22');
 
   const isSaldoDesc = (s: string) => (s || '').trim().toLowerCase().startsWith('saldo');
 
@@ -1258,12 +1260,27 @@ const PaymentTimeline: React.FC<{
     return Math.max(0, Number((total - sumOthers).toFixed(2)));
   };
 
+  // IVA breakdown: dato l'importo `amount` memorizzato (che è la base scelta
+  // dall'utente: netto se tax_inclusive=false, lordo se true) restituisce netto/iva/lordo.
+  const ivaBreakdown = (amount: number, taxInclusive: boolean, taxRate: number | null | undefined) => {
+    const rate = typeof taxRate === 'number' && !Number.isNaN(taxRate) ? taxRate : 0;
+    if (!rate) return { netto: amount, iva: 0, lordo: amount, hasIva: false };
+    if (taxInclusive) {
+      const netto = amount / (1 + rate / 100);
+      return { netto, iva: amount - netto, lordo: amount, hasIva: true };
+    }
+    const iva = amount * (rate / 100);
+    return { netto: amount, iva, lordo: amount + iva, hasIva: true };
+  };
+
   const startEdit = (p: DbPayment) => {
     setEditingId(p.id);
     setDraftDesc(p.description);
     setDraftAmount(String(p.amount));
     setDraftDate(p.due_date);
     setDraftIsSaldo(isSaldoDesc(p.description));
+    setDraftTaxInclusive(p.tax_inclusive !== false);
+    setDraftTaxRate(p.tax_rate != null ? String(p.tax_rate) : '22');
   };
   const cancelEdit = () => setEditingId(null);
   const saveEdit = async (p: DbPayment) => {
@@ -1275,12 +1292,25 @@ const PaymentTimeline: React.FC<{
     const finalDesc = useSaldo
       ? (isSaldoDesc(draftDesc) ? draftDesc.trim() : 'Saldo')
       : (draftDesc.trim() || p.description);
+    const rateNum = draftTaxRate.trim() === '' ? null : Number(draftTaxRate);
     await onUpdate(p.id, {
       description: finalDesc,
       amount: finalAmount,
       due_date: draftDate || p.due_date,
+      tax_inclusive: draftTaxInclusive,
+      tax_rate: rateNum != null && !Number.isNaN(rateNum) ? rateNum : null,
     });
     setEditingId(null);
+  };
+
+  const previewAmount = draftIsSaldo ? computeRemainder({ ...sorted[0], id: editingId } as DbPayment) : Number(draftAmount) || 0;
+  const previewRate = draftTaxRate.trim() === '' ? 0 : Number(draftTaxRate) || 0;
+  const preview = ivaBreakdown(previewAmount, draftTaxInclusive, previewRate);
+
+  const chipBase: React.CSSProperties = {
+    display: 'inline-flex', alignItems: 'center', gap: 4,
+    fontSize: 10, padding: '2px 7px', borderRadius: 999,
+    fontFamily: FONT_UI, fontWeight: 500, letterSpacing: '0.02em',
   };
 
   return (
@@ -1291,6 +1321,9 @@ const PaymentTimeline: React.FC<{
         const days = daysFromToday(p.due_date);
         const urgent = !paid && days >= 0 && days <= 7;
         const isEditing = editingId === p.id;
+        const pTaxInclusive = p.tax_inclusive !== false;
+        const pRate = p.tax_rate ?? null;
+        const pBreakdown = ivaBreakdown(Number(p.amount), pTaxInclusive, pRate);
         return (
           <div key={p.id} style={{ position: 'relative', paddingBottom: i < sorted.length - 1 ? 20 : 0, fontFamily: FONT_UI }}>
             <div style={{
@@ -1315,7 +1348,7 @@ const PaymentTimeline: React.FC<{
                     color: ink(), fontFamily: FONT_UI, outline: 'none',
                   }}
                 />
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
                   <input
                     type="date"
                     value={draftDate}
@@ -1326,22 +1359,104 @@ const PaymentTimeline: React.FC<{
                       color: ink(), fontFamily: FONT_UI, outline: 'none',
                     }}
                   />
-                  <input
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    value={draftIsSaldo ? computeRemainder(p).toFixed(2) : draftAmount}
-                    disabled={draftIsSaldo}
-                    onChange={e => setDraftAmount(e.target.value)}
-                    placeholder="Importo €"
-                    style={{
-                      width: 130, fontSize: 13, padding: '6px 10px', borderRadius: 6,
-                      border: `1px solid ${border(true)}`,
-                      background: draftIsSaldo ? 'hsl(var(--paper-surface-muted))' : surface(),
-                      color: ink(), fontFamily: FONT_MONO, outline: 'none', textAlign: 'right',
-                    }}
-                  />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    <label style={{ fontSize: 10, color: ink(3), fontFamily: FONT_UI, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                      {draftTaxInclusive ? 'Importo (lordo) €' : 'Imponibile (netto) €'}
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={draftIsSaldo ? computeRemainder(p).toFixed(2) : draftAmount}
+                      disabled={draftIsSaldo}
+                      onChange={e => setDraftAmount(e.target.value)}
+                      placeholder="0,00"
+                      style={{
+                        width: 130, fontSize: 13, padding: '6px 10px', borderRadius: 6,
+                        border: `1px solid ${border(true)}`,
+                        background: draftIsSaldo ? 'hsl(var(--paper-surface-muted))' : surface(),
+                        color: ink(), fontFamily: FONT_MONO, outline: 'none', textAlign: 'right',
+                      }}
+                    />
+                  </div>
                 </div>
+
+                {/* Blocco IVA */}
+                <div style={{
+                  border: `1px solid ${border()}`, borderRadius: 8, padding: 10,
+                  background: 'hsl(var(--paper-surface-muted))', display: 'grid', gap: 8,
+                }}>
+                  <div style={{
+                    fontSize: 10, color: ink(3), fontFamily: FONT_UI,
+                    letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600,
+                  }}>
+                    Trattamento IVA
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <div style={{
+                      display: 'inline-flex', borderRadius: 999, background: surface(),
+                      padding: 3, gap: 2, border: `1px solid ${border()}`,
+                    }}>
+                      {[
+                        { key: true, label: 'IVA inclusa nell\'importo' },
+                        { key: false, label: 'IVA da aggiungere' },
+                      ].map(opt => {
+                        const active = draftTaxInclusive === opt.key;
+                        return (
+                          <button
+                            key={String(opt.key)}
+                            type="button"
+                            onClick={() => setDraftTaxInclusive(opt.key)}
+                            style={{
+                              fontSize: 11, padding: '4px 10px', borderRadius: 999,
+                              border: 'none', cursor: 'pointer', fontFamily: FONT_UI,
+                              background: active ? brand() : 'transparent',
+                              color: active ? '#fff' : ink(2),
+                              fontWeight: active ? 600 : 400,
+                              transition: 'all .15s',
+                            }}
+                          >
+                            {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span style={{ fontSize: 11, color: ink(3), fontFamily: FONT_UI }}>Aliquota</span>
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        step="0.5"
+                        value={draftTaxRate}
+                        onChange={e => setDraftTaxRate(e.target.value)}
+                        style={{
+                          width: 56, fontSize: 12, padding: '4px 6px', borderRadius: 6,
+                          border: `1px solid ${border(true)}`, background: surface(),
+                          color: ink(), fontFamily: FONT_MONO, outline: 'none', textAlign: 'right',
+                        }}
+                      />
+                      <span style={{ fontSize: 11, color: ink(3), fontFamily: FONT_UI }}>%</span>
+                    </div>
+                  </div>
+                  {preview.hasIva ? (
+                    <div style={{
+                      fontFamily: FONT_MONO, fontSize: 11, color: ink(2),
+                      padding: '6px 8px', background: surface(), borderRadius: 6,
+                      border: `1px dashed ${border()}`,
+                    }}>
+                      Netto {fmtEUR(preview.netto)} · IVA {fmtEUR(preview.iva)} · <strong style={{ color: ink() }}>Lordo {fmtEUR(preview.lordo)}</strong>
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 11, color: ink(3), fontFamily: FONT_UI, fontStyle: 'italic' }}>
+                      Nessuna IVA applicata · l'importo verrà considerato tale e quale.
+                    </div>
+                  )}
+                  <div style={{ fontSize: 10, color: ink(3), fontFamily: FONT_UI }}>
+                    Il totale mostrato in Tesoreria è il <strong>lordo</strong> effettivo che uscirà dal conto.
+                  </div>
+                </div>
+
                 <label style={{
                   display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: ink(2),
                   fontFamily: FONT_UI, cursor: 'pointer', userSelect: 'none',
@@ -1377,10 +1492,38 @@ const PaymentTimeline: React.FC<{
                     </PaperButton>
                   </div>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
                   <div style={{ fontFamily: FONT_MONO, fontSize: 13, color: paid ? success() : ink(), fontWeight: 500 }}>
                     {fmtEUR(Number(p.amount))}
                   </div>
+                  <div style={{ fontSize: 9, color: ink(3), fontFamily: FONT_UI, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                    {pBreakdown.hasIva ? (pTaxInclusive ? 'lordo' : 'netto') : 'importo'}
+                  </div>
+                  {pBreakdown.hasIva && (
+                    <>
+                      <span style={{
+                        ...chipBase,
+                        background: pTaxInclusive ? 'hsl(142 45% 92%)' : 'hsl(35 90% 92%)',
+                        color: pTaxInclusive ? 'hsl(142 55% 28%)' : 'hsl(28 75% 32%)',
+                      }}>
+                        {pTaxInclusive ? `IVA ${pRate}% inclusa` : `IVA ${pRate}% esclusa`}
+                      </span>
+                      {!pTaxInclusive && (
+                        <div style={{
+                          fontFamily: FONT_MONO, fontSize: 10, color: ink(3),
+                          textAlign: 'right', lineHeight: 1.4, marginTop: 2,
+                        }}>
+                          + IVA {fmtEUR(pBreakdown.iva)}<br/>
+                          <span style={{ color: ink(2), fontWeight: 500 }}>= {fmtEUR(pBreakdown.lordo)} lordo</span>
+                        </div>
+                      )}
+                    </>
+                  )}
+                  {!pBreakdown.hasIva && (
+                    <span style={{ ...chipBase, background: 'hsl(var(--paper-surface-muted))', color: ink(3) }}>
+                      Senza IVA
+                    </span>
+                  )}
                   <PaperButton
                     variant={paid ? 'ghost' : 'secondary'}
                     size="sm"
@@ -1398,3 +1541,4 @@ const PaymentTimeline: React.FC<{
     </div>
   );
 };
+
