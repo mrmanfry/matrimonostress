@@ -98,7 +98,7 @@ export default function VendorDetails() {
       const { data: payments } = itemIds.length
         ? await supabase
             .from('payments')
-            .select('id, expense_item_id, description, amount, status, due_date, paid_on_date')
+            .select('id, expense_item_id, description, amount, status, due_date, paid_on_date, tax_rate, tax_inclusive')
             .in('expense_item_id', itemIds)
             .order('due_date', { ascending: true })
         : { data: [] as DbPayment[] };
