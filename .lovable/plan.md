@@ -1,90 +1,58 @@
-# Generatore Tableau de Mariage
+# Trasparenza IVA nella modifica rata (Piano Pagamenti fornitore)
 
-Studio di stampa per creare il tableau: l'utente carica lo sfondo (es. esportato da Canva), l'app sovrappone i tavoli e gli ospiti confermati come blocchi tipografici, e produce un file pronto per la tipografia.
+## Il problema visto
 
-## 1. Database & Storage
+Nella card "Piano Pagamenti" della scheda fornitore, sia in visualizzazione che nel form inline di **Modifica**, non compare da nessuna parte l'informazione IVA. L'utente vede solo `610` e non sa se sia netto o lordo. In realtà il pagamento è memorizzato con `tax_inclusive=false` + `tax_rate=22`, quindi in Tesoreria diventa 744 € (610 × 1,22). Da lì la confusione e i 134 € "non allocati".
 
-**Migration**: nuova tabella `public.tableau_layouts`
-- `id`, `wedding_id` (unique, FK → weddings), `background_path` text
-- `width_cm` numeric default 70, `height_cm` numeric default 100, `orientation` text default 'portrait'
-- `style` jsonb (fontFamily, fontColor, baseFontSize, textAlign, displayMode)
-- `blocks` jsonb default `'{}'` — mappa `table_id → { x_pct, y_pct, w_pct }`
-- `status` text default 'draft' check in ('draft','frozen')
-- `created_at`, `updated_at` con trigger
-- GRANT a `authenticated` + `service_role`; RLS via `has_wedding_access(auth.uid(), wedding_id)`
+Il form inline responsabile è `PaymentTimeline` in `src/pages/VendorDetails.tsx` (righe ~1237-1399). Attualmente contiene solo: descrizione, data, importo, checkbox Saldo. Manca completamente la sezione IVA.
 
-**Storage**: bucket privato `tableau-backgrounds` con policy RLS per-wedding (path `{wedding_id}/...`), stessa struttura di `vendor-documents`.
+## Cosa cambio
 
-## 2. Rotta & entry point
+Solo UI di `PaymentTimeline` e la firma di `onUpdate` per far passare i campi IVA — nessuna modifica DB, nessuna edge function.
 
-- Nuova pagina `src/pages/TableauGenerator.tsx` alla rotta `/app/tableau` in `src/App.tsx` (dentro `AppLayout`, `ProtectedRoute requireWedding`).
-- In `src/pages/Tables.tsx`, aggiungo un pulsante "Genera Tableau" (icona `LayoutTemplate`) in `headerActions` che naviga a `/app/tableau`. Nessun'altra modifica a Tables.tsx.
+### 1. Vista read-only della rata (sempre visibile)
+Sotto la riga dell'importo aggiungere:
+- Chip piccolo: `IVA 22% inclusa` (verde/neutro) oppure `IVA 22% esclusa` (arancione) oppure `Senza IVA`.
+- Se IVA esclusa: riga secondaria mono-space  
+  `Netto 610,00 · IVA 134,20 · Lordo 744,20 €`  
+  così l'utente vede subito la composizione senza aprire il form.
+- L'importo grande resta com'è (il campo `amount` grezzo), ma con label sotto: `netto` / `lordo` / `importo` a seconda del caso, per rimuovere ogni ambiguità.
 
-## 3. Setup flow (prima visita)
+### 2. Form inline "Modifica rata"
+Aggiungere sotto la riga data/importo, prima del checkbox Saldo, un blocco `Trattamento IVA`:
 
-1. Step upload sfondo: PNG/JPG, max 15MB, validazione client-side, upload su `tableau-backgrounds/{wedding_id}/bg-{timestamp}.{ext}`.
-2. Step formato di stampa: preset (70×100 verticale, 100×70 orizzontale, 50×70, A1 594×841) + modalità custom (cm).
-3. Insert riga in `tableau_layouts`, poi apre workspace.
+```
+Trattamento IVA
+[ Importo IVA inclusa  ●  |   Importo + IVA da aggiungere  ○ ]   Aliquota [22] %
 
-## 4. Workspace — logica dati
+Anteprima: Netto 610,00 · IVA 134,20 · Lordo 744,20 €
+```
 
-**One-way binding**: il generatore NON scrive mai su `tables`, `table_assignments`, `guests`. Legge solo.
+- Segmented control a 2 opzioni (radio nascosto sotto), coerente con lo stile PaperUI già in uso.
+- Campo Aliquota accanto (input number 0-100, step 0,5).
+- L'**etichetta del campo Importo cambia in tempo reale**: `Importo (lordo) €` quando IVA inclusa, `Imponibile (netto) €` quando IVA esclusa.
+- Anteprima live che ricalcola netto/IVA/lordo mentre l'utente digita.
+- Helper text piccolo: *"Il totale mostrato in Tesoreria è il lordo effettivo che uscirà dal conto."*
 
-Al caricamento (e su realtime opzionale):
-- Fetch `tables` + `table_assignments` + `guests` (filtrando `rsvp_status.eq.confirmed,rsvp_status.eq.Confermato` con `.or()` come in Tables.tsx) + `invite_parties` per il display "Per Famiglia".
-- Ricostruisco i +1 virtuali con la stessa logica di Tables.tsx (allow_plus_one + plus_one_name, esclusi quelli già promossi).
-- Per ogni tavolo non vuoto costruisco `{ tableId, title: table.name, guests: [...] }`.
-- Merge con `blocks` salvati:
-  - blocchi salvati per tavoli inesistenti → pruning silenzioso
-  - tavoli non vuoti senza posizione → Staging Area sidebar + toast "Hai un nuovo tavolo da posizionare!"
-- Il contenuto testuale è SEMPRE ricalcolato al volo → gli ospiti rimossi/declined scompaiono automaticamente.
+### 3. Wiring dati
+- Estendere lo stato del form con `draftTaxInclusive: boolean` e `draftTaxRate: number`, inizializzati da `p.tax_inclusive` e `p.tax_rate` (default `true` / `22`).
+- Estendere il tipo `onUpdate` in `PaymentTimeline` e la funzione padre (`updatePayment` in `VendorDetails`) per accettare anche `tax_inclusive` e `tax_rate` e propagarli su `supabase.from('payments').update(...)`.
+- Nessuna modifica di `DbPayment` type (campi già presenti nello schema `payments`).
 
-## 5. Canvas & editing
+### 4. Coerenza con Tesoreria
+Nessun cambio a `budgetAggregates` in questo giro: la logica di calcolo del cash (lordo) è già corretta. L'obiettivo di questa iterazione è unicamente **rendere visibile all'utente** cosa sta scrivendo e cosa uscirà davvero dal conto, così il 744 € in tesoreria non arriva più come sorpresa.
 
-- Container letterboxed che rispetta strettamente l'aspect ratio fisico (`width_cm / height_cm`), scala per riempire lo schermo disponibile.
-- Sfondo caricato via signed URL dallo Storage.
-- Drag & drop con `@dnd-kit/core` (già in uso); posizioni salvate come percentuali (`x_pct`, `y_pct`).
-- Handle di resize orizzontale opzionale per `w_pct` del blocco.
-- Pannello stile globale (applica a TUTTI i blocchi):
-  - **Font Family**: dropdown popolato dalle chiavi di `GOOGLE_FONT_TTF_MAP` (importato da `printGeneratorEngine.ts`); caricamento live via `<link>` Google Fonts CSS per far combaciare anteprima ed export.
-  - **Font Color**: color picker.
-  - **Base Font Size**: slider (8–32pt); titolo tavolo = 1.4×, nomi ospiti = 1×.
-  - **Text Alignment**: left / center / right.
-  - **Display Mode**: `full` "Nome Cognome" | `first` "Solo Nome" | `family` (raggruppa per `invite_parties.party_name` → "Famiglia Rossi (4)"; senza party listato individualmente).
-- Autosave: debounce 800ms → upsert `tableau_layouts`; indicatore "Salvato" discreto in header.
+Il fix separato del dialog "Pagamenti non allocati" (allineamento base netta/lorda in `budgetAggregates.ts`) resta pendente e verrà pianificato a parte se l'utente lo conferma dopo aver visto la trasparenza IVA.
 
-## 6. Export
+## Verifica
 
-**PDF** (bottone "Esporta per la Stampa"):
-- Riutilizzo pattern di `src/lib/printGeneratorEngine.ts`:
-  - `pdf-lib` PDFDocument, pagina di dimensioni `width_cm * 28.3465` × `height_cm * 28.3465` pt.
-  - `embedJpg`/`embedPng` sullo sfondo full-bleed.
-  - Font Google fetchato via `fetchGoogleFontBytes()` (esporto la funzione da `printGeneratorEngine.ts` o duplico in un nuovo helper `tableauGeneratorEngine.ts`), fallback Helvetica.
-  - Testo disegnato vettorialmente con `page.drawText`, mappatura `% → pt` identica al pattern esistente (`PREVIEW_CANVAS_REF_WIDTH` / `PREVIEW_FONT_SCALE`).
-  - Testo vettoriale = qualità infinita, il 300 DPI è nativamente soddisfatto per il testo.
+- Aprire la rata Acconto (610 € netti, IVA 22 % esclusa): la card mostra chip arancione + riga `Netto 610 · IVA 134,20 · Lordo 744,20`.
+- Cliccare Modifica: form pre-compilato con segmented su "Importo + IVA da aggiungere", aliquota 22, anteprima coerente.
+- Cambiare a "IVA inclusa": l'etichetta dell'importo diventa `Importo (lordo)`, l'anteprima ricalcola, salvando il valore torna corretto.
+- Nessuna regressione sul checkbox Saldo (interagisce solo con `amount`, non con IVA).
 
-**PNG 300 DPI** (bottone secondario):
-- Rendering via `<canvas>` alle dimensioni `width_cm / 2.54 * 300` px, disegno sfondo + testo con `ctx.fillText` usando il font Google già caricato.
+## File toccati
 
-**Post-export**: aggiorno `status = 'frozen'`. Banner persistente nel workspace: "Tableau esportato — le modifiche successive agli ospiti/tavoli non sono riflesse nella stampa" con bottone "Riporta in bozza" (`status = 'draft'`). Se frozen e il contenuto ricomputato differisce dallo snapshot dell'ultimo export (salvo hash del contenuto in `style.lastExportHash`), banner in colore warning.
+- `src/pages/VendorDetails.tsx` — sola sezione `PaymentTimeline` (form inline + vista read-only) e firma di `onUpdate` per propagare i due campi IVA all'update Supabase già esistente.
 
-## 7. UX
-
-- Mobile (`useIsMobile`): preview read-only + notice "L'editing richiede desktop".
-- Loading state con lo stesso pattern degli altri moduli (Heart pulse).
-- Empty state per matrimoni senza tavoli confermati.
-- Toast in italiano per tutti gli errori (upload, save, export).
-- Copy interamente in italiano, tono coerente con l'app.
-
-## Dettagli tecnici
-
-- Nuovo file `src/lib/tableauGeneratorEngine.ts` con `generateTableauPDF()` e `generateTableauPNG()`; import `GOOGLE_FONT_TTF_MAP` e `fetchGoogleFontBytes` da `printGeneratorEngine.ts` (esporto la funzione se non lo è già).
-- Componenti in `src/components/tableau/`:
-  - `TableauSetupWizard.tsx` (upload + formato)
-  - `TableauCanvas.tsx` (container + dnd-kit)
-  - `TableauBlock.tsx` (blocco draggable)
-  - `TableauStylePanel.tsx` (pannello destro)
-  - `TableauStagingArea.tsx` (sidebar sinistra)
-  - `TableauExportBanner.tsx`
-- Hook `useTableauLayout(weddingId)` per fetch/upsert con debounce.
-- Nessuna modifica a: engine inviti, logica assegnazione tavoli, altri flussi Tables.tsx (solo aggiunta pulsante).
+Nessun altro file, nessuna migrazione, nessuna edge function.
