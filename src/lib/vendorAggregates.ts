@@ -93,6 +93,8 @@ export interface DbPayment {
   status: string;       // 'Da Pagare' | 'Pagato' | 'paid' | 'due'
   due_date: string;     // ISO date
   paid_on_date: string | null;
+  tax_rate?: number | null;
+  tax_inclusive?: boolean | null;
 }
 export interface DbLineItem {
   id: string;
