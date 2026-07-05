@@ -427,7 +427,7 @@ export default function VendorDetails() {
 
   const updatePayment = async (
     paymentId: string,
-    patch: { description?: string; amount?: number; due_date?: string },
+    patch: { description?: string; amount?: number; due_date?: string; tax_rate?: number | null; tax_inclusive?: boolean },
   ) => {
     const { error } = await supabase.from('payments').update(patch).eq('id', paymentId);
     if (error) { toast({ title: 'Errore', description: error.message, variant: 'destructive' }); return; }
