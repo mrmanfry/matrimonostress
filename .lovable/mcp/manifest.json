@@ -1,0 +1,130 @@
+{
+  "version": 1,
+  "sdk_version": "0.20.0",
+  "path": "/functions/v1/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://evaivaudtestjzckutsd.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "wedsapp-mcp",
+      "version": "0.1.0",
+      "title": "WedsApp"
+    },
+    "tools": [
+      {
+        "name": "list_weddings",
+        "title": "Elenca matrimoni",
+        "description": "Elenca i matrimoni a cui l'utente autenticato ha accesso (via user_roles), con data e sposi.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_guests",
+        "title": "Elenca ospiti",
+        "description": "Elenca gli ospiti di un matrimonio con nome, RSVP e nucleo. Filtra opzionalmente per stato RSVP.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "wedding_id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "ID del matrimonio"
+            },
+            "rsvp_status": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "confirmed",
+                "declined",
+                "maybe"
+              ],
+              "description": "Filtra per stato RSVP"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "default": 200
+            }
+          },
+          "required": [
+            "wedding_id"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_vendors",
+        "title": "Elenca fornitori",
+        "description": "Elenca i fornitori di un matrimonio con nome, categoria e stato.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "wedding_id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "ID del matrimonio"
+            }
+          },
+          "required": [
+            "wedding_id"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "budget_summary",
+        "title": "Riepilogo budget",
+        "description": "Restituisce il budget totale, la somma delle spese pianificate e la somma dei pagamenti registrati.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "wedding_id": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "required": [
+            "wedding_id"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
