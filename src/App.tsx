@@ -46,6 +46,7 @@ import Prezzi from "./pages/Prezzi";
 import Risorse from "./pages/Risorse";
 import RisorseArticle from "./pages/RisorseArticle";
 import NotFound from "./pages/NotFound";
+import OAuthConsent from "./pages/OAuthConsent";
 
 const AppIndexRedirect = () => {
   const { activeMode } = useAuth();
@@ -63,6 +64,7 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
+            <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
             <Route path="/funzionalita" element={<Funzionalita />} />
             <Route path="/come-funziona" element={<ComeFunziona />} />
             <Route path="/prezzi" element={<Prezzi />} />
