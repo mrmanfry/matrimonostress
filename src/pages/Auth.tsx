@@ -55,18 +55,26 @@ const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  // OAuth consent / deep-link return target. Only same-origin relative paths are honored.
+  const nextParam = (() => {
+    if (typeof window === "undefined") return null;
+    const p = new URLSearchParams(window.location.search).get("next");
+    return p && p.startsWith("/") && !p.startsWith("//") ? p : null;
+  })();
+
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session && window.location.pathname === "/auth") {
         setTimeout(() => {
           if (window.location.pathname === "/auth") {
-            navigate("/app/dashboard");
+            if (nextParam) window.location.href = nextParam;
+            else navigate("/app/dashboard");
           }
         }, 500);
       }
     });
     return () => subscription.unsubscribe();
-  }, [navigate]);
+  }, [navigate, nextParam]);
 
   const handlePasswordChange = (newPassword: string) => {
     setPassword(newPassword);
@@ -79,7 +87,7 @@ const Auth = () => {
     setGoogleLoading(true);
     try {
       const { error } = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: `${window.location.origin}/auth`,
+        redirect_uri: `${window.location.origin}/auth${nextParam ? `?next=${encodeURIComponent(nextParam)}` : ""}`,
       });
       if (error) throw error;
     } catch (error: any) {
@@ -131,7 +139,7 @@ const Auth = () => {
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: `${window.location.origin}/app/dashboard` },
+          options: { emailRedirectTo: `${window.location.origin}${nextParam ?? "/app/dashboard"}` },
         });
 
         if (error) throw error;
