@@ -116,7 +116,12 @@ serve(async (req: Request): Promise<Response> => {
           continue;
         }
 
-        const recipientEmail = "onboarding@resend.dev";
+        const { data: userLookup, error: userLookupError } = await supabase.auth.admin.getUserById(coPlanner.id);
+        const recipientEmail = userLookup?.user?.email;
+        if (userLookupError || !recipientEmail) {
+          console.warn(`⚠️ Could not resolve email for co-planner ${coPlanner.id} (payment ${payment.id})`);
+          continue;
+        }
 
         const emailHtml = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
