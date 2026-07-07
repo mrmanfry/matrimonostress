@@ -181,7 +181,7 @@ export function CashflowTimeline({ upcoming, unplanned = [], totals, onOpenVendo
             letterSpacing: '0.08em', fontFamily: FONT_UI, borderBottom: `1px solid ${border()}`,
           }}>Prossimi flussi · rate pianificate</div>
           <div>
-            {upcoming.slice(0, 8).map(p => {
+            {upcoming.slice(0, showAll ? upcoming.length : 8).map(p => {
               const days = daysFromToday(p.due);
               const overdue = days < 0;
               const soon = days >= 0 && days <= 7;
