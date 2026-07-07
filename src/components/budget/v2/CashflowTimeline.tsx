@@ -13,6 +13,7 @@ interface Props {
 }
 
 export function CashflowTimeline({ upcoming, unplanned = [], totals, onOpenVendor, onMarkPaid }: Props) {
+  const [showAll, setShowAll] = React.useState(false);
   if (upcoming.length === 0 && unplanned.length === 0) {
     return (
       <PaperCard>
@@ -180,7 +181,7 @@ export function CashflowTimeline({ upcoming, unplanned = [], totals, onOpenVendo
             letterSpacing: '0.08em', fontFamily: FONT_UI, borderBottom: `1px solid ${border()}`,
           }}>Prossimi flussi · rate pianificate</div>
           <div>
-            {upcoming.slice(0, 8).map(p => {
+            {upcoming.slice(0, showAll ? upcoming.length : 8).map(p => {
               const days = daysFromToday(p.due);
               const overdue = days < 0;
               const soon = days >= 0 && days <= 7;
@@ -250,9 +251,23 @@ export function CashflowTimeline({ upcoming, unplanned = [], totals, onOpenVendo
               );
             })}
             {upcoming.length > 8 && (
-              <div style={{ padding: '10px 24px', fontSize: 11, color: ink(3), fontFamily: FONT_UI, textAlign: 'center' }}>
-                + altri {upcoming.length - 8} pagamenti futuri
-              </div>
+              <button
+                type="button"
+                onClick={() => setShowAll(v => !v)}
+                style={{
+                  width: '100%', padding: '10px 24px', fontSize: 11,
+                  color: ink(2), fontFamily: FONT_UI, fontWeight: 600,
+                  textAlign: 'center', background: 'transparent',
+                  border: 'none', borderTop: `1px dashed ${border()}`,
+                  cursor: 'pointer', letterSpacing: '0.02em',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'hsl(36 28% 94%)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+              >
+                {showAll
+                  ? '− Mostra meno'
+                  : `+ Mostra altri ${upcoming.length - 8} pagamenti futuri`}
+              </button>
             )}
           </div>
         </div>
