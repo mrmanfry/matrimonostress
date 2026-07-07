@@ -1391,7 +1391,7 @@ const PaymentTimeline: React.FC<{
                       type="number"
                       min={0}
                       step="0.01"
-                      value={draftIsSaldo ? computeRemainder(p).toFixed(2) : draftAmount}
+                      value={draftIsSaldo ? grossToBase(computeRemainder(p), draftTaxInclusive, previewRate).toFixed(2) : draftAmount}
                       disabled={draftIsSaldo}
                       onChange={e => setDraftAmount(e.target.value)}
                       placeholder="0,00"
