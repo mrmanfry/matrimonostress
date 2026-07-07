@@ -1,58 +1,27 @@
-# Trasparenza IVA nella modifica rata (Piano Pagamenti fornitore)
+## Problema
 
-## Il problema visto
+Nella timeline pagamenti di un fornitore, quando una rata ha "IVA esclusa" (es. 200 € netto + 44 € IVA = 244 € lordo), il calcolo del **Saldo automatico** confronta il totale della voce di spesa (che è già **lordo**, prodotto da `calculateExpenseAmount`) con la somma degli `amount` delle altre rate — ma quegli `amount` sono memorizzati nella "base scelta" (netto se IVA esclusa, lordo se IVA inclusa). Risultato: si scala 200 € invece di 244 € dal budget, e il saldo residuo risulta gonfiato.
 
-Nella card "Piano Pagamenti" della scheda fornitore, sia in visualizzazione che nel form inline di **Modifica**, non compare da nessuna parte l'informazione IVA. L'utente vede solo `610` e non sa se sia netto o lordo. In realtà il pagamento è memorizzato con `tax_inclusive=false` + `tax_rate=22`, quindi in Tesoreria diventa 744 € (610 × 1,22). Da lì la confusione e i 134 € "non allocati".
+Il principio richiesto è: **il budget parla sempre in IVA inclusa**, quindi ogni rata deve essere scalata dal totale usando il suo valore **lordo** (244), non il netto (200).
 
-Il form inline responsabile è `PaymentTimeline` in `src/pages/VendorDetails.tsx` (righe ~1237-1399). Attualmente contiene solo: descrizione, data, importo, checkbox Saldo. Manca completamente la sezione IVA.
+## Modifica (solo `src/pages/VendorDetails.tsx`, componente `PaymentTimeline`)
 
-## Cosa cambio
+1. **`computeRemainder(p)`** — sommare gli "altri" pagamenti convertiti a **lordo** tramite `ivaBreakdown(x.amount, x.tax_inclusive !== false, x.tax_rate)`. Il totale di riferimento resta `itemTotals[...]` (già lordo). Il risultato rappresenta quindi il **residuo lordo** da coprire.
 
-Solo UI di `PaymentTimeline` e la firma di `onUpdate` per far passare i campi IVA — nessuna modifica DB, nessuna edge function.
+2. **`saveEdit` (ramo Saldo)** — `computeRemainder` ora ritorna un valore lordo. Se l'utente ha scelto `tax_inclusive = true` lo salviamo così com'è; se ha scelto `tax_inclusive = false` (IVA esclusa) lo convertiamo a netto dividendo per `(1 + rate/100)`, in modo che `ivaBreakdown` produca esattamente lo stesso lordo che avevamo calcolato dal residuo. Così il "Saldo" copre davvero il residuo del budget indipendentemente dalla modalità IVA scelta.
 
-### 1. Vista read-only della rata (sempre visibile)
-Sotto la riga dell'importo aggiungere:
-- Chip piccolo: `IVA 22% inclusa` (verde/neutro) oppure `IVA 22% esclusa` (arancione) oppure `Senza IVA`.
-- Se IVA esclusa: riga secondaria mono-space  
-  `Netto 610,00 · IVA 134,20 · Lordo 744,20 €`  
-  così l'utente vede subito la composizione senza aprire il form.
-- L'importo grande resta com'è (il campo `amount` grezzo), ma con label sotto: `netto` / `lordo` / `importo` a seconda del caso, per rimuovere ogni ambiguità.
+3. **Preview del saldo nel form di modifica** — l'etichetta "importo calcolato automaticamente (…)" e il riquadro `Netto/IVA/Lordo` devono usare la stessa logica: mostrare il residuo lordo e, quando IVA esclusa, il netto derivato. Aggiornare `previewAmount` di conseguenza.
 
-### 2. Form inline "Modifica rata"
-Aggiungere sotto la riga data/importo, prima del checkbox Saldo, un blocco `Trattamento IVA`:
+4. **Nessuna modifica** a `itemTotals`, a `calculateExpenseAmount`, al DB o alle policy: continuiamo a memorizzare `amount` nella base scelta dall'utente + `tax_rate` + `tax_inclusive`. Cambia solo la matematica di confronto/allocazione contro il budget lordo.
 
-```
-Trattamento IVA
-[ Importo IVA inclusa  ●  |   Importo + IVA da aggiungere  ○ ]   Aliquota [22] %
+## Dettagli tecnici
 
-Anteprima: Netto 610,00 · IVA 134,20 · Lordo 744,20 €
-```
-
-- Segmented control a 2 opzioni (radio nascosto sotto), coerente con lo stile PaperUI già in uso.
-- Campo Aliquota accanto (input number 0-100, step 0,5).
-- L'**etichetta del campo Importo cambia in tempo reale**: `Importo (lordo) €` quando IVA inclusa, `Imponibile (netto) €` quando IVA esclusa.
-- Anteprima live che ricalcola netto/IVA/lordo mentre l'utente digita.
-- Helper text piccolo: *"Il totale mostrato in Tesoreria è il lordo effettivo che uscirà dal conto."*
-
-### 3. Wiring dati
-- Estendere lo stato del form con `draftTaxInclusive: boolean` e `draftTaxRate: number`, inizializzati da `p.tax_inclusive` e `p.tax_rate` (default `true` / `22`).
-- Estendere il tipo `onUpdate` in `PaymentTimeline` e la funzione padre (`updatePayment` in `VendorDetails`) per accettare anche `tax_inclusive` e `tax_rate` e propagarli su `supabase.from('payments').update(...)`.
-- Nessuna modifica di `DbPayment` type (campi già presenti nello schema `payments`).
-
-### 4. Coerenza con Tesoreria
-Nessun cambio a `budgetAggregates` in questo giro: la logica di calcolo del cash (lordo) è già corretta. L'obiettivo di questa iterazione è unicamente **rendere visibile all'utente** cosa sta scrivendo e cosa uscirà davvero dal conto, così il 744 € in tesoreria non arriva più come sorpresa.
-
-Il fix separato del dialog "Pagamenti non allocati" (allineamento base netta/lorda in `budgetAggregates.ts`) resta pendente e verrà pianificato a parte se l'utente lo conferma dopo aver visto la trasparenza IVA.
+- File: `src/pages/VendorDetails.tsx`, righe ~1255–1310.
+- `ivaBreakdown` è già definita nel componente e restituisce `{ netto, iva, lordo, hasIva }`.
+- Nessun impatto su altre pagine: `computeRemainder` è locale a `PaymentTimeline`.
 
 ## Verifica
 
-- Aprire la rata Acconto (610 € netti, IVA 22 % esclusa): la card mostra chip arancione + riga `Netto 610 · IVA 134,20 · Lordo 744,20`.
-- Cliccare Modifica: form pre-compilato con segmented su "Importo + IVA da aggiungere", aliquota 22, anteprima coerente.
-- Cambiare a "IVA inclusa": l'etichetta dell'importo diventa `Importo (lordo)`, l'anteprima ricalcola, salvando il valore torna corretto.
-- Nessuna regressione sul checkbox Saldo (interagisce solo con `amount`, non con IVA).
-
-## File toccati
-
-- `src/pages/VendorDetails.tsx` — sola sezione `PaymentTimeline` (form inline + vista read-only) e firma di `onUpdate` per propagare i due campi IVA all'update Supabase già esistente.
-
-Nessun altro file, nessuna migrazione, nessuna edge function.
+- Caso 200 € IVA 22% esclusa su budget 244 €: residuo dopo questa rata = 0 € (prima era 44 €).
+- Caso 244 € IVA 22% inclusa su budget 244 €: residuo = 0 € (invariato).
+- Mix di rate lordo/netto nello stesso item: la somma dei lordi coincide col totale voce.

@@ -1252,14 +1252,6 @@ const PaymentTimeline: React.FC<{
 
   const isSaldoDesc = (s: string) => (s || '').trim().toLowerCase().startsWith('saldo');
 
-  const computeRemainder = (p: DbPayment) => {
-    const total = itemTotals[p.expense_item_id] ?? 0;
-    const sumOthers = payments
-      .filter(x => x.expense_item_id === p.expense_item_id && x.id !== p.id)
-      .reduce((s, x) => s + Number(x.amount || 0), 0);
-    return Math.max(0, Number((total - sumOthers).toFixed(2)));
-  };
-
   // IVA breakdown: dato l'importo `amount` memorizzato (che è la base scelta
   // dall'utente: netto se tax_inclusive=false, lordo se true) restituisce netto/iva/lordo.
   const ivaBreakdown = (amount: number, taxInclusive: boolean, taxRate: number | null | undefined) => {
@@ -1273,6 +1265,21 @@ const PaymentTimeline: React.FC<{
     return { netto: amount, iva, lordo: amount + iva, hasIva: true };
   };
 
+  // Il budget parla sempre in IVA inclusa: il residuo è calcolato scalando dal
+  // totale lordo della voce la somma dei LORDI delle altre rate (a prescindere
+  // dalla base scelta dall'utente per ciascuna).
+  const computeRemainder = (p: DbPayment) => {
+    const total = itemTotals[p.expense_item_id] ?? 0;
+    const sumOthersGross = payments
+      .filter(x => x.expense_item_id === p.expense_item_id && x.id !== p.id)
+      .reduce((s, x) => {
+        const inc = x.tax_inclusive !== false;
+        const br = ivaBreakdown(Number(x.amount || 0), inc, x.tax_rate ?? null);
+        return s + br.lordo;
+      }, 0);
+    return Math.max(0, Number((total - sumOthersGross).toFixed(2)));
+  };
+
   const startEdit = (p: DbPayment) => {
     setEditingId(p.id);
     setDraftDesc(p.description);
@@ -1283,19 +1290,27 @@ const PaymentTimeline: React.FC<{
     setDraftTaxRate(p.tax_rate != null ? String(p.tax_rate) : '22');
   };
   const cancelEdit = () => setEditingId(null);
+
+  // Converte un residuo lordo nella "base" da salvare secondo la modalità IVA scelta.
+  const grossToBase = (gross: number, taxInclusive: boolean, rate: number) => {
+    if (!rate) return gross;
+    return taxInclusive ? gross : gross / (1 + rate / 100);
+  };
+
   const saveEdit = async (p: DbPayment) => {
     const amt = Number(draftAmount);
     const useSaldo = draftIsSaldo;
+    const rateNum = draftTaxRate.trim() === '' ? null : Number(draftTaxRate);
+    const rateForCalc = rateNum != null && !Number.isNaN(rateNum) ? rateNum : 0;
     const finalAmount = useSaldo
-      ? computeRemainder(p)
+      ? grossToBase(computeRemainder(p), draftTaxInclusive, rateForCalc)
       : (Number.isNaN(amt) ? Number(p.amount) : amt);
     const finalDesc = useSaldo
       ? (isSaldoDesc(draftDesc) ? draftDesc.trim() : 'Saldo')
       : (draftDesc.trim() || p.description);
-    const rateNum = draftTaxRate.trim() === '' ? null : Number(draftTaxRate);
     await onUpdate(p.id, {
       description: finalDesc,
-      amount: finalAmount,
+      amount: Number(finalAmount.toFixed(2)),
       due_date: draftDate || p.due_date,
       tax_inclusive: draftTaxInclusive,
       tax_rate: rateNum != null && !Number.isNaN(rateNum) ? rateNum : null,
@@ -1303,9 +1318,18 @@ const PaymentTimeline: React.FC<{
     setEditingId(null);
   };
 
-  const previewAmount = draftIsSaldo ? computeRemainder({ ...sorted[0], id: editingId } as DbPayment) : Number(draftAmount) || 0;
+  // Preview: se "Saldo", mostriamo la base che andrà salvata (netto o lordo
+  // secondo la modalità), così il riquadro Netto/IVA/Lordo torna coerente.
   const previewRate = draftTaxRate.trim() === '' ? 0 : Number(draftTaxRate) || 0;
+  const previewAmount = draftIsSaldo && sorted[0]
+    ? grossToBase(
+        computeRemainder({ ...sorted[0], id: editingId } as DbPayment),
+        draftTaxInclusive,
+        previewRate,
+      )
+    : Number(draftAmount) || 0;
   const preview = ivaBreakdown(previewAmount, draftTaxInclusive, previewRate);
+
 
   const chipBase: React.CSSProperties = {
     display: 'inline-flex', alignItems: 'center', gap: 4,
@@ -1367,7 +1391,7 @@ const PaymentTimeline: React.FC<{
                       type="number"
                       min={0}
                       step="0.01"
-                      value={draftIsSaldo ? computeRemainder(p).toFixed(2) : draftAmount}
+                      value={draftIsSaldo ? grossToBase(computeRemainder(p), draftTaxInclusive, previewRate).toFixed(2) : draftAmount}
                       disabled={draftIsSaldo}
                       onChange={e => setDraftAmount(e.target.value)}
                       placeholder="0,00"
