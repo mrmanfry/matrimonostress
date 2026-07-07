@@ -13,6 +13,7 @@ interface Props {
 }
 
 export function CashflowTimeline({ upcoming, unplanned = [], totals, onOpenVendor, onMarkPaid }: Props) {
+  const [showAll, setShowAll] = React.useState(false);
   if (upcoming.length === 0 && unplanned.length === 0) {
     return (
       <PaperCard>
