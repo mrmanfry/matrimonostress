@@ -1,65 +1,41 @@
+# Fix modifica spesa "vuota" + alert piano pagamenti > totale
 
-## Obiettivo
-Rendere finalmente visibile e usabile dall'UI la disposizione dei posti sui tavoli imperiali con un popup dedicato in vero drag & drop, che permetta di spostare gli ospiti tra sedie e tra i due lati (Lato A / Lato B), oltre a trascinare da "Da assegnare".
+## Problema
+1. Cliccando "Modifica" su una spesa come *Extra time* di International Catering, la scheda **📊 Foglio di Calcolo** mostra 0€: la spesa è "fissa" (ha `total_amount` ma nessuna riga di costo) e la tab attualmente gestisce solo `expense_line_items`. Il valore attuale del contratto non è né visibile né modificabile lì.
+2. Nel **💳 Piano di Pagamento** non c'è alcun controllo se la somma delle rate schedulate (IVA inclusa) supera il totale della spesa: i totali finiscono per non tornare senza che l'utente se ne accorga.
 
-## Problema attuale
-- Sulla miniatura del tavolo imperiale i posti sono cerchi da 13px senza affordance → nessuno capisce che sono cliccabili.
-- Il dialog che si apre cliccandoli (`SeatActionDialog`) è una lista di sedie da toccare, non drag & drop.
-- Il pannello di dettaglio a destra non offre alcun modo per riordinare le sedie: mostra solo un elenco piatto "Seduti".
-- Il PDF invece già stampa le posizioni corrette perché il DB salva `seat_position` — quindi la logica c'è, manca la UI.
+## Soluzione
 
-## Cosa costruisco
+### 1. Editor "Importo Fisso Contratto" in `ExpenseSpreadsheetTab`
+Aggiungere, sopra la "Tabella Righe di Costo", una nuova card **"Importo Contratto (spesa fissa)"** che carica e permette di modificare i campi già presenti su `expense_items`:
 
-### 1. Nuovo componente `ImperialSeatEditorDialog`
-File: `src/components/tables/ImperialSeatEditorDialog.tsx`
+- `total_amount` (input €, IVA inclusa per default coerentemente con la memoria progetto)
+- `amount_is_tax_inclusive` (radio Inclusa/Esclusa)
+- `tax_rate` (input %)
 
-Popup dedicato (max-w-3xl, mobile full-screen) contenente:
+Comportamento:
+- All'apertura, i valori sono precompilati con quelli in DB (niente più 0€).
+- Salvataggio inline con pulsante *Salva importo* → `UPDATE expense_items SET total_amount, amount_is_tax_inclusive, tax_rate`.
+- Riepilogo Imponibile / IVA / Totale identico a quello di `ExpenseItemDialog` (riuso della stessa formula).
+- Se la spesa ha già righe di costo, la card mostra un hint: *"Questa spesa ha righe di costo variabili: l'importo fisso viene sommato ad esse solo se il tipo è misto."* e resta comunque modificabile.
 
-- **Header**: nome tavolo · badge "Imperiale" · contatore `seduti/capacità`.
-- **Canvas del tavolo** in orizzontale, in stile PDF:
-  ```text
-  LATO A
-  [1][2][3][4][5][6]       ← sedie grandi 52px, drop target
-   ▔▔▔▔▔▔▔▔▔▔▔▔▔▔
-  [ TAVOLO IMPERIALE  ]
-   ▁▁▁▁▁▁▁▁▁▁▁▁▁▁
-  [7][8][9][10][11][12]
-  LATO B
-  ```
-  - Ogni sedia mostra: iniziali colorate per gruppo + nome/cognome sotto se occupata; bordo tratteggiato + "Libero" se vuota.
-  - Icona ✕ in hover per rimuovere dal tavolo.
-- **Sidebar "Da assegnare"** a destra (nascosta su mobile, mostrata come sezione sotto): elenco pool ospiti come chip trascinabili.
+Il calcolo totale (`calculateTotals` / `onTotalsUpdate`) deve considerare anche `total_amount` quando `expense_type` è `fixed` o `mixed`, in linea con `calculateExpenseAmount` della libreria centralizzata. Attualmente somma solo le righe → per questo la spesa "extra time" appariva 0.
 
-### 2. Interazioni (@dnd-kit, già in progetto)
-- Trascinare un ospite seduto su:
-  - **sedia libera** → sposta (`onMoveToSeat(guestId, tableId, seatIndex)`)
-  - **sedia occupata** → **swap** (il servizio già supporta lo swap in `handleMoveToSeat` esistente)
-  - da Lato A a Lato B e viceversa (stessa API, cambia solo `seat_position`)
-- Trascinare un ospite dal pool → drop su sedia libera → `onAssignToSeat(tableId, guestId, seatIndex)`.
-- Click sull'icona ✕ sopra la sedia → rimuove dal tavolo.
-- `DndContext` locale al dialog (non interferisce con il DnD della sala). `DragOverlay` per il chip trascinato.
+Estendere l'interfaccia `ExpenseItem` locale con `total_amount`, `amount_is_tax_inclusive`, `tax_rate`, `expense_type`, `fixed_amount` e caricarli in `loadExpenseItem` di `ExpenseItemTabs.tsx`.
 
-### 3. Accesso al popup — affordance chiari
-- **`TableCardV2`** (griglia desktop): sulle card imperiali aggiungo un pulsante "Gestisci posti" (icona `LayoutGrid`) visibile in overlay in basso a destra sulla card.
-- **`TableDetailPanel`**: se `isImperial`, aggiungo bottone "Gestisci posti" nell'header accanto a Modifica (nuovo prop `onOpenSeatEditor`).
-- **`TablesGridView`**: apre il nuovo dialog invece di `SeatActionDialog` per gli imperiali (per i tondi resta invariato).
-- **`MobileTableSheet`**: per imperiali, il tap su un seduto o su un nuovo pulsante "Gestisci posti" apre l'editor a full-screen.
+### 2. Alert "Piano pagamenti eccede il totale" in `PaymentPlanTab`
+Nel riepilogo del piano pagamenti (dove oggi si mostrano *Totale schedulato* / *Da schedulare*), aggiungere:
 
-### 4. Backend
-Nessuna modifica DB o edge function. Uso le callback già presenti in `src/pages/Tables.tsx`:
-- `handleMoveToSeat` (già gestisce swap)
-- `handleAssignToSeat`
-- rimozione via delete su `table_assignments`
+- Calcolo `scheduledTotal` = somma di tutte le rate esistenti convertite in IVA inclusa (fixed → `amount`; percentage → `activeTotal * pct/100`; balance → residuo). La logica esiste già frammentata in `ExpenseItemsManager.calculateTotalScheduledPayments` → estrarla in una utility o replicarla.
+- Se `scheduledTotal > activeTotal * 1.001` (tolleranza 0,1% per arrotondamenti):
+  - Mostrare `<Alert variant="destructive">` sopra la lista rate: *"⚠️ Le rate schedulate (€ X) superano il totale della spesa (€ Y) di € Z. Verifica gli importi o aggiorna il totale del contratto."*
+  - Mostrare stesso warning inline anche nel form di creazione/modifica rata quando l'aggiunta farebbe sforare (calcolo preview).
 
-## File toccati
-- **Nuovo**: `src/components/tables/ImperialSeatEditorDialog.tsx`
-- Modificati:
-  - `src/components/tables/v2/TablesGridView.tsx`
-  - `src/components/tables/v2/TableCardV2.tsx`
-  - `src/components/tables/v2/TableDetailPanel.tsx` (nuovo prop `onOpenSeatEditor`)
-  - `src/components/tables/MobileTableSheet.tsx`
-- Passaggio props in `src/pages/Tables.tsx` (nessuna nuova logica dati)
+Nessuna modifica DB. Nessun blocco duro: l'utente resta libero di salvare (potrebbe essere voluto), ma è avvisato.
 
-## Fuori scopo
-- Nessuna modifica ai tavoli tondi.
-- Nessuna modifica al PDF export, al Tableau, alle regole di conflitto o allo schema DB.
+## File da modificare
+- `src/components/vendors/ExpenseItemTabs.tsx` — estendere `ExpenseItem` con i campi contratto e ricaricarli.
+- `src/components/vendors/ExpenseSpreadsheetTab.tsx` — nuova card "Importo Contratto" + inclusione nel `calculateTotals`.
+- `src/components/vendors/PaymentPlanTab.tsx` — alert overflow scheduled vs activeTotal.
+
+Nessuna migrazione database.
