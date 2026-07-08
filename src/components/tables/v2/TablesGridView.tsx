@@ -7,6 +7,7 @@ import { TablesListView } from "./TablesListView";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SeatActionDialog } from "../SeatActionDialog";
+import { ImperialSeatEditorDialog } from "../ImperialSeatEditorDialog";
 import type { GuestV2, TableV2, AssignmentV2, GuestGroupV2 } from "./types";
 
 interface Props {
@@ -18,8 +19,10 @@ interface Props {
   onRemove: (assignmentId: string) => void;
   onAssign: (guestId: string, tableId: string) => void;
   onMoveToSeat?: (guestId: string, tableId: string, newSeat: number) => void | Promise<void>;
+  onAssignToSeat?: (tableId: string, guestId: string, seat: number) => void | Promise<void>;
   onUpdateTable?: (tableId: string, updates: { name?: string; capacity?: number }) => Promise<void> | void;
 }
+
 
 export const TablesGridView = ({
   tables,
@@ -30,6 +33,7 @@ export const TablesGridView = ({
   onRemove,
   onAssign,
   onMoveToSeat,
+  onAssignToSeat,
   onUpdateTable,
 }: Props) => {
   const [view, setView] = useState<"grid" | "list">("grid");
@@ -38,6 +42,8 @@ export const TablesGridView = ({
   const [filterGroup, setFilterGroup] = useState<string | null>(null);
   const [seatedSearch, setSeatedSearch] = useState("");
   const [seatAction, setSeatAction] = useState<{ guest: GuestV2; tableId: string } | null>(null);
+  const [imperialEditorTableId, setImperialEditorTableId] = useState<string | null>(null);
+
 
   // Build seated map: tableId -> guests, ordered by seat_position
   const guestsByTable = useMemo(() => {
@@ -189,11 +195,16 @@ export const TablesGridView = ({
                   onSelect={setSelectedTableId}
                   onSeatClick={(g) => {
                     if (isImperial && onMoveToSeat) {
-                      setSeatAction({ guest: g, tableId: t.id });
+                      setImperialEditorTableId(t.id);
                     } else {
                       handleRemoveSeated(g.id);
                     }
                   }}
+                  onOpenSeatEditor={
+                    isImperial && onMoveToSeat
+                      ? () => setImperialEditorTableId(t.id)
+                      : undefined
+                  }
                 />
               );
             })}
@@ -219,6 +230,14 @@ export const TablesGridView = ({
         onRemove={handleRemoveSeated}
         onAssign={onAssign}
         onUpdateTable={onUpdateTable}
+        onOpenSeatEditor={
+          selectedTable &&
+          (selectedTable.shape?.toLowerCase() === "imperial" ||
+            selectedTable.table_type === "imperial") &&
+          onMoveToSeat
+            ? () => setImperialEditorTableId(selectedTable.id)
+            : undefined
+        }
       />
 
       {(() => {
@@ -248,6 +267,30 @@ export const TablesGridView = ({
           />
         );
       })()}
+
+      {(() => {
+        const t = imperialEditorTableId
+          ? tables.find((x) => x.id === imperialEditorTableId)
+          : null;
+        if (!t || !onMoveToSeat || !onAssignToSeat) return null;
+        return (
+          <ImperialSeatEditorDialog
+            open={!!imperialEditorTableId}
+            onOpenChange={(o) => !o && setImperialEditorTableId(null)}
+            table={t}
+            seated={(guestsByTable[t.id] || []).map((g) => ({
+              ...g,
+              seat_position: g.seat_position ?? null,
+            }))}
+            unassigned={unassignedGuests}
+            groupColorMap={groupColorMap}
+            onMoveToSeat={onMoveToSeat}
+            onAssignToSeat={onAssignToSeat}
+            onRemove={handleRemoveSeated}
+          />
+        );
+      })()}
     </div>
   );
 };
+

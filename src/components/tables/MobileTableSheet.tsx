@@ -3,8 +3,10 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, X, ArrowLeftRight } from "lucide-react";
+import { Plus, Search, X, ArrowLeftRight, LayoutGrid } from "lucide-react";
 import { SeatActionDialog } from "./SeatActionDialog";
+import { ImperialSeatEditorDialog } from "./ImperialSeatEditorDialog";
+
 
 type Guest = {
   id: string;
@@ -55,6 +57,8 @@ export const MobileTableSheet = ({
 }: Props) => {
   const [search, setSearch] = useState("");
   const [seatAction, setSeatAction] = useState<Guest | null>(null);
+  const [imperialEditorOpen, setImperialEditorOpen] = useState(false);
+
 
   if (!table) return null;
 
@@ -155,11 +159,18 @@ export const MobileTableSheet = ({
             )}
             {isFull && <span className="text-destructive"> · pieno</span>}
           </div>
-          {isImperial && onMoveToSeat && seatedRaw.length > 0 && (
-            <p className="text-[11px] text-muted-foreground text-left mt-1">
-              Tocca un ospite per spostarlo o rimuoverlo.
-            </p>
+          {isImperial && onMoveToSeat && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full mt-2 gap-2"
+              onClick={() => setImperialEditorOpen(true)}
+            >
+              <LayoutGrid className="w-4 h-4" />
+              Gestisci posti (drag & drop)
+            </Button>
           )}
+
         </SheetHeader>
 
         {/* Seated */}
@@ -289,6 +300,45 @@ export const MobileTableSheet = ({
           if (a) onUnassign(a.id);
         }}
       />
+
+      {isImperial && onMoveToSeat && (
+        <ImperialSeatEditorDialog
+          open={imperialEditorOpen}
+          onOpenChange={setImperialEditorOpen}
+          table={{
+            id: table.id,
+            name: table.name,
+            capacity: table.capacity,
+            shape: table.shape,
+            table_type: table.table_type,
+          }}
+          seated={seatedRaw.map(({ a, g }) => ({
+            id: g.id,
+            first_name: g.first_name,
+            last_name: g.last_name,
+            group_id: (g as any).group_id ?? null,
+            is_child: !!(g as any).is_child,
+            dietary_restrictions: g.dietary_restrictions ?? null,
+            seat_position: a.seat_position ?? null,
+          }))}
+          unassigned={unassignedGuests.map((g) => ({
+            id: g.id,
+            first_name: g.first_name,
+            last_name: g.last_name,
+            group_id: (g as any).group_id ?? null,
+            is_child: !!(g as any).is_child,
+            dietary_restrictions: g.dietary_restrictions ?? null,
+          }))}
+          groupColorMap={{}}
+          onMoveToSeat={(gid, tid, seat) => onMoveToSeat(gid, tid, seat)}
+          onAssignToSeat={(tid, gid, seat) => onAssign(tid, gid, seat)}
+          onRemove={(gid) => {
+            const a = tableAssignments.find((x) => x.guest_id === gid);
+            if (a) onUnassign(a.id);
+          }}
+        />
+      )}
     </Sheet>
+
   );
 };

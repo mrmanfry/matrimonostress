@@ -1,5 +1,7 @@
 import { useDroppable } from "@dnd-kit/core";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { LayoutGrid } from "lucide-react";
 import { RoundTableList } from "./RoundTableList";
 import { ImperialTableSvg } from "./ImperialTableSvg";
 import type { GuestV2, TableV2 } from "./types";
@@ -11,6 +13,7 @@ interface Props {
   groupColorMap: Record<string, string>;
   onSelect: (id: string) => void;
   onSeatClick?: (guest: GuestV2) => void;
+  onOpenSeatEditor?: () => void;
 }
 
 export const TableCardV2 = ({
@@ -20,12 +23,14 @@ export const TableCardV2 = ({
   groupColorMap,
   onSelect,
   onSeatClick,
+  onOpenSeatEditor,
 }: Props) => {
   const filled = seated.length;
   const cap = table.capacity;
   const isFull = filled >= cap;
   const isOverbooked = filled > cap;
   const isImperial = table.shape?.toLowerCase() === "imperial" || table.table_type === "imperial";
+
 
   // Whole-card drop target (used when dragging onto card area, not specific seat)
   const { setNodeRef, isOver } = useDroppable({ id: table.id });
@@ -109,6 +114,21 @@ export const TableCardV2 = ({
         />
       )}
 
+      {isImperial && onOpenSeatEditor && (
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 text-[11px] gap-1.5 self-center"
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenSeatEditor();
+          }}
+        >
+          <LayoutGrid className="w-3 h-3" />
+          Gestisci posti
+        </Button>
+      )}
+
       {filled === 0 && (
         <div
           className="text-center text-[11px] italic px-0 py-2 rounded-md border border-dashed"
@@ -117,6 +137,7 @@ export const TableCardV2 = ({
           Trascina qui o clicca per aggiungere
         </div>
       )}
+
     </div>
   );
 };

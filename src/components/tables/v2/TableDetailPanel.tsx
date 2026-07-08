@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Plus, Search, Pencil, Check, X as XIcon } from "lucide-react";
+import { X, Plus, Search, Pencil, Check, X as XIcon, LayoutGrid } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,7 @@ interface Props {
   onRemove: (guestId: string) => void;
   onAssign: (guestId: string, tableId: string) => void;
   onUpdateTable?: (tableId: string, updates: { name?: string; capacity?: number }) => Promise<void> | void;
+  onOpenSeatEditor?: () => void;
 }
 
 export const TableDetailPanel = ({
@@ -29,7 +30,9 @@ export const TableDetailPanel = ({
   onRemove,
   onAssign,
   onUpdateTable,
+  onOpenSeatEditor,
 }: Props) => {
+
   const [addSearch, setAddSearch] = useState("");
   const [addGroup, setAddGroup] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -162,7 +165,20 @@ export const TableDetailPanel = ({
           )}
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
+          {isImperial && onOpenSeatEditor && !isEditing && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onOpenSeatEditor}
+              className="h-7 gap-1.5 text-[11px]"
+              title="Gestisci posti"
+            >
+              <LayoutGrid className="w-3 h-3" />
+              Posti
+            </Button>
+          )}
           {onUpdateTable && !isEditing && (
+
             <Button
               variant="ghost"
               size="icon"
