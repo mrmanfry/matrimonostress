@@ -19,6 +19,11 @@ interface ExpenseItem {
   planned_adults: number;
   planned_children: number;
   planned_staff: number;
+  total_amount?: number | null;
+  fixed_amount?: number | null;
+  expense_type?: 'fixed' | 'variable' | 'mixed' | null;
+  amount_is_tax_inclusive?: boolean;
+  tax_rate?: number | null;
 }
 
 interface ExpenseLineItem {
@@ -66,6 +71,17 @@ export function ExpenseSpreadsheetTab({
     expenseItem.planned_children !== null || 
     expenseItem.planned_staff !== null
   );
+  const initialContractAmount = expenseItem.fixed_amount ?? expenseItem.total_amount ?? null;
+  const [contractAmount, setContractAmount] = useState<string>(
+    initialContractAmount !== null && initialContractAmount !== undefined ? String(initialContractAmount) : ""
+  );
+  const [contractTaxInclusive, setContractTaxInclusive] = useState<boolean>(
+    expenseItem.amount_is_tax_inclusive !== false
+  );
+  const [contractTaxRate, setContractTaxRate] = useState<string>(
+    expenseItem.tax_rate !== null && expenseItem.tax_rate !== undefined ? String(expenseItem.tax_rate) : "22"
+  );
+  const [savingContract, setSavingContract] = useState(false);
   const { toast } = useToast();
 
   // Load global calculation mode and targets from wedding
@@ -108,12 +124,19 @@ export function ExpenseSpreadsheetTab({
     loadLineItems();
     loadActualGuestCounts();
     loadExpectedGuestCounts();
+    // sync contract fields when a different expense is loaded
+    const amt = expenseItem.fixed_amount ?? expenseItem.total_amount ?? null;
+    setContractAmount(amt !== null && amt !== undefined ? String(amt) : "");
+    setContractTaxInclusive(expenseItem.amount_is_tax_inclusive !== false);
+    setContractTaxRate(
+      expenseItem.tax_rate !== null && expenseItem.tax_rate !== undefined ? String(expenseItem.tax_rate) : "22"
+    );
   }, [expenseItem.id]);
 
   useEffect(() => {
     const totals = calculateTotals();
     onTotalsUpdate(totals.planned, totals.actual);
-  }, [lineItems, plannedAdults, plannedChildren, plannedStaff, actualAdults, actualChildren, actualStaff, expectedAdults, expectedChildren, expectedStaff]);
+  }, [lineItems, plannedAdults, plannedChildren, plannedStaff, actualAdults, actualChildren, actualStaff, expectedAdults, expectedChildren, expectedStaff, contractAmount, contractTaxInclusive, contractTaxRate]);
 
   const loadLineItems = async () => {
     setLoading(true);
@@ -427,10 +450,69 @@ export function ExpenseSpreadsheetTab({
     return total;
   };
 
+  const getContractTotalTaxInclusive = (): number => {
+    const raw = parseFloat(contractAmount || "0");
+    if (!raw || isNaN(raw)) return 0;
+    const rate = parseFloat(contractTaxRate || "0") / 100;
+    return contractTaxInclusive ? raw : raw * (1 + rate);
+  };
+
+  const contractSummary = (() => {
+    const raw = parseFloat(contractAmount || "0");
+    const rate = parseFloat(contractTaxRate || "0") / 100;
+    if (!raw || isNaN(raw)) return { taxable: 0, tax: 0, total: 0 };
+    if (contractTaxInclusive) {
+      const total = raw;
+      const taxable = total / (1 + rate);
+      return { taxable, tax: total - taxable, total };
+    }
+    const taxable = raw;
+    const tax = taxable * rate;
+    return { taxable, tax, total: taxable + tax };
+  })();
+
   const calculateTotals = () => {
-    const planned = lineItems.reduce((sum, line) => sum + calculateLineTotal(line, 'planned'), 0);
-    const actual = lineItems.reduce((sum, line) => sum + calculateLineTotal(line, 'confirmed'), 0);
-    return { planned, actual };
+    const linePlanned = lineItems.reduce((sum, line) => sum + calculateLineTotal(line, 'planned'), 0);
+    const lineActual = lineItems.reduce((sum, line) => sum + calculateLineTotal(line, 'confirmed'), 0);
+    // Include contract amount (fixed part) — matches calculateExpenseAmount() for fixed/mixed types.
+    // If there are no line items, the contract IS the total; otherwise it's summed on top (mixed).
+    const contractTotal = getContractTotalTaxInclusive();
+    return {
+      planned: linePlanned + contractTotal,
+      actual: lineActual + contractTotal,
+    };
+  };
+
+  const handleSaveContractAmount = async () => {
+    setSavingContract(true);
+    try {
+      const parsed = parseFloat(contractAmount || "");
+      const value = isNaN(parsed) ? null : parsed;
+      const taxRateVal = contractTaxRate ? parseFloat(contractTaxRate) : null;
+      const hasLines = lineItems.length > 0;
+      const inferredType = value && value > 0
+        ? (hasLines ? 'mixed' : 'fixed')
+        : (hasLines ? 'variable' : (expenseItem.expense_type || 'fixed'));
+
+      const { error } = await supabase
+        .from("expense_items")
+        .update({
+          total_amount: value,
+          fixed_amount: value,
+          amount_is_tax_inclusive: contractTaxInclusive,
+          tax_rate: taxRateVal,
+          expense_type: inferredType,
+        })
+        .eq("id", expenseItem.id);
+      if (error) throw error;
+      toast({ title: "Salvato", description: "Importo contratto aggiornato" });
+      onExpenseItemUpdate();
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Errore", description: "Impossibile salvare l'importo", variant: "destructive" });
+    } finally {
+      setSavingContract(false);
+    }
   };
 
   const totals = calculateTotals();
@@ -584,6 +666,81 @@ export function ExpenseSpreadsheetTab({
               </div>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Importo Contratto (parte fissa) */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base md:text-lg">Importo Contratto (parte fissa)</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="contract_amount">Importo €</Label>
+              <Input
+                id="contract_amount"
+                type="number"
+                step="0.01"
+                min="0"
+                value={contractAmount}
+                onChange={(e) => setContractAmount(e.target.value)}
+                placeholder="Es: 200"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Logica IVA</Label>
+              <select
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={contractTaxInclusive ? "inclusive" : "exclusive"}
+                onChange={(e) => setContractTaxInclusive(e.target.value === "inclusive")}
+              >
+                <option value="inclusive">IVA Inclusa (totale finale)</option>
+                <option value="exclusive">IVA Esclusa (imponibile)</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="contract_tax_rate">Aliquota IVA (%)</Label>
+              <Input
+                id="contract_tax_rate"
+                type="number"
+                step="0.01"
+                min="0"
+                max="100"
+                value={contractTaxRate}
+                onChange={(e) => setContractTaxRate(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {parseFloat(contractAmount || "0") > 0 && (
+            <div className="bg-muted/40 border rounded-lg p-3 grid grid-cols-3 gap-2 text-sm">
+              <div>
+                <p className="text-muted-foreground text-xs">Imponibile</p>
+                <p className="font-mono font-semibold">€ {contractSummary.taxable.toFixed(2)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground text-xs">IVA</p>
+                <p className="font-mono font-semibold">€ {contractSummary.tax.toFixed(2)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground text-xs">Totale (IVA inclusa)</p>
+                <p className="font-mono font-semibold text-primary">€ {contractSummary.total.toFixed(2)}</p>
+              </div>
+            </div>
+          )}
+
+          {lineItems.length > 0 && parseFloat(contractAmount || "0") > 0 && (
+            <p className="text-xs text-muted-foreground">
+              ℹ️ Questa spesa ha anche righe variabili: l'importo fisso viene sommato ad esse (tipo <strong>misto</strong>).
+            </p>
+          )}
+
+          <div className="flex justify-end">
+            <Button onClick={handleSaveContractAmount} disabled={savingContract} size="sm">
+              {savingContract ? "Salvataggio..." : "Salva importo"}
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

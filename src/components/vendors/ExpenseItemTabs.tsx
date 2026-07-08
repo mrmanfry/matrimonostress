@@ -14,6 +14,8 @@ interface ExpenseItem {
   category_id: string | null;
   vendor_id: string;
   total_amount: number | null;
+  fixed_amount: number | null;
+  expense_type: 'fixed' | 'variable' | 'mixed' | null;
   amount_is_tax_inclusive: boolean;
   tax_rate: number | null;
   calculation_mode: 'planned' | 'confirmed' | 'expected';
