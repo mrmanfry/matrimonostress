@@ -195,11 +195,16 @@ export const TablesGridView = ({
                   onSelect={setSelectedTableId}
                   onSeatClick={(g) => {
                     if (isImperial && onMoveToSeat) {
-                      setSeatAction({ guest: g, tableId: t.id });
+                      setImperialEditorTableId(t.id);
                     } else {
                       handleRemoveSeated(g.id);
                     }
                   }}
+                  onOpenSeatEditor={
+                    isImperial && onMoveToSeat
+                      ? () => setImperialEditorTableId(t.id)
+                      : undefined
+                  }
                 />
               );
             })}
@@ -225,6 +230,14 @@ export const TablesGridView = ({
         onRemove={handleRemoveSeated}
         onAssign={onAssign}
         onUpdateTable={onUpdateTable}
+        onOpenSeatEditor={
+          selectedTable &&
+          (selectedTable.shape?.toLowerCase() === "imperial" ||
+            selectedTable.table_type === "imperial") &&
+          onMoveToSeat
+            ? () => setImperialEditorTableId(selectedTable.id)
+            : undefined
+        }
       />
 
       {(() => {
@@ -254,6 +267,30 @@ export const TablesGridView = ({
           />
         );
       })()}
+
+      {(() => {
+        const t = imperialEditorTableId
+          ? tables.find((x) => x.id === imperialEditorTableId)
+          : null;
+        if (!t || !onMoveToSeat || !onAssignToSeat) return null;
+        return (
+          <ImperialSeatEditorDialog
+            open={!!imperialEditorTableId}
+            onOpenChange={(o) => !o && setImperialEditorTableId(null)}
+            table={t}
+            seated={(guestsByTable[t.id] || []).map((g) => ({
+              ...g,
+              seat_position: g.seat_position ?? null,
+            }))}
+            unassigned={unassignedGuests}
+            groupColorMap={groupColorMap}
+            onMoveToSeat={onMoveToSeat}
+            onAssignToSeat={onAssignToSeat}
+            onRemove={handleRemoveSeated}
+          />
+        );
+      })()}
     </div>
   );
 };
+
