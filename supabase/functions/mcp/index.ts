@@ -6,7 +6,7 @@
 import { auth, defineMcp } from "npm:@lovable.dev/mcp-js@0.20.0";
 
 // src/lib/mcp/tools/list-weddings.ts
-import { createClient } from "npm:@supabase/supabase-js@^2.75.0";
+import { createClient } from "npm:@supabase/supabase-js@^2.110.1";
 import { defineTool } from "npm:@lovable.dev/mcp-js@0.20.0";
 function supabaseForUser(ctx) {
   return createClient(
@@ -51,7 +51,7 @@ var list_weddings_default = defineTool({
 });
 
 // src/lib/mcp/tools/list-guests.ts
-import { createClient as createClient2 } from "npm:@supabase/supabase-js@^2.75.0";
+import { createClient as createClient2 } from "npm:@supabase/supabase-js@^2.110.1";
 import { defineTool as defineTool2 } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z } from "npm:zod@^3.25.76";
 function supabaseForUser2(ctx) {
@@ -91,7 +91,7 @@ ${JSON.stringify(data, null, 2)}` }],
 });
 
 // src/lib/mcp/tools/list-vendors.ts
-import { createClient as createClient3 } from "npm:@supabase/supabase-js@^2.75.0";
+import { createClient as createClient3 } from "npm:@supabase/supabase-js@^2.110.1";
 import { defineTool as defineTool3 } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z as z2 } from "npm:zod@^3.25.76";
 function supabaseForUser3(ctx) {
@@ -129,7 +129,7 @@ ${JSON.stringify(data, null, 2)}` }
 });
 
 // src/lib/mcp/tools/budget-summary.ts
-import { createClient as createClient4 } from "npm:@supabase/supabase-js@^2.75.0";
+import { createClient as createClient4 } from "npm:@supabase/supabase-js@^2.110.1";
 import { defineTool as defineTool4 } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z as z3 } from "npm:zod@^3.25.76";
 function supabaseForUser4(ctx) {
