@@ -450,10 +450,69 @@ export function ExpenseSpreadsheetTab({
     return total;
   };
 
+  const getContractTotalTaxInclusive = (): number => {
+    const raw = parseFloat(contractAmount || "0");
+    if (!raw || isNaN(raw)) return 0;
+    const rate = parseFloat(contractTaxRate || "0") / 100;
+    return contractTaxInclusive ? raw : raw * (1 + rate);
+  };
+
+  const contractSummary = (() => {
+    const raw = parseFloat(contractAmount || "0");
+    const rate = parseFloat(contractTaxRate || "0") / 100;
+    if (!raw || isNaN(raw)) return { taxable: 0, tax: 0, total: 0 };
+    if (contractTaxInclusive) {
+      const total = raw;
+      const taxable = total / (1 + rate);
+      return { taxable, tax: total - taxable, total };
+    }
+    const taxable = raw;
+    const tax = taxable * rate;
+    return { taxable, tax, total: taxable + tax };
+  })();
+
   const calculateTotals = () => {
-    const planned = lineItems.reduce((sum, line) => sum + calculateLineTotal(line, 'planned'), 0);
-    const actual = lineItems.reduce((sum, line) => sum + calculateLineTotal(line, 'confirmed'), 0);
-    return { planned, actual };
+    const linePlanned = lineItems.reduce((sum, line) => sum + calculateLineTotal(line, 'planned'), 0);
+    const lineActual = lineItems.reduce((sum, line) => sum + calculateLineTotal(line, 'confirmed'), 0);
+    // Include contract amount (fixed part) — matches calculateExpenseAmount() for fixed/mixed types.
+    // If there are no line items, the contract IS the total; otherwise it's summed on top (mixed).
+    const contractTotal = getContractTotalTaxInclusive();
+    return {
+      planned: linePlanned + contractTotal,
+      actual: lineActual + contractTotal,
+    };
+  };
+
+  const handleSaveContractAmount = async () => {
+    setSavingContract(true);
+    try {
+      const parsed = parseFloat(contractAmount || "");
+      const value = isNaN(parsed) ? null : parsed;
+      const taxRateVal = contractTaxRate ? parseFloat(contractTaxRate) : null;
+      const hasLines = lineItems.length > 0;
+      const inferredType = value && value > 0
+        ? (hasLines ? 'mixed' : 'fixed')
+        : (hasLines ? 'variable' : (expenseItem.expense_type || 'fixed'));
+
+      const { error } = await supabase
+        .from("expense_items")
+        .update({
+          total_amount: value,
+          fixed_amount: value,
+          amount_is_tax_inclusive: contractTaxInclusive,
+          tax_rate: taxRateVal,
+          expense_type: inferredType,
+        })
+        .eq("id", expenseItem.id);
+      if (error) throw error;
+      toast({ title: "Salvato", description: "Importo contratto aggiornato" });
+      onExpenseItemUpdate();
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Errore", description: "Impossibile salvare l'importo", variant: "destructive" });
+    } finally {
+      setSavingContract(false);
+    }
   };
 
   const totals = calculateTotals();
