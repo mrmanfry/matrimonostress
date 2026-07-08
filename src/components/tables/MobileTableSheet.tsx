@@ -57,6 +57,8 @@ export const MobileTableSheet = ({
 }: Props) => {
   const [search, setSearch] = useState("");
   const [seatAction, setSeatAction] = useState<Guest | null>(null);
+  const [imperialEditorOpen, setImperialEditorOpen] = useState(false);
+
 
   if (!table) return null;
 
