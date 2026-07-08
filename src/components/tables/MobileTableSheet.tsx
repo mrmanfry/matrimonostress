@@ -300,6 +300,45 @@ export const MobileTableSheet = ({
           if (a) onUnassign(a.id);
         }}
       />
+
+      {isImperial && onMoveToSeat && (
+        <ImperialSeatEditorDialog
+          open={imperialEditorOpen}
+          onOpenChange={setImperialEditorOpen}
+          table={{
+            id: table.id,
+            name: table.name,
+            capacity: table.capacity,
+            shape: table.shape,
+            table_type: table.table_type,
+          }}
+          seated={seatedRaw.map(({ a, g }) => ({
+            id: g.id,
+            first_name: g.first_name,
+            last_name: g.last_name,
+            group_id: (g as any).group_id ?? null,
+            is_child: !!(g as any).is_child,
+            dietary_restrictions: g.dietary_restrictions ?? null,
+            seat_position: a.seat_position ?? null,
+          }))}
+          unassigned={unassignedGuests.map((g) => ({
+            id: g.id,
+            first_name: g.first_name,
+            last_name: g.last_name,
+            group_id: (g as any).group_id ?? null,
+            is_child: !!(g as any).is_child,
+            dietary_restrictions: g.dietary_restrictions ?? null,
+          }))}
+          groupColorMap={{}}
+          onMoveToSeat={(gid, tid, seat) => onMoveToSeat(gid, tid, seat)}
+          onAssignToSeat={(tid, gid, seat) => onAssign(tid, gid, seat)}
+          onRemove={(gid) => {
+            const a = tableAssignments.find((x) => x.guest_id === gid);
+            if (a) onUnassign(a.id);
+          }}
+        />
+      )}
     </Sheet>
+
   );
 };
