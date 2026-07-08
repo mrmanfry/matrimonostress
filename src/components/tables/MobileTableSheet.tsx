@@ -159,11 +159,18 @@ export const MobileTableSheet = ({
             )}
             {isFull && <span className="text-destructive"> · pieno</span>}
           </div>
-          {isImperial && onMoveToSeat && seatedRaw.length > 0 && (
-            <p className="text-[11px] text-muted-foreground text-left mt-1">
-              Tocca un ospite per spostarlo o rimuoverlo.
-            </p>
+          {isImperial && onMoveToSeat && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full mt-2 gap-2"
+              onClick={() => setImperialEditorOpen(true)}
+            >
+              <LayoutGrid className="w-4 h-4" />
+              Gestisci posti (drag & drop)
+            </Button>
           )}
+
         </SheetHeader>
 
         {/* Seated */}
