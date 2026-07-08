@@ -124,12 +124,19 @@ export function ExpenseSpreadsheetTab({
     loadLineItems();
     loadActualGuestCounts();
     loadExpectedGuestCounts();
+    // sync contract fields when a different expense is loaded
+    const amt = expenseItem.fixed_amount ?? expenseItem.total_amount ?? null;
+    setContractAmount(amt !== null && amt !== undefined ? String(amt) : "");
+    setContractTaxInclusive(expenseItem.amount_is_tax_inclusive !== false);
+    setContractTaxRate(
+      expenseItem.tax_rate !== null && expenseItem.tax_rate !== undefined ? String(expenseItem.tax_rate) : "22"
+    );
   }, [expenseItem.id]);
 
   useEffect(() => {
     const totals = calculateTotals();
     onTotalsUpdate(totals.planned, totals.actual);
-  }, [lineItems, plannedAdults, plannedChildren, plannedStaff, actualAdults, actualChildren, actualStaff, expectedAdults, expectedChildren, expectedStaff]);
+  }, [lineItems, plannedAdults, plannedChildren, plannedStaff, actualAdults, actualChildren, actualStaff, expectedAdults, expectedChildren, expectedStaff, contractAmount, contractTaxInclusive, contractTaxRate]);
 
   const loadLineItems = async () => {
     setLoading(true);
