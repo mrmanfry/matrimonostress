@@ -7,6 +7,7 @@ import { TablesListView } from "./TablesListView";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SeatActionDialog } from "../SeatActionDialog";
+import { ImperialSeatEditorDialog } from "../ImperialSeatEditorDialog";
 import type { GuestV2, TableV2, AssignmentV2, GuestGroupV2 } from "./types";
 
 interface Props {
@@ -18,8 +19,10 @@ interface Props {
   onRemove: (assignmentId: string) => void;
   onAssign: (guestId: string, tableId: string) => void;
   onMoveToSeat?: (guestId: string, tableId: string, newSeat: number) => void | Promise<void>;
+  onAssignToSeat?: (tableId: string, guestId: string, seat: number) => void | Promise<void>;
   onUpdateTable?: (tableId: string, updates: { name?: string; capacity?: number }) => Promise<void> | void;
 }
+
 
 export const TablesGridView = ({
   tables,
