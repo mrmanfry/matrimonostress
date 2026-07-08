@@ -114,6 +114,21 @@ export const TableCardV2 = ({
         />
       )}
 
+      {isImperial && onOpenSeatEditor && (
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 text-[11px] gap-1.5 self-center"
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenSeatEditor();
+          }}
+        >
+          <LayoutGrid className="w-3 h-3" />
+          Gestisci posti
+        </Button>
+      )}
+
       {filled === 0 && (
         <div
           className="text-center text-[11px] italic px-0 py-2 rounded-md border border-dashed"
@@ -122,6 +137,7 @@ export const TableCardV2 = ({
           Trascina qui o clicca per aggiungere
         </div>
       )}
+
     </div>
   );
 };
