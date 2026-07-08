@@ -669,6 +669,81 @@ export function ExpenseSpreadsheetTab({
         </CardContent>
       </Card>
 
+      {/* Importo Contratto (parte fissa) */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base md:text-lg">Importo Contratto (parte fissa)</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="contract_amount">Importo €</Label>
+              <Input
+                id="contract_amount"
+                type="number"
+                step="0.01"
+                min="0"
+                value={contractAmount}
+                onChange={(e) => setContractAmount(e.target.value)}
+                placeholder="Es: 200"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Logica IVA</Label>
+              <select
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={contractTaxInclusive ? "inclusive" : "exclusive"}
+                onChange={(e) => setContractTaxInclusive(e.target.value === "inclusive")}
+              >
+                <option value="inclusive">IVA Inclusa (totale finale)</option>
+                <option value="exclusive">IVA Esclusa (imponibile)</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="contract_tax_rate">Aliquota IVA (%)</Label>
+              <Input
+                id="contract_tax_rate"
+                type="number"
+                step="0.01"
+                min="0"
+                max="100"
+                value={contractTaxRate}
+                onChange={(e) => setContractTaxRate(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {parseFloat(contractAmount || "0") > 0 && (
+            <div className="bg-muted/40 border rounded-lg p-3 grid grid-cols-3 gap-2 text-sm">
+              <div>
+                <p className="text-muted-foreground text-xs">Imponibile</p>
+                <p className="font-mono font-semibold">€ {contractSummary.taxable.toFixed(2)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground text-xs">IVA</p>
+                <p className="font-mono font-semibold">€ {contractSummary.tax.toFixed(2)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground text-xs">Totale (IVA inclusa)</p>
+                <p className="font-mono font-semibold text-primary">€ {contractSummary.total.toFixed(2)}</p>
+              </div>
+            </div>
+          )}
+
+          {lineItems.length > 0 && parseFloat(contractAmount || "0") > 0 && (
+            <p className="text-xs text-muted-foreground">
+              ℹ️ Questa spesa ha anche righe variabili: l'importo fisso viene sommato ad esse (tipo <strong>misto</strong>).
+            </p>
+          )}
+
+          <div className="flex justify-end">
+            <Button onClick={handleSaveContractAmount} disabled={savingContract} size="sm">
+              {savingContract ? "Salvataggio..." : "Salva importo"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Tabella Righe di Costo */}
       <Card>
         <CardHeader>
