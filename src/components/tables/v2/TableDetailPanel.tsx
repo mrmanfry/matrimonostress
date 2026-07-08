@@ -165,7 +165,20 @@ export const TableDetailPanel = ({
           )}
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
+          {isImperial && onOpenSeatEditor && !isEditing && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onOpenSeatEditor}
+              className="h-7 gap-1.5 text-[11px]"
+              title="Gestisci posti"
+            >
+              <LayoutGrid className="w-3 h-3" />
+              Posti
+            </Button>
+          )}
           {onUpdateTable && !isEditing && (
+
             <Button
               variant="ghost"
               size="icon"
