@@ -19,6 +19,11 @@ interface ExpenseItem {
   planned_adults: number;
   planned_children: number;
   planned_staff: number;
+  total_amount?: number | null;
+  fixed_amount?: number | null;
+  expense_type?: 'fixed' | 'variable' | 'mixed' | null;
+  amount_is_tax_inclusive?: boolean;
+  tax_rate?: number | null;
 }
 
 interface ExpenseLineItem {
