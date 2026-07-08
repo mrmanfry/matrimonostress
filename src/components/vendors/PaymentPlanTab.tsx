@@ -757,6 +757,20 @@ export function PaymentPlanTab({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        {(() => {
+          const scheduledTotal = payments.reduce((sum, p, idx) => sum + calculatePaymentAmount(p, 0, idx), 0);
+          const overflow = scheduledTotal - activeTotal;
+          if (activeTotal > 0 && overflow > activeTotal * 0.001) {
+            return (
+              <Alert variant="destructive">
+                <AlertDescription>
+                  ⚠️ Le rate schedulate ({formatCurrency(scheduledTotal)}) superano il totale della spesa ({formatCurrency(activeTotal)}) di <strong>{formatCurrency(overflow)}</strong>. Verifica gli importi o aggiorna l'importo del contratto.
+                </AlertDescription>
+              </Alert>
+            );
+          }
+          return null;
+        })()}
         {/* Lista Rate */}
         <div className="space-y-3">
           {payments.map((payment, index) => {
