@@ -33,6 +33,7 @@ export const TablesGridView = ({
   onRemove,
   onAssign,
   onMoveToSeat,
+  onAssignToSeat,
   onUpdateTable,
 }: Props) => {
   const [view, setView] = useState<"grid" | "list">("grid");
@@ -41,6 +42,8 @@ export const TablesGridView = ({
   const [filterGroup, setFilterGroup] = useState<string | null>(null);
   const [seatedSearch, setSeatedSearch] = useState("");
   const [seatAction, setSeatAction] = useState<{ guest: GuestV2; tableId: string } | null>(null);
+  const [imperialEditorTableId, setImperialEditorTableId] = useState<string | null>(null);
+
 
   // Build seated map: tableId -> guests, ordered by seat_position
   const guestsByTable = useMemo(() => {
