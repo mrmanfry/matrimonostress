@@ -3,8 +3,10 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, X, ArrowLeftRight } from "lucide-react";
+import { Plus, Search, X, ArrowLeftRight, LayoutGrid } from "lucide-react";
 import { SeatActionDialog } from "./SeatActionDialog";
+import { ImperialSeatEditorDialog } from "./ImperialSeatEditorDialog";
+
 
 type Guest = {
   id: string;
