@@ -71,6 +71,17 @@ export function ExpenseSpreadsheetTab({
     expenseItem.planned_children !== null || 
     expenseItem.planned_staff !== null
   );
+  const initialContractAmount = expenseItem.fixed_amount ?? expenseItem.total_amount ?? null;
+  const [contractAmount, setContractAmount] = useState<string>(
+    initialContractAmount !== null && initialContractAmount !== undefined ? String(initialContractAmount) : ""
+  );
+  const [contractTaxInclusive, setContractTaxInclusive] = useState<boolean>(
+    expenseItem.amount_is_tax_inclusive !== false
+  );
+  const [contractTaxRate, setContractTaxRate] = useState<string>(
+    expenseItem.tax_rate !== null && expenseItem.tax_rate !== undefined ? String(expenseItem.tax_rate) : "22"
+  );
+  const [savingContract, setSavingContract] = useState(false);
   const { toast } = useToast();
 
   // Load global calculation mode and targets from wedding
