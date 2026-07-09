@@ -116,7 +116,7 @@ export function AssignVendorDialog({ itemId, itemDescription, isOpen, onClose }:
       
       const { error } = await supabase
         .from("expense_items")
-        .update(updatePayload)
+        .update(updatePayload as any)
         .eq("id", itemId);
       if (error) throw error;
     },
