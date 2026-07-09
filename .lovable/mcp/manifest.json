@@ -124,6 +124,41 @@
           "$schema": "http://json-schema.org/draft-07/schema#"
         },
         "outputSchema": null
+      },
+      {
+        "name": "list_accommodations",
+        "title": "Elenca stanze e assegnazioni",
+        "description": "Elenca le stanze prenotate per un matrimonio (hotel/vendor, tipo, capienza, notti, prezzo) e per ciascuna gli ospiti assegnati.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "wedding_id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "ID del matrimonio"
+            },
+            "vendor_id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Filtra per hotel/fornitore specifico"
+            },
+            "only_unassigned": {
+              "type": "boolean",
+              "description": "Se true, restituisce solo le stanze senza ospiti"
+            }
+          },
+          "required": [
+            "wedding_id"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
       }
     ]
   }
