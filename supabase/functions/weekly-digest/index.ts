@@ -1,9 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { Resend } from "https://esm.sh/resend@4.0.0";
-import { escHtml } from "../_shared/html-escape.ts";
 
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
@@ -11,6 +8,7 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
 
 interface Task {
   id: string;
@@ -355,65 +353,92 @@ serve(async (req: Request): Promise<Response> => {
            recipient.partner_role === 'partner2' ? wedding.partner2_name : 
            'Ciao');
 
-        const emailHtml = buildDigestEmail({
-          weddingName,
+        const formatDate = (s: string) =>
+          new Date(s).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
+        const formatCurrency = (n: number) =>
+          new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(n);
+
+        const overduePaymentsAmount = overduePayments.reduce((s, p) => s + p.amount, 0);
+        const paymentsTotalAmount = [...overduePayments, ...upcomingPayments]
+          .reduce((s, p) => s + p.amount, 0);
+
+        const templateData = {
           recipientName,
-          daysUntilWedding,
-          overdueTasks,
-          upcomingTasks,
-          sharedTasks: [...overdueSharedTasks, ...upcomingSharedTasks],
-          overduePayments,
-          upcomingPayments,
-          appointments: allAppointments,
-          appUrl,
+          weddingName,
+          daysToWedding: daysUntilWedding,
           motivationalMessage: randomMessage,
           weeklyTip,
           hasPartnerRole: !!recipient.partner_role,
-        });
+          overdueTasksCount: overdueTasks.length,
+          overduePaymentsTotal: overduePaymentsAmount > 0 ? formatCurrency(overduePaymentsAmount) : '',
+          upcomingTasks: upcomingTasks.map(t => ({
+            title: t.title,
+            dueDate: t.due_date ? formatDate(t.due_date) : null,
+            priority: t.priority,
+            vendorName: t.vendor_name ?? null,
+            category: t.category ?? null,
+          })),
+          sharedTasks: [...overdueSharedTasks, ...upcomingSharedTasks].slice(0, 5).map(t => ({
+            title: t.title,
+            dueDate: t.due_date ? formatDate(t.due_date) : null,
+            vendorName: t.vendor_name ?? null,
+          })),
+          payments: [...overduePayments, ...upcomingPayments].slice(0, 8).map(p => ({
+            description: p.description,
+            amount: formatCurrency(p.amount),
+            dueDate: formatDate(p.due_date),
+            overdue: new Date(p.due_date) < today,
+          })),
+          paymentsTotal: paymentsTotalAmount > 0 ? formatCurrency(paymentsTotalAmount) : '',
+          appointments: allAppointments.map(a => ({
+            title: a.title,
+            date: formatDate(a.appointment_date),
+            time: a.appointment_time ? a.appointment_time.slice(0, 5) : null,
+            location: a.location,
+            vendorName: a.vendor_name ?? null,
+          })),
+          dashboardUrl: `${appUrl}/app/checklist`,
+        };
 
         try {
-          // Subject dinamico
-          const totalItems = overdueTasks.length + upcomingTasks.length + 
+          const finalEmail = testEmail || recipient.email;
+          const totalItems = overdueTasks.length + upcomingTasks.length +
                             overdueSharedTasks.length + upcomingSharedTasks.length +
                             overduePayments.length + upcomingPayments.length +
                             allAppointments.length;
-          
-          // In test mode, invia solo all'email di test
-          const finalEmail = testEmail || recipient.email;
-          
-          await resend.emails.send({
-            from: "Matrimonio Senza Stress <info@stenders.cloud>",
-            to: [finalEmail],
-            subject: `📅 Il tuo piano settimanale: ${totalItems} attività per ${weddingName}`,
-            html: emailHtml,
+
+          const { error: sendErr } = await supabase.functions.invoke('send-transactional-email', {
+            body: {
+              templateName: 'weekly-digest',
+              recipientEmail: finalEmail,
+              idempotencyKey: `weekly-digest-${wedding.id}-${recipient.user_id}-${todayStr}`,
+              templateData,
+            },
           });
 
-          console.log(`Weekly digest sent to: ${finalEmail} for wedding ${wedding.id}`);
+          if (sendErr) throw sendErr;
+
+          console.log(`Weekly digest queued for: ${finalEmail} for wedding ${wedding.id}`);
           digestsSent++;
-          
-          // In test mode, esci dopo il primo invio
+
           if (testMode) {
             return new Response(
-              JSON.stringify({ 
-                message: `Test digest sent to ${finalEmail}`,
+              JSON.stringify({
+                message: `Test digest queued for ${finalEmail}`,
                 wedding: weddingName,
                 recipient: recipientName,
                 partnerRole: recipient.partner_role,
-                items: {
-                  personal: overdueTasks.length + upcomingTasks.length,
-                  shared: overdueSharedTasks.length + upcomingSharedTasks.length,
-                  payments: overduePayments.length + upcomingPayments.length,
-                  appointments: allAppointments.length,
-                },
+                totalItems,
               }),
               { headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
           }
         } catch (emailError) {
-          console.error(`Failed to send digest for ${recipient.email}:`, emailError);
+          console.error(`Failed to queue digest for ${recipient.email}:`, emailError);
         }
       }
     }
+
 
     return new Response(
       JSON.stringify({ 
@@ -434,267 +459,3 @@ serve(async (req: Request): Promise<Response> => {
   }
 });
 
-interface DigestEmailParams {
-  weddingName: string;
-  recipientName: string;
-  daysUntilWedding: number;
-  overdueTasks: Task[];
-  upcomingTasks: Task[];
-  sharedTasks: Task[];
-  overduePayments: Payment[];
-  upcomingPayments: Payment[];
-  appointments: Appointment[];
-  appUrl: string;
-  motivationalMessage: string;
-  weeklyTip: string;
-  hasPartnerRole: boolean;
-}
-
-function buildDigestEmail({
-  weddingName,
-  recipientName,
-  daysUntilWedding,
-  overdueTasks,
-  upcomingTasks,
-  sharedTasks,
-  overduePayments,
-  upcomingPayments,
-  appointments,
-  appUrl,
-  motivationalMessage,
-  weeklyTip,
-  hasPartnerRole,
-}: DigestEmailParams): string {
-  
-  const formatDate = (dateStr: string) => 
-    new Date(dateStr).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
-  
-  const formatCurrency = (amount: number) => 
-    new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(amount);
-
-  const getPriorityBadge = (priority: string | null) => {
-    switch (priority) {
-      case 'must': return '🔴 Must';
-      case 'should': return '🟠 Should';
-      case 'could': return '🔵 Could';
-      default: return '';
-    }
-  };
-
-  // Colori PRD
-  const OVERDUE_COLOR = '#e53e3e';   // Rosso
-  const UPCOMING_COLOR = '#667eea';   // Blu/Viola
-  const SHARED_COLOR = '#10b981';     // Verde
-  
-  let sectionsHtml = '';
-  const overdueCount = overdueTasks.length + overduePayments.length;
-
-  // Sezione "Scaduti" - PRD 4.2
-  if (overdueTasks.length > 0 || overduePayments.length > 0) {
-    sectionsHtml += `
-      <div style="background: #FEE2E2; border-left: 4px solid ${OVERDUE_COLOR}; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
-        <h3 style="color: ${OVERDUE_COLOR}; margin: 0 0 10px 0;">⚠️ Scaduti (${overdueCount})</h3>
-        ${overdueTasks.length > 0 ? `
-          <p style="margin: 5px 0; color: #7F1D1D;"><strong>${overdueTasks.length}</strong> task ${hasPartnerRole ? 'tuoi' : ''} scaduti</p>
-        ` : ''}
-        ${overduePayments.length > 0 ? `
-          <p style="margin: 5px 0; color: #7F1D1D;"><strong>${overduePayments.length}</strong> pagamenti scaduti (${formatCurrency(overduePayments.reduce((sum, p) => sum + p.amount, 0))})</p>
-        ` : ''}
-      </div>
-    `;
-  }
-
-  // Sezione "I Tuoi Task" - personali
-  if (upcomingTasks.length > 0) {
-    sectionsHtml += `
-      <div style="margin-bottom: 25px;">
-        <h3 style="color: #374151; margin-bottom: 15px; border-bottom: 2px solid ${UPCOMING_COLOR}; padding-bottom: 8px;">
-          📅 ${hasPartnerRole ? 'I Tuoi Prossimi Task' : 'Questa Settimana'} (${upcomingTasks.length})
-        </h3>
-        <ul style="list-style: none; padding: 0; margin: 0;">
-          ${upcomingTasks.map(task => `
-            <li style="padding: 12px; margin-bottom: 8px; background: #F9FAFB; border-radius: 8px; border-left: 3px solid ${UPCOMING_COLOR};">
-              <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                <div>
-                  <strong style="color: #1F2937; display: block;">${escHtml(task.title)}</strong>
-                  ${task.vendor_name ? `<span style="font-size: 12px; color: ${UPCOMING_COLOR};">🏢 ${escHtml(task.vendor_name)}</span>` : ''}
-                  ${task.category && !task.vendor_name ? `<span style="font-size: 12px; color: #9CA3AF;">📁 ${escHtml(task.category)}</span>` : ''}
-                </div>
-                <div style="text-align: right;">
-                  ${task.priority ? `<span style="font-size: 11px; display: block;">${getPriorityBadge(task.priority)}</span>` : ''}
-                  ${task.due_date ? `<span style="font-size: 12px; color: #6B7280;">📅 ${formatDate(task.due_date)}</span>` : ''}
-                </div>
-              </div>
-            </li>
-          `).join('')}
-        </ul>
-      </div>
-    `;
-  }
-
-  // Sezione "Da Fare Insieme" - task condivisi
-  if (hasPartnerRole && sharedTasks.length > 0) {
-    sectionsHtml += `
-      <div style="margin-bottom: 25px;">
-        <h3 style="color: #374151; margin-bottom: 15px; border-bottom: 2px solid ${SHARED_COLOR}; padding-bottom: 8px;">
-          👫 Da Fare Insieme (${sharedTasks.length})
-        </h3>
-        <ul style="list-style: none; padding: 0; margin: 0;">
-          ${sharedTasks.slice(0, 5).map(task => `
-            <li style="padding: 12px; margin-bottom: 8px; background: #ECFDF5; border-radius: 8px; border-left: 3px solid ${SHARED_COLOR};">
-              <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                <div>
-                  <strong style="color: #1F2937; display: block;">${escHtml(task.title)}</strong>
-                  ${task.vendor_name ? `<span style="font-size: 12px; color: ${SHARED_COLOR};">🏢 ${escHtml(task.vendor_name)}</span>` : ''}
-                </div>
-                <div style="text-align: right;">
-                  ${task.due_date ? `<span style="font-size: 12px; color: #6B7280;">📅 ${formatDate(task.due_date)}</span>` : ''}
-                </div>
-              </div>
-            </li>
-          `).join('')}
-        </ul>
-        ${sharedTasks.length > 5 ? `
-          <p style="color: #6B7280; font-size: 13px; text-align: center; margin-top: 10px;">
-            +${sharedTasks.length - 5} altri task condivisi...
-          </p>
-        ` : ''}
-      </div>
-    `;
-  }
-
-  if (upcomingPayments.length > 0 || overduePayments.length > 0) {
-    const allPayments = [...overduePayments, ...upcomingPayments].slice(0, 8);
-    const totalDue = allPayments.reduce((sum, p) => sum + p.amount, 0);
-    
-    sectionsHtml += `
-      <div style="margin-bottom: 25px;">
-        <h3 style="color: #374151; margin-bottom: 15px; border-bottom: 2px solid #E5E7EB; padding-bottom: 8px;">
-          💰 Pagamenti in Scadenza (${formatCurrency(totalDue)})
-        </h3>
-        <ul style="list-style: none; padding: 0; margin: 0;">
-          ${allPayments.map(payment => `
-            <li style="padding: 10px; margin-bottom: 8px; background: #F9FAFB; border-radius: 6px; border-left: 3px solid ${new Date(payment.due_date) < new Date() ? '#DC2626' : '#F59E0B'};">
-              <div style="display: flex; justify-content: space-between;">
-                <strong style="color: #1F2937;">${escHtml(payment.description)}</strong>
-                <span style="font-weight: bold; color: #1F2937;">${formatCurrency(payment.amount)}</span>
-              </div>
-              <span style="font-size: 13px; color: ${new Date(payment.due_date) < new Date() ? '#DC2626' : '#6B7280'};">
-                📅 ${formatDate(payment.due_date)}${new Date(payment.due_date) < new Date() ? ' (SCADUTO)' : ''}
-              </span>
-            </li>
-          `).join('')}
-        </ul>
-      </div>
-    `;
-  }
-
-  // Sezione "Appuntamenti Settimanali"
-  if (appointments.length > 0) {
-    const APPOINTMENT_COLOR = '#8B5CF6'; // Viola
-    
-    sectionsHtml += `
-      <div style="margin-bottom: 25px;">
-        <h3 style="color: #374151; margin-bottom: 15px; border-bottom: 2px solid ${APPOINTMENT_COLOR}; padding-bottom: 8px;">
-          📆 Appuntamenti Questa Settimana (${appointments.length})
-        </h3>
-        <ul style="list-style: none; padding: 0; margin: 0;">
-          ${appointments.map(apt => {
-            const aptDate = new Date(apt.appointment_date);
-            const dayName = aptDate.toLocaleDateString('it-IT', { weekday: 'short' });
-            const dayNum = aptDate.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
-            const timeStr = apt.appointment_time ? apt.appointment_time.slice(0, 5) : '';
-            
-            return `
-            <li style="padding: 12px; margin-bottom: 8px; background: #FAF5FF; border-radius: 8px; border-left: 3px solid ${APPOINTMENT_COLOR};">
-              <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                <div>
-                  <strong style="color: #1F2937; display: block;">${escHtml(apt.title)}</strong>
-                  ${apt.vendor_name ? `<span style="font-size: 12px; color: ${APPOINTMENT_COLOR};">🏢 ${escHtml(apt.vendor_name)}</span>` : ''}
-                  ${apt.location ? `<span style="font-size: 12px; color: #6B7280; display: block; margin-top: 2px;">📍 ${escHtml(apt.location)}</span>` : ''}
-                  ${apt.purpose ? `<span style="font-size: 12px; color: #9CA3AF; display: block; margin-top: 2px;">${escHtml(apt.purpose)}</span>` : ''}
-                </div>
-                <div style="text-align: right; min-width: 70px;">
-                  <span style="font-size: 11px; color: #6B7280; text-transform: uppercase;">${dayName}</span>
-                  <span style="font-size: 13px; color: #1F2937; display: block; font-weight: 600;">${dayNum}</span>
-                  ${timeStr ? `<span style="font-size: 12px; color: ${APPOINTMENT_COLOR}; font-weight: 500;">⏰ ${timeStr}</span>` : ''}
-                </div>
-              </div>
-            </li>
-          `;
-          }).join('')}
-        </ul>
-      </div>
-    `;
-  }
-
-  // Sezione "Consiglio della Settimana"
-  const tipSection = `
-    <div style="background: #F0F9FF; border-left: 4px solid #0EA5E9; padding: 15px; margin: 20px 0; border-radius: 4px;">
-      <p style="margin: 0; color: #0369A1; font-size: 14px;">
-        💡 <strong>Consiglio:</strong> ${weeklyTip}
-      </p>
-    </div>
-  `;
-
-  return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    </head>
-    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background: #F3F4F6;">
-      
-      <!-- Header con saluto personalizzato e messaggio motivazionale -->
-      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
-        <h1 style="color: white; margin: 0 0 8px 0; font-size: 24px;">Buon lunedì, ${escHtml(recipientName)}! 👋</h1>
-        <p style="color: rgba(255,255,255,0.85); margin: 0 0 12px 0; font-size: 14px; font-style: italic;">${escHtml(motivationalMessage)}</p>
-        <p style="color: rgba(255,255,255,0.95); margin: 0; font-size: 16px;">Ecco il punto della situazione per <strong>${escHtml(weddingName)}</strong></p>
-      </div>
-      
-      <!-- Countdown -->
-      <div style="background: white; padding: 20px; text-align: center; border-bottom: 1px solid #E5E7EB;">
-        <div style="font-size: 48px; font-weight: bold; color: #667eea;">${daysUntilWedding}</div>
-        <div style="font-size: 14px; color: #6B7280; text-transform: uppercase; letter-spacing: 1px;">giorni al matrimonio</div>
-      </div>
-      
-      <!-- Content -->
-      <div style="background: white; padding: 25px;">
-        ${sectionsHtml || '<p style="text-align: center; color: #6B7280;">Nessuna attività in programma questa settimana! 🎉</p>'}
-        
-        <!-- Tip della settimana -->
-        ${tipSection}
-        
-        <!-- CTA principale -->
-        <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #E5E7EB;">
-          <a href="${appUrl}/app/checklist" 
-             style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 35px; text-decoration: none; border-radius: 25px; font-weight: 600; font-size: 15px;">
-            Gestisci Checklist
-          </a>
-        </div>
-        
-        <!-- Link rapidi -->
-        <div style="text-align: center; margin-top: 20px;">
-          <a href="${appUrl}/app/checklist" style="margin: 0 10px; color: #667eea; text-decoration: none; font-size: 13px;">📋 Checklist</a>
-          <a href="${appUrl}/app/vendors" style="margin: 0 10px; color: #667eea; text-decoration: none; font-size: 13px;">🏢 Fornitori</a>
-          <a href="${appUrl}/app/treasury" style="margin: 0 10px; color: #667eea; text-decoration: none; font-size: 13px;">💰 Tesoreria</a>
-        </div>
-      </div>
-      
-      <!-- Footer -->
-      <div style="background: #F9FAFB; padding: 20px; border-radius: 0 0 12px 12px; text-align: center;">
-        <p style="font-size: 12px; color: #9CA3AF; margin: 0 0 8px 0;">
-          Ricevi questa email ogni lunedì perché sei un organizzatore del matrimonio ${escHtml(weddingName)}.
-        </p>
-        <a href="${appUrl}/app/settings" style="color: #667eea; text-decoration: underline; font-size: 12px;">
-          Modifica preferenze email
-        </a>
-        <p style="font-size: 11px; color: #D1D5DB; margin-top: 15px;">
-          Inviato con ❤️ da Matrimonio Senza Stress
-        </p>
-      </div>
-    </body>
-    </html>
-  `;
-}
