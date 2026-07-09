@@ -388,7 +388,7 @@ const CampaignConfigDialog = ({
 
       const { error: locationError } = await supabase
         .from("weddings")
-        .update(venueUpdate)
+        .update(venueUpdate as any)
         .eq("id", weddingId);
 
       if (locationError) throw locationError;

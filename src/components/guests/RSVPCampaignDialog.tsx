@@ -757,7 +757,7 @@ export function RSVPCampaignDialog({
 
     const { error } = await supabase
       .from("guests")
-      .update(updatePayload)
+      .update(updatePayload as any)
       .eq("id", currentGuest.id);
 
     if (error) {

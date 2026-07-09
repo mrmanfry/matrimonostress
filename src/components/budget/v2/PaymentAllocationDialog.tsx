@@ -117,7 +117,7 @@ export function PaymentAllocationDialog({
         }
         const { error: updErr } = await supabase
           .from('payments')
-          .update(update)
+          .update(update as any)
           .eq('id', paymentId);
         if (updErr) throw updErr;
       }
