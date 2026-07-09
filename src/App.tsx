@@ -47,6 +47,7 @@ import Risorse from "./pages/Risorse";
 import RisorseArticle from "./pages/RisorseArticle";
 import NotFound from "./pages/NotFound";
 import OAuthConsent from "./pages/OAuthConsent";
+import Unsubscribe from "./pages/Unsubscribe";
 
 const AppIndexRedirect = () => {
   const { activeMode } = useAuth();
@@ -73,6 +74,7 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/unsubscribe" element={<Unsubscribe />} />
             <Route 
               path="/onboarding" 
               element={
