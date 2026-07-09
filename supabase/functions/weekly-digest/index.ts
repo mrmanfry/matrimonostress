@@ -353,65 +353,92 @@ serve(async (req: Request): Promise<Response> => {
            recipient.partner_role === 'partner2' ? wedding.partner2_name : 
            'Ciao');
 
-        const emailHtml = buildDigestEmail({
-          weddingName,
+        const formatDate = (s: string) =>
+          new Date(s).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
+        const formatCurrency = (n: number) =>
+          new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(n);
+
+        const overduePaymentsAmount = overduePayments.reduce((s, p) => s + p.amount, 0);
+        const paymentsTotalAmount = [...overduePayments, ...upcomingPayments]
+          .reduce((s, p) => s + p.amount, 0);
+
+        const templateData = {
           recipientName,
-          daysUntilWedding,
-          overdueTasks,
-          upcomingTasks,
-          sharedTasks: [...overdueSharedTasks, ...upcomingSharedTasks],
-          overduePayments,
-          upcomingPayments,
-          appointments: allAppointments,
-          appUrl,
+          weddingName,
+          daysToWedding: daysUntilWedding,
           motivationalMessage: randomMessage,
           weeklyTip,
           hasPartnerRole: !!recipient.partner_role,
-        });
+          overdueTasksCount: overdueTasks.length,
+          overduePaymentsTotal: overduePaymentsAmount > 0 ? formatCurrency(overduePaymentsAmount) : '',
+          upcomingTasks: upcomingTasks.map(t => ({
+            title: t.title,
+            dueDate: t.due_date ? formatDate(t.due_date) : null,
+            priority: t.priority,
+            vendorName: t.vendor_name ?? null,
+            category: t.category ?? null,
+          })),
+          sharedTasks: [...overdueSharedTasks, ...upcomingSharedTasks].slice(0, 5).map(t => ({
+            title: t.title,
+            dueDate: t.due_date ? formatDate(t.due_date) : null,
+            vendorName: t.vendor_name ?? null,
+          })),
+          payments: [...overduePayments, ...upcomingPayments].slice(0, 8).map(p => ({
+            description: p.description,
+            amount: formatCurrency(p.amount),
+            dueDate: formatDate(p.due_date),
+            overdue: new Date(p.due_date) < today,
+          })),
+          paymentsTotal: paymentsTotalAmount > 0 ? formatCurrency(paymentsTotalAmount) : '',
+          appointments: allAppointments.map(a => ({
+            title: a.title,
+            date: formatDate(a.appointment_date),
+            time: a.appointment_time ? a.appointment_time.slice(0, 5) : null,
+            location: a.location,
+            vendorName: a.vendor_name ?? null,
+          })),
+          dashboardUrl: `${appUrl}/app/checklist`,
+        };
 
         try {
-          // Subject dinamico
-          const totalItems = overdueTasks.length + upcomingTasks.length + 
+          const finalEmail = testEmail || recipient.email;
+          const totalItems = overdueTasks.length + upcomingTasks.length +
                             overdueSharedTasks.length + upcomingSharedTasks.length +
                             overduePayments.length + upcomingPayments.length +
                             allAppointments.length;
-          
-          // In test mode, invia solo all'email di test
-          const finalEmail = testEmail || recipient.email;
-          
-          await resend.emails.send({
-            from: "Matrimonio Senza Stress <info@stenders.cloud>",
-            to: [finalEmail],
-            subject: `📅 Il tuo piano settimanale: ${totalItems} attività per ${weddingName}`,
-            html: emailHtml,
+
+          const { error: sendErr } = await supabase.functions.invoke('send-transactional-email', {
+            body: {
+              templateName: 'weekly-digest',
+              recipientEmail: finalEmail,
+              idempotencyKey: `weekly-digest-${wedding.id}-${recipient.user_id}-${todayStr}`,
+              templateData,
+            },
           });
 
-          console.log(`Weekly digest sent to: ${finalEmail} for wedding ${wedding.id}`);
+          if (sendErr) throw sendErr;
+
+          console.log(`Weekly digest queued for: ${finalEmail} for wedding ${wedding.id}`);
           digestsSent++;
-          
-          // In test mode, esci dopo il primo invio
+
           if (testMode) {
             return new Response(
-              JSON.stringify({ 
-                message: `Test digest sent to ${finalEmail}`,
+              JSON.stringify({
+                message: `Test digest queued for ${finalEmail}`,
                 wedding: weddingName,
                 recipient: recipientName,
                 partnerRole: recipient.partner_role,
-                items: {
-                  personal: overdueTasks.length + upcomingTasks.length,
-                  shared: overdueSharedTasks.length + upcomingSharedTasks.length,
-                  payments: overduePayments.length + upcomingPayments.length,
-                  appointments: allAppointments.length,
-                },
+                totalItems,
               }),
               { headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
           }
         } catch (emailError) {
-          console.error(`Failed to send digest for ${recipient.email}:`, emailError);
+          console.error(`Failed to queue digest for ${recipient.email}:`, emailError);
         }
       }
     }
+
 
     return new Response(
       JSON.stringify({ 
