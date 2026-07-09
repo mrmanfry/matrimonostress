@@ -183,18 +183,89 @@ var budget_summary_default = defineTool4({
   }
 });
 
+// src/lib/mcp/tools/list-accommodations.ts
+import { createClient as createClient5 } from "npm:@supabase/supabase-js@^2.110.1";
+import { defineTool as defineTool5 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { z as z4 } from "npm:zod@^3.25.76";
+function supabaseForUser5(ctx) {
+  return createClient5(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.SUPABASE_ANON_KEY,
+    {
+      global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
+      auth: { persistSession: false, autoRefreshToken: false }
+    }
+  );
+}
+var list_accommodations_default = defineTool5({
+  name: "list_accommodations",
+  title: "Elenca stanze e assegnazioni",
+  description: "Elenca le stanze prenotate per un matrimonio (hotel/vendor, tipo, capienza, notti, prezzo) e per ciascuna gli ospiti assegnati.",
+  inputSchema: {
+    wedding_id: z4.string().uuid().describe("ID del matrimonio"),
+    vendor_id: z4.string().uuid().optional().describe("Filtra per hotel/fornitore specifico"),
+    only_unassigned: z4.boolean().optional().describe("Se true, restituisce solo le stanze senza ospiti")
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: async ({ wedding_id, vendor_id, only_unassigned }, ctx) => {
+    if (!ctx.isAuthenticated())
+      return { content: [{ type: "text", text: "Non autenticato" }], isError: true };
+    const sb = supabaseForUser5(ctx);
+    let q = sb.from("accommodation_rooms").select(
+      "id, room_name, room_type, capacity, nights, price_per_night, notes, vendors(id, name), accommodation_assignments(guests(id, first_name, last_name, party_name))"
+    ).eq("wedding_id", wedding_id).order("order_index", { ascending: true });
+    if (vendor_id) q = q.eq("vendor_id", vendor_id);
+    const { data, error } = await q;
+    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
+    const rooms = (data ?? []).map((r) => {
+      const guests = (r.accommodation_assignments ?? []).map((a) => ({
+        id: a.guests?.id,
+        name: `${a.guests?.first_name ?? ""} ${a.guests?.last_name ?? ""}`.trim(),
+        party_name: a.guests?.party_name ?? null
+      }));
+      return {
+        room_id: r.id,
+        room_name: r.room_name,
+        room_type: r.room_type,
+        capacity: r.capacity,
+        occupied: guests.length,
+        free_beds: Math.max(0, (r.capacity ?? 0) - guests.length),
+        nights: r.nights,
+        price_per_night: r.price_per_night,
+        total_price: Number(r.price_per_night ?? 0) * Number(r.nights ?? 0),
+        hotel: r.vendors?.name ?? null,
+        vendor_id: r.vendors?.id ?? null,
+        notes: r.notes,
+        guests
+      };
+    });
+    const filtered = only_unassigned ? rooms.filter((r) => r.occupied === 0) : rooms;
+    const summary = `${filtered.length} stanze \u2014 ${filtered.reduce(
+      (s, r) => s + r.occupied,
+      0
+    )} ospiti assegnati, ${filtered.reduce((s, r) => s + r.free_beds, 0)} posti liberi`;
+    return {
+      content: [
+        { type: "text", text: `${summary}
+${JSON.stringify(filtered, null, 2)}` }
+      ],
+      structuredContent: { rooms: filtered }
+    };
+  }
+});
+
 // src/lib/mcp/index.ts
 var projectRef = "evaivaudtestjzckutsd";
 var mcp_default = defineMcp({
   name: "wedsapp-mcp",
   title: "WedsApp",
   version: "0.1.0",
-  instructions: "Strumenti per WedsApp \u2014 gestionale matrimoni. Usa list_weddings per trovare l'ID del matrimonio, poi list_guests, list_vendors o budget_summary per interrogare i dati.",
+  instructions: "Strumenti per WedsApp \u2014 gestionale matrimoni. Usa list_weddings per trovare l'ID del matrimonio, poi list_guests, list_vendors, budget_summary o list_accommodations per interrogare i dati.",
   auth: auth.oauth.issuer({
     issuer: `https://${projectRef}.supabase.co/auth/v1`,
     acceptedAudiences: "authenticated"
   }),
-  tools: [list_weddings_default, list_guests_default, list_vendors_default, budget_summary_default]
+  tools: [list_weddings_default, list_guests_default, list_vendors_default, budget_summary_default, list_accommodations_default]
 });
 
 // lovable-mcp-supabase-entry.ts
