@@ -78,7 +78,7 @@ var list_guests_default = defineTool2({
     if (!ctx.isAuthenticated())
       return { content: [{ type: "text", text: "Non autenticato" }], isError: true };
     const sb = supabaseForUser2(ctx);
-    let q = sb.from("guests").select("id, first_name, last_name, party_name, rsvp_status, is_child, is_staff, email, phone").eq("wedding_id", wedding_id).limit(limit);
+    let q = sb.from("guests").select("id, first_name, last_name, rsvp_status, is_child, is_staff, phone, invite_parties(party_name)").eq("wedding_id", wedding_id).limit(limit);
     if (rsvp_status) q = q.eq("rsvp_status", rsvp_status);
     const { data, error } = await q;
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
