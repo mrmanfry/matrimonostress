@@ -38,7 +38,7 @@ export default defineTool({
       };
     const { data: weddings, error } = await sb
       .from("weddings")
-      .select("id, partner1_name, partner2_name, wedding_date, venue_name")
+      .select("id, partner1_name, partner2_name, wedding_date, reception_venue_name, ceremony_venue_name, location")
       .in("id", ids);
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
     const rows = (weddings ?? []).map((w) => ({

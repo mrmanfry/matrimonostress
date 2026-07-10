@@ -33,7 +33,7 @@ export default defineTool({
     const sb = supabaseForUser(ctx);
     let q = sb
       .from("guests")
-      .select("id, first_name, last_name, party_name, rsvp_status, is_child, is_staff, email, phone")
+      .select("id, first_name, last_name, rsvp_status, is_child, is_staff, phone, invite_parties(party_name)")
       .eq("wedding_id", wedding_id)
       .limit(limit);
     if (rsvp_status) q = q.eq("rsvp_status", rsvp_status);
