@@ -37,7 +37,7 @@ var list_weddings_default = defineTool({
         content: [{ type: "text", text: "Nessun matrimonio trovato." }],
         structuredContent: { weddings: [] }
       };
-    const { data: weddings, error } = await sb.from("weddings").select("id, partner1_name, partner2_name, wedding_date, venue_name").in("id", ids);
+    const { data: weddings, error } = await sb.from("weddings").select("id, partner1_name, partner2_name, wedding_date, reception_venue_name, ceremony_venue_name, location").in("id", ids);
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
     const rows = (weddings ?? []).map((w) => ({
       ...w,
