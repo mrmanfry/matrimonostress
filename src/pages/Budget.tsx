@@ -239,6 +239,8 @@ export default function Budget() {
 
         <CashflowTimeline
           upcoming={upcoming}
+          paid={paidPayments}
+          weddingDate={weddingDate}
           unplanned={unplanned}
           totals={totals}
           onOpenVendor={setOpenVendorId}
