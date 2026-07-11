@@ -142,6 +142,7 @@ export default function Budget() {
   );
   const totals = useMemo(() => buildTotals(budget, uiVendors), [budget, uiVendors]);
   const upcoming = useMemo(() => upcomingPayments(uiVendors), [uiVendors]);
+  const paidPayments = useMemo(() => allPayments(uiVendors).filter(p => p.status === 'paid'), [uiVendors]);
   const next = useMemo(() => nextPayment(uiVendors), [uiVendors]);
   const uiContributors = useMemo(
     () => buildContributors(contributors, allPayments(uiVendors), allocations),
@@ -238,6 +239,8 @@ export default function Budget() {
 
         <CashflowTimeline
           upcoming={upcoming}
+          paid={paidPayments}
+          weddingDate={weddingDate}
           unplanned={unplanned}
           totals={totals}
           onOpenVendor={setOpenVendorId}
