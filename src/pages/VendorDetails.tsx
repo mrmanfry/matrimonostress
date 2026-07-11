@@ -456,7 +456,10 @@ export default function VendorDetails() {
     const nonSaldoCount = existing.filter(
       p => !(p.description || '').trim().toLowerCase().startsWith('saldo'),
     ).length;
-    const description = `Rata ${nonSaldoCount + 1}`;
+    const item = (data?.items || []).find(i => i.id === expenseItemId);
+    const baseName = (item?.description || '').trim();
+    const description = baseName ? `${baseName} · Rata ${nonSaldoCount + 1}` : `Rata ${nonSaldoCount + 1}`;
+
     const { error } = await supabase.from('payments').insert([{
       expense_item_id: expenseItemId,
       description,
