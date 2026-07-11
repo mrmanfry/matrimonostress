@@ -1,41 +1,85 @@
-# Fix modifica spesa "vuota" + alert piano pagamenti > totale
 
-## Problema
-1. Cliccando "Modifica" su una spesa come *Extra time* di International Catering, la scheda **📊 Foglio di Calcolo** mostra 0€: la spesa è "fissa" (ha `total_amount` ma nessuna riga di costo) e la tab attualmente gestisce solo `expense_line_items`. Il valore attuale del contratto non è né visibile né modificabile lì.
-2. Nel **💳 Piano di Pagamento** non c'è alcun controllo se la somma delle rate schedulate (IVA inclusa) supera il totale della spesa: i totali finiscono per non tornare senza che l'utente se ne accorga.
+## Cosa non va oggi
 
-## Soluzione
+**1) Il numero della proiezione è sbagliato.**
+Nel DB oggi (11 lug 2026) ci sono 14 rate future per **30.019 €** e pagato per **~11.572 €** → target **~41.591 €**. L'unica rata dopo il 26 luglio è **250 € il 20 set** (saldo foto). Quindi al **23 agosto** il cumulato *deve* essere ~41.341 € (target − 250 €), non 23.597 €.
 
-### 1. Editor "Importo Fisso Contratto" in `ExpenseSpreadsheetTab`
-Aggiungere, sopra la "Tabella Righe di Costo", una nuova card **"Importo Contratto (spesa fissa)"** che carica e permette di modificare i campi già presenti su `expense_items`:
+Cause probabili nel codice attuale (`MountainChart` in `src/components/budget/v2/CashflowTimeline.tsx`):
+- `combinedPts` fonde `paidPts` + `futurePts` con `sort((a,b)=>a.t-b.t)` **non stabile**: quando ci sono più rate con la stessa `due_date` (es. 5 rate il 18/07) i punti step (t, cumPrima)/(t, cumDopo) si mescolano e la funzione `valueAt` legge un `cum` intermedio errato.
+- L'interpolazione è **lineare** tra due punti step con timestamp diversi, ma dovrebbe essere una **staircase** (piecewise-constant): il valore al tempo *t* è il cum dell'ultima rata con `due ≤ t`. La linearità sballa tutti i valori tra due rate.
+- `paidPts` estende fino a `today` con `paidEndCum`, `futurePts` inizia da `today`: al passaggio ci sono 2 punti identici che con sort instabile creano un salto artificiale.
 
-- `total_amount` (input €, IVA inclusa per default coerentemente con la memoria progetto)
-- `amount_is_tax_inclusive` (radio Inclusa/Esclusa)
-- `tax_rate` (input %)
+**2) Il tooltip è povero.** Mostra solo "Proiezione €X". Serve, come chiede l'utente:
+- **Cumulato totale** a quella data
+- **Già pagato** a quella data (parte scura)
+- **Da versare entro quella data** = Cumulato − Già pagato (il vero fabbisogno di liquidità)
+- La rata specifica se il cursore è su una data di pagamento (chi/cosa/quanto)
 
-Comportamento:
-- All'apertura, i valori sono precompilati con quelli in DB (niente più 0€).
-- Salvataggio inline con pulsante *Salva importo* → `UPDATE expense_items SET total_amount, amount_is_tax_inclusive, tax_rate`.
-- Riepilogo Imponibile / IVA / Totale identico a quello di `ExpenseItemDialog` (riuso della stessa formula).
-- Se la spesa ha già righe di costo, la card mostra un hint: *"Questa spesa ha righe di costo variabili: l'importo fisso viene sommato ad esse solo se il tipo è misto."* e resta comunque modificabile.
+**3) Qualità visiva scadente.** Area tratteggiata pesante, linea OGGI e Matrimonio si sovrappongono ai label mese, target label taglia il bordo, nessun gradient, nessuna curva step "clean", tick mese fitti/sovrapposti, cursore hover finisce fuori area.
 
-Il calcolo totale (`calculateTotals` / `onTotalsUpdate`) deve considerare anche `total_amount` quando `expense_type` è `fixed` o `mixed`, in linea con `calculateExpenseAmount` della libreria centralizzata. Attualmente somma solo le righe → per questo la spesa "extra time" appariva 0.
+---
 
-Estendere l'interfaccia `ExpenseItem` locale con `total_amount`, `amount_is_tax_inclusive`, `tax_rate`, `expense_type`, `fixed_amount` e caricarli in `loadExpenseItem` di `ExpenseItemTabs.tsx`.
+## Piano di intervento
 
-### 2. Alert "Piano pagamenti eccede il totale" in `PaymentPlanTab`
-Nel riepilogo del piano pagamenti (dove oggi si mostrano *Totale schedulato* / *Da schedulare*), aggiungere:
+### A. Fix calcolo (correttezza prima di tutto)
 
-- Calcolo `scheduledTotal` = somma di tutte le rate esistenti convertite in IVA inclusa (fixed → `amount`; percentage → `activeTotal * pct/100`; balance → residuo). La logica esiste già frammentata in `ExpenseItemsManager.calculateTotalScheduledPayments` → estrarla in una utility o replicarla.
-- Se `scheduledTotal > activeTotal * 1.001` (tolleranza 0,1% per arrotondamenti):
-  - Mostrare `<Alert variant="destructive">` sopra la lista rate: *"⚠️ Le rate schedulate (€ X) superano il totale della spesa (€ Y) di € Z. Verifica gli importi o aggiorna il totale del contratto."*
-  - Mostrare stesso warning inline anche nel form di creazione/modifica rata quando l'aggiunta farebbe sforare (calcolo preview).
+Sostituire l'attuale `valueAt` con una funzione **staircase deterministica**:
 
-Nessuna modifica DB. Nessun blocco duro: l'utente resta libero di salvare (potrebbe essere voluto), ma è avvisato.
+1. Costruire un unico array `events = [...paidSorted, ...upcomingSorted]` con per ciascuno: `{ t, amount, kind: 'paid'|'future' }`.
+2. Ordinare per `t` ascendente (i pagati vengono comunque tutti prima di oggi).
+3. Precalcolare `cumAt(t)` come somma di `amount` di tutti gli eventi con `t ≤ t_query` — separatamente `paidCumAt(t)` (solo `kind='paid'`) e `totalCumAt(t)` (tutti).
+4. Per hover a `t_query`: **niente interpolazione lineare** — restituire il cumulato al chiusura dell'ultima rata `≤ t_query`. Questo è quello che finanziariamente ha senso ("al 23 ago hai già dovuto pagare X, resta Y").
+5. Rimuovere il clamp `Math.max(raw, today)` che sposta le rate scadute a oggi: falsa la staircase. Se una rata è scaduta va comunque disegnata alla sua data.
 
-## File da modificare
-- `src/components/vendors/ExpenseItemTabs.tsx` — estendere `ExpenseItem` con i campi contratto e ricaricarli.
-- `src/components/vendors/ExpenseSpreadsheetTab.tsx` — nuova card "Importo Contratto" + inclusione nel `calculateTotals`.
-- `src/components/vendors/PaymentPlanTab.tsx` — alert overflow scheduled vs activeTotal.
+### B. Tooltip finanziario a 3 righe
 
-Nessuna migrazione database.
+Layout tooltip proposto (box ~200×95 con separatori sottili):
+
+```text
+23 ago 2026
+────────────────────
+Cumulato       41.341 €
+Già pagato     11.572 €
+Da versare     29.769 €   ← evidenziato in warn()
+```
+
+Se il cursore cade **esattamente su una data di rata**, aggiungere sotto una riga "In quella data: `Vendor · Descrizione · +€X`".
+
+### C. Ridisegno visivo
+
+Modifiche mirate al SVG (`MountainChart`):
+
+1. **Curva step vera** con `stroke-linejoin: miter` e piccoli raccordi. Path paid in colore pieno `brand()`, area sotto con gradient verticale `brand() → transparent`.
+2. **Curva futura** stessa forma step, tratteggio SOLO sulla linea (non sull'area); area futura con gradient più chiaro/desaturato, non pattern a righe diagonali.
+3. **Marker "OGGI"**: linea sottile continua warn(), label in alto con background pill bianco per non collidere coi tick mese.
+4. **Marker "Matrimonio ♥"**: stessa logica, colore ink(2), label pill bianca. Se coincide con l'ultima rata, sfalsare orizzontalmente.
+5. **Asse X**: tick mese con `tickStride` calcolato sulla larghezza reale, label ruotate 0° ma con `text-anchor` intelligente per il primo/ultimo tick per non uscire dal grafico. Riga base dell'asse più marcata.
+6. **Asse Y**: gridline a 25/50/75/100% con label mono; aggiungere anche label a `paidEndCum` (marker "sei qui") allineata a destra dell'area.
+7. **Hover**: linea verticale sottile che va da top a bottom, cerchio doppio sul punto (contorno bianco spesso), tooltip che si flippa se vicino al bordo destro **e** al bordo alto.
+8. **Padding**: aumentare `padT` a 32 per far respirare i marker OGGI/♥ e `padB` a 44 per i mesi.
+
+### D. Micro-copy sotto il grafico
+
+Sostituire l'attuale riga "Sei al X% del percorso" con due chip:
+
+- `Liquidità servita fino al matrimonio` = totalFuture (tutte le rate ancora da versare)
+- `Ultima rata` = data ultima rata pianificata
+
+---
+
+## File toccati
+
+- `src/components/budget/v2/CashflowTimeline.tsx` — riscrittura di `MountainChart` (calcolo + rendering + tooltip). Nessuna modifica ai dati a monte, nessun cambio di API del componente.
+
+## Note tecniche
+
+- Nessuna modifica alle aggregazioni (`buildVendors`, `paymentCashAmount`): i numeri arrivano già corretti; il bug è puramente nella funzione `valueAt` del grafico.
+- Nessuna dipendenza esterna (Recharts/Visx). Restiamo su SVG puro come già è.
+- Zero impatto su performance: gli eventi sono decine, non migliaia.
+
+## Verifica dopo l'implementazione
+
+1. Ripetere l'hover sul **23 ago 2026** → deve mostrare Cumulato ≈ 41.341 €, Già pagato ≈ 11.572 €, Da versare ≈ 29.769 €.
+2. Hover **oggi (11 lug)** → Cumulato = Già pagato ≈ 11.572 €, Da versare = 0.
+3. Hover **20 set** → Cumulato = target, Da versare = 30.019 €.
+4. Hover su un giorno tra due rate consecutive (es. 22 lug tra 20 e 24) → il valore deve essere costante fino alla prossima rata, non "salire" linearmente.
