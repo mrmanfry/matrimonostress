@@ -52,7 +52,7 @@ export function CashflowTimeline({ upcoming, unplanned = [], totals, onOpenVendo
   const maxCum = series.length > 0 ? (series[series.length - 1].cum || 1) : 1;
 
   // SVG step path
-  const W = 600, H = 160, padL = 8, padR = 8, padT = 12, padB = 24;
+  const W = 640, H = 200, padL = 56, padR = 12, padT = 16, padB = 30;
   const innerW = W - padL - padR;
   const innerH = H - padT - padB;
   const stepX = series.length > 1 ? innerW / series.length : innerW;
@@ -65,6 +65,12 @@ export function CashflowTimeline({ upcoming, unplanned = [], totals, onOpenVendo
     d += ` L ${x0} ${y} L ${x1} ${y}`;
   });
   const dArea = d + ` L ${padL + innerW} ${padT + innerH} Z`;
+
+  // Formatter compatto per asse Y (es. 12.500 → 12,5k)
+  const fmtCompact = (v: number) => {
+    if (v >= 1000) return `€${(v / 1000).toFixed(v >= 10000 ? 0 : 1).replace('.', ',')}k`;
+    return `€${Math.round(v)}`;
+  };
 
   const residueKpi = overpaid
     ? { label: 'Da pagare residuo', value: `+${fmt(advance)} anticipati`, hint: 'Versato più del prezzo previsto · vedi spiegazione sotto', tone: 'success' as const }
@@ -142,16 +148,36 @@ export function CashflowTimeline({ upcoming, unplanned = [], totals, onOpenVendo
       {/* Cumulative step chart */}
       {hasUpcoming && (
         <div style={{ padding: '16px 24px 8px' }}>
-          <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="none" style={{ display: 'block' }}>
-            {[0.25, 0.5, 0.75, 1].map(p => (
-              <line key={p} x1={padL} x2={padL + innerW}
-                y1={padT + innerH * (1 - p)} y2={padT + innerH * (1 - p)}
-                stroke={border()} strokeDasharray="2 3" strokeWidth={1} />
-            ))}
+          <div style={{
+            fontSize: 11, color: ink(3), fontFamily: FONT_UI,
+            marginBottom: 8, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+          }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 18, height: 2, background: brand(), display: 'inline-block' }} />
+              Totale cumulato pagato entro fine mese
+            </span>
+            <span style={{ color: ink(3) }}>
+              Asse Y: € totali versati · Asse X: mese di scadenza
+            </span>
+          </div>
+          <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="none" style={{ display: 'block', overflow: 'visible' }}>
+            {[0, 0.25, 0.5, 0.75, 1].map(p => {
+              const y = padT + innerH * (1 - p);
+              const val = maxCum * p;
+              return (
+                <g key={p}>
+                  <line x1={padL} x2={padL + innerW} y1={y} y2={y}
+                    stroke={border()} strokeDasharray={p === 0 ? undefined : "2 3"} strokeWidth={1} />
+                  <text x={padL - 6} y={y + 3} textAnchor="end"
+                    style={{ fontSize: 10, fill: ink(3), fontFamily: FONT_MONO } as any}>
+                    {fmtCompact(val)}
+                  </text>
+                </g>
+              );
+            })}
             <path d={dArea} fill={brand()} opacity={0.12} />
             <path d={d} fill="none" stroke={brand()} strokeWidth={2} />
-            {series.map((s) => {
-              const i = series.indexOf(s);
+            {series.map((s, i) => {
               const x = padL + (i + 1) * stepX;
               const y = yFor(s.cum);
               const isBusy = busiest ? s.amount === busiest.amount : false;
@@ -159,12 +185,13 @@ export function CashflowTimeline({ upcoming, unplanned = [], totals, onOpenVendo
                 <g key={s.key}>
                   <circle cx={x} cy={y} r={isBusy ? 4 : 3}
                     fill={isBusy ? warn() : brand()} stroke="white" strokeWidth={1.5} />
+                  <title>{`${s.label.toUpperCase()} · questo mese ${fmt(s.amount)} · totale cumulato ${fmt(s.cum)}`}</title>
                 </g>
               );
             })}
             {series.map((s, i) => (
               <text key={s.key}
-                x={padL + i * stepX + stepX / 2} y={H - 6}
+                x={padL + i * stepX + stepX / 2} y={H - 8}
                 textAnchor="middle"
                 style={{ fontSize: 10, fill: ink(3), fontFamily: FONT_UI, letterSpacing: '0.06em', textTransform: 'uppercase' } as any}
               >{s.label}</text>
