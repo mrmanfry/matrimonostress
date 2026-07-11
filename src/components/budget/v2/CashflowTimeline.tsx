@@ -52,7 +52,7 @@ export function CashflowTimeline({ upcoming, unplanned = [], totals, onOpenVendo
   const maxCum = series.length > 0 ? (series[series.length - 1].cum || 1) : 1;
 
   // SVG step path
-  const W = 600, H = 160, padL = 8, padR = 8, padT = 12, padB = 24;
+  const W = 640, H = 200, padL = 56, padR = 12, padT = 16, padB = 30;
   const innerW = W - padL - padR;
   const innerH = H - padT - padB;
   const stepX = series.length > 1 ? innerW / series.length : innerW;
@@ -65,6 +65,12 @@ export function CashflowTimeline({ upcoming, unplanned = [], totals, onOpenVendo
     d += ` L ${x0} ${y} L ${x1} ${y}`;
   });
   const dArea = d + ` L ${padL + innerW} ${padT + innerH} Z`;
+
+  // Formatter compatto per asse Y (es. 12.500 → 12,5k)
+  const fmtCompact = (v: number) => {
+    if (v >= 1000) return `€${(v / 1000).toFixed(v >= 10000 ? 0 : 1).replace('.', ',')}k`;
+    return `€${Math.round(v)}`;
+  };
 
   const residueKpi = overpaid
     ? { label: 'Da pagare residuo', value: `+${fmt(advance)} anticipati`, hint: 'Versato più del prezzo previsto · vedi spiegazione sotto', tone: 'success' as const }
