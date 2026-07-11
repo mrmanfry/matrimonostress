@@ -420,9 +420,9 @@ function MountainChart({ paid, upcoming, weddingDate }: {
   const futurePts: Pt[] = [{ t: today.getTime(), cum: paidEndCum }];
   let cumF = paidEndCum;
   for (const p of upcomingSorted) {
-    // Clamp: nessun pagamento può cadere prima di oggi né dopo l'orizzonte (matrimonio).
+    // Clamp: nessun pagamento prima di oggi (le date passate non-pagate diventano "oggi").
     const raw = new Date(p.due).getTime();
-    const t = Math.min(Math.max(raw, today.getTime()), domainEnd.getTime());
+    const t = Math.max(raw, today.getTime());
     futurePts.push({ t, cum: cumF });
     cumF += p.amount;
     futurePts.push({ t, cum: cumF });
