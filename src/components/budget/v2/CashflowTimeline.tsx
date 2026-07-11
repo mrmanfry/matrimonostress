@@ -384,16 +384,19 @@ function MountainChart({ paid, upcoming, weddingDate }: {
       ? new Date(upcomingSorted[0].due)
       : today;
   firstDate.setHours(0, 0, 0, 0);
-  const lastDateCandidates = [
-    upcomingSorted.length ? new Date(upcomingSorted[upcomingSorted.length - 1].due) : null,
-    weddingDate ? new Date(weddingDate) : null,
-    today,
-  ].filter(Boolean) as Date[];
-  const lastDate = new Date(Math.max(...lastDateCandidates.map(d => d.getTime())));
+  // Il matrimonio è l'orizzonte naturale: nulla ha senso dopo.
+  // Se non c'è, prendiamo l'ultimo pagamento pianificato.
+  const weddingMs = weddingDate ? new Date(weddingDate).setHours(0, 0, 0, 0) : null;
+  const lastPaymentMs = upcomingSorted.length
+    ? new Date(upcomingSorted[upcomingSorted.length - 1].due).setHours(0, 0, 0, 0)
+    : null;
+  const horizonMs = weddingMs ?? lastPaymentMs ?? today.getTime();
+  const lastDate = new Date(Math.max(horizonMs, today.getTime()));
   lastDate.setHours(0, 0, 0, 0);
   // Piccolo padding a sinistra (7 giorni) per non attaccare alla Y
   const domainStart = new Date(Math.min(firstDate.getTime(), today.getTime()) - 7 * dayMs);
-  const domainEnd = new Date(lastDate.getTime() + 7 * dayMs);
+  // Nessun padding a destra: il grafico termina esattamente sull'orizzonte (matrimonio).
+  const domainEnd = new Date(lastDate.getTime());
   const domainSpan = Math.max(1, domainEnd.getTime() - domainStart.getTime());
 
   const xFor = (dateMs: number) => padL + ((dateMs - domainStart.getTime()) / domainSpan) * innerW;
