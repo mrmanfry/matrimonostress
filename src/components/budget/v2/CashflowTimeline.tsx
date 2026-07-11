@@ -147,58 +147,14 @@ export function CashflowTimeline({ upcoming, paid = [], weddingDate, unplanned =
       )}
 
 
-      {/* Cumulative step chart */}
-      {hasUpcoming && (
+      {/* Mountain chart: pagato → futuro, con marker "oggi" e target */}
+      {(hasUpcoming || paid.length > 0) && (
         <div style={{ padding: '16px 24px 8px' }}>
-          <div style={{
-            fontSize: 11, color: ink(3), fontFamily: FONT_UI,
-            marginBottom: 8, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
-          }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ width: 18, height: 2, background: brand(), display: 'inline-block' }} />
-              Totale cumulato pagato entro fine mese
-            </span>
-            <span style={{ color: ink(3) }}>
-              Asse Y: € totali versati · Asse X: mese di scadenza
-            </span>
-          </div>
-          <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="none" style={{ display: 'block', overflow: 'visible' }}>
-            {[0, 0.25, 0.5, 0.75, 1].map(p => {
-              const y = padT + innerH * (1 - p);
-              const val = maxCum * p;
-              return (
-                <g key={p}>
-                  <line x1={padL} x2={padL + innerW} y1={y} y2={y}
-                    stroke={border()} strokeDasharray={p === 0 ? undefined : "2 3"} strokeWidth={1} />
-                  <text x={padL - 6} y={y + 3} textAnchor="end"
-                    style={{ fontSize: 10, fill: ink(3), fontFamily: FONT_MONO } as any}>
-                    {fmtCompact(val)}
-                  </text>
-                </g>
-              );
-            })}
-            <path d={dArea} fill={brand()} opacity={0.12} />
-            <path d={d} fill="none" stroke={brand()} strokeWidth={2} />
-            {series.map((s, i) => {
-              const x = padL + (i + 1) * stepX;
-              const y = yFor(s.cum);
-              const isBusy = busiest ? s.amount === busiest.amount : false;
-              return (
-                <g key={s.key}>
-                  <circle cx={x} cy={y} r={isBusy ? 4 : 3}
-                    fill={isBusy ? warn() : brand()} stroke="white" strokeWidth={1.5} />
-                  <title>{`${s.label.toUpperCase()} · questo mese ${fmt(s.amount)} · totale cumulato ${fmt(s.cum)}`}</title>
-                </g>
-              );
-            })}
-            {series.map((s, i) => (
-              <text key={s.key}
-                x={padL + i * stepX + stepX / 2} y={H - 8}
-                textAnchor="middle"
-                style={{ fontSize: 10, fill: ink(3), fontFamily: FONT_UI, letterSpacing: '0.06em', textTransform: 'uppercase' } as any}
-              >{s.label}</text>
-            ))}
-          </svg>
+          <MountainChart
+            paid={paid}
+            upcoming={upcoming}
+            weddingDate={weddingDate ?? null}
+          />
         </div>
       )}
 
