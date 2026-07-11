@@ -419,12 +419,17 @@ function MountainChart({ paid, upcoming, weddingDate }: {
   const futurePts: Pt[] = [{ t: today.getTime(), cum: paidEndCum }];
   let cumF = paidEndCum;
   for (const p of upcomingSorted) {
-    const t = Math.max(new Date(p.due).getTime(), today.getTime());
+    // Clamp: nessun pagamento può cadere prima di oggi né dopo l'orizzonte (matrimonio).
+    const raw = new Date(p.due).getTime();
+    const t = Math.min(Math.max(raw, today.getTime()), domainEnd.getTime());
     futurePts.push({ t, cum: cumF });
     cumF += p.amount;
     futurePts.push({ t, cum: cumF });
   }
-  futurePts.push({ t: domainEnd.getTime(), cum: cumF });
+  // Chiudi la curva sull'orizzonte (target raggiunto per definizione).
+  if (futurePts[futurePts.length - 1].t < domainEnd.getTime()) {
+    futurePts.push({ t: domainEnd.getTime(), cum: cumF });
+  }
 
   const toPath = (pts: Pt[]) => pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${xFor(p.t)} ${yFor(p.cum)}`).join(' ');
   const toArea = (pts: Pt[]) => {
