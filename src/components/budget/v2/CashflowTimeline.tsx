@@ -6,13 +6,15 @@ import { fmt, fmtDate, paymentsByMonth, daysFromToday, type UiPayment, type UiUn
 
 interface Props {
   upcoming: UiPayment[];
+  paid?: UiPayment[];
+  weddingDate?: string | null;
   unplanned?: UiUnplannedCommitment[];
   totals?: UiTotals;
   onOpenVendor?: (vendorId: string) => void;
   onMarkPaid?: (payment: UiPayment) => void;
 }
 
-export function CashflowTimeline({ upcoming, unplanned = [], totals, onOpenVendor, onMarkPaid }: Props) {
+export function CashflowTimeline({ upcoming, paid = [], weddingDate, unplanned = [], totals, onOpenVendor, onMarkPaid }: Props) {
   const [showAll, setShowAll] = React.useState(false);
   if (upcoming.length === 0 && unplanned.length === 0) {
     return (
