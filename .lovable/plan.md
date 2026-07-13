@@ -1,85 +1,47 @@
+## Problema
 
-## Cosa non va oggi
+Alla creazione di un matrimonio, un trigger DB (`generate_checklist_on_wedding_creation`) inserisce automaticamente 12 task "di sistema" con scadenze calcolate rispetto alla data delle nozze. Questi task finiscono nelle email di digest settimanale e nei reminder giornalieri, anche a utenti che si sono solo registrati e non hanno mai aperto la checklist — creando "promemoria fantasma" con date inventate.
 
-**1) Il numero della proiezione è sbagliato.**
-Nel DB oggi (11 lug 2026) ci sono 14 rate future per **30.019 €** e pagato per **~11.572 €** → target **~41.591 €**. L'unica rata dopo il 26 luglio è **250 € il 20 set** (saldo foto). Quindi al **23 agosto** il cumulato *deve* essere ~41.341 € (target − 250 €), non 23.597 €.
+## Soluzione proposta
 
-Cause probabili nel codice attuale (`MountainChart` in `src/components/budget/v2/CashflowTimeline.tsx`):
-- `combinedPts` fonde `paidPts` + `futurePts` con `sort((a,b)=>a.t-b.t)` **non stabile**: quando ci sono più rate con la stessa `due_date` (es. 5 rate il 18/07) i punti step (t, cumPrima)/(t, cumDopo) si mescolano e la funzione `valueAt` legge un `cum` intermedio errato.
-- L'interpolazione è **lineare** tra due punti step con timestamp diversi, ma dovrebbe essere una **staircase** (piecewise-constant): il valore al tempo *t* è il cum dell'ultima rata con `due ≤ t`. La linearità sballa tutti i valori tra due rate.
-- `paidPts` estende fino a `today` con `paidEndCum`, `futurePts` inizia da `today`: al passaggio ci sono 2 punti identici che con sort instabile creano un salto artificiale.
+Doppia protezione: **non generarli più in automatico** e **non spedirli mai finché l'utente non li ha toccati**.
 
-**2) Il tooltip è povero.** Mostra solo "Proiezione €X". Serve, come chiede l'utente:
-- **Cumulato totale** a quella data
-- **Già pagato** a quella data (parte scura)
-- **Da versare entro quella data** = Cumulato − Già pagato (il vero fabbisogno di liquidità)
-- La rata specifica se il cursore è su una data di pagamento (chi/cosa/quanto)
+### 1. Stop generazione automatica
 
-**3) Qualità visiva scadente.** Area tratteggiata pesante, linea OGGI e Matrimonio si sovrappongono ai label mese, target label taglia il bordo, nessun gradient, nessuna curva step "clean", tick mese fitti/sovrapposti, cursore hover finisce fuori area.
+- Rimuovere il trigger `generate_checklist_on_wedding_creation` e la function `generate_checklist_tasks()`.
+- I nuovi matrimoni partono con checklist vuota.
 
----
+### 2. Template opt-in dalla UI
 
-## Piano di intervento
+- In `src/pages/Checklist.tsx`, quando la lista è vuota, mostrare un empty state con CTA "Carica checklist consigliata" che inserisce i task standard (usando il template già esistente in `src/utils/checklistTemplates.ts`).
+- L'utente sceglie consapevolmente di popolare la checklist → nessuna sorpresa via email.
 
-### A. Fix calcolo (correttezza prima di tutto)
+### 3. Filtro difensivo nelle email
 
-Sostituire l'attuale `valueAt` con una funzione **staircase deterministica**:
+Anche per i matrimoni esistenti che hanno già i task di sistema in DB, escluderli dalle notifiche finché non sono stati modificati dall'utente:
 
-1. Costruire un unico array `events = [...paidSorted, ...upcomingSorted]` con per ciascuno: `{ t, amount, kind: 'paid'|'future' }`.
-2. Ordinare per `t` ascendente (i pagati vengono comunque tutti prima di oggi).
-3. Precalcolare `cumAt(t)` come somma di `amount` di tutti gli eventi con `t ≤ t_query` — separatamente `paidCumAt(t)` (solo `kind='paid'`) e `totalCumAt(t)` (tutti).
-4. Per hover a `t_query`: **niente interpolazione lineare** — restituire il cumulato al chiusura dell'ultima rata `≤ t_query`. Questo è quello che finanziariamente ha senso ("al 23 ago hai già dovuto pagare X, resta Y").
-5. Rimuovere il clamp `Math.max(raw, today)` che sposta le rate scadute a oggi: falsa la staircase. Se una rata è scaduta va comunque disegnata alla sua data.
+- `supabase/functions/weekly-digest/index.ts` (query `checklist_tasks`): aggiungere `.eq('is_system_generated', false)` **oppure** un filtro "è stato toccato" (es. `updated_at > created_at + interval` o campo dedicato).
+- `supabase/functions/check-checklist-reminders/index.ts`: stessa esclusione.
 
-### B. Tooltip finanziario a 3 righe
+Approccio più semplice e sicuro: escludere sempre `is_system_generated = true` dai promemoria. I task di sistema entrano nei reminder solo se l'utente li modifica (a quel punto un piccolo trigger imposta `is_system_generated = false`, così diventano "propri").
 
-Layout tooltip proposto (box ~200×95 con separatori sottili):
+### 4. Pulizia dei task fantasma esistenti (opzionale, da confermare)
 
-```text
-23 ago 2026
-────────────────────
-Cumulato       41.341 €
-Già pagato     11.572 €
-Da versare     29.769 €   ← evidenziato in warn()
-```
+Due strade:
+- **A**: cancellare tutti i task con `is_system_generated = true` che non sono mai stati toccati (status = 'pending', nessuna descrizione/vendor aggiunti, updated_at = created_at). Pulisce lo storico.
+- **B**: lasciarli dove sono ma nasconderli dalle email (grazie al filtro del punto 3) e mostrarli in UI con un badge "suggerito" + azione "Rimuovi suggerimenti".
 
-Se il cursore cade **esattamente su una data di rata**, aggiungere sotto una riga "In quella data: `Vendor · Descrizione · +€X`".
-
-### C. Ridisegno visivo
-
-Modifiche mirate al SVG (`MountainChart`):
-
-1. **Curva step vera** con `stroke-linejoin: miter` e piccoli raccordi. Path paid in colore pieno `brand()`, area sotto con gradient verticale `brand() → transparent`.
-2. **Curva futura** stessa forma step, tratteggio SOLO sulla linea (non sull'area); area futura con gradient più chiaro/desaturato, non pattern a righe diagonali.
-3. **Marker "OGGI"**: linea sottile continua warn(), label in alto con background pill bianco per non collidere coi tick mese.
-4. **Marker "Matrimonio ♥"**: stessa logica, colore ink(2), label pill bianca. Se coincide con l'ultima rata, sfalsare orizzontalmente.
-5. **Asse X**: tick mese con `tickStride` calcolato sulla larghezza reale, label ruotate 0° ma con `text-anchor` intelligente per il primo/ultimo tick per non uscire dal grafico. Riga base dell'asse più marcata.
-6. **Asse Y**: gridline a 25/50/75/100% con label mono; aggiungere anche label a `paidEndCum` (marker "sei qui") allineata a destra dell'area.
-7. **Hover**: linea verticale sottile che va da top a bottom, cerchio doppio sul punto (contorno bianco spesso), tooltip che si flippa se vicino al bordo destro **e** al bordo alto.
-8. **Padding**: aumentare `padT` a 32 per far respirare i marker OGGI/♥ e `padB` a 44 per i mesi.
-
-### D. Micro-copy sotto il grafico
-
-Sostituire l'attuale riga "Sei al X% del percorso" con due chip:
-
-- `Liquidità servita fino al matrimonio` = totalFuture (tutte le rate ancora da versare)
-- `Ultima rata` = data ultima rata pianificata
-
----
+Consiglio **B** per non distruggere dati di utenti che magari li stavano usando.
 
 ## File toccati
 
-- `src/components/budget/v2/CashflowTimeline.tsx` — riscrittura di `MountainChart` (calcolo + rendering + tooltip). Nessuna modifica ai dati a monte, nessun cambio di API del componente.
+- Nuova migration: DROP trigger + DROP function + trigger di "promozione" (task modificato → `is_system_generated = false`).
+- `supabase/functions/weekly-digest/index.ts`
+- `supabase/functions/check-checklist-reminders/index.ts`
+- `src/pages/Checklist.tsx` (empty state + bottone "Carica checklist consigliata" che riutilizza `checklistTemplates.ts`).
+- `src/components/checklist/*` per il badge "suggerito" (se scegliamo B).
 
-## Note tecniche
+## Domande prima di procedere
 
-- Nessuna modifica alle aggregazioni (`buildVendors`, `paymentCashAmount`): i numeri arrivano già corretti; il bug è puramente nella funzione `valueAt` del grafico.
-- Nessuna dipendenza esterna (Recharts/Visx). Restiamo su SVG puro come già è.
-- Zero impatto su performance: gli eventi sono decine, non migliaia.
-
-## Verifica dopo l'implementazione
-
-1. Ripetere l'hover sul **23 ago 2026** → deve mostrare Cumulato ≈ 41.341 €, Già pagato ≈ 11.572 €, Da versare ≈ 29.769 €.
-2. Hover **oggi (11 lug)** → Cumulato = Già pagato ≈ 11.572 €, Da versare = 0.
-3. Hover **20 set** → Cumulato = target, Da versare = 30.019 €.
-4. Hover su un giorno tra due rate consecutive (es. 22 lug tra 20 e 24) → il valore deve essere costante fino alla prossima rata, non "salire" linearmente.
+1. Confermi opzione **B** (nascondere i task di sistema dalle email + badge "suggerito" in UI), o preferisci **A** (cancellarli fisicamente)?
+2. Il bottone "Carica checklist consigliata" nell'empty state va bene, o preferisci nessuna generazione template e checklist totalmente da zero?
