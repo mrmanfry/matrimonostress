@@ -17,6 +17,8 @@ interface PaymentItem {
   amount: string
   dueDate: string
   overdue?: boolean
+  vendorName?: string | null
+  installmentLabel?: string | null
 }
 interface AppointmentItem {
   title: string
