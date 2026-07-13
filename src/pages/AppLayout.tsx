@@ -147,7 +147,14 @@ const AppLayoutInner = ({
   const isPlannerMode = activeMode === 'planner';
 
   const activePermissions = authState.status === 'authenticated' ? authState.activePermissions : null;
-  const isCollaborator = authState.status === 'authenticated' && (authState.activeRole === 'planner' || authState.activeRole === 'manager');
+  const activeRole = authState.status === 'authenticated' ? authState.activeRole : null;
+  const isCollaborator = activeRole === 'planner' || activeRole === 'manager';
+  const isManager = activeRole === 'manager';
+  // Manager: applica il filtro granulare. Planner e co_planner: pass-through.
+  const canSee = (area: keyof NonNullable<typeof activePermissions>): boolean => {
+    if (!isManager) return true;
+    return !!activePermissions?.[area]?.view;
+  };
 
   // Unread messages count
   const fetchUnreadCount = useCallback(async () => {
