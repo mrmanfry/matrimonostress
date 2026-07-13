@@ -35,7 +35,7 @@ const EMAIL_TEMPLATES: Record<string, React.ComponentType<any>> = {
 }
 
 // Configuration
-const SITE_NAME = "matrimonostress"
+const SITE_NAME = "WedsApp"
 const SENDER_DOMAIN = "notify.wedsapp.it"
 const ROOT_DOMAIN = "wedsapp.it"
 const FROM_DOMAIN = "wedsapp.it" // Domain shown in From address (may be root or sender subdomain)
