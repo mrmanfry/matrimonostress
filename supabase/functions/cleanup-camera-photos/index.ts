@@ -14,7 +14,7 @@ serve(async (req) => {
   }
 
   // Verify cron secret — accept either X-Cron-Secret header or Authorization: Bearer <secret>
-  const expectedSecret = Deno.env.get("CRON_SECRET");
+  const expectedSecret = Deno.env.get("CRON_SHARED_TOKEN") ?? Deno.env.get("CRON_SECRET");
   const providedSecret =
     req.headers.get("X-Cron-Secret") ||
     (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
