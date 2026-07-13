@@ -545,12 +545,14 @@ function MountainChart({ paid, upcoming, weddingDate }: {
         </span>
       </div>
 
+      <div ref={containerRef} style={{ width: '100%' }}>
       <svg
         ref={svgRef}
         viewBox={`0 0 ${W} ${H}`}
-        width="100%" height={H}
-        preserveAspectRatio="none"
-        style={{ display: 'block', overflow: 'visible', cursor: 'crosshair' }}
+        width={W} height={H}
+        preserveAspectRatio="xMidYMid meet"
+        shapeRendering="geometricPrecision"
+        style={{ display: 'block', overflow: 'visible', cursor: 'crosshair', maxWidth: '100%' }}
         onMouseMove={onMove}
         onMouseLeave={() => setHoverX(null)}
       >
