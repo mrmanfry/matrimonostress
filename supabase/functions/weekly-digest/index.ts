@@ -408,6 +408,8 @@ serve(async (req: Request): Promise<Response> => {
             amount: formatCurrency(p.amount),
             dueDate: formatDate(p.due_date),
             overdue: new Date(p.due_date) < today,
+            vendorName: p.vendor_name ?? null,
+            installmentLabel: p.installment_label ?? null,
           })),
           paymentsTotal: paymentsTotalAmount > 0 ? formatCurrency(paymentsTotalAmount) : '',
           appointments: allAppointments.map(a => ({
