@@ -17,6 +17,8 @@ interface PaymentItem {
   amount: string
   dueDate: string
   overdue?: boolean
+  vendorName?: string | null
+  installmentLabel?: string | null
 }
 interface AppointmentItem {
   title: string
@@ -127,12 +129,15 @@ const Email = ({
           {payments.length > 0 && (
             <>
               <Text style={sectionTitle}>💰 Pagamenti in scadenza {paymentsTotal && `(${paymentsTotal})`}</Text>
-              {payments.map((p, i) => (
-                <Section key={i} style={p.overdue ? paymentOverdue : paymentItem}>
-                  <Text style={taskTitle}>{p.description} — <strong>{p.amount}</strong></Text>
-                  <Text style={taskMeta}>📅 {p.dueDate}{p.overdue ? ' (SCADUTO)' : ''}</Text>
-                </Section>
-              ))}
+              {payments.map((p, i) => {
+                const heading = [p.vendorName, p.installmentLabel || p.description].filter(Boolean).join(' — ')
+                return (
+                  <Section key={i} style={p.overdue ? paymentOverdue : paymentItem}>
+                    <Text style={taskTitle}>{heading || p.description} — <strong>{p.amount}</strong></Text>
+                    <Text style={taskMeta}>📅 {p.dueDate}{p.overdue ? ' (SCADUTO)' : ''}</Text>
+                  </Section>
+                )
+              })}
             </>
           )}
 
