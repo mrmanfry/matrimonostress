@@ -27,6 +27,8 @@ interface Payment {
   amount: number;
   due_date: string;
   status: string;
+  vendor_name?: string | null;
+  installment_label?: string | null;
 }
 
 interface Appointment {
