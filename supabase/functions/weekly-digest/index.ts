@@ -237,25 +237,43 @@ serve(async (req: Request): Promise<Response> => {
         vendor_name: t.vendors?.name,
       }));
 
-      // Fetch payments (una sola volta per wedding)
+      // Fetch payments (una sola volta per wedding) + vendor via expense_items
       const { data: expenseItems } = await supabase
         .from("expense_items")
-        .select("id")
+        .select("id, description, vendor_id, vendors(name)")
         .eq("wedding_id", wedding.id);
 
-      const expenseIds = expenseItems?.map(e => e.id) || [];
-      
+      const expenseMap = new Map<string, { vendorName: string | null; expenseDesc: string | null }>();
+      (expenseItems || []).forEach((e: any) => {
+        expenseMap.set(e.id, {
+          vendorName: e.vendors?.name ?? null,
+          expenseDesc: e.description ?? null,
+        });
+      });
+      const expenseIds = Array.from(expenseMap.keys());
+
       let allPayments: Payment[] = [];
       if (expenseIds.length > 0) {
         const { data: paymentsData } = await supabase
           .from("payments")
-          .select("id, description, amount, due_date, status")
+          .select("id, description, amount, due_date, status, expense_item_id")
           .in("expense_item_id", expenseIds)
           .eq("status", "Da Pagare")
           .lte("due_date", endOfWeekStr)
           .order("due_date", { ascending: true });
-        
-        allPayments = paymentsData || [];
+
+        allPayments = (paymentsData || []).map((p: any) => {
+          const info = expenseMap.get(p.expense_item_id);
+          return {
+            id: p.id,
+            description: p.description,
+            amount: p.amount,
+            due_date: p.due_date,
+            status: p.status,
+            vendor_name: info?.vendorName ?? info?.expenseDesc ?? null,
+            installment_label: p.description ?? null,
+          };
+        });
       }
 
       // Fetch appointments for this week
