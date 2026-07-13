@@ -360,9 +360,24 @@ function MountainChart({ paid, upcoming, weddingDate }: {
 }) {
   const [hoverX, setHoverX] = React.useState<number | null>(null);
   const svgRef = React.useRef<SVGSVGElement>(null);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [Wpx, setWpx] = React.useState<number>(720);
 
-  // Canvas
-  const W = 720, H = 260, padL = 60, padR = 20, padT = 32, padB = 44;
+  React.useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const w = Math.round(entry.contentRect.width);
+        if (w > 0) setWpx(w);
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Canvas — 1 unità viewBox = 1 pixel reale (no stretching)
+  const W = Math.max(320, Wpx), H = 260, padL = 60, padR = 20, padT = 32, padB = 44;
   const innerW = W - padL - padR;
   const innerH = H - padT - padB;
 
