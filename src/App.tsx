@@ -107,24 +107,24 @@ const App = () => (
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="planner" element={<PlannerCockpit />} />
               <Route path="planner-calendar" element={<PlannerCalendarPage />} />
-              <Route path="guests" element={<Guests />} />
-              <Route path="budget" element={<Budget />} />
+              <Route path="guests" element={<PermissionGuard area="guests"><Guests /></PermissionGuard>} />
+              <Route path="budget" element={<PermissionGuard area="budget"><Budget /></PermissionGuard>} />
               <Route path="treasury" element={<Navigate to="/app/budget" replace />} />
-              <Route path="vendors" element={<Vendors />} />
-              <Route path="vendors/:id" element={<VendorDetails />} />
-              <Route path="checklist" element={<Checklist />} />
-              <Route path="calendar" element={<Calendar />} />
-              <Route path="tables" element={<Tables />} />
-              <Route path="tableau" element={<TableauGenerator />} />
-              <Route path="catering" element={<Catering />} />
-              <Route path="accommodation" element={<Accommodation />} />
-              <Route path="invitations" element={<Invitations />} />
-              <Route path="memories" element={<MemoriesReel />} />
-              <Route path="mass-booklet" element={<MassBooklet />} />
-              <Route path="gifts" element={<Gifts />} />
-              <Route path="timeline" element={<Timeline />} />
+              <Route path="vendors" element={<PermissionGuard area="vendors"><Vendors /></PermissionGuard>} />
+              <Route path="vendors/:id" element={<PermissionGuard area="vendors"><VendorDetails /></PermissionGuard>} />
+              <Route path="checklist" element={<PermissionGuard area="checklist"><Checklist /></PermissionGuard>} />
+              <Route path="calendar" element={<PermissionGuard area="calendar"><Calendar /></PermissionGuard>} />
+              <Route path="tables" element={<PermissionGuard area="tables"><Tables /></PermissionGuard>} />
+              <Route path="tableau" element={<PermissionGuard area="tables"><TableauGenerator /></PermissionGuard>} />
+              <Route path="catering" element={<PermissionGuard area="catering"><Catering /></PermissionGuard>} />
+              <Route path="accommodation" element={<PermissionGuard area="accommodation"><Accommodation /></PermissionGuard>} />
+              <Route path="invitations" element={<PermissionGuard area="communications"><Invitations /></PermissionGuard>} />
+              <Route path="memories" element={<PermissionGuard area="memories"><MemoriesReel /></PermissionGuard>} />
+              <Route path="mass-booklet" element={<PermissionGuard area="mass_booklet"><MassBooklet /></PermissionGuard>} />
+              <Route path="gifts" element={<PermissionGuard area="gifts"><Gifts /></PermissionGuard>} />
+              <Route path="timeline" element={<PermissionGuard area="timeline"><Timeline /></PermissionGuard>} />
               <Route path="settings" element={<Settings />} />
-              <Route path="chat" element={<Chat />} />
+              <Route path="chat" element={<PermissionGuard area="chat"><Chat /></PermissionGuard>} />
               <Route path="inbox" element={<PlannerInbox />} />
               <Route path="upgrade" element={<Upgrade />} />
               <Route path="upgrade/planner" element={<UpgradePlanner />} />
