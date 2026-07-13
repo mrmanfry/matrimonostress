@@ -12,53 +12,97 @@ export interface AreaPermission {
   create: boolean;
 }
 
-export interface PermissionsConfig {
-  guests: AreaPermission;
-  budget: AreaPermission;
-  vendors: AreaPermission;
-  vendor_costs: AreaPermission;
-  communications: AreaPermission;
-}
+/**
+ * Elenco esaustivo delle aree permesso (mirror sidebar).
+ * Aggiungere qui una chiave estende automaticamente il modello.
+ */
+export const PERMISSION_AREAS = [
+  'guests',
+  'communications',
+  'budget',
+  'gifts',
+  'vendors',
+  'vendor_costs',
+  'checklist',
+  'chat',
+  'calendar',
+  'tables',
+  'catering',
+  'accommodation',
+  'memories',
+  'mass_booklet',
+  'timeline',
+] as const;
+
+export type PermissionArea = typeof PERMISSION_AREAS[number];
+
+export type PermissionsConfig = Record<PermissionArea, AreaPermission>;
 
 const DEFAULT_AREA: AreaPermission = { view: false, edit: false, create: false };
+const ALL_ON_AREA: AreaPermission = { view: true, edit: true, create: true };
+
+const emptyConfig = (): PermissionsConfig =>
+  PERMISSION_AREAS.reduce((acc, k) => {
+    acc[k] = { ...DEFAULT_AREA };
+    return acc;
+  }, {} as PermissionsConfig);
+
+const allOnConfig = (): PermissionsConfig =>
+  PERMISSION_AREAS.reduce((acc, k) => {
+    acc[k] = { ...ALL_ON_AREA };
+    return acc;
+  }, {} as PermissionsConfig);
 
 /**
- * Normalizes permissions from either old flat format or new structured format.
- * Old format: { budget_visible, vendor_costs_visible, guests_names_visible, communications_editable }
- * New format: { guests: {view,edit,create}, budget: {...}, ... }
+ * Normalizza `permissions_config` da formato legacy o nuovo.
+ * - Nuovo (già strutturato): copia le chiavi note, riempie di default le mancanti.
+ * - Legacy flat ({budget_visible, ...}): mapping best-effort, poi tutte le aree nuove
+ *   ricevono ALL_ON per non spezzare l'accesso dei manager esistenti al primo deploy
+ *   (allineato al backfill DB fase 2).
  */
 export function normalizePermissions(raw: any): PermissionsConfig {
-  if (!raw) {
-    return {
-      guests: { ...DEFAULT_AREA },
-      budget: { ...DEFAULT_AREA },
-      vendors: { ...DEFAULT_AREA },
-      vendor_costs: { ...DEFAULT_AREA },
-      communications: { ...DEFAULT_AREA },
-    };
+  if (!raw) return emptyConfig();
+
+  const isStructured = raw.guests && typeof raw.guests === 'object' && 'view' in raw.guests;
+  if (isStructured) {
+    const cfg = emptyConfig();
+    for (const area of PERMISSION_AREAS) {
+      const src = raw[area];
+      if (src && typeof src === 'object') {
+        cfg[area] = {
+          view: !!src.view,
+          edit: !!src.edit,
+          create: !!src.create,
+        };
+      }
+    }
+    return cfg;
   }
 
-  // Detect new format: has at least one area key with {view} sub-key
-  if (raw.guests && typeof raw.guests === 'object' && 'view' in raw.guests) {
-    return {
-      guests: { view: !!raw.guests?.view, edit: !!raw.guests?.edit, create: !!raw.guests?.create },
-      budget: { view: !!raw.budget?.view, edit: !!raw.budget?.edit, create: !!raw.budget?.create },
-      vendors: { view: !!raw.vendors?.view, edit: !!raw.vendors?.edit, create: !!raw.vendors?.create },
-      vendor_costs: { view: !!raw.vendor_costs?.view, edit: !!raw.vendor_costs?.edit, create: !!raw.vendor_costs?.create },
-      communications: { view: !!raw.communications?.view, edit: !!raw.communications?.edit, create: !!raw.communications?.create },
-    };
-  }
+  // Legacy flat → all-on baseline + mask di ciò che era esplicitamente off.
+  const cfg = allOnConfig();
+  if (raw.budget_visible === false) cfg.budget = { ...DEFAULT_AREA };
+  if (raw.vendor_costs_visible === false) cfg.vendor_costs = { ...DEFAULT_AREA };
+  if (raw.guests_names_visible === false) cfg.guests = { ...DEFAULT_AREA };
+  if (raw.communications_editable === false) cfg.communications = { view: true, edit: false, create: false };
+  return cfg;
+}
 
-  // Old format migration
-  return {
-    guests: { view: raw.guests_names_visible !== false, edit: false, create: false },
-    budget: { view: raw.budget_visible !== false, edit: false, create: false },
-    vendors: { view: true, edit: false, create: false },
-    vendor_costs: { view: raw.vendor_costs_visible !== false, edit: false, create: false },
-    communications: raw.communications_editable
-      ? { view: true, edit: true, create: true }
-      : { view: false, edit: false, create: false },
-  };
+/** Helper: il ruolo ha permessi impliciti totali? (co_planner e planner) */
+export function isPrivilegedRole(role: string | null | undefined): boolean {
+  return role === 'co_planner' || role === 'planner';
+}
+
+/** Controlla un permesso rispettando i ruoli privilegiati. */
+export function hasPermission(
+  role: string | null | undefined,
+  cfg: PermissionsConfig | null | undefined,
+  area: PermissionArea,
+  level: keyof AreaPermission = 'view',
+): boolean {
+  if (isPrivilegedRole(role)) return true;
+  if (!cfg) return false;
+  return !!cfg[area]?.[level];
 }
 
 export interface WeddingContext {

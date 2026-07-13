@@ -3,20 +3,132 @@ import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
-import { Shield, Users, Package, Euro, MessageSquare } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Shield, Users, Package, Euro, MessageSquare, Send, CheckSquare, Calendar,
+  UtensilsCrossed, ChefHat, Hotel, Camera, BookOpen, Gift, MessageCircle,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/contexts/AuthContext";
-import { normalizePermissions, type PermissionsConfig, type AreaPermission } from "@/contexts/AuthContext";
+import {
+  useAuth,
+  normalizePermissions,
+  PERMISSION_AREAS,
+  type PermissionsConfig,
+  type PermissionArea,
+  type AreaPermission,
+} from "@/contexts/AuthContext";
 
 interface CollaboratorPermissionsCardProps {
   weddingId: string;
   collaboratorRoleIds: string[];
   collaboratorRole: "planner" | "manager";
   collaboratorName?: string;
-  initialConfig: any; // accepts both old and new format
+  initialConfig: any;
   onUpdated: () => void;
 }
+
+type AreaSpec = {
+  key: PermissionArea;
+  title: string;
+  icon: React.ReactNode;
+  viewLabel: string;
+  editLabel?: string;      // se assente, area sola-view
+  createLabel?: string;    // se assente, area senza livello create
+  parent?: PermissionArea; // dipende da un altro toggle (es. vendor_costs → vendors)
+};
+
+const AREAS: AreaSpec[] = [
+  { key: "guests", title: "Invitati", icon: <Users className="w-4 h-4" />,
+    viewLabel: "Visualizza lista (nome + iniziale cognome)",
+    editLabel: "Modifica invitati esistenti",
+    createLabel: "Crea nuovi invitati e importa" },
+  { key: "communications", title: "Campagne & Comunicazioni", icon: <Send className="w-4 h-4" />,
+    viewLabel: "Vede campagne RSVP e Save the Date",
+    editLabel: "Modifica campagne",
+    createLabel: "Crea e invia campagne" },
+  { key: "budget", title: "Budget & Tesoreria", icon: <Euro className="w-4 h-4" />,
+    viewLabel: "Accesso a Budget e Tesoreria",
+    editLabel: "Segna pagato, modifica rate",
+    createLabel: "Crea nuove voci di spesa e pagamenti" },
+  { key: "gifts", title: "Regali", icon: <Gift className="w-4 h-4" />,
+    viewLabel: "Vede regali ricevuti",
+    editLabel: "Modifica regali",
+    createLabel: "Registra nuovi regali" },
+  { key: "vendors", title: "Fornitori", icon: <Package className="w-4 h-4" />,
+    viewLabel: "Visualizza schede fornitori",
+    editLabel: "Modifica fornitori esistenti",
+    createLabel: "Crea nuovi fornitori" },
+  { key: "vendor_costs", title: "Costi & Pagamenti fornitori", icon: <Euro className="w-4 h-4" />,
+    viewLabel: "Se disattivo, nasconde cifre e piani di pagamento nei fornitori",
+    parent: "vendors" },
+  { key: "checklist", title: "Checklist", icon: <CheckSquare className="w-4 h-4" />,
+    viewLabel: "Vede la checklist",
+    editLabel: "Modifica task esistenti",
+    createLabel: "Crea nuovi task" },
+  { key: "chat", title: "Messaggi", icon: <MessageCircle className="w-4 h-4" />,
+    viewLabel: "Accesso ai messaggi del matrimonio",
+    editLabel: "Invia e modifica propri messaggi" },
+  { key: "calendar", title: "Calendario", icon: <Calendar className="w-4 h-4" />,
+    viewLabel: "Vede appuntamenti e scadenze",
+    editLabel: "Modifica eventi esistenti",
+    createLabel: "Crea nuovi eventi" },
+  { key: "tables", title: "Tavoli & Tableau", icon: <UtensilsCrossed className="w-4 h-4" />,
+    viewLabel: "Vede tavoli e disposizione",
+    editLabel: "Modifica assegnazioni",
+    createLabel: "Crea tavoli e tableau" },
+  { key: "catering", title: "Catering", icon: <ChefHat className="w-4 h-4" />,
+    viewLabel: "Vede menù e diete",
+    editLabel: "Modifica preferenze alimentari",
+    createLabel: "Configura menù" },
+  { key: "accommodation", title: "Pernottamento", icon: <Hotel className="w-4 h-4" />,
+    viewLabel: "Vede hotel e camere",
+    editLabel: "Modifica assegnazioni camere",
+    createLabel: "Aggiunge hotel e camere" },
+  { key: "memories", title: "Memories Reel", icon: <Camera className="w-4 h-4" />,
+    viewLabel: "Vede foto della camera monouso",
+    editLabel: "Gestisce configurazione camera",
+    createLabel: "Crea nuove camere / esporta" },
+  { key: "mass_booklet", title: "Libretto Messa", icon: <BookOpen className="w-4 h-4" />,
+    viewLabel: "Vede libretti creati",
+    editLabel: "Modifica libretti esistenti",
+    createLabel: "Crea nuovi libretti" },
+  { key: "timeline", title: "Timeline evento", icon: <Calendar className="w-4 h-4" />,
+    viewLabel: "Vede la timeline del giorno",
+    editLabel: "Modifica eventi timeline",
+    createLabel: "Crea eventi timeline" },
+];
+
+// Sanity check: nessuna area del modello dimenticata nella UI.
+if (import.meta.env.DEV) {
+  const covered = new Set(AREAS.map(a => a.key));
+  for (const k of PERMISSION_AREAS) {
+    if (!covered.has(k)) console.warn(`[CollaboratorPermissions] area '${k}' senza UI`);
+  }
+}
+
+function enforce(area: AreaPermission): AreaPermission {
+  return {
+    view: area.view || area.edit || area.create,
+    edit: area.edit || area.create,
+    create: area.create,
+  };
+}
+
+const PRESETS: Record<string, () => PermissionsConfig> = {
+  none: () => PERMISSION_AREAS.reduce((acc, k) => {
+    acc[k] = { view: false, edit: false, create: false };
+    return acc;
+  }, {} as PermissionsConfig),
+  readonly: () => PERMISSION_AREAS.reduce((acc, k) => {
+    acc[k] = { view: true, edit: false, create: false };
+    return acc;
+  }, {} as PermissionsConfig),
+  operator: () => PERMISSION_AREAS.reduce((acc, k) => {
+    acc[k] = { view: true, edit: true, create: true };
+    return acc;
+  }, {} as PermissionsConfig),
+};
 
 export function CollaboratorPermissionsCard({
   weddingId,
@@ -26,31 +138,20 @@ export function CollaboratorPermissionsCard({
   initialConfig,
   onUpdated,
 }: CollaboratorPermissionsCardProps) {
-  const normalized = normalizePermissions(initialConfig);
-  const [perms, setPerms] = useState<PermissionsConfig>(normalized);
+  const [perms, setPerms] = useState<PermissionsConfig>(normalizePermissions(initialConfig));
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
   const { refreshAuth } = useAuth();
 
   const roleLabel = collaboratorRole === "planner" ? "Planner" : "Manager";
 
-  const updatePerms = async (newPerms: PermissionsConfig) => {
+  const persist = async (newPerms: PermissionsConfig) => {
     setSaving(true);
     try {
-      // Enforce hierarchy: create → edit → view
-      const enforce = (area: AreaPermission): AreaPermission => ({
-        view: area.view || area.edit || area.create,
-        edit: area.edit || area.create,
-        create: area.create,
-      });
-
-      const enforced: PermissionsConfig = {
-        guests: enforce(newPerms.guests),
-        budget: enforce(newPerms.budget),
-        vendors: enforce(newPerms.vendors),
-        vendor_costs: enforce(newPerms.vendor_costs),
-        communications: enforce(newPerms.communications),
-      };
+      const enforced = PERMISSION_AREAS.reduce((acc, k) => {
+        acc[k] = enforce(newPerms[k]);
+        return acc;
+      }, {} as PermissionsConfig);
 
       for (const roleId of collaboratorRoleIds) {
         const { error } = await supabase
@@ -71,128 +172,89 @@ export function CollaboratorPermissionsCard({
     }
   };
 
-  const toggle = (area: keyof PermissionsConfig, level: keyof AreaPermission, value: boolean) => {
-    const newPerms = { ...perms, [area]: { ...perms[area], [level]: value } };
-    // If disabling view, disable everything
-    if (level === "view" && !value) {
-      newPerms[area] = { view: false, edit: false, create: false };
-    }
-    // If disabling edit, disable create too
-    if (level === "edit" && !value) {
-      newPerms[area] = { ...newPerms[area], edit: false, create: false };
-    }
-    // If enabling create, enable edit+view
-    if (level === "create" && value) {
-      newPerms[area] = { view: true, edit: true, create: true };
-    }
-    // If enabling edit, enable view
-    if (level === "edit" && value) {
-      newPerms[area] = { ...newPerms[area], view: true, edit: true };
-    }
-    updatePerms(newPerms);
+  const toggle = (area: PermissionArea, level: keyof AreaPermission, value: boolean) => {
+    const next = { ...perms, [area]: { ...perms[area], [level]: value } };
+    if (level === "view" && !value) next[area] = { view: false, edit: false, create: false };
+    if (level === "edit" && !value) next[area] = { ...next[area], edit: false, create: false };
+    if (level === "create" && value) next[area] = { view: true, edit: true, create: true };
+    if (level === "edit" && value) next[area] = { ...next[area], view: true, edit: true };
+    persist(next);
   };
+
+  const applyPreset = (name: keyof typeof PRESETS) => persist(PRESETS[name]());
 
   return (
     <Card className="p-6">
-      <h2 className="text-xl font-semibold mb-1 flex items-center gap-2">
-        <Shield className="w-5 h-5" />
-        Permessi {roleLabel}{collaboratorName ? ` — ${collaboratorName}` : ""}
-      </h2>
-      <p className="text-sm text-muted-foreground mb-5">
-        Controlla cosa può fare il {roleLabel} in ogni area
-      </p>
-
-      <div className="space-y-6">
-        {/* Invitati */}
-        <PermissionSection
-          icon={<Users className="w-4 h-4" />}
-          title="Invitati"
-          area={perms.guests}
-          saving={saving}
-          onToggle={(level, value) => toggle("guests", level, value)}
-          viewLabel="Visualizza lista (nome + iniziale cognome)"
-          editLabel="Modifica invitati esistenti"
-          createLabel="Crea nuovi invitati e importa"
-        />
-
-        <Separator />
-
-        {/* Fornitori */}
-        <PermissionSection
-          icon={<Package className="w-4 h-4" />}
-          title="Fornitori"
-          area={perms.vendors}
-          saving={saving}
-          onToggle={(level, value) => toggle("vendors", level, value)}
-          viewLabel="Visualizza schede fornitori"
-          editLabel="Modifica fornitori esistenti"
-          createLabel="Crea nuovi fornitori"
-        />
-
-        {/* Sub-area: Costi Fornitori */}
-        <div className="ml-6 pl-4 border-l-2 border-muted">
-          <ToggleRow
-            label="Costi e Pagamenti"
-            description="Se disattivo, nasconde cifre e piani di pagamento"
-            checked={perms.vendor_costs.view}
-            disabled={saving || !perms.vendors.view}
-            onCheckedChange={(v) => toggle("vendor_costs", "view", v)}
-          />
+      <div className="flex items-start justify-between gap-4 mb-4">
+        <div>
+          <h2 className="text-xl font-semibold mb-1 flex items-center gap-2">
+            <Shield className="w-5 h-5" />
+            Permessi {roleLabel}{collaboratorName ? ` — ${collaboratorName}` : ""}
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Controlla cosa può fare in ogni area. Sezioni senza <em>visualizza</em> vengono nascoste dalla barra laterale.
+          </p>
         </div>
-
-        <Separator />
-
-        {/* Budget */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 text-sm font-semibold">
-            <Euro className="w-4 h-4" />
-            Budget e Tesoreria
-          </div>
-          <ToggleRow
-            label="Visualizza"
-            description="Accesso a Budget e Tesoreria"
-            checked={perms.budget.view}
-            disabled={saving}
-            onCheckedChange={(v) => toggle("budget", "view", v)}
-          />
+        <div className="flex gap-1 flex-shrink-0">
+          <Button size="sm" variant="outline" disabled={saving} onClick={() => applyPreset("none")}>Nessuno</Button>
+          <Button size="sm" variant="outline" disabled={saving} onClick={() => applyPreset("readonly")}>Sola lettura</Button>
+          <Button size="sm" variant="outline" disabled={saving} onClick={() => applyPreset("operator")}>Operativo</Button>
         </div>
+      </div>
 
-        <Separator />
-
-        {/* Comunicazioni */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 text-sm font-semibold">
-            <MessageSquare className="w-4 h-4" />
-            Comunicazioni
-          </div>
-          <ToggleRow
-            label="Visualizza e Gestisci"
-            description="Accesso a campagne RSVP e Save the Date"
-            checked={perms.communications.view}
-            disabled={saving}
-            onCheckedChange={(v) => {
-              // Communications is all-or-nothing
-              const full = v ? { view: true, edit: true, create: true } : { view: false, edit: false, create: false };
-              updatePerms({ ...perms, communications: full });
-            }}
-          />
-        </div>
+      <div className="space-y-5">
+        {AREAS.map((spec, idx) => {
+          const parentDisabled = spec.parent ? !perms[spec.parent].view : false;
+          const area = perms[spec.key];
+          const soloView = !spec.editLabel;
+          return (
+            <div key={spec.key}>
+              {idx > 0 && !spec.parent && <Separator className="mb-5" />}
+              <div className={spec.parent ? "ml-6 pl-4 border-l-2 border-muted space-y-2" : "space-y-3"}>
+                <div className="flex items-center gap-2 text-sm font-semibold">
+                  {spec.icon}
+                  {spec.title}
+                </div>
+                <div className={spec.parent ? "" : "space-y-2 ml-6"}>
+                  <ToggleRow
+                    label={soloView ? "Attivo" : "Visualizza"}
+                    description={spec.viewLabel}
+                    checked={area.view}
+                    disabled={saving || parentDisabled}
+                    onCheckedChange={(v) => toggle(spec.key, "view", v)}
+                  />
+                  {spec.editLabel && (
+                    <ToggleRow
+                      label="Modifica"
+                      description={spec.editLabel}
+                      checked={area.edit}
+                      disabled={saving || !area.view}
+                      onCheckedChange={(v) => toggle(spec.key, "edit", v)}
+                    />
+                  )}
+                  {spec.createLabel && (
+                    <ToggleRow
+                      label="Crea"
+                      description={spec.createLabel}
+                      checked={area.create}
+                      disabled={saving || !area.edit}
+                      onCheckedChange={(v) => toggle(spec.key, "create", v)}
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </Card>
   );
 }
 
 function ToggleRow({
-  label,
-  description,
-  checked,
-  disabled,
-  onCheckedChange,
+  label, description, checked, disabled, onCheckedChange,
 }: {
-  label: string;
-  description: string;
-  checked: boolean;
-  disabled: boolean;
+  label: string; description: string; checked: boolean; disabled: boolean;
   onCheckedChange: (v: boolean) => void;
 }) {
   return (
@@ -202,58 +264,6 @@ function ToggleRow({
         <p className="text-xs text-muted-foreground">{description}</p>
       </div>
       <Switch checked={checked} onCheckedChange={onCheckedChange} disabled={disabled} />
-    </div>
-  );
-}
-
-function PermissionSection({
-  icon,
-  title,
-  area,
-  saving,
-  onToggle,
-  viewLabel,
-  editLabel,
-  createLabel,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  area: AreaPermission;
-  saving: boolean;
-  onToggle: (level: keyof AreaPermission, value: boolean) => void;
-  viewLabel: string;
-  editLabel: string;
-  createLabel: string;
-}) {
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2 text-sm font-semibold">
-        {icon}
-        {title}
-      </div>
-      <div className="space-y-2 ml-6">
-        <ToggleRow
-          label="Visualizza"
-          description={viewLabel}
-          checked={area.view}
-          disabled={saving}
-          onCheckedChange={(v) => onToggle("view", v)}
-        />
-        <ToggleRow
-          label="Modifica"
-          description={editLabel}
-          checked={area.edit}
-          disabled={saving || !area.view}
-          onCheckedChange={(v) => onToggle("edit", v)}
-        />
-        <ToggleRow
-          label="Crea"
-          description={createLabel}
-          checked={area.create}
-          disabled={saving || !area.edit}
-          onCheckedChange={(v) => onToggle("create", v)}
-        />
-      </div>
     </div>
   );
 }
