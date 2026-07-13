@@ -741,6 +741,7 @@ function MountainChart({ paid, upcoming, weddingDate }: {
           </g>
         )}
       </svg>
+      </div>
 
       {/* Sotto-riga esplicativa */}
       <div style={{
