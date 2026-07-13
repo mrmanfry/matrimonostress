@@ -22,7 +22,7 @@ serve(async (req: Request): Promise<Response> => {
   }
 
   const cronSecret = req.headers.get("X-Cron-Secret");
-  const expectedSecret = Deno.env.get("CRON_SECRET");
+  const expectedSecret = Deno.env.get("CRON_SHARED_TOKEN") ?? Deno.env.get("CRON_SECRET");
   if (!expectedSecret || cronSecret !== expectedSecret) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,

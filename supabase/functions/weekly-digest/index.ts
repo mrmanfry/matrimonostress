@@ -80,7 +80,7 @@ serve(async (req: Request): Promise<Response> => {
   // Validate cron secret - required for ALL invocations (test mode no longer bypasses auth)
   {
     const cronSecret = req.headers.get("X-Cron-Secret");
-    const expectedSecret = Deno.env.get("CRON_SECRET");
+    const expectedSecret = Deno.env.get("CRON_SHARED_TOKEN") ?? Deno.env.get("CRON_SECRET");
 
     if (!expectedSecret || cronSecret !== expectedSecret) {
       console.error("Unauthorized cron request - invalid or missing secret");
