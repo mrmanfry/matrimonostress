@@ -360,9 +360,24 @@ function MountainChart({ paid, upcoming, weddingDate }: {
 }) {
   const [hoverX, setHoverX] = React.useState<number | null>(null);
   const svgRef = React.useRef<SVGSVGElement>(null);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [Wpx, setWpx] = React.useState<number>(720);
 
-  // Canvas
-  const W = 720, H = 260, padL = 60, padR = 20, padT = 32, padB = 44;
+  React.useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const w = Math.round(entry.contentRect.width);
+        if (w > 0) setWpx(w);
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Canvas — 1 unità viewBox = 1 pixel reale (no stretching)
+  const W = Math.max(320, Wpx), H = 260, padL = 60, padR = 20, padT = 32, padB = 44;
   const innerW = W - padL - padR;
   const innerH = H - padT - padB;
 
@@ -530,12 +545,14 @@ function MountainChart({ paid, upcoming, weddingDate }: {
         </span>
       </div>
 
+      <div ref={containerRef} style={{ width: '100%' }}>
       <svg
         ref={svgRef}
         viewBox={`0 0 ${W} ${H}`}
-        width="100%" height={H}
-        preserveAspectRatio="none"
-        style={{ display: 'block', overflow: 'visible', cursor: 'crosshair' }}
+        width={W} height={H}
+        preserveAspectRatio="xMidYMid meet"
+        shapeRendering="geometricPrecision"
+        style={{ display: 'block', overflow: 'visible', cursor: 'crosshair', maxWidth: '100%' }}
         onMouseMove={onMove}
         onMouseLeave={() => setHoverX(null)}
       >
@@ -724,6 +741,7 @@ function MountainChart({ paid, upcoming, weddingDate }: {
           </g>
         )}
       </svg>
+      </div>
 
       {/* Sotto-riga esplicativa */}
       <div style={{

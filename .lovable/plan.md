@@ -1,47 +1,31 @@
+
 ## Problema
 
-Alla creazione di un matrimonio, un trigger DB (`generate_checklist_on_wedding_creation`) inserisce automaticamente 12 task "di sistema" con scadenze calcolate rispetto alla data delle nozze. Questi task finiscono nelle email di digest settimanale e nei reminder giornalieri, anche a utenti che si sono solo registrati e non hanno mai aperto la checklist — creando "promemoria fantasma" con date inventate.
+Il `MountainChart` in `src/components/budget/v2/CashflowTimeline.tsx` disegna dentro un `viewBox="0 0 720 260"` con `preserveAspectRatio="none"` e `width="100%"`. Su schermi larghi il viewBox viene **stirato orizzontalmente** (a 1200+ px reali contro 720 di viewBox): linee verticali diventano sottili e sbiadite, il tratteggio "da pagare" si allunga e sembra sgranato, i testi degli assi (se scalassero) sarebbero deformati. È il classico effetto "immagine a bassa risoluzione stirata" che descrivi.
 
-## Soluzione proposta
+## Soluzione
 
-Doppia protezione: **non generarli più in automatico** e **non spedirli mai finché l'utente non li ha toccati**.
+Rendere il canvas SVG **1:1 con i pixel reali del container**: 1 unità viewBox = 1 pixel. Nessuno stiramento, tratti crisp, tratteggio regolare, tipografia netta.
 
-### 1. Stop generazione automatica
+### Come
 
-- Rimuovere il trigger `generate_checklist_on_wedding_creation` e la function `generate_checklist_tasks()`.
-- I nuovi matrimoni partono con checklist vuota.
+1. Avvolgere l'SVG in un `<div ref={containerRef}>` che occupa il 100% della larghezza.
+2. Con un `ResizeObserver`, misurare la larghezza reale del container e salvarla in stato (`Wpx`).
+3. Usare `Wpx` come nuova `W` (con fallback 720 al primo render). `H` resta 260.
+4. `viewBox={`0 0 ${W} ${H}`}` + `preserveAspectRatio="xMidYMid meet"` + `width={W}` / `height={H}` (o `width="100%"` — a quel punto è indifferente perché coincidono).
+5. Tutti i calcoli (`padL`, `innerW`, `xFor`, `yFor`, path builder, tooltip hit-test) già usano `W`/`innerW` come variabili → basta trasformarle in valori derivati da `Wpx` senza altre modifiche di logica.
+6. Aggiornare `onMove`: siccome ora `xPx === xViewBox`, la conversione `(xPx / rect.width) * W` resta corretta (è già proporzionale), nessun bug.
 
-### 2. Template opt-in dalla UI
+### Bonus qualità (piccoli, stesso file)
 
-- In `src/pages/Checklist.tsx`, quando la lista è vuota, mostrare un empty state con CTA "Carica checklist consigliata" che inserisce i task standard (usando il template già esistente in `src/utils/checklistTemplates.ts`).
-- L'utente sceglie consapevolmente di popolare la checklist → nessuna sorpresa via email.
+- Aggiungere `shape-rendering="geometricPrecision"` sull'`<svg>` per linee/aree più pulite.
+- Assicurare `strokeWidth` costante (nessun scale) — automatico con la fix sopra.
+- Il pattern tratteggiato "da pagare" (stroke-dasharray) sarà finalmente regolare perché non più deformato.
 
-### 3. Filtro difensivo nelle email
+## Scope
 
-Anche per i matrimoni esistenti che hanno già i task di sistema in DB, escluderli dalle notifiche finché non sono stati modificati dall'utente:
+Solo `src/components/budget/v2/CashflowTimeline.tsx`, funzione `MountainChart` (aggiunta ref + ResizeObserver + rimozione `preserveAspectRatio="none"`). Nessun cambio di dati, logica, colori, layout esterno.
 
-- `supabase/functions/weekly-digest/index.ts` (query `checklist_tasks`): aggiungere `.eq('is_system_generated', false)` **oppure** un filtro "è stato toccato" (es. `updated_at > created_at + interval` o campo dedicato).
-- `supabase/functions/check-checklist-reminders/index.ts`: stessa esclusione.
+## Rischio
 
-Approccio più semplice e sicuro: escludere sempre `is_system_generated = true` dai promemoria. I task di sistema entrano nei reminder solo se l'utente li modifica (a quel punto un piccolo trigger imposta `is_system_generated = false`, così diventano "propri").
-
-### 4. Pulizia dei task fantasma esistenti (opzionale, da confermare)
-
-Due strade:
-- **A**: cancellare tutti i task con `is_system_generated = true` che non sono mai stati toccati (status = 'pending', nessuna descrizione/vendor aggiunti, updated_at = created_at). Pulisce lo storico.
-- **B**: lasciarli dove sono ma nasconderli dalle email (grazie al filtro del punto 3) e mostrarli in UI con un badge "suggerito" + azione "Rimuovi suggerimenti".
-
-Consiglio **B** per non distruggere dati di utenti che magari li stavano usando.
-
-## File toccati
-
-- Nuova migration: DROP trigger + DROP function + trigger di "promozione" (task modificato → `is_system_generated = false`).
-- `supabase/functions/weekly-digest/index.ts`
-- `supabase/functions/check-checklist-reminders/index.ts`
-- `src/pages/Checklist.tsx` (empty state + bottone "Carica checklist consigliata" che riutilizza `checklistTemplates.ts`).
-- `src/components/checklist/*` per il badge "suggerito" (se scegliamo B).
-
-## Domande prima di procedere
-
-1. Confermi opzione **B** (nascondere i task di sistema dalle email + badge "suggerito" in UI), o preferisci **A** (cancellarli fisicamente)?
-2. Il bottone "Carica checklist consigliata" nell'empty state va bene, o preferisci nessuna generazione template e checklist totalmente da zero?
+Minimo. La logica di scala è già parametrizzata su `W`/`innerW`. Il ResizeObserver è già usato altrove nel progetto (pattern noto).
