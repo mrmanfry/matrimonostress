@@ -76,6 +76,19 @@ const Settings = () => {
   const [roleToDelete, setRoleToDelete] = useState<string | null>(null);
   const [progressToken, setProgressToken] = useState<ProgressToken | null>(null);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    if (typeof window === 'undefined') return 'account';
+    const h = window.location.hash.replace('#', '');
+    return h || 'account';
+  });
+  useEffect(() => {
+    const onHash = () => {
+      const h = window.location.hash.replace('#', '');
+      if (h) setActiveTab(h);
+    };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
   
   // Wedding data edit states
   const [editMode, setEditMode] = useState(false);
