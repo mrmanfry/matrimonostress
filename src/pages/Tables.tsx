@@ -665,7 +665,10 @@ const Tables = () => {
   };
 
   const unassignedGuests = guests.filter(g => !assignments.some(a => a.guest_id === g.id));
-  const assignedCount = assignments.length;
+  // Conta solo gli assignment i cui ospiti sono nella lista attualmente visibile
+  // (evita che ospiti declinati/nascosti dal filtro gonfino il totale rispetto alle TableCard).
+  const visibleGuestIds = new Set(guests.map(g => g.id));
+  const assignedCount = assignments.filter(a => visibleGuestIds.has(a.guest_id)).length;
   const totalSeats = tables.reduce((sum, t) => sum + t.capacity, 0);
 
   if (loading) {
