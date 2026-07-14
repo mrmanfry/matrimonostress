@@ -605,8 +605,8 @@ const Settings = () => {
       </div>
 
       <Tabs
-        value={(typeof window !== 'undefined' && window.location.hash.replace('#', '')) || 'account'}
-        onValueChange={(v) => { window.location.hash = v; }}
+        value={activeTab}
+        onValueChange={(v) => { setActiveTab(v); if (typeof window !== 'undefined') window.location.hash = v; }}
         className="w-full"
       >
         <TabsList className={`grid w-full lg:w-auto lg:inline-flex ${isManagerOrPlanner ? 'grid-cols-2' : 'grid-cols-4'}`}>
