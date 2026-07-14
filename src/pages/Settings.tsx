@@ -32,6 +32,7 @@ interface UserRole {
   user_id: string;
   role: string;
   created_at: string;
+  permissions_config?: any;
   profiles?: {
     first_name: string | null;
     last_name: string | null;
@@ -600,6 +601,12 @@ const Settings = () => {
     setEditedTimezone(wedding?.timezone || "Europe/Rome");
   };
 
+  const handlePermissionsUpdated = (roleIds: string[], permissionsConfig: any) => {
+    setRoles((prev) => prev.map((role) => (
+      roleIds.includes(role.id) ? { ...role, permissions_config: permissionsConfig } : role
+    )));
+  };
+
   if (!wedding) {
     return (
       <div className="p-4 lg:p-8">
@@ -995,23 +1002,26 @@ const Settings = () => {
 
             return collaboratorGroups.map(group => {
               const firstConfig = (group.roles[0] as any).permissions_config || {};
+              const initialPermissionsConfig = firstConfig?.guests
+                ? firstConfig
+                : {
+                    budget_visible: firstConfig.budget_visible ?? (group.role === 'planner' ? false : true),
+                    vendor_costs_visible: firstConfig.vendor_costs_visible ?? true,
+                    guests_names_visible: firstConfig.guests_names_visible ?? true,
+                    communications_editable: firstConfig.communications_editable ?? (group.role === 'manager' ? false : true),
+                  };
+              const roleIds = group.roles.map(r => r.id);
               const firstName = group.roles[0].profiles?.first_name;
               const lastName = group.roles[0].profiles?.last_name;
               const name = firstName || lastName ? `${firstName || ''} ${lastName || ''}`.trim() : undefined;
               return (
                 <CollaboratorPermissionsCard
                   key={group.role}
-                  weddingId={wedding.id}
-                  collaboratorRoleIds={group.roles.map(r => r.id)}
+                  collaboratorRoleIds={roleIds}
                   collaboratorRole={group.role}
                   collaboratorName={name}
-                  initialConfig={{
-                    budget_visible: firstConfig.budget_visible ?? (group.role === 'planner' ? false : true),
-                    vendor_costs_visible: firstConfig.vendor_costs_visible ?? true,
-                    guests_names_visible: firstConfig.guests_names_visible ?? true,
-                    communications_editable: firstConfig.communications_editable ?? (group.role === 'manager' ? false : true),
-                  }}
-                  onUpdated={loadData}
+                  initialConfig={initialPermissionsConfig}
+                  onUpdated={(permissionsConfig) => handlePermissionsUpdated(roleIds, permissionsConfig)}
                 />
               );
             });

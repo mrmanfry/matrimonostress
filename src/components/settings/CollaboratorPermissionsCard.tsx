@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -11,7 +11,6 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
-  useAuth,
   normalizePermissions,
   PERMISSION_AREAS,
   type PermissionsConfig,
@@ -20,12 +19,11 @@ import {
 } from "@/contexts/AuthContext";
 
 interface CollaboratorPermissionsCardProps {
-  weddingId: string;
   collaboratorRoleIds: string[];
   collaboratorRole: "planner" | "manager";
   collaboratorName?: string;
   initialConfig: any;
-  onUpdated: () => void;
+  onUpdated: (permissionsConfig: PermissionsConfig) => void;
 }
 
 type AreaSpec = {
@@ -115,6 +113,13 @@ function enforce(area: AreaPermission): AreaPermission {
   };
 }
 
+function enforceConfig(config: PermissionsConfig): PermissionsConfig {
+  return PERMISSION_AREAS.reduce((acc, k) => {
+    acc[k] = enforce(config[k]);
+    return acc;
+  }, {} as PermissionsConfig);
+}
+
 const PRESETS: Record<string, () => PermissionsConfig> = {
   none: () => PERMISSION_AREAS.reduce((acc, k) => {
     acc[k] = { view: false, edit: false, create: false };
@@ -131,7 +136,6 @@ const PRESETS: Record<string, () => PermissionsConfig> = {
 };
 
 export function CollaboratorPermissionsCard({
-  weddingId,
   collaboratorRoleIds,
   collaboratorRole,
   collaboratorName,
@@ -139,38 +143,70 @@ export function CollaboratorPermissionsCard({
   onUpdated,
 }: CollaboratorPermissionsCardProps) {
   const [perms, setPerms] = useState<PermissionsConfig>(normalizePermissions(initialConfig));
-  const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const { toast } = useToast();
-  const { refreshAuth } = useAuth();
+  const firstRender = useRef(true);
+  const saveTimer = useRef<number | null>(null);
+  const saveInFlight = useRef(false);
+  const pendingPerms = useRef<PermissionsConfig | null>(null);
+  const idleTimer = useRef<number | null>(null);
 
   const roleLabel = collaboratorRole === "planner" ? "Planner" : "Manager";
 
-  const persist = async (newPerms: PermissionsConfig) => {
-    setSaving(true);
+  const persistLatest = async () => {
+    if (saveInFlight.current || !pendingPerms.current) return;
+
+    const nextPerms = pendingPerms.current;
+    pendingPerms.current = null;
+    saveInFlight.current = true;
+    setSaveStatus("saving");
+
     try {
-      const enforced = PERMISSION_AREAS.reduce((acc, k) => {
-        acc[k] = enforce(newPerms[k]);
-        return acc;
-      }, {} as PermissionsConfig);
+      const { error } = await supabase
+        .from("user_roles")
+        .update({ permissions_config: nextPerms as any })
+        .in("id", collaboratorRoleIds);
+      if (error) throw error;
 
-      for (const roleId of collaboratorRoleIds) {
-        const { error } = await supabase
-          .from("user_roles")
-          .update({ permissions_config: enforced as any })
-          .eq("id", roleId);
-        if (error) throw error;
-      }
+      onUpdated(nextPerms);
+      setSaveStatus(pendingPerms.current ? "saving" : "saved");
 
-      setPerms(enforced);
-      toast({ title: "Permessi aggiornati", description: "Le modifiche sono state salvate" });
-      await refreshAuth();
-      onUpdated();
+      if (idleTimer.current) window.clearTimeout(idleTimer.current);
+      idleTimer.current = window.setTimeout(() => {
+        if (!pendingPerms.current && !saveInFlight.current) setSaveStatus("idle");
+      }, 1600);
     } catch (error: any) {
+      setSaveStatus("error");
       toast({ title: "Errore", description: error.message || "Impossibile aggiornare", variant: "destructive" });
     } finally {
-      setSaving(false);
+      saveInFlight.current = false;
+      if (pendingPerms.current) void persistLatest();
     }
   };
+
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+
+    pendingPerms.current = enforceConfig(perms);
+    setSaveStatus("saving");
+
+    if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    saveTimer.current = window.setTimeout(() => {
+      void persistLatest();
+    }, 450);
+
+    return () => {
+      if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    };
+  }, [perms]);
+
+  useEffect(() => () => {
+    if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    if (idleTimer.current) window.clearTimeout(idleTimer.current);
+  }, []);
 
   const toggle = (area: PermissionArea, level: keyof AreaPermission, value: boolean) => {
     const next = { ...perms, [area]: { ...perms[area], [level]: value } };
@@ -178,10 +214,10 @@ export function CollaboratorPermissionsCard({
     if (level === "edit" && !value) next[area] = { ...next[area], edit: false, create: false };
     if (level === "create" && value) next[area] = { view: true, edit: true, create: true };
     if (level === "edit" && value) next[area] = { ...next[area], view: true, edit: true };
-    persist(next);
+    setPerms(enforceConfig(next));
   };
 
-  const applyPreset = (name: keyof typeof PRESETS) => persist(PRESETS[name]());
+  const applyPreset = (name: keyof typeof PRESETS) => setPerms(enforceConfig(PRESETS[name]()));
 
   return (
     <Card className="p-6">
@@ -196,10 +232,16 @@ export function CollaboratorPermissionsCard({
           </p>
         </div>
         <div className="flex gap-1 flex-shrink-0">
-          <Button size="sm" variant="outline" disabled={saving} onClick={() => applyPreset("none")}>Nessuno</Button>
-          <Button size="sm" variant="outline" disabled={saving} onClick={() => applyPreset("readonly")}>Sola lettura</Button>
-          <Button size="sm" variant="outline" disabled={saving} onClick={() => applyPreset("operator")}>Operativo</Button>
+          <Button size="sm" variant="outline" onClick={() => applyPreset("none")}>Nessuno</Button>
+          <Button size="sm" variant="outline" onClick={() => applyPreset("readonly")}>Sola lettura</Button>
+          <Button size="sm" variant="outline" onClick={() => applyPreset("operator")}>Operativo</Button>
         </div>
+      </div>
+
+      <div className="mb-4 min-h-5 text-xs text-muted-foreground" aria-live="polite">
+        {saveStatus === "saving" && "Salvataggio automatico…"}
+        {saveStatus === "saved" && "Salvato"}
+        {saveStatus === "error" && "Salvataggio non riuscito"}
       </div>
 
       <div className="space-y-5">
@@ -220,7 +262,7 @@ export function CollaboratorPermissionsCard({
                     label={soloView ? "Attivo" : "Visualizza"}
                     description={spec.viewLabel}
                     checked={area.view}
-                    disabled={saving || parentDisabled}
+                    disabled={parentDisabled}
                     onCheckedChange={(v) => toggle(spec.key, "view", v)}
                   />
                   {spec.editLabel && (
@@ -228,7 +270,7 @@ export function CollaboratorPermissionsCard({
                       label="Modifica"
                       description={spec.editLabel}
                       checked={area.edit}
-                      disabled={saving || !area.view}
+                      disabled={!area.view}
                       onCheckedChange={(v) => toggle(spec.key, "edit", v)}
                     />
                   )}
@@ -237,7 +279,7 @@ export function CollaboratorPermissionsCard({
                       label="Crea"
                       description={spec.createLabel}
                       checked={area.create}
-                      disabled={saving || !area.edit}
+                      disabled={!area.edit}
                       onCheckedChange={(v) => toggle(spec.key, "create", v)}
                     />
                   )}
