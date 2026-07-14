@@ -76,6 +76,19 @@ const Settings = () => {
   const [roleToDelete, setRoleToDelete] = useState<string | null>(null);
   const [progressToken, setProgressToken] = useState<ProgressToken | null>(null);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    if (typeof window === 'undefined') return 'account';
+    const h = window.location.hash.replace('#', '');
+    return h || 'account';
+  });
+  useEffect(() => {
+    const onHash = () => {
+      const h = window.location.hash.replace('#', '');
+      if (h) setActiveTab(h);
+    };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
   
   // Wedding data edit states
   const [editMode, setEditMode] = useState(false);
@@ -604,7 +617,11 @@ const Settings = () => {
         </p>
       </div>
 
-      <Tabs defaultValue="account" className="w-full">
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => { setActiveTab(v); if (typeof window !== 'undefined') window.location.hash = v; }}
+        className="w-full"
+      >
         <TabsList className={`grid w-full lg:w-auto lg:inline-flex ${isManagerOrPlanner ? 'grid-cols-2' : 'grid-cols-4'}`}>
           <TabsTrigger value="account" className="gap-2">
             <User className="w-4 h-4" />
