@@ -604,7 +604,11 @@ const Settings = () => {
         </p>
       </div>
 
-      <Tabs defaultValue="account" className="w-full">
+      <Tabs
+        value={(typeof window !== 'undefined' && window.location.hash.replace('#', '')) || 'account'}
+        onValueChange={(v) => { window.location.hash = v; }}
+        className="w-full"
+      >
         <TabsList className={`grid w-full lg:w-auto lg:inline-flex ${isManagerOrPlanner ? 'grid-cols-2' : 'grid-cols-4'}`}>
           <TabsTrigger value="account" className="gap-2">
             <User className="w-4 h-4" />
