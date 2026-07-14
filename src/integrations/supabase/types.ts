@@ -2613,6 +2613,15 @@ export type Database = {
         Args: { _user_id: string; _wedding_id: string }
         Returns: boolean
       }
+      has_wedding_permission: {
+        Args: {
+          _area: string
+          _level: string
+          _user_id: string
+          _wedding_id: string
+        }
+        Returns: boolean
+      }
       has_wedding_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
