@@ -11,7 +11,6 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
-  useAuth,
   normalizePermissions,
   PERMISSION_AREAS,
   type PermissionsConfig,
@@ -20,7 +19,6 @@ import {
 } from "@/contexts/AuthContext";
 
 interface CollaboratorPermissionsCardProps {
-  weddingId: string;
   collaboratorRoleIds: string[];
   collaboratorRole: "planner" | "manager";
   collaboratorName?: string;
@@ -138,7 +136,6 @@ const PRESETS: Record<string, () => PermissionsConfig> = {
 };
 
 export function CollaboratorPermissionsCard({
-  weddingId,
   collaboratorRoleIds,
   collaboratorRole,
   collaboratorName,
