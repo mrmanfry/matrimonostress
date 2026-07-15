@@ -263,20 +263,18 @@ export const generateTableReport = (tables: Table[]): void => {
 
       // For imperial tables, draw a visual diagram first
       const isImperial = table.table_type === 'imperial';
-      let sortedGuests = [...table.guests];
-      
+
       if (isImperial) {
-        const positioned = sortedGuests.filter(g => g.seat_position != null).sort((a, b) => (a.seat_position || 0) - (b.seat_position || 0));
-        const unpositioned = sortedGuests.filter(g => g.seat_position == null);
-        sortedGuests = [...positioned, ...unpositioned];
-        
         const halfCap = Math.ceil(table.capacity / 2);
-        
-        // Build seat map
-        const seatMap = new Map<number, TableGuest>();
-        table.guests.forEach(g => {
-          if (g.seat_position != null) seatMap.set(g.seat_position, g);
-        });
+
+        // Shared seat mapping (same logic as desktop SVG & mobile sheet).
+        // Guests without an explicit seat_position auto-fill the first free seats.
+        const seats = buildImperialSeats(table.guests, table.capacity);
+
+        // Ordered list of guests by their EFFECTIVE seat.
+        const orderedByEffectiveSeat = seats
+          .map((g, idx) => (g ? { guest: g, effectiveSeat: idx } : null))
+          .filter((x): x is { guest: TableGuest; effectiveSeat: number } => x !== null);
 
         // --- Visual Diagram ---
         const diagramX = 20;
@@ -285,6 +283,35 @@ export const generateTableReport = (tables: Table[]): void => {
         const seatH = 18;
         const startX = diagramX + (diagramW - seatW * halfCap) / 2;
 
+        const drawSeat = (idx: number, colInRow: number, seatY: number) => {
+          const sx = startX + colInRow * seatW;
+          const guest = seats[idx];
+          const humanNum = idx + 1;
+          doc.setDrawColor(180, 180, 180);
+          if (guest) {
+            doc.setFillColor(230, 240, 250);
+            doc.rect(sx, seatY, seatW - 1, seatH, "FD");
+            doc.setFontSize(6);
+            doc.setTextColor(100, 100, 100);
+            doc.setFont("helvetica", "normal");
+            doc.text(`${humanNum}`, sx + 1, seatY + 5);
+            doc.setFontSize(6);
+            doc.setTextColor(30, 30, 30);
+            doc.setFont("helvetica", "bold");
+            const name = `${guest.first_name} ${guest.last_name}`;
+            const maxChars = Math.max(4, Math.floor(seatW / 1.6));
+            const truncName = name.length > maxChars ? name.substring(0, maxChars - 1) + "…" : name;
+            doc.text(truncName, sx + 1, seatY + 11, { maxWidth: seatW - 2 });
+          } else {
+            doc.setFillColor(245, 245, 245);
+            doc.rect(sx, seatY, seatW - 1, seatH, "FD");
+            doc.setFontSize(6);
+            doc.setTextColor(180, 180, 180);
+            doc.setFont("helvetica", "normal");
+            doc.text(`${humanNum}`, sx + seatW / 2 - 2, seatY + 10);
+          }
+        };
+
         // Label "Lato A"
         doc.setFontSize(8);
         doc.setFont("helvetica", "bold");
@@ -292,32 +319,9 @@ export const generateTableReport = (tables: Table[]): void => {
         doc.text("LATO A", diagramX, y);
         y += 4;
 
-        // Side A seats
-        for (let i = 1; i <= halfCap; i++) {
-          const sx = startX + (i - 1) * seatW;
-          const guest = seatMap.get(i);
-          doc.setDrawColor(180, 180, 180);
-          if (guest) {
-            doc.setFillColor(230, 240, 250);
-            doc.rect(sx, y, seatW - 1, seatH, "FD");
-            doc.setFontSize(6);
-            doc.setTextColor(100, 100, 100);
-            doc.setFont("helvetica", "normal");
-            doc.text(`${i}`, sx + 1, y + 5);
-            doc.setFontSize(6);
-            doc.setTextColor(30, 30, 30);
-            doc.setFont("helvetica", "bold");
-            const name = `${guest.first_name} ${guest.last_name}`;
-            const truncName = name.length > (seatW / 1.8) ? name.substring(0, Math.floor(seatW / 2)) + "…" : name;
-            doc.text(truncName, sx + 1, y + 11, { maxWidth: seatW - 2 });
-          } else {
-            doc.setFillColor(245, 245, 245);
-            doc.rect(sx, y, seatW - 1, seatH, "FD");
-            doc.setFontSize(6);
-            doc.setTextColor(180, 180, 180);
-            doc.setFont("helvetica", "normal");
-            doc.text(`${i}`, sx + seatW / 2 - 2, y + 10);
-          }
+        // Side A seats: effective seats 0..halfCap-1
+        for (let idx = 0; idx < halfCap; idx++) {
+          drawSeat(idx, idx, y);
         }
         y += seatH + 2;
 
@@ -329,34 +333,9 @@ export const generateTableReport = (tables: Table[]): void => {
         doc.rect(tableBodyX, y, tableBodyW, 6, "FD");
         y += 8;
 
-        // Side B seats
-        const sideBCount = table.capacity - halfCap;
-        for (let i = 1; i <= sideBCount; i++) {
-          const seatIdx = halfCap + i;
-          const sx = startX + (i - 1) * seatW;
-          const guest = seatMap.get(seatIdx);
-          doc.setDrawColor(180, 180, 180);
-          if (guest) {
-            doc.setFillColor(230, 240, 250);
-            doc.rect(sx, y, seatW - 1, seatH, "FD");
-            doc.setFontSize(6);
-            doc.setTextColor(100, 100, 100);
-            doc.setFont("helvetica", "normal");
-            doc.text(`${seatIdx}`, sx + 1, y + 5);
-            doc.setFontSize(6);
-            doc.setTextColor(30, 30, 30);
-            doc.setFont("helvetica", "bold");
-            const name = `${guest.first_name} ${guest.last_name}`;
-            const truncName = name.length > (seatW / 1.8) ? name.substring(0, Math.floor(seatW / 2)) + "…" : name;
-            doc.text(truncName, sx + 1, y + 11, { maxWidth: seatW - 2 });
-          } else {
-            doc.setFillColor(245, 245, 245);
-            doc.rect(sx, y, seatW - 1, seatH, "FD");
-            doc.setFontSize(6);
-            doc.setTextColor(180, 180, 180);
-            doc.setFont("helvetica", "normal");
-            doc.text(`${seatIdx}`, sx + seatW / 2 - 2, y + 10);
-          }
+        // Side B seats: effective seats halfCap..capacity-1
+        for (let idx = halfCap; idx < table.capacity; idx++) {
+          drawSeat(idx, idx - halfCap, y);
         }
         y += seatH + 2;
 
@@ -376,44 +355,47 @@ export const generateTableReport = (tables: Table[]): void => {
         y += 8;
 
         doc.setFontSize(11);
-        sortedGuests.forEach((guest) => {
+        orderedByEffectiveSeat.forEach(({ guest, effectiveSeat }) => {
           if (y > 260) {
             doc.addPage();
             y = 30;
           }
-          
-          const seatLabel = guest.seat_position != null
-            ? `${guest.seat_position}. `
-            : "— ";
-          const sideLabel = guest.seat_position != null
-            ? (guest.seat_position <= halfCap ? " (Lato A)" : " (Lato B)")
-            : " (non posizionato)";
-          
+
+          const seatLabel = `${effectiveSeat + 1}. `;
+          const sideLabel = effectiveSeat < halfCap ? " (Lato A)" : " (Lato B)";
+
+          // Reset color for every guest so residual red doesn't bleed across rows.
+          doc.setTextColor(0, 0, 0);
           doc.setFont("helvetica", "bold");
           doc.text(`${seatLabel}${guest.first_name} ${guest.last_name}${sideLabel}`, 25, y);
           y += 7;
-          
+
           doc.setFont("helvetica", "normal");
-          const details: string[] = [];
-          if (guest.menu_choice) details.push(`Menù: ${guest.menu_choice}`);
+          doc.setFontSize(9);
+
+          if (guest.menu_choice) {
+            doc.setTextColor(0, 0, 0);
+            const lines = doc.splitTextToSize(`   Menu: ${guest.menu_choice}`, 155);
+            doc.text(lines, 30, y);
+            y += lines.length * 5;
+          }
           if (guest.dietary_restrictions) {
             doc.setTextColor(220, 38, 38);
-            details.push(`⚠ ${guest.dietary_restrictions}`);
-          }
-          if (guest.notes) details.push(`Note: ${guest.notes}`);
-          
-          if (details.length > 0) {
-            doc.setFontSize(9);
-            details.forEach(detail => {
-              const lines = doc.splitTextToSize(`   ${detail}`, 160);
-              doc.text(lines, 30, y);
-              y += lines.length * 5;
-            });
+            const lines = doc.splitTextToSize(`   Allergie: ${guest.dietary_restrictions}`, 155);
+            doc.text(lines, 30, y);
+            y += lines.length * 5;
             doc.setTextColor(0, 0, 0);
-            doc.setFontSize(11);
           }
-          
-          y += 8;
+          if (guest.notes) {
+            doc.setTextColor(0, 0, 0);
+            const lines = doc.splitTextToSize(`   Note: ${guest.notes}`, 155);
+            doc.text(lines, 30, y);
+            y += lines.length * 5;
+          }
+
+          doc.setFontSize(11);
+          doc.setTextColor(0, 0, 0);
+          y += 6;
         });
       } else {
         table.guests.forEach((guest, index) => {
