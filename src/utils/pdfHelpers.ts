@@ -403,32 +403,38 @@ export const generateTableReport = (tables: Table[]): void => {
             doc.addPage();
             y = 30;
           }
-          
+
+          doc.setTextColor(0, 0, 0);
           doc.setFont("helvetica", "bold");
           doc.text(`${index + 1}. ${guest.first_name} ${guest.last_name}`, 25, y);
           y += 7;
-          
+
           doc.setFont("helvetica", "normal");
-          const details: string[] = [];
-          if (guest.menu_choice) details.push(`Menù: ${guest.menu_choice}`);
+          doc.setFontSize(9);
+
+          if (guest.menu_choice) {
+            doc.setTextColor(0, 0, 0);
+            const lines = doc.splitTextToSize(`   Menu: ${guest.menu_choice}`, 155);
+            doc.text(lines, 30, y);
+            y += lines.length * 5;
+          }
           if (guest.dietary_restrictions) {
             doc.setTextColor(220, 38, 38);
-            details.push(`⚠ ${guest.dietary_restrictions}`);
-          }
-          if (guest.notes) details.push(`Note: ${guest.notes}`);
-          
-          if (details.length > 0) {
-            doc.setFontSize(9);
-            details.forEach(detail => {
-              const lines = doc.splitTextToSize(`   ${detail}`, 160);
-              doc.text(lines, 30, y);
-              y += lines.length * 5;
-            });
+            const lines = doc.splitTextToSize(`   Allergie: ${guest.dietary_restrictions}`, 155);
+            doc.text(lines, 30, y);
+            y += lines.length * 5;
             doc.setTextColor(0, 0, 0);
-            doc.setFontSize(11);
           }
-          
-          y += 8;
+          if (guest.notes) {
+            doc.setTextColor(0, 0, 0);
+            const lines = doc.splitTextToSize(`   Note: ${guest.notes}`, 155);
+            doc.text(lines, 30, y);
+            y += lines.length * 5;
+          }
+
+          doc.setFontSize(11);
+          doc.setTextColor(0, 0, 0);
+          y += 6;
         });
       }
     }
