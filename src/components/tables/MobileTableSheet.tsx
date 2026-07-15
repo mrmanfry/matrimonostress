@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Search, X, ArrowLeftRight, LayoutGrid } from "lucide-react";
 import { SeatActionDialog } from "./SeatActionDialog";
 import { ImperialSeatEditorDialog } from "./ImperialSeatEditorDialog";
+import { buildImperialSeats } from "./imperialSeating";
 
 
 type Guest = {
