@@ -35,20 +35,9 @@ export const ImperialTableSvg = ({
   const perSide = Math.ceil(capacity / 2);
   const stepX = tableW / (perSide + 1);
 
-  // Map guests to seats by seat_position (fallback: fill unassigned into first free seats)
-  const seats: (GuestV2 | null)[] = Array.from({ length: capacity }, () => null);
-  const unpositioned: GuestV2[] = [];
-  seated.forEach((g) => {
-    const p = g.seat_position;
-    if (typeof p === "number" && p >= 0 && p < capacity && !seats[p]) {
-      seats[p] = g;
-    } else {
-      unpositioned.push(g);
-    }
-  });
-  for (let i = 0; i < capacity && unpositioned.length > 0; i++) {
-    if (!seats[i]) seats[i] = unpositioned.shift()!;
-  }
+  // Shared seat-mapping logic (same as mobile & PDF)
+  const seats = buildImperialSeats(seated, capacity);
+
 
   return (
     <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ overflow: "visible" }}>
