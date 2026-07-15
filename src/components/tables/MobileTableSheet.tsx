@@ -115,7 +115,15 @@ export const MobileTableSheet = ({
     ? seatedRaw.find((x) => x.g.id === seatAction.id)
     : null;
 
-  const renderSeatedRow = ({ a, g }: { a: Assignment; g: Guest }) => (
+  const renderSeatedRow = ({
+    a,
+    g,
+    effectiveSeat,
+  }: {
+    a: Assignment;
+    g: Guest;
+    effectiveSeat?: number;
+  }) => (
     <button
       key={a.id}
       type="button"
@@ -124,9 +132,9 @@ export const MobileTableSheet = ({
       }}
       className="w-full flex items-center gap-2 py-2 px-2 rounded-md hover:bg-muted/40 border-b last:border-b-0 text-left"
     >
-      {isImperial && a.seat_position != null && (
+      {isImperial && effectiveSeat != null && (
         <span className="font-mono text-xs text-muted-foreground w-6 shrink-0 text-right">
-          {(a.seat_position as number) + 1}.
+          {effectiveSeat + 1}.
         </span>
       )}
       <span className="flex-1 text-sm truncate">
