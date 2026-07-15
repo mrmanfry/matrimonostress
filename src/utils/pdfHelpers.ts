@@ -188,7 +188,7 @@ export const generateCateringReport = (guests: CateringGuest[]): void => {
     doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(220, 38, 38);
-    doc.text("⚠ ALLERGIE E INTOLLERANZE - ATTENZIONE CUCINA", 20, y);
+    doc.text("ALLERGIE E INTOLLERANZE - ATTENZIONE CUCINA", 20, y);
     doc.setTextColor(0, 0, 0);
     
     y += 10;
