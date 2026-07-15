@@ -221,15 +221,8 @@ export const MobileTableSheet = ({
                     sideB.map(renderSeatedRow)
                   )}
                 </div>
-                {noSeat.length > 0 && (
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-                      Senza posto
-                    </p>
-                    {noSeat.map(renderSeatedRow)}
-                  </div>
-                )}
               </div>
+
             ) : (
               seatedRaw.map(renderSeatedRow)
             )}
