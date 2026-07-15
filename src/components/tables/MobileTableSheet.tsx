@@ -71,15 +71,19 @@ export const MobileTableSheet = ({
     .map((a) => ({ a, g: guests.find((x) => x.id === a.guest_id) }))
     .filter((x): x is { a: Assignment; g: Guest } => !!x.g);
 
-  // For imperial: split into Lato A (seats 0..perSide-1) / Lato B (rest)
+  // For imperial: build the shared seat map (same logic as desktop SVG & PDF).
+  // Guests without an explicit seat_position auto-fill the first free seats,
+  // so mobile matches desktop instead of showing them as "Senza posto".
   const perSide = Math.ceil(table.capacity / 2);
-  const sideA = seatedRaw
-    .filter(({ a }) => a.seat_position != null && (a.seat_position as number) < perSide)
-    .sort((x, y) => (x.a.seat_position! - y.a.seat_position!));
-  const sideB = seatedRaw
-    .filter(({ a }) => a.seat_position != null && (a.seat_position as number) >= perSide)
-    .sort((x, y) => (x.a.seat_position! - y.a.seat_position!));
-  const noSeat = seatedRaw.filter(({ a }) => a.seat_position == null);
+  const imperialSeats = isImperial
+    ? buildImperialSeats(seatedRaw, table.capacity)
+    : [];
+  const sideA = imperialSeats
+    .map((entry, idx) => (entry ? { ...entry, effectiveSeat: idx } : null))
+    .filter((x): x is { a: Assignment; g: Guest; effectiveSeat: number } => !!x && x.effectiveSeat < perSide);
+  const sideB = imperialSeats
+    .map((entry, idx) => (entry ? { ...entry, effectiveSeat: idx } : null))
+    .filter((x): x is { a: Assignment; g: Guest; effectiveSeat: number } => !!x && x.effectiveSeat >= perSide);
 
   const remaining = table.capacity - tableAssignments.length;
   const isFull = remaining <= 0;
