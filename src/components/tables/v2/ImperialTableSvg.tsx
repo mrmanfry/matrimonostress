@@ -1,6 +1,7 @@
 import { useDroppable } from "@dnd-kit/core";
 import type { GuestV2 } from "./types";
 import { colorForGroup } from "./groupColors";
+import { buildImperialSeats } from "../imperialSeating";
 
 interface Props {
   tableId: string;
