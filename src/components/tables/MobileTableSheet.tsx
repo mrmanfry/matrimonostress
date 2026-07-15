@@ -81,12 +81,12 @@ export const MobileTableSheet = ({
         table.capacity,
       )
     : [];
-  const sideA = imperialSeats
-    .map((entry, idx) => (entry ? { ...entry, effectiveSeat: idx } : null))
-    .filter((x): x is { a: Assignment; g: Guest; effectiveSeat: number } => !!x && x.effectiveSeat < perSide);
-  const sideB = imperialSeats
-    .map((entry, idx) => (entry ? { ...entry, effectiveSeat: idx } : null))
-    .filter((x): x is { a: Assignment; g: Guest; effectiveSeat: number } => !!x && x.effectiveSeat >= perSide);
+  type SeatEntry = { a: Assignment; g: Guest; effectiveSeat: number };
+  const seatEntries: SeatEntry[] = imperialSeats
+    .map((entry, idx) => (entry ? { a: entry.a, g: entry.g, effectiveSeat: idx } : null))
+    .filter((x): x is SeatEntry => x !== null);
+  const sideA = seatEntries.filter((x) => x.effectiveSeat < perSide);
+  const sideB = seatEntries.filter((x) => x.effectiveSeat >= perSide);
 
   const remaining = table.capacity - tableAssignments.length;
   const isFull = remaining <= 0;
