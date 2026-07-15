@@ -76,7 +76,10 @@ export const MobileTableSheet = ({
   // so mobile matches desktop instead of showing them as "Senza posto".
   const perSide = Math.ceil(table.capacity / 2);
   const imperialSeats = isImperial
-    ? buildImperialSeats(seatedRaw, table.capacity)
+    ? buildImperialSeats(
+        seatedRaw.map((x) => ({ ...x, seat_position: x.a.seat_position })),
+        table.capacity,
+      )
     : [];
   const sideA = imperialSeats
     .map((entry, idx) => (entry ? { ...entry, effectiveSeat: idx } : null))
