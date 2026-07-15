@@ -1,4 +1,5 @@
 import jsPDF from "jspdf";
+import { buildImperialSeats } from "@/components/tables/imperialSeating";
 
 interface CateringGuest {
   first_name: string;
