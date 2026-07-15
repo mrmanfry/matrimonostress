@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Search, X, ArrowLeftRight, LayoutGrid } from "lucide-react";
 import { SeatActionDialog } from "./SeatActionDialog";
 import { ImperialSeatEditorDialog } from "./ImperialSeatEditorDialog";
+import { buildImperialSeats } from "./imperialSeating";
 
 
 type Guest = {
@@ -70,15 +71,22 @@ export const MobileTableSheet = ({
     .map((a) => ({ a, g: guests.find((x) => x.id === a.guest_id) }))
     .filter((x): x is { a: Assignment; g: Guest } => !!x.g);
 
-  // For imperial: split into Lato A (seats 0..perSide-1) / Lato B (rest)
+  // For imperial: build the shared seat map (same logic as desktop SVG & PDF).
+  // Guests without an explicit seat_position auto-fill the first free seats,
+  // so mobile matches desktop instead of showing them as "Senza posto".
   const perSide = Math.ceil(table.capacity / 2);
-  const sideA = seatedRaw
-    .filter(({ a }) => a.seat_position != null && (a.seat_position as number) < perSide)
-    .sort((x, y) => (x.a.seat_position! - y.a.seat_position!));
-  const sideB = seatedRaw
-    .filter(({ a }) => a.seat_position != null && (a.seat_position as number) >= perSide)
-    .sort((x, y) => (x.a.seat_position! - y.a.seat_position!));
-  const noSeat = seatedRaw.filter(({ a }) => a.seat_position == null);
+  const imperialSeats = isImperial
+    ? buildImperialSeats(
+        seatedRaw.map((x) => ({ ...x, seat_position: x.a.seat_position })),
+        table.capacity,
+      )
+    : [];
+  type SeatEntry = { a: Assignment; g: Guest; effectiveSeat: number };
+  const seatEntries: SeatEntry[] = imperialSeats
+    .map((entry, idx) => (entry ? { a: entry.a, g: entry.g, effectiveSeat: idx } : null))
+    .filter((x): x is SeatEntry => x !== null);
+  const sideA = seatEntries.filter((x) => x.effectiveSeat < perSide);
+  const sideB = seatEntries.filter((x) => x.effectiveSeat >= perSide);
 
   const remaining = table.capacity - tableAssignments.length;
   const isFull = remaining <= 0;
@@ -107,7 +115,15 @@ export const MobileTableSheet = ({
     ? seatedRaw.find((x) => x.g.id === seatAction.id)
     : null;
 
-  const renderSeatedRow = ({ a, g }: { a: Assignment; g: Guest }) => (
+  const renderSeatedRow = ({
+    a,
+    g,
+    effectiveSeat,
+  }: {
+    a: Assignment;
+    g: Guest;
+    effectiveSeat?: number;
+  }) => (
     <button
       key={a.id}
       type="button"
@@ -116,9 +132,9 @@ export const MobileTableSheet = ({
       }}
       className="w-full flex items-center gap-2 py-2 px-2 rounded-md hover:bg-muted/40 border-b last:border-b-0 text-left"
     >
-      {isImperial && a.seat_position != null && (
+      {isImperial && effectiveSeat != null && (
         <span className="font-mono text-xs text-muted-foreground w-6 shrink-0 text-right">
-          {(a.seat_position as number) + 1}.
+          {effectiveSeat + 1}.
         </span>
       )}
       <span className="flex-1 text-sm truncate">
@@ -205,15 +221,8 @@ export const MobileTableSheet = ({
                     sideB.map(renderSeatedRow)
                   )}
                 </div>
-                {noSeat.length > 0 && (
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-                      Senza posto
-                    </p>
-                    {noSeat.map(renderSeatedRow)}
-                  </div>
-                )}
               </div>
+
             ) : (
               seatedRaw.map(renderSeatedRow)
             )}
