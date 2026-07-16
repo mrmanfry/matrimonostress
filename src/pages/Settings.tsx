@@ -103,7 +103,10 @@ const Settings = () => {
   const [editedLocation, setEditedLocation] = useState("");
   const [editedCeremonyTime, setEditedCeremonyTime] = useState("");
   const [editedTimezone, setEditedTimezone] = useState("Europe/Rome");
+  const [editedDressCode, setEditedDressCode] = useState("");
+  const [editedLogisticalNotes, setEditedLogisticalNotes] = useState("");
   const [savingWeddingData, setSavingWeddingData] = useState(false);
+
   
   const { toast } = useToast();
 
