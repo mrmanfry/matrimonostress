@@ -1487,37 +1487,61 @@ export type Database = {
       }
       progress_tokens: {
         Row: {
+          audience: string
           created_at: string
           expires_at: string
           id: string
           is_active: boolean
+          label: string | null
+          show_addresses: boolean
           show_checklist: boolean
           show_countdown: boolean
+          show_dress_code: boolean
+          show_location: boolean
+          show_memories_qr: boolean
+          show_operational_numbers: boolean
           show_timeline: boolean
+          show_vendor_contacts: boolean
           show_vendors: boolean
           token: string
           wedding_id: string
         }
         Insert: {
+          audience?: string
           created_at?: string
           expires_at?: string
           id?: string
           is_active?: boolean
+          label?: string | null
+          show_addresses?: boolean
           show_checklist?: boolean
           show_countdown?: boolean
+          show_dress_code?: boolean
+          show_location?: boolean
+          show_memories_qr?: boolean
+          show_operational_numbers?: boolean
           show_timeline?: boolean
+          show_vendor_contacts?: boolean
           show_vendors?: boolean
           token: string
           wedding_id: string
         }
         Update: {
+          audience?: string
           created_at?: string
           expires_at?: string
           id?: string
           is_active?: boolean
+          label?: string | null
+          show_addresses?: boolean
           show_checklist?: boolean
           show_countdown?: boolean
+          show_dress_code?: boolean
+          show_location?: boolean
+          show_memories_qr?: boolean
+          show_operational_numbers?: boolean
           show_timeline?: boolean
+          show_vendor_contacts?: boolean
           show_vendors?: boolean
           token?: string
           wedding_id?: string
@@ -2365,9 +2389,11 @@ export type Database = {
           created_by: string
           current_period_end: string | null
           custom_pdf_template_url: string | null
+          dress_code: string | null
           id: string
           is_date_tentative: boolean
           location: string | null
+          logistical_notes: string | null
           partner_unlocked_at: string | null
           partner_unlocked_email: string | null
           partner1_name: string
@@ -2407,9 +2433,11 @@ export type Database = {
           created_by: string
           current_period_end?: string | null
           custom_pdf_template_url?: string | null
+          dress_code?: string | null
           id?: string
           is_date_tentative?: boolean
           location?: string | null
+          logistical_notes?: string | null
           partner_unlocked_at?: string | null
           partner_unlocked_email?: string | null
           partner1_name: string
@@ -2449,9 +2477,11 @@ export type Database = {
           created_by?: string
           current_period_end?: string | null
           custom_pdf_template_url?: string | null
+          dress_code?: string | null
           id?: string
           is_date_tentative?: boolean
           location?: string | null
+          logistical_notes?: string | null
           partner_unlocked_at?: string | null
           partner_unlocked_email?: string | null
           partner1_name?: string
