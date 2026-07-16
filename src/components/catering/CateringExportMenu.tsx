@@ -7,9 +7,10 @@ import type { CateringGuestRow } from "./CateringGuestTable";
 
 interface CateringExportMenuProps {
   guests: CateringGuestRow[];
+  staffMeals?: number;
 }
 
-export const CateringExportMenu = ({ guests }: CateringExportMenuProps) => {
+export const CateringExportMenu = ({ guests, staffMeals = 0 }: CateringExportMenuProps) => {
   const confirmed = guests.filter(g => g.rsvp_status === "confirmed");
 
   const exportCSV = () => {
