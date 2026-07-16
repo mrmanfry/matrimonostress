@@ -215,17 +215,15 @@ export function GiftPartyList({ parties, gifts, weddingId, avgEstimate, isPrivat
                   </div>
                 </div>
 
-                {status !== 'declined' && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="shrink-0 text-xs h-7 px-2.5 rounded-lg"
-                    style={{ borderColor: 'hsl(var(--paper-border-strong))', color: 'hsl(var(--paper-ink))' }}
-                    onClick={() => setDialogParty(party)}
-                  >
-                    + Regalo
-                  </Button>
-                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="shrink-0 text-xs h-7 px-2.5 rounded-lg"
+                  style={{ borderColor: 'hsl(var(--paper-border-strong))', color: 'hsl(var(--paper-ink))' }}
+                  onClick={() => setDialogParty(party)}
+                >
+                  + Regalo
+                </Button>
               </div>
             );
           })}
