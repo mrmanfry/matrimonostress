@@ -8,6 +8,7 @@ import { useGifts, useGiftForecast } from '@/hooks/useGifts';
 import { GiftCoverageWidget } from '@/components/gifts/GiftCoverageWidget';
 import { GiftSimulatorSlider } from '@/components/gifts/GiftSimulatorSlider';
 import { GiftPartyList, type PartyRow } from '@/components/gifts/GiftPartyList';
+import { ExternalGiftsSection } from '@/components/gifts/ExternalGiftsSection';
 import { ScenarioSelector, type ScenarioMode } from '@/components/budget/v2/ScenarioSelector';
 import {
   buildVendors, buildTotals,
