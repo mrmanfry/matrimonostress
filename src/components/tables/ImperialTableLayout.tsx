@@ -251,19 +251,34 @@ export const ImperialTableLayout = ({
 }: ImperialTableLayoutProps) => {
   const tableAssignments = assignments.filter(a => a.table_id === tableId);
 
-  // Build seat map: seatIndex → { guest, assignment }
+  // Build seat map: seatIndex (1-based) → { guest, assignment }
+  // Mirrors desktop SVG / PDF logic (buildImperialSeats): guests without an
+  // explicit seat_position auto-fill the first free seats so they appear
+  // assigned everywhere (mobile/desktop/PDF).
   const seatMap = new Map<number, { guest: Guest; assignment: Assignment }>();
-  const unpositioned: { guest: Guest; assignment: Assignment }[] = [];
+  const toAutoFill: { guest: Guest; assignment: Assignment }[] = [];
 
   tableAssignments.forEach(a => {
     const guest = guests.find(g => g.id === a.guest_id);
     if (!guest) return;
-    if (a.seat_position != null && a.seat_position >= 1 && a.seat_position <= capacity) {
+    if (
+      a.seat_position != null &&
+      a.seat_position >= 1 &&
+      a.seat_position <= capacity &&
+      !seatMap.has(a.seat_position)
+    ) {
       seatMap.set(a.seat_position, { guest, assignment: a });
     } else {
-      unpositioned.push({ guest, assignment: a });
+      toAutoFill.push({ guest, assignment: a });
     }
   });
+
+  for (let seat = 1; seat <= capacity && toAutoFill.length > 0; seat++) {
+    if (!seatMap.has(seat)) {
+      seatMap.set(seat, toAutoFill.shift()!);
+    }
+  }
+  const unpositioned: { guest: Guest; assignment: Assignment }[] = toAutoFill;
 
   // Unassigned guests (not assigned to any table)
   const assignedGuestIds = new Set(assignments.map(a => a.guest_id));
