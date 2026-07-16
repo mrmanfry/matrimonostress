@@ -424,8 +424,9 @@ export const AudienceEditor: React.FC<{
   onChange: (a: AudienceMap) => void;
   countsPlanned: { adults: number; children: number; staff: number };
   countsConfirmed: { adults: number; children: number; staff: number };
+  activeScenario?: { mode: ScenarioModeLite; counts: { adults: number; children: number; staff: number } };
   computed: { planned: number; confirmed: number };
-}> = ({ audience, onChange, countsPlanned, countsConfirmed, computed }) => {
+}> = ({ audience, onChange, countsPlanned, countsConfirmed, activeScenario, computed }) => {
   const keys = ['adults', 'children', 'staff'] as const;
   return (
     <div style={{ display: 'grid', gap: 12 }}>
@@ -436,6 +437,7 @@ export const AudienceEditor: React.FC<{
         const row = audience[k];
         const planQty = countsPlanned[k] || 0;
         const confQty = countsConfirmed[k] || 0;
+        const activeQty = activeScenario ? (activeScenario.counts[k] || 0) : null;
         return (
           <div key={k} style={{
             border: `1px solid ${border(true)}`, borderRadius: 10,
@@ -450,7 +452,9 @@ export const AudienceEditor: React.FC<{
                 />
                 <span style={{ fontFamily: FONT_SERIF, fontSize: 15, color: ink() }}>{AUDIENCE_LABELS[k]}</span>
                 <span style={{ fontSize: 11, color: ink(3), fontFamily: FONT_MONO }}>
-                  · {planQty} previsti / {confQty} confermati
+                  {activeScenario
+                    ? <>· {activeQty} {SCENARIO_LABEL[activeScenario.mode]}</>
+                    : <>· {planQty} previsti / {confQty} confermati</>}
                 </span>
               </label>
             </div>
