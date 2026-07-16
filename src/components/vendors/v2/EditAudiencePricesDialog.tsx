@@ -21,6 +21,13 @@ type LineItem = {
   order_index?: number | null;
 };
 
+type ScenarioModeLite = 'planned' | 'expected' | 'confirmed';
+const SCENARIO_LABEL: Record<ScenarioModeLite, string> = {
+  planned: 'pianificati',
+  expected: 'lista invitati',
+  confirmed: 'confermati',
+};
+
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -29,6 +36,7 @@ interface Props {
   lineItems: LineItem[];
   countsPlanned: { adults: number; children: number; staff: number };
   countsConfirmed: { adults: number; children: number; staff: number };
+  activeScenario?: { mode: ScenarioModeLite; counts: { adults: number; children: number; staff: number } };
   onSaved: () => void;
 }
 
@@ -38,7 +46,7 @@ type Mode = 'audience' | 'fixed';
 
 export const EditAudiencePricesDialog: React.FC<Props> = ({
   open, onClose, expenseItemId, description, lineItems,
-  countsPlanned, countsConfirmed, onSaved,
+  countsPlanned, countsConfirmed, activeScenario, onSaved,
 }) => {
   const [mode, setMode] = React.useState<Mode>('audience');
   const [draft, setDraft] = React.useState<AudienceMap>(() => buildDraft(lineItems));
