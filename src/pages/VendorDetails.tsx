@@ -916,6 +916,7 @@ export default function VendorDetails() {
             lineItems={(data.lineItemsByExpenseItem[it.id] || []) as any}
             countsPlanned={data.guestCounts.planned}
             countsConfirmed={data.guestCounts.confirmed}
+            activeScenario={{ mode: activeMode, counts: data.guestCounts[activeMode] }}
             onSaved={() => queryClient.invalidateQueries({ queryKey: ['vendor-detail-v2'] })}
           />
         );
