@@ -80,6 +80,14 @@ export const generateCateringReport = (guests: CateringGuest[], staffMeals: numb
   doc.text(`• Adulti: ${totalAdults}`, 40, y);
   y += 7;
   doc.text(`• Bambini: ${totalChildren}`, 40, y);
+  y += 7;
+  doc.setTextColor(30, 64, 175);
+  doc.text(`• Pasti Staff (fornitori): ${staffMeals}`, 40, y);
+  doc.setTextColor(0, 0, 0);
+  y += 7;
+  doc.setFont("helvetica", "bold");
+  doc.text(`  Totale coperti (ospiti + staff): ${totalGuests + staffMeals}`, 40, y);
+  doc.setFont("helvetica", "normal");
   
   y += 10;
   doc.setFont("helvetica", "bold");
