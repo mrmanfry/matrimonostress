@@ -33,7 +33,7 @@ interface Table {
  * Sezione 2: Tabella Ospiti con Dieta e Allergie
  * Sezione 3: Alert Allergie Evidenziati
  */
-export const generateCateringReport = (guests: CateringGuest[]): void => {
+export const generateCateringReport = (guests: CateringGuest[], staffMeals: number = 0): void => {
   const doc = new jsPDF();
   
   // Header
