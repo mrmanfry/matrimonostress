@@ -610,7 +610,10 @@ const Settings = () => {
     setEditedLocation(wedding?.location || "");
     setEditedCeremonyTime(wedding?.ceremony_start_time || "");
     setEditedTimezone(wedding?.timezone || "Europe/Rome");
+    setEditedDressCode(wedding?.dress_code || "");
+    setEditedLogisticalNotes(wedding?.logistical_notes || "");
   };
+
 
   const handlePermissionsUpdated = (roleIds: string[], permissionsConfig: any) => {
     setRoles((prev) => prev.map((role) => (
