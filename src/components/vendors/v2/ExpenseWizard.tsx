@@ -323,7 +323,8 @@ const StepImporto: React.FC<{
   guestsConfirmed: number;
   countsPlanned: { adults: number; children: number; staff: number };
   countsConfirmed: { adults: number; children: number; staff: number };
-}> = ({ form, upd, computed, guestsPlanned, guestsConfirmed, countsPlanned, countsConfirmed }) => (
+  activeScenario?: { mode: ScenarioModeLite; counts: { adults: number; children: number; staff: number } };
+}> = ({ form, upd, computed, guestsPlanned, guestsConfirmed, countsPlanned, countsConfirmed, activeScenario }) => (
   <div style={{ display: 'grid', gap: 18, fontFamily: FONT_UI }}>
     {form.kind === 'fixed' && (
       <>
