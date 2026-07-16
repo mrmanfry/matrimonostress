@@ -8,6 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { UserPlus, Trash2, Users, Shield, Plus, Link2, Calendar, DollarSign, Heart, Share2, ExternalLink, Settings2, User, CreditCard } from "lucide-react";
 import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
+import { Textarea } from "@/components/ui/textarea";
+
 import { AccountSettingsCard } from "@/components/settings/AccountSettingsCard";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -101,7 +103,10 @@ const Settings = () => {
   const [editedLocation, setEditedLocation] = useState("");
   const [editedCeremonyTime, setEditedCeremonyTime] = useState("");
   const [editedTimezone, setEditedTimezone] = useState("Europe/Rome");
+  const [editedDressCode, setEditedDressCode] = useState("");
+  const [editedLogisticalNotes, setEditedLogisticalNotes] = useState("");
   const [savingWeddingData, setSavingWeddingData] = useState(false);
+
   
   const { toast } = useToast();
 
@@ -142,6 +147,9 @@ const Settings = () => {
       setEditedLocation(weddingData.location || "");
       setEditedCeremonyTime(weddingData.ceremony_start_time || "");
       setEditedTimezone(weddingData.timezone || "Europe/Rome");
+      setEditedDressCode((weddingData as any).dress_code || "");
+      setEditedLogisticalNotes((weddingData as any).logistical_notes || "");
+
 
       const { data: rolesData } = await supabase
         .from("user_roles")
@@ -565,7 +573,10 @@ const Settings = () => {
           location: editedLocation || null,
           ceremony_start_time: editedCeremonyTime || null,
           timezone: editedTimezone || "Europe/Rome",
-        })
+          dress_code: editedDressCode.trim() || null,
+          logistical_notes: editedLogisticalNotes.trim() || null,
+        } as any)
+
         .eq("id", wedding.id);
 
       if (error) throw error;
@@ -599,7 +610,10 @@ const Settings = () => {
     setEditedLocation(wedding?.location || "");
     setEditedCeremonyTime(wedding?.ceremony_start_time || "");
     setEditedTimezone(wedding?.timezone || "Europe/Rome");
+    setEditedDressCode(wedding?.dress_code || "");
+    setEditedLogisticalNotes(wedding?.logistical_notes || "");
   };
+
 
   const handlePermissionsUpdated = (roleIds: string[], permissionsConfig: any) => {
     setRoles((prev) => prev.map((role) => (
@@ -829,6 +843,29 @@ const Settings = () => {
                       />
                     </div>
                   </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="dress_code">Dress code (mostrato agli ospiti)</Label>
+                      <Textarea
+                        id="dress_code"
+                        value={editedDressCode}
+                        onChange={(e) => setEditedDressCode(e.target.value)}
+                        placeholder="Es: Formale — abito lungo/scuro. Evitare il bianco."
+                        rows={2}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="logistical_notes">Note logistiche (mostrate ai fornitori)</Label>
+                      <Textarea
+                        id="logistical_notes"
+                        value={editedLogisticalNotes}
+                        onChange={(e) => setEditedLogisticalNotes(e.target.value)}
+                        placeholder="Es: Accesso di servizio dal cancello posteriore. Parcheggio staff nel cortile interno."
+                        rows={2}
+                      />
+                    </div>
+                  </div>
+
                   <div className="flex gap-2 flex-wrap">
                     <Button 
                       onClick={() => handleSaveWeddingData()} 
@@ -894,56 +931,23 @@ const Settings = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Share2 className="w-5 h-5 text-purple-500" />
-                Condividi Progresso
+                Condividi il matrimonio
               </CardTitle>
               <CardDescription>
-                Crea un link pubblico per mostrare il progresso a parenti e amici
+                Crea link pubblici dedicati per parenti e amici oppure per i fornitori del giorno dell'evento.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {progressToken ? (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <Input 
-                      value={`${window.location.origin}/progress/${progressToken.token}`} 
-                      readOnly 
-                      className="text-sm"
-                    />
-                    <Button 
-                      variant="outline"
-                      size="icon"
-                      onClick={() => {
-                        navigator.clipboard.writeText(`${window.location.origin}/progress/${progressToken.token}`);
-                        toast({ title: "Copiato!", description: "Link copiato negli appunti" });
-                      }}
-                    >
-                      <Link2 className="w-4 h-4" />
-                    </Button>
-                    <Button 
-                      variant="outline"
-                      size="icon"
-                      onClick={() => window.open(`${window.location.origin}/progress/${progressToken.token}`, "_blank")}
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                    </Button>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm text-muted-foreground">
-                      Scade il: {new Date(progressToken.expires_at).toLocaleDateString("it-IT")}
-                    </p>
-                    <Button variant="outline" size="sm" onClick={() => setShareDialogOpen(true)}>
-                      Modifica Visibilità
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <Button onClick={() => setShareDialogOpen(true)} className="w-full md:w-auto gap-2">
-                  <Share2 className="w-4 h-4" />
-                  Crea Link Pubblico
-                </Button>
-              )}
+              <Button onClick={() => setShareDialogOpen(true)} className="w-full md:w-auto gap-2">
+                <Share2 className="w-4 h-4" />
+                Gestisci link condivisi
+              </Button>
+              <p className="text-xs text-muted-foreground mt-3">
+                Due tipologie di link con contenuti diversi: <strong>Ospiti</strong> (countdown, programma, dress code, QR foto) e <strong>Fornitori</strong> (timeline operativa, indirizzi, contatti, numeri).
+              </p>
             </CardContent>
           </Card>
+
         </TabsContent>
 
         {/* TAB: Team & Collaboratori */}
@@ -1245,16 +1249,8 @@ const Settings = () => {
         open={shareDialogOpen}
         onOpenChange={setShareDialogOpen}
         weddingId={wedding?.id || ""}
-        existingToken={progressToken}
-        onTokenCreated={(token) => {
-          setProgressToken(token);
-          loadData();
-        }}
-        onTokenDeleted={() => {
-          setProgressToken(null);
-          setShareDialogOpen(false);
-        }}
       />
+
 
 
       {/* Confirmation Dialog */}

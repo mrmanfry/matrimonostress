@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
@@ -12,310 +14,282 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
 } from "@/components/ui/dialog";
-import { 
-  Share2, 
-  Copy, 
-  CheckCircle, 
-  ExternalLink, 
+import {
+  Share2,
+  Copy,
+  CheckCircle,
+  ExternalLink,
   Trash2,
-  Eye,
-  EyeOff,
+  Plus,
+  Users,
+  Wrench,
+  Heart,
+  Clock,
+  MapPin,
+  Shirt,
+  QrCode,
   Calendar,
-  Building2,
-  ListChecks,
-  Clock
+  Phone,
+  Hash,
 } from "lucide-react";
+
+type Audience = "guests" | "vendors";
 
 interface ProgressToken {
   id: string;
   token: string;
   expires_at: string;
   is_active: boolean;
-  show_checklist: boolean;
-  show_vendors: boolean;
-  show_timeline: boolean;
+  audience: Audience;
+  label: string | null;
   show_countdown: boolean;
+  show_timeline: boolean;
+  show_location: boolean;
+  show_dress_code: boolean;
+  show_memories_qr: boolean;
+  show_addresses: boolean;
+  show_vendor_contacts: boolean;
+  show_operational_numbers: boolean;
 }
 
 interface ShareProgressDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   weddingId: string;
-  existingToken?: ProgressToken | null;
-  onTokenCreated: (token: ProgressToken) => void;
-  onTokenDeleted: () => void;
 }
 
-export function ShareProgressDialog({
-  open,
-  onOpenChange,
-  weddingId,
-  existingToken,
-  onTokenCreated,
-  onTokenDeleted,
-}: ShareProgressDialogProps) {
+const guestsDefaults = {
+  show_countdown: true,
+  show_timeline: true,
+  show_location: true,
+  show_dress_code: true,
+  show_memories_qr: true,
+};
+
+const vendorsDefaults = {
+  show_timeline: true,
+  show_addresses: true,
+  show_vendor_contacts: true,
+  show_operational_numbers: true,
+};
+
+export function ShareProgressDialog({ open, onOpenChange, weddingId }: ShareProgressDialogProps) {
   const [loading, setLoading] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [settings, setSettings] = useState({
-    show_checklist: existingToken?.show_checklist ?? true,
-    show_vendors: existingToken?.show_vendors ?? true,
-    show_timeline: existingToken?.show_timeline ?? true,
-    show_countdown: existingToken?.show_countdown ?? true,
-  });
+  const [tokens, setTokens] = useState<ProgressToken[]>([]);
+  const [audience, setAudience] = useState<Audience>("guests");
+  const [newLabel, setNewLabel] = useState("");
+  const [newSettings, setNewSettings] = useState<Record<string, boolean>>(guestsDefaults);
+  const [showForm, setShowForm] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const generateLink = async () => {
+  useEffect(() => {
+    if (open && weddingId) {
+      loadTokens();
+    }
+  }, [open, weddingId]);
+
+  useEffect(() => {
+    setNewSettings(audience === "guests" ? { ...guestsDefaults } : { ...vendorsDefaults });
+    setNewLabel("");
+    setShowForm(false);
+  }, [audience]);
+
+  const loadTokens = async () => {
+    const { data } = await supabase
+      .from("progress_tokens")
+      .select("*")
+      .eq("wedding_id", weddingId)
+      .eq("is_active", true)
+      .order("created_at", { ascending: false });
+    setTokens((data as any) || []);
+  };
+
+  const createLink = async () => {
     setLoading(true);
     try {
-      // Generate a unique token
-      const token = `prog_${crypto.randomUUID().replace(/-/g, '').slice(0, 24)}`;
-      
-      const { data, error } = await supabase
-        .from("progress_tokens")
-        .insert({
-          wedding_id: weddingId,
-          token,
-          ...settings,
-        })
-        .select()
-        .single();
-
+      const token = `prog_${crypto.randomUUID().replace(/-/g, "").slice(0, 24)}`;
+      const payload: any = {
+        wedding_id: weddingId,
+        token,
+        audience,
+        label: newLabel.trim() || null,
+        ...newSettings,
+      };
+      const { error } = await supabase.from("progress_tokens").insert(payload);
       if (error) throw error;
-
-      onTokenCreated(data);
-      toast({
-        title: "Link creato!",
-        description: "Ora puoi condividerlo con parenti e amici.",
-      });
-    } catch (error: any) {
-      console.error("Error creating token:", error);
-      toast({
-        title: "Errore",
-        description: "Impossibile creare il link",
-        variant: "destructive",
-      });
+      toast({ title: "Link creato", description: "Il link è pronto per essere condiviso" });
+      setShowForm(false);
+      setNewLabel("");
+      setNewSettings(audience === "guests" ? { ...guestsDefaults } : { ...vendorsDefaults });
+      loadTokens();
+    } catch (e: any) {
+      toast({ title: "Errore", description: e.message || "Impossibile creare il link", variant: "destructive" });
     } finally {
       setLoading(false);
     }
   };
 
-  const updateSettings = async () => {
-    if (!existingToken) return;
-    
-    setLoading(true);
-    try {
-      const { error } = await supabase
-        .from("progress_tokens")
-        .update(settings)
-        .eq("id", existingToken.id);
-
-      if (error) throw error;
-
-      onTokenCreated({ ...existingToken, ...settings });
-      toast({
-        title: "Salvato",
-        description: "Impostazioni aggiornate",
-      });
-    } catch (error) {
-      toast({
-        title: "Errore",
-        description: "Impossibile salvare",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+  const deleteToken = async (id: string) => {
+    const { error } = await supabase.from("progress_tokens").delete().eq("id", id);
+    if (error) {
+      toast({ title: "Errore", description: "Impossibile eliminare", variant: "destructive" });
+      return;
     }
+    toast({ title: "Link eliminato" });
+    loadTokens();
   };
 
-  const deleteToken = async () => {
-    if (!existingToken) return;
-    
-    setLoading(true);
-    try {
-      const { error } = await supabase
-        .from("progress_tokens")
-        .delete()
-        .eq("id", existingToken.id);
-
-      if (error) throw error;
-
-      onTokenDeleted();
-      toast({
-        title: "Link eliminato",
-        description: "Il link non sarà più accessibile",
-      });
-    } catch (error) {
-      toast({
-        title: "Errore",
-        description: "Impossibile eliminare",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const copyLink = () => {
-    if (!existingToken) return;
-    
-    const url = `${window.location.origin}/progress/${existingToken.token}`;
+  const copyLink = (t: ProgressToken) => {
+    const url = `${window.location.origin}/progress/${t.token}`;
     navigator.clipboard.writeText(url);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-    
-    toast({
-      title: "Copiato!",
-      description: "Link copiato negli appunti",
-    });
+    setCopiedId(t.id);
+    setTimeout(() => setCopiedId(null), 2000);
+    toast({ title: "Copiato!", description: "Link copiato negli appunti" });
   };
 
-  const openLink = () => {
-    if (!existingToken) return;
-    window.open(`${window.location.origin}/progress/${existingToken.token}`, "_blank");
+  const guestTokens = tokens.filter((t) => t.audience === "guests");
+  const vendorTokens = tokens.filter((t) => t.audience === "vendors");
+
+  const renderTokenCard = (t: ProgressToken) => {
+    const url = `${window.location.origin}/progress/${t.token}`;
+    return (
+      <Card key={t.id} className="p-4 space-y-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <p className="font-medium text-sm truncate">{t.label || (t.audience === "guests" ? "Link Ospiti" : "Link Fornitori")}</p>
+            <p className="text-xs text-muted-foreground">
+              Scade il {new Date(t.expires_at).toLocaleDateString("it-IT")}
+            </p>
+          </div>
+          <Badge variant="secondary" className="shrink-0">
+            {t.audience === "guests" ? <Heart className="w-3 h-3 mr-1" /> : <Wrench className="w-3 h-3 mr-1" />}
+            {t.audience === "guests" ? "Ospiti" : "Fornitori"}
+          </Badge>
+        </div>
+        <div className="flex items-center gap-2">
+          <Input readOnly value={url} className="text-xs" />
+          <Button variant="outline" size="icon" onClick={() => copyLink(t)}>
+            {copiedId === t.id ? <CheckCircle className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+          </Button>
+          <Button variant="outline" size="icon" onClick={() => window.open(url, "_blank")}>
+            <ExternalLink className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-destructive hover:text-destructive"
+            onClick={() => deleteToken(t.id)}
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+      </Card>
+    );
+  };
+
+  const guestToggles: { key: keyof typeof guestsDefaults; icon: any; label: string }[] = [
+    { key: "show_countdown", icon: Clock, label: "Countdown al matrimonio" },
+    { key: "show_timeline", icon: Calendar, label: "Programma del giorno" },
+    { key: "show_location", icon: MapPin, label: "Indirizzi e location" },
+    { key: "show_dress_code", icon: Shirt, label: "Dress code" },
+    { key: "show_memories_qr", icon: QrCode, label: "QR fotocamera Memories" },
+  ];
+
+  const vendorToggles: { key: keyof typeof vendorsDefaults; icon: any; label: string }[] = [
+    { key: "show_timeline", icon: Calendar, label: "Timeline operativa dettagliata" },
+    { key: "show_addresses", icon: MapPin, label: "Indirizzi e note logistiche" },
+    { key: "show_vendor_contacts", icon: Phone, label: "Contatti chiave" },
+    { key: "show_operational_numbers", icon: Hash, label: "Numeri operativi (ospiti, tavoli, esigenze)" },
+  ];
+
+  const renderNewForm = () => {
+    const toggles = audience === "guests" ? guestToggles : vendorToggles;
+    return (
+      <Card className="p-4 space-y-4 border-dashed">
+        <div className="space-y-2">
+          <Label className="text-sm">Etichetta (opzionale)</Label>
+          <Input
+            value={newLabel}
+            onChange={(e) => setNewLabel(e.target.value)}
+            placeholder={audience === "guests" ? "Es: Famiglia Rossi" : "Es: Fotografo, Catering"}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label className="text-sm">Cosa mostrare</Label>
+          <div className="grid gap-2">
+            {toggles.map(({ key, icon: Icon, label }) => (
+              <div key={key} className="flex items-center justify-between p-2.5 rounded-md bg-muted/40">
+                <div className="flex items-center gap-2 text-sm">
+                  <Icon className="w-4 h-4 text-muted-foreground" />
+                  {label}
+                </div>
+                <Switch
+                  checked={!!newSettings[key]}
+                  onCheckedChange={(v) => setNewSettings((s) => ({ ...s, [key]: v }))}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="flex gap-2 justify-end">
+          <Button variant="ghost" onClick={() => setShowForm(false)}>Annulla</Button>
+          <Button onClick={createLink} disabled={loading}>
+            {loading ? "Creazione..." : "Crea link"}
+          </Button>
+        </div>
+      </Card>
+    );
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Share2 className="w-5 h-5" />
-            Condividi Progresso
+            Condividi il tuo matrimonio
           </DialogTitle>
           <DialogDescription>
-            Crea un link pubblico per condividere il progresso del matrimonio con parenti e amici.
+            Crea link pubblici dedicati per parenti e amici oppure per i fornitori del giorno dell'evento.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
-          {/* Visibility Settings */}
-          <div className="space-y-4">
-            <h4 className="font-medium text-sm">Cosa mostrare:</h4>
-            
-            <div className="grid gap-3">
-              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                <div className="flex items-center gap-3">
-                  <Clock className="w-4 h-4 text-muted-foreground" />
-                  <Label htmlFor="countdown">Countdown</Label>
-                </div>
-                <Switch
-                  id="countdown"
-                  checked={settings.show_countdown}
-                  onCheckedChange={(checked) => 
-                    setSettings(s => ({ ...s, show_countdown: checked }))
-                  }
-                />
-              </div>
+        <Tabs value={audience} onValueChange={(v) => setAudience(v as Audience)} className="mt-2">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="guests" className="gap-2"><Users className="w-4 h-4" /> Ospiti</TabsTrigger>
+            <TabsTrigger value="vendors" className="gap-2"><Wrench className="w-4 h-4" /> Fornitori</TabsTrigger>
+          </TabsList>
 
-              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                <div className="flex items-center gap-3">
-                  <ListChecks className="w-4 h-4 text-muted-foreground" />
-                  <Label htmlFor="checklist">Progresso Checklist</Label>
-                </div>
-                <Switch
-                  id="checklist"
-                  checked={settings.show_checklist}
-                  onCheckedChange={(checked) => 
-                    setSettings(s => ({ ...s, show_checklist: checked }))
-                  }
-                />
-              </div>
+          <TabsContent value="guests" className="space-y-3 mt-4">
+            <p className="text-sm text-muted-foreground">
+              Condividi con parenti e amici il conto alla rovescia, il programma della giornata, le informazioni pratiche e il QR per scattare foto con la fotocamera Memories.
+            </p>
+            {guestTokens.map(renderTokenCard)}
+            {showForm && audience === "guests" ? (
+              renderNewForm()
+            ) : (
+              <Button variant="outline" className="w-full" onClick={() => setShowForm(true)}>
+                <Plus className="w-4 h-4 mr-2" /> Nuovo link Ospiti
+              </Button>
+            )}
+          </TabsContent>
 
-              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                <div className="flex items-center gap-3">
-                  <Building2 className="w-4 h-4 text-muted-foreground" />
-                  <Label htmlFor="vendors">Fornitori Confermati</Label>
-                </div>
-                <Switch
-                  id="vendors"
-                  checked={settings.show_vendors}
-                  onCheckedChange={(checked) => 
-                    setSettings(s => ({ ...s, show_vendors: checked }))
-                  }
-                />
-              </div>
-
-              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                <div className="flex items-center gap-3">
-                  <Calendar className="w-4 h-4 text-muted-foreground" />
-                  <Label htmlFor="timeline">Timeline del Giorno</Label>
-                </div>
-                <Switch
-                  id="timeline"
-                  checked={settings.show_timeline}
-                  onCheckedChange={(checked) => 
-                    setSettings(s => ({ ...s, show_timeline: checked }))
-                  }
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Generated Link */}
-          {existingToken ? (
-            <Card className="p-4 space-y-4">
-              <div className="flex items-center gap-2">
-                <Input
-                  readOnly
-                  value={`${window.location.origin}/progress/${existingToken.token}`}
-                  className="text-sm"
-                />
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={copyLink}
-                >
-                  {copied ? (
-                    <CheckCircle className="w-4 h-4 text-green-600" />
-                  ) : (
-                    <Copy className="w-4 h-4" />
-                  )}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={openLink}
-                >
-                  <ExternalLink className="w-4 h-4" />
-                </Button>
-              </div>
-
-              <div className="flex items-center justify-between text-sm text-muted-foreground">
-                <span>
-                  Scade il: {new Date(existingToken.expires_at).toLocaleDateString("it-IT")}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-destructive hover:text-destructive"
-                  onClick={deleteToken}
-                  disabled={loading}
-                >
-                  <Trash2 className="w-4 h-4 mr-1" />
-                  Elimina
-                </Button>
-              </div>
-            </Card>
-          ) : (
-            <Button
-              onClick={generateLink}
-              disabled={loading}
-              className="w-full"
-            >
-              {loading ? "Creazione..." : "Genera Link Pubblico"}
-            </Button>
-          )}
-        </div>
-
-        <DialogFooter>
-          {existingToken && (
-            <Button onClick={updateSettings} disabled={loading}>
-              Salva Modifiche
-            </Button>
-          )}
-        </DialogFooter>
+          <TabsContent value="vendors" className="space-y-3 mt-4">
+            <p className="text-sm text-muted-foreground">
+              Condividi con i fornitori tutti i dettagli operativi del giorno: orari, indirizzi, contatti e numeri chiave.
+            </p>
+            {vendorTokens.map(renderTokenCard)}
+            {showForm && audience === "vendors" ? (
+              renderNewForm()
+            ) : (
+              <Button variant="outline" className="w-full" onClick={() => setShowForm(true)}>
+                <Plus className="w-4 h-4 mr-2" /> Nuovo link Fornitori
+              </Button>
+            )}
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );
