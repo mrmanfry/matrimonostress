@@ -40,6 +40,13 @@ export interface ExpenseWizardValues {
 }
 
 
+export type ScenarioModeLite = 'planned' | 'expected' | 'confirmed';
+export const SCENARIO_LABEL: Record<ScenarioModeLite, string> = {
+  planned: 'pianificati',
+  expected: 'lista invitati',
+  confirmed: 'confermati',
+};
+
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -49,6 +56,8 @@ interface Props {
   // Detailed counts for per_audience (defaults: adults = guests*, children = 0, staff = 0)
   countsPlanned?: { adults: number; children: number; staff: number };
   countsConfirmed?: { adults: number; children: number; staff: number };
+  // Active scenario selected on the page (Pianificato/Lista invitati/Confermati)
+  activeScenario?: { mode: ScenarioModeLite; counts: { adults: number; children: number; staff: number } };
   weddingDate: string | null;
   onSave: (values: ExpenseWizardValues) => Promise<void>;
 }
