@@ -969,6 +969,8 @@ const ExpensesList: React.FC<{
   const [draftTaxInclusive, setDraftTaxInclusive] = React.useState<boolean>(true);
   const [draftType, setDraftType] = React.useState<'fixed' | 'per_person' | 'per_audience'>('fixed');
   const [draftAudience, setDraftAudience] = React.useState<AudienceMap>(() => buildAudienceDraft([]));
+  const [detailsItemId, setDetailsItemId] = React.useState<string | null>(null);
+
 
   const startEdit = (it: DbExpenseItem) => {
     const lis = lineItemsByExpenseItem[it.id] || [];
@@ -1169,18 +1171,25 @@ const ExpensesList: React.FC<{
               })()
             ) : (
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 20, alignItems: 'flex-start' }}>
+              <div
+                onClick={() => setDetailsItemId(it.id)}
+                title="Vedi dettagli spesa"
+                style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 20, alignItems: 'flex-start', cursor: 'pointer', borderRadius: 6, transition: 'background .15s' }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'hsl(var(--paper-surface-muted))')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+              >
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     <span style={{ fontSize: 14, color: ink(), fontWeight: 500 }}>{it.description}</span>
                     {isVariable && <PaperBadge tone="brand" size="sm">Variabile</PaperBadge>}
+                    {!isVariable && <PaperBadge tone="neutral" size="sm">Fisso</PaperBadge>}
                   </div>
                   {it.estimated_amount && isVariable && (
                     <div style={{ fontSize: 12, color: ink(3), marginTop: 4, fontFamily: FONT_MONO }}>
                       {fmtEUR(Number(it.estimated_amount))} unitario
                     </div>
                   )}
-                  <div className="vd-expense-actions" style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                  <div className="vd-expense-actions" style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }} onClick={e => e.stopPropagation()}>
                     {!lockAmounts && (
                       <PaperButton
                         variant="ghost" size="sm" iconLeft={<Pencil size={11}/>}
@@ -1215,12 +1224,126 @@ const ExpensesList: React.FC<{
                 </div>
               </div>
             )}
+
           </div>
         );
       })}
+      {detailsItemId && (() => {
+        const it = items.find(x => x.id === detailsItemId);
+        if (!it) return null;
+        const lis = lineItemsByExpenseItem[it.id] || [];
+        const isVar = (it.expense_type ?? '').toLowerCase() === 'variable';
+        const kind: 'fixed' | 'per_person' | 'per_audience' =
+          isVar && lis.length > 0 ? 'per_audience' : isVar ? 'per_person' : 'fixed';
+        const kindLabel = kind === 'fixed' ? 'Fisso' : kind === 'per_person' ? 'Per persona' : 'Per fasce';
+        const taxIncl = it.amount_is_tax_inclusive ?? true;
+        const taxRate = it.tax_rate != null ? Number(it.tax_rate) : 0;
+        const total = calculateExpenseAmount(it as unknown as CalcExpenseItem, lis as unknown as CalcLineItem[], mode, guestCounts);
+        const counts = guestCounts[mode];
+        const totalPeople = counts.adults + counts.children + counts.staff;
+        const scenarioLabel = mode === 'planned' ? 'pianificati' : mode === 'expected' ? 'lista invitati' : 'confermati';
+        return (
+          <>
+            <div onClick={() => setDetailsItemId(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(43,37,32,0.35)', zIndex: 60 }} />
+            <div style={{
+              position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+              width: 480, maxWidth: 'calc(100vw - 32px)', maxHeight: '85vh', overflow: 'auto',
+              background: 'hsl(var(--paper-bg))', border: `1px solid ${border()}`, borderRadius: 12,
+              boxShadow: '0 24px 48px -16px rgba(43,37,32,.24)', zIndex: 61, fontFamily: FONT_UI,
+            }}>
+              <div style={{ padding: '20px 24px', borderBottom: `1px solid ${border()}`, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                <div>
+                  <div style={{ fontSize: 11, color: ink(3), letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>Dettaglio spesa</div>
+                  <h3 style={{ margin: 0, fontFamily: FONT_SERIF, fontWeight: 500, fontSize: 20, color: ink() }}>{it.description}</h3>
+                </div>
+                <button onClick={() => setDetailsItemId(null)} aria-label="Chiudi" style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: ink(2), padding: 4 }}>
+                  <X size={16}/>
+                </button>
+              </div>
+              <div style={{ padding: '18px 24px', display: 'grid', gap: 14 }}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <PaperBadge tone={isVar ? 'brand' : 'neutral'} size="sm">{kindLabel}</PaperBadge>
+                  {taxRate > 0 && (
+                    <PaperBadge tone="neutral" size="sm">IVA {taxRate}% {taxIncl ? 'inclusa' : 'da aggiungere'}</PaperBadge>
+                  )}
+                </div>
+
+                {kind === 'fixed' && (
+                  <div style={{ display: 'grid', gap: 6, background: surface(), border: `1px solid ${border()}`, borderRadius: 8, padding: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: 12, color: ink(3) }}>Importo contratto</span>
+                      <span style={{ fontFamily: FONT_MONO, fontSize: 13, color: ink() }}>{fmtEUR(Number(it.total_amount ?? it.fixed_amount ?? 0))}</span>
+                    </div>
+                  </div>
+                )}
+
+                {kind === 'per_person' && (
+                  <div style={{ display: 'grid', gap: 6, background: surface(), border: `1px solid ${border()}`, borderRadius: 8, padding: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: 12, color: ink(3) }}>Prezzo unitario</span>
+                      <span style={{ fontFamily: FONT_MONO, fontSize: 13, color: ink() }}>{fmtEUR(Number(it.estimated_amount ?? 0))}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: 12, color: ink(3) }}>Persone ({scenarioLabel})</span>
+                      <span style={{ fontFamily: FONT_MONO, fontSize: 13, color: ink() }}>{totalPeople}</span>
+                    </div>
+                    <div style={{ fontSize: 11, color: ink(3), marginTop: 2 }}>
+                      Adulti {counts.adults} · Bambini {counts.children} · Staff {counts.staff}
+                    </div>
+                  </div>
+                )}
+
+                {kind === 'per_audience' && (
+                  <div style={{ background: surface(), border: `1px solid ${border()}`, borderRadius: 8, overflow: 'hidden' }}>
+                    {lis.map((li: any, i: number) => {
+                      const qKey = (li.quantity_type || 'adults') as 'adults' | 'children' | 'staff';
+                      const qty = counts[qKey] ?? 0;
+                      const unit = Number(li.unit_price || 0);
+                      const inc = li.price_is_tax_inclusive !== false;
+                      const rate = li.tax_rate != null ? Number(li.tax_rate) : 0;
+                      const gross = inc || !rate ? unit : unit * (1 + rate / 100);
+                      const label = AUDIENCE_LABELS[qKey] || li.description || qKey;
+                      return (
+                        <div key={li.id || i} style={{ padding: '10px 12px', borderBottom: i < lis.length - 1 ? `1px solid ${border()}` : 'none', display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                          <div>
+                            <div style={{ fontSize: 13, color: ink() }}>{label}</div>
+                            <div style={{ fontSize: 11, color: ink(3), marginTop: 2, fontFamily: FONT_MONO }}>
+                              {fmtEUR(unit)} × {qty} {rate > 0 ? `· IVA ${rate}% ${inc ? 'incl.' : 'escl.'}` : ''}
+                            </div>
+                          </div>
+                          <div style={{ fontFamily: FONT_MONO, fontSize: 13, color: ink() }}>{fmtEUR(gross * qty)}</div>
+                        </div>
+                      );
+                    })}
+                    {lis.length === 0 && (
+                      <div style={{ padding: 12, fontSize: 12, color: ink(3), textAlign: 'center' }}>Nessuna fascia configurata</div>
+                    )}
+                    <div style={{ fontSize: 11, color: ink(3), padding: '8px 12px', background: 'hsl(var(--paper-surface-muted))', borderTop: `1px solid ${border()}` }}>
+                      Scenario: {scenarioLabel} · Adulti {counts.adults} · Bambini {counts.children} · Staff {counts.staff}
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', paddingTop: 8, borderTop: `1px solid ${border()}` }}>
+                  <span style={{ fontSize: 12, color: ink(3), textTransform: 'uppercase', letterSpacing: '0.08em' }}>Totale attuale</span>
+                  <span style={{ fontFamily: FONT_SERIF, fontSize: 20, fontWeight: 500, color: ink() }}>{fmtEUR(total)}</span>
+                </div>
+
+                {!lockAmounts && (
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                    <PaperButton variant="ghost" size="sm" onClick={() => setDetailsItemId(null)}>Chiudi</PaperButton>
+                    <PaperButton variant="primary" size="sm" iconLeft={<Pencil size={11}/>} onClick={() => { setDetailsItemId(null); startEdit(it); }}>Modifica</PaperButton>
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        );
+      })()}
     </PaperCard>
   );
 };
+
 
 const PaymentTimeline: React.FC<{
   payments: DbPayment[];
