@@ -39,6 +39,7 @@ const Catering = () => {
 
   const [guests, setGuests] = useState<CateringGuestRow[]>([]);
   const [tableNames, setTableNames] = useState<string[]>([]);
+  const [staffMeals, setStaffMeals] = useState<number>(0);
   const [cateringConfig, setCateringConfig] = useState<CateringConfig>(DEFAULT_CONFIG);
   const [loading, setLoading] = useState(true);
   const [printEditorOpen, setPrintEditorOpen] = useState(false);
