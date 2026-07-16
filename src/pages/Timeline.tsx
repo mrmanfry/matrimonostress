@@ -173,7 +173,7 @@ const Timeline = () => {
           <div>
             <h1 className="text-3xl font-bold">Timeline Giorno del Matrimonio</h1>
             <p className="text-muted-foreground mt-1">
-              {events.length} eventi programmati
+              {events.length} eventi programmati · {events.filter(e => e.is_public).length} pubblici, {events.filter(e => !e.is_public).length} privati
             </p>
           </div>
           <div className="flex gap-2">
