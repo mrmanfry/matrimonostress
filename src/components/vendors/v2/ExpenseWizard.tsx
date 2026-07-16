@@ -185,6 +185,7 @@ export const ExpenseWizard: React.FC<Props> = ({
           computed={computed}
           guestsPlanned={guestsPlanned} guestsConfirmed={guestsConfirmed}
           countsPlanned={cPlan} countsConfirmed={cConf}
+          activeScenario={activeScenario}
         />
       )}
       {step === 2 && (
