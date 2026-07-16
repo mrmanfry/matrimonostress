@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Plus, Share2, Printer, Heart, Clock } from "lucide-react";
+import { Plus, Share2, Printer, Heart, Clock, Eye, EyeOff } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { EventDialog } from "@/components/timeline/EventDialog";
 import { format } from "date-fns";
@@ -15,6 +16,7 @@ type TimelineEvent = {
   description: string | null;
   location: string | null;
   order_index: number;
+  is_public: boolean;
 };
 
 const Timeline = () => {
