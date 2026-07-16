@@ -573,7 +573,10 @@ const Settings = () => {
           location: editedLocation || null,
           ceremony_start_time: editedCeremonyTime || null,
           timezone: editedTimezone || "Europe/Rome",
-        })
+          dress_code: editedDressCode.trim() || null,
+          logistical_notes: editedLogisticalNotes.trim() || null,
+        } as any)
+
         .eq("id", wedding.id);
 
       if (error) throw error;
