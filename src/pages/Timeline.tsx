@@ -204,25 +204,25 @@ const Timeline = () => {
           ) : (
             <div className="space-y-4">
               {events.map((event, index) => (
-                <div key={event.id} className="relative pl-8 pb-8 last:pb-0">
+                <div key={event.id} className="relative pl-10 pb-8 last:pb-0">
                   {/* Timeline line */}
                   {index < events.length - 1 && (
-                    <div className="absolute left-[11px] top-8 bottom-0 w-0.5 bg-border" />
+                    <div className="absolute left-[13px] top-8 bottom-0 w-[2px] bg-primary/25" />
                   )}
                   
                   {/* Timeline dot */}
-                  <div className="absolute left-0 top-1 w-6 h-6 rounded-full bg-accent flex items-center justify-center">
-                    <div className="w-3 h-3 rounded-full bg-background" />
+                  <div className="absolute left-0 top-1 w-7 h-7 rounded-full bg-primary ring-4 ring-primary/15 flex items-center justify-center shadow-sm">
+                    <div className="w-2.5 h-2.5 rounded-full bg-primary-foreground" />
                   </div>
 
-                  <Card className="p-4 hover:shadow-md transition-shadow">
-                    <div className="flex items-start justify-between">
+                  <Card className="p-4 hover:shadow-md transition-shadow border-primary/10">
+                    <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <span className="text-2xl font-bold text-accent">
+                        <div className="flex items-baseline gap-3 mb-2 flex-wrap">
+                          <span className="text-2xl font-serif font-semibold text-primary tabular-nums tracking-tight">
                             {event.time.slice(0, 5)}
                           </span>
-                          <h3 className="text-lg font-semibold">{event.title}</h3>
+                          <h3 className="text-lg font-semibold text-foreground">{event.title}</h3>
                         </div>
                         {event.description && (
                           <p className="text-muted-foreground mb-2">{event.description}</p>
