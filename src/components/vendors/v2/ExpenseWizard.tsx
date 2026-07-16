@@ -374,6 +374,7 @@ const StepImporto: React.FC<{
         onChange={a => upd('audience', a)}
         countsPlanned={countsPlanned}
         countsConfirmed={countsConfirmed}
+        activeScenario={activeScenario}
         computed={computed}
       />
     )}
