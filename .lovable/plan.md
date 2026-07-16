@@ -1,54 +1,109 @@
-## Problema
+## Obiettivo
 
-La pagina `/progress/:token` per i fornitori mostra tutti zeri e ha uno stile "slate/industriale" che stona con il resto di WedsApp. Due bug distinti:
-
-### 1. Numeri a zero — bug RLS (root cause)
-Il link fornitori è pubblico (visitatori anonimi). Ora `progress_tokens` è leggibile da `anon`, ma **tutte le altre tabelle** che la vista interroga (`weddings`, `guests`, `vendors`, `tables`, `timeline_events`, `user_roles`, `profiles`) **non hanno alcuna policy per `anon`**. Verificato via `pg_policies`: zero righe. → Le query tornano vuote → conteggi 0/0/0. Lo stesso problema esiste (silenzioso) anche nella vista ospiti per `weddings` e `timeline_events`.
-
-Aprire policy anon su queste tabelle è pericoloso (esporrebbe l'intera guest list a chiunque). La soluzione corretta è **spostare il fetch dietro un edge function** che valida il token con service role e restituisce solo il payload consentito dai flag del token.
-
-### 2. Stile off-brand
-La vista fornitori usa `bg-slate-50`, `bg-slate-900`, icona chiave inglese, tipografia sans "tecnica". WedsApp è "calma e controllo", elegante, editorial. Va allineata al linguaggio della vista ospiti (Card morbide, palette rose/neutra semantica, header sobrio, serif per i nomi) pur mantenendo il taglio operativo (griglia numeri, timeline in mono per gli orari).
+1. Togliere il "muro rosso" dalla vista fornitori (`/progress/:token` con audience=vendor): oggi è tutto gradienti rose/purple → trasmette ansia. La rendiamo sobria, in linea con il resto di WedsApp ("calma e controllo").
+2. Aggiungere i **recapiti dei fornitori** (nome fornitore + categoria + telefono + email) nella stessa pagina, protetti da:
+   - un pulsante **"Mostra contatti"** (rivelazione esplicita, non stampabili di default);
+   - **`<meta name="robots" content="noindex, nofollow">`** sulla pagina pubblica → non indicizzabile da Google;
+   - render dei numeri lato client solo dopo click (nel markup iniziale non ci sono → gli scraper base non li trovano);
+   - gating sul flag esistente `show_vendor_contacts` del token (chi non lo abilita non li vede proprio).
 
 ---
 
-## Piano
+## A. Restyle vista fornitori — palette calma
 
-### A. Edge function `progress-public-data` (pubblica, no JWT)
-- Input: `{ token }`
-- Valida `progress_tokens` (attivo + non scaduto) con service role
-- In base a `audience` + flag (`show_timeline`, `show_addresses`, `show_vendor_contacts`, `show_operational_numbers`, `show_memories_qr`, ecc.), assembla e restituisce:
-  - `wedding`: nomi, data, orari, venue, indirizzi, dress_code, note logistiche, target
-  - `events`: timeline (se abilitata)
-  - `contacts`: coppia + planner/co-planner (nome/ruolo, no telefoni) se abilitato
-  - `ops`: adulti/bambini/staff/totale/dietary/tavoli calcolati con `buildGuestScenarios` lato server (stessa logica canonica dell'app → **numeri coerenti con il resto del sito**)
-  - `cameraToken`: token camera attiva per QR memories (se abilitato)
-- Registrata in `supabase/config.toml` con `verify_jwt = false`
+`src/components/progress/VendorsProgressView.tsx`:
 
-### B. Refactor `GuestsProgressView` e `VendorsProgressView`
-- Rimpiazzare tutte le `supabase.from(...)` con una singola `supabase.functions.invoke("progress-public-data", { body: { token } })`
-- Nessun cambio di feature funzionale, solo cambio sorgente dati → i numeri appariranno correttamente
+- Sfondo: da `bg-gradient-to-br from-rose-50 via-white to-purple-50` → `bg-background` con un pannello card `bg-card` centrato (stesso linguaggio della vista ospiti).
+- Header: rimuovo il gradiente rose/purple e l'aura colorata. Nomi in serif (token `font-serif` del progetto), data in italiano, badge sobrio "Briefing fornitori" con `bg-muted text-muted-foreground`.
+- Accenti: **niente più rose-500 ovunque**. Uso i token semantici `primary` / `accent` (già definiti in `index.css`) al posto di `text-rose-500`, `bg-rose-500`, `border-rose-100`, `from-rose-50 to-purple-50`.
+- Card numeri operativi: bordo sottile `border-border`, sfondo `bg-card`, il "Totale coperti" evidenziato con `bg-primary/5 border-primary/20` (non più gradiente pieno colorato).
+- Timeline: pallini/linee in `bg-primary` (che nel design system è il colore neutro-elegante), orari in mono, testo in `text-foreground`.
+- Indirizzi: card `bg-muted/40 hover:bg-muted` con freccia → link Google Maps.
+- Note logistiche: mantengo l'`amber` (unico accento "attenzione" giustificato) ma più tenue.
 
-### C. Restyle vista fornitori in linea con WedsApp
-- Header: rimossa icona "chiave inglese"; adottato lo stesso header sobrio della vista ospiti (nomi in serif elegante, data in italiano, badge "Briefing fornitori" discreto)
-- Palette: token semantici (`bg-background`, `bg-card`, `text-foreground`, `text-muted-foreground`, accent `primary`), niente `slate-*` hardcoded
-- Card numeri: card neutre con bordo sottile, il "Totale coperti" evidenziato con `bg-primary/5` + bordo `primary/30` invece del blocco nero
-- Timeline: stesso layout mono-time della vista ospiti, con divisori sottili
-- Indirizzi: card cliccabili verso Google Maps, tipografia coerente
-- Footer discreto "Creato con WedsApp"
+Risultato: stessa struttura informativa, tono elegante e riposante — coerente con la vista ospiti e con il resto dell'app.
 
-### D. Nessuna nuova migration
-Le tabelle restano chiuse ad `anon` (lo stato attuale è sicuro). L'unica policy anon che rimane è quella su `progress_tokens`, che serve al client per capire subito se il link è valido prima di chiamare l'edge function (utile anche per messaggi di errore precoci); in alternativa possiamo rimuoverla e affidarci solo alla function — segnalatemi la preferenza, di default la lascio.
+## B. Sezione "Contatti fornitori" nascosta
+
+Nuova card nella vista fornitori (visibile solo se `tokenRow.show_vendor_contacts = true`):
+
+```
+┌ Rubrica fornitori ─────────────────────────┐
+│ 12 fornitori confermati per l'evento.      │
+│                                            │
+│ [ 👁  Mostra contatti ]                    │
+└────────────────────────────────────────────┘
+```
+
+Dopo il click:
+
+```
+┌ Rubrica fornitori ─────────────────────────┐
+│ Catering · Villa Rosa                      │
+│   📞 +39 333 …    ✉ info@villarosa.it      │
+│ ──────────────────────────────────────────  │
+│ Fotografo · Marco Bianchi                  │
+│   📞 +39 340 …                             │
+│ …                                          │
+│                                            │
+│ ⚠ Non condividere questi recapiti.        │
+└────────────────────────────────────────────┘
+```
+
+Note UX:
+- I contatti sono renderizzati **solo dopo click** (state `revealed`), quindi non presenti nell'HTML iniziale.
+- Numeri e email sono `tel:` / `mailto:` cliccabili.
+- Nessun pulsante "stampa/esporta" per non incentivare la diffusione.
+
+## C. Estensione edge function `progress-public-data`
+
+Aggiungo al payload (solo se `tok.show_vendor_contacts = true`) un nuovo array `vendorContacts`:
+
+```ts
+{
+  category: string | null,
+  name: string,           // company_name o contact_name
+  phone: string | null,
+  email: string | null,
+}[]
+```
+
+Fetch da `vendors` filtrato per `wedding_id` e stato "confermato/prenotato" (uso lo stesso criterio già in vigore in `Vendors.tsx` — verifico il campo esatto prima dell'implementazione, tipicamente `status IN ('booked','confirmed')`). Nessun costo, indirizzo IBAN o dato finanziario nel payload.
+
+## D. Anti-indicizzazione della pagina pubblica
+
+In `src/pages/ProgressPublic.tsx`:
+
+- Setto dinamicamente in `<head>`:
+  - `<meta name="robots" content="noindex, nofollow, noarchive">`
+  - `<meta name="googlebot" content="noindex, nofollow">`
+- Rimuovo/evito qualsiasi `og:` che possa esporre dati sensibili nel preview link (title generico "Briefing evento", nessuna descrizione con nomi).
+- Aggiungo `Referrer-Policy: no-referrer` via meta.
+
+E aggiorno `public/robots.txt` con:
+```
+User-agent: *
+Disallow: /progress/
+```
+
+Combinazione: motori di ricerca non lo indicizzano, e anche se qualcuno condivide il link, i numeri di telefono non sono nel markup finché non si clicca "Mostra".
+
+## E. File toccati
+
+- `src/components/progress/VendorsProgressView.tsx` — restyle completo + nuova card "Rubrica fornitori" con reveal
+- `supabase/functions/progress-public-data/index.ts` — aggiunta `vendorContacts` gated sul flag
+- `src/pages/ProgressPublic.tsx` — meta robots/referrer + title neutro
+- `public/robots.txt` — disallow `/progress/`
+
+Nessuna migration necessaria: il flag `show_vendor_contacts` esiste già sulla tabella `progress_tokens`.
 
 ---
 
-### Dettagli tecnici
-- L'edge function importa `buildGuestScenarios` copiandone la logica (o duplica il minimo indispensabile in TS Deno) per non rompere l'isolamento tra client e functions
-- Il payload rispetta rigorosamente i flag: se `show_vendor_contacts=false` la function **non** include `contacts` nel JSON, così i dati sensibili non partono nemmeno via rete
-- La vista ospiti manterrà `show_countdown/show_location/show_dress_code/show_memories_qr` invariati
+## Domanda aperta
 
-### File toccati
-- **Nuovo**: `supabase/functions/progress-public-data/index.ts`
-- **Modificato**: `supabase/config.toml` (registrazione function, `verify_jwt = false`)
-- **Modificato**: `src/components/progress/VendorsProgressView.tsx` (restyle + nuovo data source)
-- **Modificato**: `src/components/progress/GuestsProgressView.tsx` (nuovo data source, stile invariato)
+Il flag `show_vendor_contacts` oggi controlla i **contatti della coppia/planner**. Due opzioni:
+
+1. **Riuso lo stesso flag** anche per la rubrica fornitori (semplice, un solo toggle nel dialog di condivisione).
+2. **Aggiungo un flag separato** `show_vendor_directory` così la coppia può decidere indipendentemente (più granulare, richiede una piccola migration + UI nel `ShareProgressDialog`).
+
+Di default vado con l'**opzione 1** (semplicità e coerenza); dimmi se preferisci la 2 e la includo.
