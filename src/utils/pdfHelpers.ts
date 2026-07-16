@@ -69,7 +69,7 @@ export const generateCateringReport = (guests: CateringGuest[], staffMeals: numb
   
   // Box con i totali
   doc.setFillColor(240, 240, 240);
-  doc.rect(20, y, 170, 50, "F");
+  doc.rect(20, y, 170, 68, "F");
   
   y += 12;
   doc.setFont("helvetica", "bold");
