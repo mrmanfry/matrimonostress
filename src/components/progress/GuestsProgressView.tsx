@@ -27,56 +27,22 @@ interface TimelineEvent {
   location: string | null;
 }
 
-export function GuestsProgressView({ tokenRow }: { tokenRow: ProgressTokenRow }) {
+export function GuestsProgressView({ tokenRow, token }: { tokenRow: ProgressTokenRow; token: string }) {
   const [wedding, setWedding] = useState<WeddingInfo | null>(null);
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [cameraToken, setCameraToken] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
-      const { data: w } = await supabase
-        .from("weddings")
-        .select(
-          "partner1_name, partner2_name, wedding_date, ceremony_venue_name, ceremony_venue_address, reception_venue_name, reception_venue_address, location, dress_code"
-        )
-        .eq("id", tokenRow.wedding_id)
-        .maybeSingle();
-      if (w) {
-        setWedding({
-          partner1: w.partner1_name,
-          partner2: w.partner2_name,
-          date: w.wedding_date,
-          ceremony_venue_name: w.ceremony_venue_name,
-          ceremony_venue_address: w.ceremony_venue_address,
-          reception_venue_name: w.reception_venue_name,
-          reception_venue_address: w.reception_venue_address,
-          location: w.location,
-          dress_code: (w as any).dress_code ?? null,
-        });
-      }
-
-      if (tokenRow.show_timeline) {
-        const { data: ev } = await supabase
-          .from("timeline_events")
-          .select("id, time, title, description, location")
-          .eq("wedding_id", tokenRow.wedding_id)
-          .order("time", { ascending: true });
-        setEvents(ev || []);
-      }
-
-      if (tokenRow.show_memories_qr) {
-        const { data: cam } = await supabase
-          .from("disposable_cameras" as any)
-          .select("token")
-          .eq("wedding_id", tokenRow.wedding_id)
-          .eq("is_active", true)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (cam && (cam as any).token) setCameraToken((cam as any).token);
-      }
+      const { data, error } = await supabase.functions.invoke("progress-public-data", {
+        body: { token },
+      });
+      if (error || !data) return;
+      if (data.wedding) setWedding(data.wedding);
+      if (Array.isArray(data.events)) setEvents(data.events);
+      if (data.cameraToken) setCameraToken(data.cameraToken);
     })();
-  }, [tokenRow.wedding_id, tokenRow.show_timeline, tokenRow.show_memories_qr]);
+  }, [token]);
 
   const countdown = useMemo(() => {
     if (!wedding?.date) return null;
