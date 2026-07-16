@@ -39,6 +39,7 @@ const Catering = () => {
 
   const [guests, setGuests] = useState<CateringGuestRow[]>([]);
   const [tableNames, setTableNames] = useState<string[]>([]);
+  const [staffMeals, setStaffMeals] = useState<number>(0);
   const [cateringConfig, setCateringConfig] = useState<CateringConfig>(DEFAULT_CONFIG);
   const [loading, setLoading] = useState(true);
   const [printEditorOpen, setPrintEditorOpen] = useState(false);
@@ -116,8 +117,16 @@ const Catering = () => {
         party_name: g.party_id ? (partyMap.get(g.party_id) || null) : null,
       }));
 
+      // Fetch staff meals from vendors
+      const { data: vendorsData } = await supabase
+        .from("vendors")
+        .select("staff_meals_count")
+        .eq("wedding_id", weddingId);
+      const totalStaff = (vendorsData || []).reduce((s, v: any) => s + Number(v?.staff_meals_count || 0), 0);
+
       setGuests(enriched);
       setTableNames(Array.from(new Set((tables || []).map(t => t.name))).sort());
+      setStaffMeals(totalStaff);
       setLoading(false);
     };
     load();
@@ -150,7 +159,7 @@ const Catering = () => {
               <Printer className="w-4 h-4 mr-2" /> Stampa Menu
             </Button>
           )}
-          <CateringExportMenu guests={guests} />
+          <CateringExportMenu guests={guests} staffMeals={staffMeals} />
         </div>
       </div>
 
@@ -164,7 +173,7 @@ const Catering = () => {
         </TabsList>
 
         <TabsContent value="riepilogo" className="space-y-6">
-          <CateringKPIs guests={guests} />
+          <CateringKPIs guests={guests} staffMeals={staffMeals} />
         </TabsContent>
 
         <TabsContent value="dettaglio">

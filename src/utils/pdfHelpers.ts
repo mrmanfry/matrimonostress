@@ -33,7 +33,7 @@ interface Table {
  * Sezione 2: Tabella Ospiti con Dieta e Allergie
  * Sezione 3: Alert Allergie Evidenziati
  */
-export const generateCateringReport = (guests: CateringGuest[]): void => {
+export const generateCateringReport = (guests: CateringGuest[], staffMeals: number = 0): void => {
   const doc = new jsPDF();
   
   // Header
@@ -69,7 +69,7 @@ export const generateCateringReport = (guests: CateringGuest[]): void => {
   
   // Box con i totali
   doc.setFillColor(240, 240, 240);
-  doc.rect(20, y, 170, 50, "F");
+  doc.rect(20, y, 170, 68, "F");
   
   y += 12;
   doc.setFont("helvetica", "bold");
@@ -80,6 +80,14 @@ export const generateCateringReport = (guests: CateringGuest[]): void => {
   doc.text(`• Adulti: ${totalAdults}`, 40, y);
   y += 7;
   doc.text(`• Bambini: ${totalChildren}`, 40, y);
+  y += 7;
+  doc.setTextColor(30, 64, 175);
+  doc.text(`• Pasti Staff (fornitori): ${staffMeals}`, 40, y);
+  doc.setTextColor(0, 0, 0);
+  y += 7;
+  doc.setFont("helvetica", "bold");
+  doc.text(`  Totale coperti (ospiti + staff): ${totalGuests + staffMeals}`, 40, y);
+  doc.setFont("helvetica", "normal");
   
   y += 10;
   doc.setFont("helvetica", "bold");

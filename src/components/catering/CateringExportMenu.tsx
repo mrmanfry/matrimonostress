@@ -7,9 +7,10 @@ import type { CateringGuestRow } from "./CateringGuestTable";
 
 interface CateringExportMenuProps {
   guests: CateringGuestRow[];
+  staffMeals?: number;
 }
 
-export const CateringExportMenu = ({ guests }: CateringExportMenuProps) => {
+export const CateringExportMenu = ({ guests, staffMeals = 0 }: CateringExportMenuProps) => {
   const confirmed = guests.filter(g => g.rsvp_status === "confirmed");
 
   const exportCSV = () => {
@@ -61,6 +62,8 @@ export const CateringExportMenu = ({ guests }: CateringExportMenuProps) => {
     csv += `Adulti,${adults}\n`;
     csv += `Bambini (menu bimbi),${kids}\n`;
     csv += `Sotto i 3 anni (no coperto),${infants}\n`;
+    csv += `Pasti Staff (fornitori),${staffMeals}\n`;
+    csv += `Totale Coperti (Ospiti + Staff),${confirmed.filter(g => !(g.is_child && g.child_age_group === "infant")).length + staffMeals}\n`;
     csv += `Vegetariani,${veg}\n`;
     csv += `Vegani,${vgn}\n`;
     csv += `Celiaci,${cel}\n`;
@@ -94,7 +97,7 @@ export const CateringExportMenu = ({ guests }: CateringExportMenuProps) => {
       notes: g.notes,
       is_child: g.is_child,
       table_name: g.table_name || undefined,
-    })));
+    })), staffMeals);
     toast.success("PDF generato");
   };
 
