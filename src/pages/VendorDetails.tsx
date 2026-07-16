@@ -1171,18 +1171,25 @@ const ExpensesList: React.FC<{
               })()
             ) : (
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 20, alignItems: 'flex-start' }}>
+              <div
+                onClick={() => setDetailsItemId(it.id)}
+                title="Vedi dettagli spesa"
+                style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 20, alignItems: 'flex-start', cursor: 'pointer', borderRadius: 6, transition: 'background .15s' }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'hsl(var(--paper-surface-muted))')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+              >
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     <span style={{ fontSize: 14, color: ink(), fontWeight: 500 }}>{it.description}</span>
                     {isVariable && <PaperBadge tone="brand" size="sm">Variabile</PaperBadge>}
+                    {!isVariable && <PaperBadge tone="neutral" size="sm">Fisso</PaperBadge>}
                   </div>
                   {it.estimated_amount && isVariable && (
                     <div style={{ fontSize: 12, color: ink(3), marginTop: 4, fontFamily: FONT_MONO }}>
                       {fmtEUR(Number(it.estimated_amount))} unitario
                     </div>
                   )}
-                  <div className="vd-expense-actions" style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                  <div className="vd-expense-actions" style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }} onClick={e => e.stopPropagation()}>
                     {!lockAmounts && (
                       <PaperButton
                         variant="ghost" size="sm" iconLeft={<Pencil size={11}/>}
@@ -1217,6 +1224,7 @@ const ExpensesList: React.FC<{
                 </div>
               </div>
             )}
+
           </div>
         );
       })}
