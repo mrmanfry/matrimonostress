@@ -872,6 +872,7 @@ export default function VendorDetails() {
         guestsConfirmed={data.guestsConfirmed}
         countsPlanned={data.guestCounts.planned}
         countsConfirmed={data.guestCounts.confirmed}
+        activeScenario={{ mode: activeMode, counts: data.guestCounts[activeMode] }}
         weddingDate={data.wedding?.wedding_date || null}
         onSave={handleSaveExpense}
       />
