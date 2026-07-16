@@ -872,6 +872,7 @@ export default function VendorDetails() {
         guestsConfirmed={data.guestsConfirmed}
         countsPlanned={data.guestCounts.planned}
         countsConfirmed={data.guestCounts.confirmed}
+        activeScenario={{ mode: activeMode, counts: data.guestCounts[activeMode] }}
         weddingDate={data.wedding?.wedding_date || null}
         onSave={handleSaveExpense}
       />
@@ -915,6 +916,7 @@ export default function VendorDetails() {
             lineItems={(data.lineItemsByExpenseItem[it.id] || []) as any}
             countsPlanned={data.guestCounts.planned}
             countsConfirmed={data.guestCounts.confirmed}
+            activeScenario={{ mode: activeMode, counts: data.guestCounts[activeMode] }}
             onSaved={() => queryClient.invalidateQueries({ queryKey: ['vendor-detail-v2'] })}
           />
         );
@@ -1113,6 +1115,7 @@ const ExpensesList: React.FC<{
                           onChange={setDraftAudience}
                           countsPlanned={guestCounts.planned}
                           countsConfirmed={guestCounts.confirmed}
+                          activeScenario={{ mode, counts: guestCounts[mode] }}
                           computed={{
                             planned: audienceTotal(draftAudience, guestCounts.planned),
                             confirmed: audienceTotal(draftAudience, guestCounts.confirmed),

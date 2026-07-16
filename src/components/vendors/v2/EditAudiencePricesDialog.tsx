@@ -21,6 +21,13 @@ type LineItem = {
   order_index?: number | null;
 };
 
+type ScenarioModeLite = 'planned' | 'expected' | 'confirmed';
+const SCENARIO_LABEL: Record<ScenarioModeLite, string> = {
+  planned: 'pianificati',
+  expected: 'lista invitati',
+  confirmed: 'confermati',
+};
+
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -29,6 +36,7 @@ interface Props {
   lineItems: LineItem[];
   countsPlanned: { adults: number; children: number; staff: number };
   countsConfirmed: { adults: number; children: number; staff: number };
+  activeScenario?: { mode: ScenarioModeLite; counts: { adults: number; children: number; staff: number } };
   onSaved: () => void;
 }
 
@@ -38,7 +46,7 @@ type Mode = 'audience' | 'fixed';
 
 export const EditAudiencePricesDialog: React.FC<Props> = ({
   open, onClose, expenseItemId, description, lineItems,
-  countsPlanned, countsConfirmed, onSaved,
+  countsPlanned, countsConfirmed, activeScenario, onSaved,
 }) => {
   const [mode, setMode] = React.useState<Mode>('audience');
   const [draft, setDraft] = React.useState<AudienceMap>(() => buildDraft(lineItems));
@@ -186,13 +194,14 @@ export const EditAudiencePricesDialog: React.FC<Props> = ({
           <>
             <div style={{ fontSize: 12, color: ink(3) }}>
               Modifica i prezzi unitari per ciascuna fascia. Il totale si ricalcola automaticamente in base
-              agli invitati previsti / confermati.
+              allo scenario selezionato in alto.
             </div>
 
             {KEYS.map(k => {
               const row = draft[k];
               const planQty = countsPlanned[k] || 0;
               const confQty = countsConfirmed[k] || 0;
+              const activeQty = activeScenario ? (activeScenario.counts[k] || 0) : null;
               return (
                 <div key={k} style={{
                   border: `1px solid ${border(true)}`, borderRadius: 10,
@@ -206,7 +215,9 @@ export const EditAudiencePricesDialog: React.FC<Props> = ({
                     />
                     <span style={{ fontFamily: FONT_SERIF, fontSize: 15, color: ink() }}>{AUDIENCE_LABELS[k]}</span>
                     <span style={{ fontSize: 11, color: ink(3), fontFamily: FONT_MONO }}>
-                      · {planQty} previsti / {confQty} confermati
+                      {activeScenario
+                        ? <>· {activeQty} {SCENARIO_LABEL[activeScenario.mode]}</>
+                        : <>· {planQty} previsti / {confQty} confermati</>}
                     </span>
                   </label>
                   {row.enabled && (

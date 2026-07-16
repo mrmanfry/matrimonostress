@@ -40,6 +40,13 @@ export interface ExpenseWizardValues {
 }
 
 
+export type ScenarioModeLite = 'planned' | 'expected' | 'confirmed';
+export const SCENARIO_LABEL: Record<ScenarioModeLite, string> = {
+  planned: 'pianificati',
+  expected: 'lista invitati',
+  confirmed: 'confermati',
+};
+
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -49,6 +56,8 @@ interface Props {
   // Detailed counts for per_audience (defaults: adults = guests*, children = 0, staff = 0)
   countsPlanned?: { adults: number; children: number; staff: number };
   countsConfirmed?: { adults: number; children: number; staff: number };
+  // Active scenario selected on the page (Pianificato/Lista invitati/Confermati)
+  activeScenario?: { mode: ScenarioModeLite; counts: { adults: number; children: number; staff: number } };
   weddingDate: string | null;
   onSave: (values: ExpenseWizardValues) => Promise<void>;
 }
@@ -62,7 +71,7 @@ const KIND_ICON: Record<ExpenseKind, React.ReactNode> = {
 
 export const ExpenseWizard: React.FC<Props> = ({
   open, onClose, vendorName, guestsPlanned, guestsConfirmed,
-  countsPlanned, countsConfirmed, weddingDate, onSave,
+  countsPlanned, countsConfirmed, activeScenario, weddingDate, onSave,
 }) => {
   const [step, setStep] = React.useState(0);
   const [form, setForm] = React.useState<ExpenseWizardValues>(() => init());
@@ -176,6 +185,7 @@ export const ExpenseWizard: React.FC<Props> = ({
           computed={computed}
           guestsPlanned={guestsPlanned} guestsConfirmed={guestsConfirmed}
           countsPlanned={cPlan} countsConfirmed={cConf}
+          activeScenario={activeScenario}
         />
       )}
       {step === 2 && (
@@ -313,7 +323,8 @@ const StepImporto: React.FC<{
   guestsConfirmed: number;
   countsPlanned: { adults: number; children: number; staff: number };
   countsConfirmed: { adults: number; children: number; staff: number };
-}> = ({ form, upd, computed, guestsPlanned, guestsConfirmed, countsPlanned, countsConfirmed }) => (
+  activeScenario?: { mode: ScenarioModeLite; counts: { adults: number; children: number; staff: number } };
+}> = ({ form, upd, computed, guestsPlanned, guestsConfirmed, countsPlanned, countsConfirmed, activeScenario }) => (
   <div style={{ display: 'grid', gap: 18, fontFamily: FONT_UI }}>
     {form.kind === 'fixed' && (
       <>
@@ -363,6 +374,7 @@ const StepImporto: React.FC<{
         onChange={a => upd('audience', a)}
         countsPlanned={countsPlanned}
         countsConfirmed={countsConfirmed}
+        activeScenario={activeScenario}
         computed={computed}
       />
     )}
@@ -412,8 +424,9 @@ export const AudienceEditor: React.FC<{
   onChange: (a: AudienceMap) => void;
   countsPlanned: { adults: number; children: number; staff: number };
   countsConfirmed: { adults: number; children: number; staff: number };
+  activeScenario?: { mode: ScenarioModeLite; counts: { adults: number; children: number; staff: number } };
   computed: { planned: number; confirmed: number };
-}> = ({ audience, onChange, countsPlanned, countsConfirmed, computed }) => {
+}> = ({ audience, onChange, countsPlanned, countsConfirmed, activeScenario, computed }) => {
   const keys = ['adults', 'children', 'staff'] as const;
   return (
     <div style={{ display: 'grid', gap: 12 }}>
@@ -424,6 +437,7 @@ export const AudienceEditor: React.FC<{
         const row = audience[k];
         const planQty = countsPlanned[k] || 0;
         const confQty = countsConfirmed[k] || 0;
+        const activeQty = activeScenario ? (activeScenario.counts[k] || 0) : null;
         return (
           <div key={k} style={{
             border: `1px solid ${border(true)}`, borderRadius: 10,
@@ -438,7 +452,9 @@ export const AudienceEditor: React.FC<{
                 />
                 <span style={{ fontFamily: FONT_SERIF, fontSize: 15, color: ink() }}>{AUDIENCE_LABELS[k]}</span>
                 <span style={{ fontSize: 11, color: ink(3), fontFamily: FONT_MONO }}>
-                  · {planQty} previsti / {confQty} confermati
+                  {activeScenario
+                    ? <>· {activeQty} {SCENARIO_LABEL[activeScenario.mode]}</>
+                    : <>· {planQty} previsti / {confQty} confermati</>}
                 </span>
               </label>
             </div>
