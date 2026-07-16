@@ -97,7 +97,7 @@ export const CateringExportMenu = ({ guests, staffMeals = 0 }: CateringExportMen
       notes: g.notes,
       is_child: g.is_child,
       table_name: g.table_name || undefined,
-    })));
+    })), staffMeals);
     toast.success("PDF generato");
   };
 
