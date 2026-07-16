@@ -225,6 +225,15 @@ const Timeline = () => {
                             {event.time.slice(0, 5)}
                           </span>
                           <h3 className="text-lg font-semibold text-foreground">{event.title}</h3>
+                          {event.is_public ? (
+                            <Badge variant="outline" className="gap-1 border-primary/30 text-primary bg-primary/5">
+                              <Eye className="w-3 h-3" /> Pubblico
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="gap-1 border-muted-foreground/30 text-muted-foreground">
+                              <EyeOff className="w-3 h-3" /> Privato
+                            </Badge>
+                          )}
                         </div>
                         {event.description && (
                           <p className="text-muted-foreground mb-2">{event.description}</p>
