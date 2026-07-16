@@ -969,6 +969,8 @@ const ExpensesList: React.FC<{
   const [draftTaxInclusive, setDraftTaxInclusive] = React.useState<boolean>(true);
   const [draftType, setDraftType] = React.useState<'fixed' | 'per_person' | 'per_audience'>('fixed');
   const [draftAudience, setDraftAudience] = React.useState<AudienceMap>(() => buildAudienceDraft([]));
+  const [detailsItemId, setDetailsItemId] = React.useState<string | null>(null);
+
 
   const startEdit = (it: DbExpenseItem) => {
     const lis = lineItemsByExpenseItem[it.id] || [];
