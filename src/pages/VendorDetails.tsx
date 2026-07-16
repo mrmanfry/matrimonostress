@@ -40,8 +40,8 @@ import {
   type ExpenseLineItem as CalcLineItem,
   type GuestCounts,
 } from '@/lib/expenseCalculations';
-import { isGuestConfirmed } from '@/lib/rsvpHelpers';
 import { ScenarioSelector, type ScenarioMode } from '@/components/budget/v2/ScenarioSelector';
+import { buildGuestScenarios } from '@/lib/guestScenarios';
 
 type ActiveSection = 'spese' | 'documenti' | 'appuntamenti' | 'note';
 
