@@ -62,6 +62,8 @@ export const CateringExportMenu = ({ guests, staffMeals = 0 }: CateringExportMen
     csv += `Adulti,${adults}\n`;
     csv += `Bambini (menu bimbi),${kids}\n`;
     csv += `Sotto i 3 anni (no coperto),${infants}\n`;
+    csv += `Pasti Staff (fornitori),${staffMeals}\n`;
+    csv += `Totale Coperti (Ospiti + Staff),${confirmed.filter(g => !(g.is_child && g.child_age_group === "infant")).length + staffMeals}\n`;
     csv += `Vegetariani,${veg}\n`;
     csv += `Vegani,${vgn}\n`;
     csv += `Celiaci,${cel}\n`;
