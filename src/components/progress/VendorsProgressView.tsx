@@ -39,7 +39,7 @@ interface OpNumbers {
   tables: number;
 }
 
-export function VendorsProgressView({ tokenRow }: { tokenRow: ProgressTokenRow }) {
+export function VendorsProgressView({ tokenRow, token }: { tokenRow: ProgressTokenRow; token: string }) {
   const [wedding, setWedding] = useState<WeddingInfo | null>(null);
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -48,7 +48,7 @@ export function VendorsProgressView({ tokenRow }: { tokenRow: ProgressTokenRow }
   useEffect(() => {
     (async () => {
       const { data, error } = await supabase.functions.invoke("progress-public-data", {
-        body: { token: (tokenRow as any).__token ?? undefined },
+        body: { token },
       });
       if (error || !data) return;
       if (data.wedding) setWedding(data.wedding);
@@ -56,7 +56,7 @@ export function VendorsProgressView({ tokenRow }: { tokenRow: ProgressTokenRow }
       if (Array.isArray(data.contacts)) setContacts(data.contacts);
       if (data.ops) setOps(data.ops);
     })();
-  }, [tokenRow]);
+  }, [token]);
 
   const headerDate = useMemo(() => {
     if (!wedding?.date) return "";
