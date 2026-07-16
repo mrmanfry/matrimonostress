@@ -894,56 +894,23 @@ const Settings = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Share2 className="w-5 h-5 text-purple-500" />
-                Condividi Progresso
+                Condividi il matrimonio
               </CardTitle>
               <CardDescription>
-                Crea un link pubblico per mostrare il progresso a parenti e amici
+                Crea link pubblici dedicati per parenti e amici oppure per i fornitori del giorno dell'evento.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {progressToken ? (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <Input 
-                      value={`${window.location.origin}/progress/${progressToken.token}`} 
-                      readOnly 
-                      className="text-sm"
-                    />
-                    <Button 
-                      variant="outline"
-                      size="icon"
-                      onClick={() => {
-                        navigator.clipboard.writeText(`${window.location.origin}/progress/${progressToken.token}`);
-                        toast({ title: "Copiato!", description: "Link copiato negli appunti" });
-                      }}
-                    >
-                      <Link2 className="w-4 h-4" />
-                    </Button>
-                    <Button 
-                      variant="outline"
-                      size="icon"
-                      onClick={() => window.open(`${window.location.origin}/progress/${progressToken.token}`, "_blank")}
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                    </Button>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm text-muted-foreground">
-                      Scade il: {new Date(progressToken.expires_at).toLocaleDateString("it-IT")}
-                    </p>
-                    <Button variant="outline" size="sm" onClick={() => setShareDialogOpen(true)}>
-                      Modifica Visibilità
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <Button onClick={() => setShareDialogOpen(true)} className="w-full md:w-auto gap-2">
-                  <Share2 className="w-4 h-4" />
-                  Crea Link Pubblico
-                </Button>
-              )}
+              <Button onClick={() => setShareDialogOpen(true)} className="w-full md:w-auto gap-2">
+                <Share2 className="w-4 h-4" />
+                Gestisci link condivisi
+              </Button>
+              <p className="text-xs text-muted-foreground mt-3">
+                Due tipologie di link con contenuti diversi: <strong>Ospiti</strong> (countdown, programma, dress code, QR foto) e <strong>Fornitori</strong> (timeline operativa, indirizzi, contatti, numeri).
+              </p>
             </CardContent>
           </Card>
+
         </TabsContent>
 
         {/* TAB: Team & Collaboratori */}
