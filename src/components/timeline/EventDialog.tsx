@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Eye, EyeOff } from "lucide-react";
 
 type TimelineEvent = {
   id: string;
@@ -18,6 +20,7 @@ type TimelineEvent = {
   description: string | null;
   location: string | null;
   order_index: number;
+  is_public: boolean;
 };
 
 type EventDialogProps = {
@@ -32,6 +35,7 @@ export const EventDialog = ({ open, onOpenChange, event, onSave }: EventDialogPr
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
+  const [isPublic, setIsPublic] = useState(true);
 
   useEffect(() => {
     if (event) {
@@ -39,11 +43,13 @@ export const EventDialog = ({ open, onOpenChange, event, onSave }: EventDialogPr
       setTitle(event.title);
       setDescription(event.description || "");
       setLocation(event.location || "");
+      setIsPublic(event.is_public ?? true);
     } else {
       setTime("");
       setTitle("");
       setDescription("");
       setLocation("");
+      setIsPublic(true);
     }
   }, [event, open]);
 
@@ -54,6 +60,7 @@ export const EventDialog = ({ open, onOpenChange, event, onSave }: EventDialogPr
       title,
       description: description || null,
       location: location || null,
+      is_public: isPublic,
     });
   };
 
@@ -109,6 +116,19 @@ export const EventDialog = ({ open, onOpenChange, event, onSave }: EventDialogPr
               onChange={(e) => setLocation(e.target.value)}
               placeholder="es. Chiesa di San Marco, Villa dei Fiori..."
             />
+          </div>
+
+          <div className="flex items-start justify-between gap-4 rounded-lg border border-border bg-muted/30 p-3">
+            <div className="space-y-1">
+              <Label htmlFor="is_public" className="flex items-center gap-2 cursor-pointer">
+                {isPublic ? <Eye className="w-4 h-4 text-primary" /> : <EyeOff className="w-4 h-4 text-muted-foreground" />}
+                Visibile nei link pubblici
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Se attivo, l'evento appare nei link condivisi con ospiti e fornitori. Disattivalo per momenti riservati (preparativi, cene private, briefing interni).
+              </p>
+            </div>
+            <Switch id="is_public" checked={isPublic} onCheckedChange={setIsPublic} />
           </div>
 
           <div className="flex gap-2 justify-end">
