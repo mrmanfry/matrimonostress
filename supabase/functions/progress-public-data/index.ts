@@ -114,9 +114,11 @@ Deno.serve(async (req) => {
         .from("timeline_events")
         .select("id, time, title, description, location")
         .eq("wedding_id", weddingId)
+        .eq("is_public", true)
         .order("time", { ascending: true });
       payload.events = ev || [];
     }
+
 
     if (tok.show_memories_qr) {
       const { data: cam } = await supabase

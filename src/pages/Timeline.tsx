@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Plus, Share2, Printer, Heart, Clock } from "lucide-react";
+import { Plus, Share2, Printer, Heart, Clock, Eye, EyeOff } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { EventDialog } from "@/components/timeline/EventDialog";
 import { format } from "date-fns";
@@ -15,6 +16,7 @@ type TimelineEvent = {
   description: string | null;
   location: string | null;
   order_index: number;
+  is_public: boolean;
 };
 
 const Timeline = () => {
@@ -171,7 +173,7 @@ const Timeline = () => {
           <div>
             <h1 className="text-3xl font-bold">Timeline Giorno del Matrimonio</h1>
             <p className="text-muted-foreground mt-1">
-              {events.length} eventi programmati
+              {events.length} eventi programmati · {events.filter(e => e.is_public).length} pubblici, {events.filter(e => !e.is_public).length} privati
             </p>
           </div>
           <div className="flex gap-2">
@@ -223,6 +225,15 @@ const Timeline = () => {
                             {event.time.slice(0, 5)}
                           </span>
                           <h3 className="text-lg font-semibold text-foreground">{event.title}</h3>
+                          {event.is_public ? (
+                            <Badge variant="outline" className="gap-1 border-primary/30 text-primary bg-primary/5">
+                              <Eye className="w-3 h-3" /> Pubblico
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="gap-1 border-muted-foreground/30 text-muted-foreground">
+                              <EyeOff className="w-3 h-3" /> Privato
+                            </Badge>
+                          )}
                         </div>
                         {event.description && (
                           <p className="text-muted-foreground mb-2">{event.description}</p>
