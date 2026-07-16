@@ -29,6 +29,27 @@ const ProgressPublic = () => {
   const [tokenRow, setTokenRow] = useState<ProgressTokenRow | null>(null);
 
   useEffect(() => {
+    // Anti-indicizzazione: iniettiamo meta robots noindex + title neutro.
+    const prevTitle = document.title;
+    document.title = "Briefing evento";
+    const metas: HTMLMetaElement[] = [];
+    const addMeta = (name: string, content: string) => {
+      const m = document.createElement("meta");
+      m.setAttribute("name", name);
+      m.setAttribute("content", content);
+      document.head.appendChild(m);
+      metas.push(m);
+    };
+    addMeta("robots", "noindex, nofollow, noarchive, nosnippet");
+    addMeta("googlebot", "noindex, nofollow");
+    addMeta("referrer", "no-referrer");
+    return () => {
+      document.title = prevTitle;
+      metas.forEach(m => m.remove());
+    };
+  }, []);
+
+  useEffect(() => {
     (async () => {
       if (!token) {
         setError(true);
