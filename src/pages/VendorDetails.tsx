@@ -125,34 +125,16 @@ export default function VendorDetails() {
           .eq('wedding_id', vendor.wedding_id),
       ]);
 
-      const vendorStaffMeals = (allVendors || []).reduce(
-        (sum: number, v: any) => sum + Number(v.staff_meals_count || 0), 0,
-      );
       const guests = (allGuests || []) as Array<any>;
-      const hostsWithMaterializedPlusOne = new Set(
-        guests.filter(g => g.plus_one_of_guest_id).map(g => g.plus_one_of_guest_id as string),
-      );
-      // 1 row = 1 person (flag-based classification).
-      const tally = (filterFn: (g: any) => boolean) => {
-        let adults = 0, children = 0;
-        for (const g of guests) {
-          if (!filterFn(g)) continue;
-          if (g.is_staff) continue;
-          if (g.is_couple_member) continue;
-          if (g.is_child) children += 1;
-          else adults += 1;
-          if (g.allow_plus_one && g.plus_one_name && !hostsWithMaterializedPlusOne.has(g.id)) adults += 1;
-        }
-        return { adults, children, staff: vendorStaffMeals };
-      };
+      const scenarios = buildGuestScenarios(guests, (allVendors || []) as any[], {
+        target_adults: wedding?.target_adults,
+        target_children: wedding?.target_children,
+        target_staff: wedding?.target_staff,
+      });
       const guestCounts: GuestCounts = {
-        planned: {
-          adults: Number(wedding?.target_adults ?? 100),
-          children: Number(wedding?.target_children ?? 0),
-          staff: Number(wedding?.target_staff ?? vendorStaffMeals),
-        },
-        expected: tally(() => true),
-        confirmed: tally(g => isGuestConfirmed(g)),
+        planned: { adults: scenarios.planned.adults, children: scenarios.planned.children, staff: scenarios.planned.staff },
+        expected: { adults: scenarios.expected.adults, children: scenarios.expected.children, staff: scenarios.expected.staff },
+        confirmed: { adults: scenarios.confirmed.adults, children: scenarios.confirmed.children, staff: scenarios.confirmed.staff },
       };
 
       const plannedCount = guestCounts.planned.adults + guestCounts.planned.children;
