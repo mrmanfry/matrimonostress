@@ -71,7 +71,7 @@ const KIND_ICON: Record<ExpenseKind, React.ReactNode> = {
 
 export const ExpenseWizard: React.FC<Props> = ({
   open, onClose, vendorName, guestsPlanned, guestsConfirmed,
-  countsPlanned, countsConfirmed, weddingDate, onSave,
+  countsPlanned, countsConfirmed, activeScenario, weddingDate, onSave,
 }) => {
   const [step, setStep] = React.useState(0);
   const [form, setForm] = React.useState<ExpenseWizardValues>(() => init());
