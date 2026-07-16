@@ -8,6 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { UserPlus, Trash2, Users, Shield, Plus, Link2, Calendar, DollarSign, Heart, Share2, ExternalLink, Settings2, User, CreditCard } from "lucide-react";
 import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
+import { Textarea } from "@/components/ui/textarea";
+
 import { AccountSettingsCard } from "@/components/settings/AccountSettingsCard";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
