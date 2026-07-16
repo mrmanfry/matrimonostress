@@ -1115,6 +1115,7 @@ const ExpensesList: React.FC<{
                           onChange={setDraftAudience}
                           countsPlanned={guestCounts.planned}
                           countsConfirmed={guestCounts.confirmed}
+                          activeScenario={{ mode, counts: guestCounts[mode] }}
                           computed={{
                             planned: audienceTotal(draftAudience, guestCounts.planned),
                             confirmed: audienceTotal(draftAudience, guestCounts.confirmed),
