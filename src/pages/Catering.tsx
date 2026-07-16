@@ -159,7 +159,7 @@ const Catering = () => {
               <Printer className="w-4 h-4 mr-2" /> Stampa Menu
             </Button>
           )}
-          <CateringExportMenu guests={guests} />
+          <CateringExportMenu guests={guests} staffMeals={staffMeals} />
         </div>
       </div>
 
