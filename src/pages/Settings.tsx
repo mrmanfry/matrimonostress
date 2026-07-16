@@ -843,6 +843,29 @@ const Settings = () => {
                       />
                     </div>
                   </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="dress_code">Dress code (mostrato agli ospiti)</Label>
+                      <Textarea
+                        id="dress_code"
+                        value={editedDressCode}
+                        onChange={(e) => setEditedDressCode(e.target.value)}
+                        placeholder="Es: Formale — abito lungo/scuro. Evitare il bianco."
+                        rows={2}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="logistical_notes">Note logistiche (mostrate ai fornitori)</Label>
+                      <Textarea
+                        id="logistical_notes"
+                        value={editedLogisticalNotes}
+                        onChange={(e) => setEditedLogisticalNotes(e.target.value)}
+                        placeholder="Es: Accesso di servizio dal cancello posteriore. Parcheggio staff nel cortile interno."
+                        rows={2}
+                      />
+                    </div>
+                  </div>
+
                   <div className="flex gap-2 flex-wrap">
                     <Button 
                       onClick={() => handleSaveWeddingData()} 
