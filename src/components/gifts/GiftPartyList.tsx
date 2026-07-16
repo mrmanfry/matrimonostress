@@ -31,9 +31,9 @@ type GiftFilter = 'all' | 'registered' | 'missing' | 'cash' | 'physical';
 
 function partyStatus(party: PartyRow, gifts: GiftRow[]) {
   const partyGifts = gifts.filter((g) => g.party_id === party.id);
-  if (party.rsvp_status === 'Rifiutato') return 'declined';
   if (partyGifts.some((g) => g.gift_category === 'cash')) return 'cash';
   if (partyGifts.length > 0) return 'physical';
+  if (party.rsvp_status === 'Rifiutato') return 'declined';
   return 'simulated';
 }
 
@@ -215,17 +215,15 @@ export function GiftPartyList({ parties, gifts, weddingId, avgEstimate, isPrivat
                   </div>
                 </div>
 
-                {status !== 'declined' && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="shrink-0 text-xs h-7 px-2.5 rounded-lg"
-                    style={{ borderColor: 'hsl(var(--paper-border-strong))', color: 'hsl(var(--paper-ink))' }}
-                    onClick={() => setDialogParty(party)}
-                  >
-                    + Regalo
-                  </Button>
-                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="shrink-0 text-xs h-7 px-2.5 rounded-lg"
+                  style={{ borderColor: 'hsl(var(--paper-border-strong))', color: 'hsl(var(--paper-ink))' }}
+                  onClick={() => setDialogParty(party)}
+                >
+                  + Regalo
+                </Button>
               </div>
             );
           })}

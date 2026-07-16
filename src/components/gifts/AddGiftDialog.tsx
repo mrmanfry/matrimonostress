@@ -13,22 +13,21 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { useAddGift, type GiftCategory } from '@/hooks/useGifts';
 
+const baseFields = {
+  amount: z.coerce.number().optional(),
+  notes: z.string().optional(),
+  donor_name: z.string().optional(),
+};
+
 const schema = z.discriminatedUnion('gift_category', [
   z.object({
     gift_category: z.literal('cash'),
-    amount: z.coerce.number({ invalid_type_error: 'Inserisci un importo valido' }).min(0, 'L\'importo non può essere negativo'),
+    amount: z.coerce.number({ invalid_type_error: 'Inserisci un importo valido' }).min(0, "L'importo non può essere negativo"),
     notes: z.string().optional(),
+    donor_name: z.string().optional(),
   }),
-  z.object({
-    gift_category: z.literal('physical_registry'),
-    amount: z.coerce.number().optional(),
-    notes: z.string().optional(),
-  }),
-  z.object({
-    gift_category: z.literal('other'),
-    amount: z.coerce.number().optional(),
-    notes: z.string().optional(),
-  }),
+  z.object({ gift_category: z.literal('physical_registry'), ...baseFields }),
+  z.object({ gift_category: z.literal('other'), ...baseFields }),
 ]);
 
 type FormValues = z.infer<typeof schema>;
@@ -36,8 +35,9 @@ type FormValues = z.infer<typeof schema>;
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  partyId: string;
-  partyName: string;
+  /** null/undefined = regalo esterno (persona non invitata) */
+  partyId?: string | null;
+  partyName?: string;
   weddingId: string;
 }
 
@@ -50,23 +50,29 @@ const categoryLabels: Record<GiftCategory, string> = {
 export function AddGiftDialog({ open, onOpenChange, partyId, partyName, weddingId }: Props) {
   const [category, setCategory] = useState<GiftCategory>('cash');
   const addGift = useAddGift(weddingId);
+  const isExternal = !partyId;
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { gift_category: 'cash', amount: undefined, notes: '' },
+    defaultValues: { gift_category: 'cash', amount: undefined, notes: '', donor_name: '' },
   });
 
   const handleSubmit = form.handleSubmit(async (values) => {
+    if (isExternal && !values.donor_name?.trim()) {
+      form.setError('donor_name' as any, { message: 'Inserisci il nome di chi ha fatto il regalo' });
+      return;
+    }
     try {
       await addGift.mutateAsync({
-        party_id: partyId,
+        party_id: partyId ?? null,
+        donor_name: isExternal ? values.donor_name?.trim() || null : null,
         gift_category: values.gift_category,
         amount: values.gift_category === 'cash' ? (values as any).amount : (values.amount ?? null),
         notes: values.notes || null,
-      });
+      } as any);
       toast.success('Regalo registrato');
       onOpenChange(false);
-      form.reset({ gift_category: 'cash', amount: undefined, notes: '' });
+      form.reset({ gift_category: 'cash', amount: undefined, notes: '', donor_name: '' });
       setCategory('cash');
     } catch {
       toast.error('Errore nel salvataggio del regalo');
@@ -80,14 +86,35 @@ export function AddGiftDialog({ open, onOpenChange, partyId, partyName, weddingI
     form.clearErrors();
   };
 
+  const title = isExternal
+    ? 'Aggiungi regalo esterno'
+    : `Aggiungi regalo — ${partyName ?? ''}`;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Aggiungi regalo — {partyName}</DialogTitle>
+          <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-5">
+          {isExternal && (
+            <div className="space-y-1">
+              <Label htmlFor="donor_name">Da chi arriva *</Label>
+              <Input
+                id="donor_name"
+                placeholder="Nome e cognome (es. Zia Anna)"
+                {...form.register('donor_name')}
+              />
+              {(form.formState.errors as any).donor_name && (
+                <p className="text-xs text-destructive">{(form.formState.errors as any).donor_name.message}</p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Persona non presente nella lista invitati.
+              </p>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label>Tipo di regalo</Label>
             <RadioGroup value={category} onValueChange={handleCategoryChange} className="flex flex-col gap-2">

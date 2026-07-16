@@ -799,10 +799,11 @@ export type Database = {
         Row: {
           amount: number | null
           created_at: string
+          donor_name: string | null
           gift_category: Database["public"]["Enums"]["gift_category_enum"]
           id: string
           notes: string | null
-          party_id: string
+          party_id: string | null
           thank_you_status: Database["public"]["Enums"]["thank_you_status_enum"]
           updated_at: string
           wedding_id: string
@@ -810,10 +811,11 @@ export type Database = {
         Insert: {
           amount?: number | null
           created_at?: string
+          donor_name?: string | null
           gift_category?: Database["public"]["Enums"]["gift_category_enum"]
           id?: string
           notes?: string | null
-          party_id: string
+          party_id?: string | null
           thank_you_status?: Database["public"]["Enums"]["thank_you_status_enum"]
           updated_at?: string
           wedding_id: string
@@ -821,10 +823,11 @@ export type Database = {
         Update: {
           amount?: number | null
           created_at?: string
+          donor_name?: string | null
           gift_category?: Database["public"]["Enums"]["gift_category_enum"]
           id?: string
           notes?: string | null
-          party_id?: string
+          party_id?: string | null
           thank_you_status?: Database["public"]["Enums"]["thank_you_status_enum"]
           updated_at?: string
           wedding_id?: string
