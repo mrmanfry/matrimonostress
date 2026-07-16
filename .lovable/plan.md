@@ -1,64 +1,90 @@
-## Problema
+## Obiettivo
 
-Nell'imperiale tre viste dello stesso tavolo si comportano in modo diverso quando un ospite non ha una `seat_position` esplicita (caso Elena Picalarga) o quando l'indice dei posti non è allineato.
+Trasformare l'attuale "Condividi Progresso" in **due tipi di link pubblici distinti**, con contenuti pensati per il pubblico giusto:
 
-### 1. Mobile mostra Elena "Senza posto", desktop no
-- **Desktop** (`ImperialTableSvg.tsx`, righe 38–50): se un ospite non ha `seat_position`, viene automaticamente riempito nel primo posto libero. Elena appare seduta.
-- **Mobile** (`MobileTableSheet.tsx`, righe 74–81): filtra rigidamente per `seat_position != null`, e chi non ce l'ha finisce in una sezione separata "Senza posto".
-- Risultato: la stessa persona seduta a desktop → non seduta a mobile.
+- **Link Ospiti** → romantico/emozionale, con countdown, info pratiche e QR foto Memories.
+- **Link Fornitori** → operativo, con timeline dettagliata, contatti, indirizzi e numeri.
 
-### 2. PDF export mostra Elena nel posto sbagliato / non assegnata
-- In `pdfHelpers.ts` (righe 275–357) c'è un **off-by-one**: `seat_position` nel resto dell'app è 0-based (0..capacity-1), ma il PDF costruisce `seatMap` con le chiavi 0-based e poi cerca `seatMap.get(i)` con `i` che va da **1 a halfCap** per il Lato A e da `halfCap+1` a `capacity` per il Lato B. Quindi il posto 0 non viene mai disegnato e tutti gli altri sono spostati di uno → chi ha `seat_position = 0` (probabilmente Elena) sparisce dal diagramma.
-- Inoltre, come sul mobile, chi ha `seat_position = null` non viene messo in nessun posto libero: il PDF non applica il fallback che fa il desktop.
-
-### 3. Ospiti con nomi neri/grigi nel PDF
-- Nel "Dettaglio Posti" (righe 378–416): quando un ospite ha `dietary_restrictions`, viene chiamato `setTextColor(220,38,38)` (rosso) **prima** di aggiungere gli altri dettagli. Tutti i dettagli di quell'ospite (menù, note) diventano rossi.
-- Il colore viene resettato solo dentro `if (details.length > 0)`; se un ospite senza dietary segue uno con dietary, il nome/seat label di quello dopo può ereditare colori residui a seconda del path. Da qui l'aspetto "alcuni neri, alcuni grigi/rossi".
-
-### 4. "poi ci sta & poi allergie non si capisce niente"
-- Riga 400 e 433 stampano `⚠ ${guest.dietary_restrictions}` con font Helvetica standard di jsPDF, che usa WinAnsi e **non supporta il carattere `⚠`**. Viene reso come glifo corrotto (`&` o box). In più `splitTextToSize` con margine stretto spezza il testo dentro il seat label, creando l'effetto illeggibile.
+Manteniamo la sicurezza attuale (token lungo + scadenza, revocabile).
 
 ---
 
-## Piano di correzione
+## 1. Modello dati
 
-### A. Unificare la logica "ospite seduto" per l'imperiale
-Creare un piccolo helper condiviso (es. `src/components/tables/imperialSeating.ts`) che, dato `assignments` di un tavolo imperiale e la sua `capacity`, restituisca un array `seats[0..capacity-1]` applicando:
-1. prima i guest con `seat_position` valida,
-2. poi fallback dei non posizionati nei primi posti liberi (stessa logica del desktop).
+Aggiungiamo un campo `audience` alla tabella `progress_tokens` per distinguere i due tipi, più i nuovi toggle di visibilità richiesti da ciascun preset. Nessun breaking change: i link esistenti diventano `audience='guests'` con i toggle attuali preservati.
 
-Usarlo in **tutti e tre** i posti:
-- `ImperialTableSvg.tsx` (desktop) — sostituire il blocco 38–50 con l'helper.
-- `MobileTableSheet.tsx` — al posto di `sideA/sideB/noSeat` calcolare `seats` con l'helper, poi splittare in Lato A (indici `< perSide`) e Lato B (indici `>= perSide`). Rimuovere la sezione "Senza posto" per l'imperiale.
-- `pdfHelpers.ts` — costruire `seatMap` dall'array `seats` dell'helper.
+Nuove colonne (con default sensati):
+- `audience text NOT NULL DEFAULT 'guests'` — valori: `'guests'` | `'vendors'`
+- `label text` — nome opzionale del link ("Fotografo", "Famiglia Rossi"…)
+- **Ospiti**: `show_location boolean`, `show_dress_code boolean`, `show_memories_qr boolean`
+- **Fornitori**: `show_vendor_contacts boolean`, `show_operational_numbers boolean`, `show_addresses boolean`
 
-Risultato: Elena appare nello stesso posto ovunque.
+`show_checklist` e `show_vendors` (progresso organizzazione) restano nel DB per retrocompatibilità ma **non vengono più esposti nella UI**: non erano interessanti per gli ospiti e non hanno senso per i fornitori.
 
-### B. Correggere l'off-by-one nel PDF
-- Iterare i posti con indici 0-based: `for (let idx = 0; idx < halfCap; idx++)` per Lato A e `for (let idx = halfCap; idx < capacity; idx++)` per Lato B.
-- Usare `seats[idx]` (dall'helper) invece di `seatMap.get(i)` 1-based.
-- Nella label a schermo mostrare `idx + 1` (numero posto umano), ma il lookup è 0-based.
-- Nel "Dettaglio Posti" mostrare `seat_position + 1` invece di `seat_position` grezzo (righe 385, 388).
+## 2. Dialog di condivisione (Impostazioni matrimonio)
 
-### C. Pulire la gestione colori nel PDF
-- **Sempre** `setTextColor(0,0,0)` a inizio di ogni ospite (prima di stampare nome e seat label).
-- Applicare il rosso `setTextColor(220,38,38)` **solo** sulla singola riga della restrizione alimentare, non su tutti i `details`.
-- Reset a `(0,0,0)` a fine di ogni riga di dettaglio, non solo dentro `if (details.length > 0)`.
+La `ShareProgressDialog` diventa un hub con **due sezioni/preset**:
 
-### D. Risolvere il glifo illeggibile e le allergie
-- Sostituire `⚠` con un prefisso testuale ASCII/Latin-1 sicuro, es. `"Allergie: "` (o `"[!] Allergie: "`). Nessun emoji/glifo unicode non supportato da Helvetica.
-- Aumentare `maxWidth` a ~155 e assicurare che allergie e note stiano su righe proprie con andata a capo pulita.
+```text
+┌─ Condividi il tuo matrimonio ─────────────┐
+│  [Ospiti]  [Fornitori]                     │  ← Tab
+│                                            │
+│  Link attivi (lista, con copia/apri/elim.) │
+│  [+ Nuovo link Ospiti / Fornitori]         │
+└────────────────────────────────────────────┘
+```
 
-### E. Verifica visuale
-Dopo le modifiche, rigenerare il PDF di prova (tavolo imperiale con Elena) e confrontare a colpo d'occhio con la vista desktop: stesso ordine, stessi posti, testo leggibile, colori coerenti (nero per nome, rosso solo per la riga allergie).
+Ogni preset apre un mini-form con i toggle appropriati e un campo "Etichetta". Si possono creare più link per audience (es. un link per il catering, uno per il fotografo). Copy aggiornata:
 
----
+- Ospiti: *"Condividi con parenti e amici il conto alla rovescia, il programma della giornata e le informazioni pratiche."*
+- Fornitori: *"Condividi con i fornitori tutti i dettagli operativi del giorno: orari, indirizzi, contatti e numeri."*
 
-## File toccati
+## 3. Pagina pubblica `/progress/:token`
 
-- `src/components/tables/imperialSeating.ts` (nuovo helper)
-- `src/components/tables/v2/ImperialTableSvg.tsx`
-- `src/components/tables/MobileTableSheet.tsx`
-- `src/utils/pdfHelpers.ts`
+La stessa route serve entrambi gli audience, ma cambia layout/contenuti in base a `audience`.
 
-Nessuna modifica al database o alla business logic delle assegnazioni: sto solo unificando come i tre render leggono `seat_position` e sistemando il rendering del PDF.
+### 3a. Vista Ospiti (tono elegante, come oggi ma ripulita)
+- **Hero** con nomi coppia + data
+- **Countdown** (se attivo)
+- **Programma del giorno** (timeline semplificata: solo orario + titolo + descrizione)
+- **Dove** — indirizzi cerimonia/ricevimento con link Google Maps (da `weddings.ceremony_location`, `reception_location`)
+- **Dress code** — testo libero (nuovo campo `weddings.dress_code` se non esiste già, altrimenti riutilizziamo)
+- **QR / link Memories Reel** — se la camera è attiva per questo matrimonio, mostriamo il QR code della fotocamera condivisa così gli ospiti possono scattare
+- **Rimossi**: progresso checklist, fornitori confermati (non pertinenti per gli ospiti)
+
+### 3b. Vista Fornitori (tono operativo, denso di info)
+- Header sobrio con nomi coppia + data + eventuale etichetta link
+- **Timeline operativa dettagliata** — orari, titolo, descrizione, location per evento (dati già presenti in `timeline_events`)
+- **Location & indirizzi** — cerimonia, ricevimento, note logistiche (parcheggi, accesso di servizio) se disponibili
+- **Contatti chiave** — coppia (nome + telefono), planner/coordinatore se presente. I dati arrivano da `profiles` / `weddings`; niente dati sensibili tipo indirizzi privati.
+- **Numeri operativi** — ospiti confermati, adulti/bambini, tavoli, esigenze alimentari aggregate (vegetariani, vegani, allergie principali), staff previsto. Calcolati con `buildGuestScenarios()` e i dati catering esistenti.
+- **Rimossi**: countdown, checklist, elenco fornitori confermati.
+
+## 4. Sicurezza
+
+Nessuna modifica strutturale: token lungo generato via `crypto.randomUUID()`, scadenza 90 giorni, `is_active` toggle, revoca via "Elimina". Le RLS restano quelle attuali. La pagina pubblica continua a leggere solo campi non sensibili (nessuna email, nessun dato finanziario).
+
+Aggiungiamo però un piccolo footer sulla vista Fornitori: *"Link riservato ai fornitori — non condividere pubblicamente"*.
+
+## 5. Dettagli tecnici
+
+**File toccati**:
+- `supabase/migrations/<new>.sql` — aggiunge le colonne descritte in §1, con default che rendono i link esistenti equivalenti a "Ospiti come oggi".
+- `src/components/settings/ShareProgressDialog.tsx` — refactor: tab Ospiti/Fornitori, lista link attivi, form per audience.
+- `src/pages/ProgressPublic.tsx` — split in due sotto-componenti `GuestsView` / `VendorsView` in base a `token.audience`.
+- Nuovi componenti: `src/components/progress/GuestsProgressView.tsx`, `VendorsProgressView.tsx`, `MemoriesQrBlock.tsx`.
+- `src/integrations/supabase/types.ts` — rigenerato dalla migration.
+
+**Query aggiuntive nella pagina pubblica** (tutte lato server via `supabase-js`, filtrate per `wedding_id` risolto dal token):
+- `disposable_cameras` attive → per QR Memories (solo vista Ospiti)
+- `guests` + `buildGuestScenarios` → per numeri operativi (solo vista Fornitori)
+- `profiles` del co_planner/planner → contatti (solo vista Fornitori)
+- `weddings` → indirizzi, dress code, note logistiche
+
+**Retrocompatibilità**: link esistenti (`audience='guests'` di default) continuano a funzionare; il vecchio blocco "Progresso Checklist" e "Fornitori Confermati" viene rimosso dalla UI pubblica anche per i link vecchi (semplificazione voluta), ma le colonne restano in DB per non rompere nulla.
+
+## 6. Cosa NON facciamo (per tenere lo scope stretto)
+- Nessun PIN o password sui link (confermato: manteniamo sistema attuale).
+- Nessuna analytics di apertura link.
+- Nessuna notifica push ai fornitori.
+- Il dress code, se manca la colonna, viene aggiunto solo se non esiste già (verifico in build mode prima di aggiungere).
