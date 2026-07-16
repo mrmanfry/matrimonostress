@@ -173,7 +173,7 @@ const Catering = () => {
         </TabsList>
 
         <TabsContent value="riepilogo" className="space-y-6">
-          <CateringKPIs guests={guests} />
+          <CateringKPIs guests={guests} staffMeals={staffMeals} />
         </TabsContent>
 
         <TabsContent value="dettaglio">
