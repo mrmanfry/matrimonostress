@@ -147,6 +147,9 @@ const Settings = () => {
       setEditedLocation(weddingData.location || "");
       setEditedCeremonyTime(weddingData.ceremony_start_time || "");
       setEditedTimezone(weddingData.timezone || "Europe/Rome");
+      setEditedDressCode((weddingData as any).dress_code || "");
+      setEditedLogisticalNotes((weddingData as any).logistical_notes || "");
+
 
       const { data: rolesData } = await supabase
         .from("user_roles")
