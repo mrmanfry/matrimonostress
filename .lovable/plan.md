@@ -1,90 +1,54 @@
-## Obiettivo
+## Problema
 
-Trasformare l'attuale "Condividi Progresso" in **due tipi di link pubblici distinti**, con contenuti pensati per il pubblico giusto:
+La pagina `/progress/:token` per i fornitori mostra tutti zeri e ha uno stile "slate/industriale" che stona con il resto di WedsApp. Due bug distinti:
 
-- **Link Ospiti** → romantico/emozionale, con countdown, info pratiche e QR foto Memories.
-- **Link Fornitori** → operativo, con timeline dettagliata, contatti, indirizzi e numeri.
+### 1. Numeri a zero — bug RLS (root cause)
+Il link fornitori è pubblico (visitatori anonimi). Ora `progress_tokens` è leggibile da `anon`, ma **tutte le altre tabelle** che la vista interroga (`weddings`, `guests`, `vendors`, `tables`, `timeline_events`, `user_roles`, `profiles`) **non hanno alcuna policy per `anon`**. Verificato via `pg_policies`: zero righe. → Le query tornano vuote → conteggi 0/0/0. Lo stesso problema esiste (silenzioso) anche nella vista ospiti per `weddings` e `timeline_events`.
 
-Manteniamo la sicurezza attuale (token lungo + scadenza, revocabile).
+Aprire policy anon su queste tabelle è pericoloso (esporrebbe l'intera guest list a chiunque). La soluzione corretta è **spostare il fetch dietro un edge function** che valida il token con service role e restituisce solo il payload consentito dai flag del token.
+
+### 2. Stile off-brand
+La vista fornitori usa `bg-slate-50`, `bg-slate-900`, icona chiave inglese, tipografia sans "tecnica". WedsApp è "calma e controllo", elegante, editorial. Va allineata al linguaggio della vista ospiti (Card morbide, palette rose/neutra semantica, header sobrio, serif per i nomi) pur mantenendo il taglio operativo (griglia numeri, timeline in mono per gli orari).
 
 ---
 
-## 1. Modello dati
+## Piano
 
-Aggiungiamo un campo `audience` alla tabella `progress_tokens` per distinguere i due tipi, più i nuovi toggle di visibilità richiesti da ciascun preset. Nessun breaking change: i link esistenti diventano `audience='guests'` con i toggle attuali preservati.
+### A. Edge function `progress-public-data` (pubblica, no JWT)
+- Input: `{ token }`
+- Valida `progress_tokens` (attivo + non scaduto) con service role
+- In base a `audience` + flag (`show_timeline`, `show_addresses`, `show_vendor_contacts`, `show_operational_numbers`, `show_memories_qr`, ecc.), assembla e restituisce:
+  - `wedding`: nomi, data, orari, venue, indirizzi, dress_code, note logistiche, target
+  - `events`: timeline (se abilitata)
+  - `contacts`: coppia + planner/co-planner (nome/ruolo, no telefoni) se abilitato
+  - `ops`: adulti/bambini/staff/totale/dietary/tavoli calcolati con `buildGuestScenarios` lato server (stessa logica canonica dell'app → **numeri coerenti con il resto del sito**)
+  - `cameraToken`: token camera attiva per QR memories (se abilitato)
+- Registrata in `supabase/config.toml` con `verify_jwt = false`
 
-Nuove colonne (con default sensati):
-- `audience text NOT NULL DEFAULT 'guests'` — valori: `'guests'` | `'vendors'`
-- `label text` — nome opzionale del link ("Fotografo", "Famiglia Rossi"…)
-- **Ospiti**: `show_location boolean`, `show_dress_code boolean`, `show_memories_qr boolean`
-- **Fornitori**: `show_vendor_contacts boolean`, `show_operational_numbers boolean`, `show_addresses boolean`
+### B. Refactor `GuestsProgressView` e `VendorsProgressView`
+- Rimpiazzare tutte le `supabase.from(...)` con una singola `supabase.functions.invoke("progress-public-data", { body: { token } })`
+- Nessun cambio di feature funzionale, solo cambio sorgente dati → i numeri appariranno correttamente
 
-`show_checklist` e `show_vendors` (progresso organizzazione) restano nel DB per retrocompatibilità ma **non vengono più esposti nella UI**: non erano interessanti per gli ospiti e non hanno senso per i fornitori.
+### C. Restyle vista fornitori in linea con WedsApp
+- Header: rimossa icona "chiave inglese"; adottato lo stesso header sobrio della vista ospiti (nomi in serif elegante, data in italiano, badge "Briefing fornitori" discreto)
+- Palette: token semantici (`bg-background`, `bg-card`, `text-foreground`, `text-muted-foreground`, accent `primary`), niente `slate-*` hardcoded
+- Card numeri: card neutre con bordo sottile, il "Totale coperti" evidenziato con `bg-primary/5` + bordo `primary/30` invece del blocco nero
+- Timeline: stesso layout mono-time della vista ospiti, con divisori sottili
+- Indirizzi: card cliccabili verso Google Maps, tipografia coerente
+- Footer discreto "Creato con WedsApp"
 
-## 2. Dialog di condivisione (Impostazioni matrimonio)
+### D. Nessuna nuova migration
+Le tabelle restano chiuse ad `anon` (lo stato attuale è sicuro). L'unica policy anon che rimane è quella su `progress_tokens`, che serve al client per capire subito se il link è valido prima di chiamare l'edge function (utile anche per messaggi di errore precoci); in alternativa possiamo rimuoverla e affidarci solo alla function — segnalatemi la preferenza, di default la lascio.
 
-La `ShareProgressDialog` diventa un hub con **due sezioni/preset**:
+---
 
-```text
-┌─ Condividi il tuo matrimonio ─────────────┐
-│  [Ospiti]  [Fornitori]                     │  ← Tab
-│                                            │
-│  Link attivi (lista, con copia/apri/elim.) │
-│  [+ Nuovo link Ospiti / Fornitori]         │
-└────────────────────────────────────────────┘
-```
+### Dettagli tecnici
+- L'edge function importa `buildGuestScenarios` copiandone la logica (o duplica il minimo indispensabile in TS Deno) per non rompere l'isolamento tra client e functions
+- Il payload rispetta rigorosamente i flag: se `show_vendor_contacts=false` la function **non** include `contacts` nel JSON, così i dati sensibili non partono nemmeno via rete
+- La vista ospiti manterrà `show_countdown/show_location/show_dress_code/show_memories_qr` invariati
 
-Ogni preset apre un mini-form con i toggle appropriati e un campo "Etichetta". Si possono creare più link per audience (es. un link per il catering, uno per il fotografo). Copy aggiornata:
-
-- Ospiti: *"Condividi con parenti e amici il conto alla rovescia, il programma della giornata e le informazioni pratiche."*
-- Fornitori: *"Condividi con i fornitori tutti i dettagli operativi del giorno: orari, indirizzi, contatti e numeri."*
-
-## 3. Pagina pubblica `/progress/:token`
-
-La stessa route serve entrambi gli audience, ma cambia layout/contenuti in base a `audience`.
-
-### 3a. Vista Ospiti (tono elegante, come oggi ma ripulita)
-- **Hero** con nomi coppia + data
-- **Countdown** (se attivo)
-- **Programma del giorno** (timeline semplificata: solo orario + titolo + descrizione)
-- **Dove** — indirizzi cerimonia/ricevimento con link Google Maps (da `weddings.ceremony_location`, `reception_location`)
-- **Dress code** — testo libero (nuovo campo `weddings.dress_code` se non esiste già, altrimenti riutilizziamo)
-- **QR / link Memories Reel** — se la camera è attiva per questo matrimonio, mostriamo il QR code della fotocamera condivisa così gli ospiti possono scattare
-- **Rimossi**: progresso checklist, fornitori confermati (non pertinenti per gli ospiti)
-
-### 3b. Vista Fornitori (tono operativo, denso di info)
-- Header sobrio con nomi coppia + data + eventuale etichetta link
-- **Timeline operativa dettagliata** — orari, titolo, descrizione, location per evento (dati già presenti in `timeline_events`)
-- **Location & indirizzi** — cerimonia, ricevimento, note logistiche (parcheggi, accesso di servizio) se disponibili
-- **Contatti chiave** — coppia (nome + telefono), planner/coordinatore se presente. I dati arrivano da `profiles` / `weddings`; niente dati sensibili tipo indirizzi privati.
-- **Numeri operativi** — ospiti confermati, adulti/bambini, tavoli, esigenze alimentari aggregate (vegetariani, vegani, allergie principali), staff previsto. Calcolati con `buildGuestScenarios()` e i dati catering esistenti.
-- **Rimossi**: countdown, checklist, elenco fornitori confermati.
-
-## 4. Sicurezza
-
-Nessuna modifica strutturale: token lungo generato via `crypto.randomUUID()`, scadenza 90 giorni, `is_active` toggle, revoca via "Elimina". Le RLS restano quelle attuali. La pagina pubblica continua a leggere solo campi non sensibili (nessuna email, nessun dato finanziario).
-
-Aggiungiamo però un piccolo footer sulla vista Fornitori: *"Link riservato ai fornitori — non condividere pubblicamente"*.
-
-## 5. Dettagli tecnici
-
-**File toccati**:
-- `supabase/migrations/<new>.sql` — aggiunge le colonne descritte in §1, con default che rendono i link esistenti equivalenti a "Ospiti come oggi".
-- `src/components/settings/ShareProgressDialog.tsx` — refactor: tab Ospiti/Fornitori, lista link attivi, form per audience.
-- `src/pages/ProgressPublic.tsx` — split in due sotto-componenti `GuestsView` / `VendorsView` in base a `token.audience`.
-- Nuovi componenti: `src/components/progress/GuestsProgressView.tsx`, `VendorsProgressView.tsx`, `MemoriesQrBlock.tsx`.
-- `src/integrations/supabase/types.ts` — rigenerato dalla migration.
-
-**Query aggiuntive nella pagina pubblica** (tutte lato server via `supabase-js`, filtrate per `wedding_id` risolto dal token):
-- `disposable_cameras` attive → per QR Memories (solo vista Ospiti)
-- `guests` + `buildGuestScenarios` → per numeri operativi (solo vista Fornitori)
-- `profiles` del co_planner/planner → contatti (solo vista Fornitori)
-- `weddings` → indirizzi, dress code, note logistiche
-
-**Retrocompatibilità**: link esistenti (`audience='guests'` di default) continuano a funzionare; il vecchio blocco "Progresso Checklist" e "Fornitori Confermati" viene rimosso dalla UI pubblica anche per i link vecchi (semplificazione voluta), ma le colonne restano in DB per non rompere nulla.
-
-## 6. Cosa NON facciamo (per tenere lo scope stretto)
-- Nessun PIN o password sui link (confermato: manteniamo sistema attuale).
-- Nessuna analytics di apertura link.
-- Nessuna notifica push ai fornitori.
-- Il dress code, se manca la colonna, viene aggiunto solo se non esiste già (verifico in build mode prima di aggiungere).
+### File toccati
+- **Nuovo**: `supabase/functions/progress-public-data/index.ts`
+- **Modificato**: `supabase/config.toml` (registrazione function, `verify_jwt = false`)
+- **Modificato**: `src/components/progress/VendorsProgressView.tsx` (restyle + nuovo data source)
+- **Modificato**: `src/components/progress/GuestsProgressView.tsx` (nuovo data source, stile invariato)

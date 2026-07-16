@@ -64,7 +64,7 @@ const ProgressPublic = () => {
     );
   }
 
-  if (error || !tokenRow) {
+  if (error || !tokenRow || !token) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-rose-50 via-white to-purple-50 p-4">
         <Card className="p-8 max-w-md text-center">
@@ -77,9 +77,9 @@ const ProgressPublic = () => {
   }
 
   return tokenRow.audience === "vendors" ? (
-    <VendorsProgressView tokenRow={tokenRow} />
+    <VendorsProgressView tokenRow={tokenRow} token={token} />
   ) : (
-    <GuestsProgressView tokenRow={tokenRow} />
+    <GuestsProgressView tokenRow={tokenRow} token={token} />
   );
 };
 

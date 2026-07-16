@@ -104,3 +104,6 @@ verify_jwt = false
 
 [functions.handle-email-suppression]
 verify_jwt = false
+
+[functions.progress-public-data]
+verify_jwt = false
