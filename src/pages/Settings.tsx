@@ -1245,16 +1245,8 @@ const Settings = () => {
         open={shareDialogOpen}
         onOpenChange={setShareDialogOpen}
         weddingId={wedding?.id || ""}
-        existingToken={progressToken}
-        onTokenCreated={(token) => {
-          setProgressToken(token);
-          loadData();
-        }}
-        onTokenDeleted={() => {
-          setProgressToken(null);
-          setShareDialogOpen(false);
-        }}
       />
+
 
 
       {/* Confirmation Dialog */}
