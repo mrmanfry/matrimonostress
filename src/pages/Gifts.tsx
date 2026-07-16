@@ -294,6 +294,13 @@ export default function Gifts() {
                 guestNamesByParty={guestNamesByParty}
               />
             )}
+            {weddingId && (
+              <ExternalGiftsSection
+                gifts={gifts}
+                weddingId={weddingId}
+                isPrivate={isPrivate}
+              />
+            )}
           </>
         )}
       </div>
