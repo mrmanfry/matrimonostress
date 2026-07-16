@@ -159,6 +159,19 @@ Deno.serve(async (req) => {
         });
       });
       payload.contacts = contacts;
+
+      // Rubrica fornitori (solo confermati). Nessun dato finanziario.
+      const { data: vs } = await supabase
+        .from("vendors")
+        .select("name, contact_name, email, phone, status, category:expense_categories(name)")
+        .eq("wedding_id", weddingId)
+        .eq("status", "confirmed");
+      payload.vendorContacts = (vs || []).map((v: any) => ({
+        category: v.category?.name ?? null,
+        name: v.name || v.contact_name || "Fornitore",
+        phone: v.phone ?? null,
+        email: v.email ?? null,
+      }));
     }
 
     if (tok.show_operational_numbers) {
