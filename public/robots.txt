@@ -12,5 +12,8 @@ Allow: /
 
 User-agent: *
 Allow: /
+Disallow: /progress/
+Disallow: /rsvp/
+Disallow: /camera/
 
 Sitemap: https://wedsapp.it/sitemap.xml
