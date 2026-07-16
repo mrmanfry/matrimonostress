@@ -31,9 +31,9 @@ type GiftFilter = 'all' | 'registered' | 'missing' | 'cash' | 'physical';
 
 function partyStatus(party: PartyRow, gifts: GiftRow[]) {
   const partyGifts = gifts.filter((g) => g.party_id === party.id);
-  if (party.rsvp_status === 'Rifiutato') return 'declined';
   if (partyGifts.some((g) => g.gift_category === 'cash')) return 'cash';
   if (partyGifts.length > 0) return 'physical';
+  if (party.rsvp_status === 'Rifiutato') return 'declined';
   return 'simulated';
 }
 
