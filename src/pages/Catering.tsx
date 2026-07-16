@@ -117,8 +117,16 @@ const Catering = () => {
         party_name: g.party_id ? (partyMap.get(g.party_id) || null) : null,
       }));
 
+      // Fetch staff meals from vendors
+      const { data: vendorsData } = await supabase
+        .from("vendors")
+        .select("staff_meals_count")
+        .eq("wedding_id", weddingId);
+      const totalStaff = (vendorsData || []).reduce((s, v: any) => s + Number(v?.staff_meals_count || 0), 0);
+
       setGuests(enriched);
       setTableNames(Array.from(new Set((tables || []).map(t => t.name))).sort());
+      setStaffMeals(totalStaff);
       setLoading(false);
     };
     load();
