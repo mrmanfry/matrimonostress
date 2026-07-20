@@ -1,109 +1,57 @@
 ## Obiettivo
 
-1. Togliere il "muro rosso" dalla vista fornitori (`/progress/:token` con audience=vendor): oggi è tutto gradienti rose/purple → trasmette ansia. La rendiamo sobria, in linea con il resto di WedsApp ("calma e controllo").
-2. Aggiungere i **recapiti dei fornitori** (nome fornitore + categoria + telefono + email) nella stessa pagina, protetti da:
-   - un pulsante **"Mostra contatti"** (rivelazione esplicita, non stampabili di default);
-   - **`<meta name="robots" content="noindex, nofollow">`** sulla pagina pubblica → non indicizzabile da Google;
-   - render dei numeri lato client solo dopo click (nel markup iniziale non ci sono → gli scraper base non li trovano);
-   - gating sul flag esistente `show_vendor_contacts` del token (chi non lo abilita non li vede proprio).
+Il weekly digest deve:
+1. Rispettare la Segregation of Duty (SoD): ogni destinatario riceve solo le sezioni per cui ha permesso di visualizzazione, e i task filtrati per assegnazione.
+2. Aggregare in **una sola mail per persona** tutti i matrimoni di sua competenza (fondamentale per i planner con portfolio ampio).
 
----
+## Nuovo flusso (aggregazione per destinatario)
 
-## A. Restyle vista fornitori — palette calma
+Oggi il loop esterno è `for wedding → for recipient`, quindi un planner con 10 matrimoni riceve 10 mail. Va invertito:
 
-`src/components/progress/VendorsProgressView.tsx`:
+1. Prima pass: raccogliere tutti i `(wedding, role, permissions_config)` di ogni user che ha `digest_enabled != false`.
+2. Aggregare per `user_id` → una mappa `user → [ {wedding, role, cfg, tasks, payments, appointments}, ... ]`.
+3. Invio: **una sola invoke** di `send-transactional-email` per user, con payload che contiene un array `weddings[]`.
 
-- Sfondo: da `bg-gradient-to-br from-rose-50 via-white to-purple-50` → `bg-background` con un pannello card `bg-card` centrato (stesso linguaggio della vista ospiti).
-- Header: rimuovo il gradiente rose/purple e l'aura colorata. Nomi in serif (token `font-serif` del progetto), data in italiano, badge sobrio "Briefing fornitori" con `bg-muted text-muted-foreground`.
-- Accenti: **niente più rose-500 ovunque**. Uso i token semantici `primary` / `accent` (già definiti in `index.css`) al posto di `text-rose-500`, `bg-rose-500`, `border-rose-100`, `from-rose-50 to-purple-50`.
-- Card numeri operativi: bordo sottile `border-border`, sfondo `bg-card`, il "Totale coperti" evidenziato con `bg-primary/5 border-primary/20` (non più gradiente pieno colorato).
-- Timeline: pallini/linee in `bg-primary` (che nel design system è il colore neutro-elegante), orari in mono, testo in `text-foreground`.
-- Indirizzi: card `bg-muted/40 hover:bg-muted` con freccia → link Google Maps.
-- Note logistiche: mantengo l'`amber` (unico accento "attenzione" giustificato) ma più tenue.
+Dedup: già oggi si deduplica per email; con l'aggregazione per user_id la dedup diventa naturale.
 
-Risultato: stessa struttura informativa, tono elegante e riposante — coerente con la vista ospiti e con il resto dell'app.
+## Regole SoD per sezione (applicate per ciascun wedding del blocco)
 
-## B. Sezione "Contatti fornitori" nascosta
+- **Checklist / task** → richiede `checklist.view`.
+  - `co_planner`/`planner` → tutti i task del wedding, con evidenza di quelli assegnati (`partner_role` o `assigned_to = user_id`).
+  - `manager` con `checklist.view` → solo task assegnati a lui + task condivisi (nessun assegnatario). Nessun task dell'altro partner.
+- **Pagamenti** → richiede `budget.view` **e** `vendor_costs.view`. Se manca, sezione + KPI "rate scadute" omessi per quel wedding.
+- **Appuntamenti fornitori** → richiede `vendors.view` (o `appointments.view` se area separata). Altrimenti omessi.
+- **Contatore ospiti/RSVP** → richiede `guests.view`.
 
-Nuova card nella vista fornitori (visibile solo se `tokenRow.show_vendor_contacts = true`):
+Se in un wedding tutte le sezioni sono vuote/omesse → il blocco di quel wedding non compare nel digest del destinatario. Se dopo il filtro tutti i wedding sono vuoti → nessuna mail.
 
-```
-┌ Rubrica fornitori ─────────────────────────┐
-│ 12 fornitori confermati per l'evento.      │
-│                                            │
-│ [ 👁  Mostra contatti ]                    │
-└────────────────────────────────────────────┘
-```
+## Ruoli esclusi a monte
 
-Dopo il click:
+- `manager` senza alcun permesso di view utile → skip di quel wedding.
+- Un `manager` che è anche co_planner altrove riceve comunque **una** mail aggregata: co_planner blocks + manager blocks (con permessi rispettati).
 
-```
-┌ Rubrica fornitori ─────────────────────────┐
-│ Catering · Villa Rosa                      │
-│   📞 +39 333 …    ✉ info@villarosa.it      │
-│ ──────────────────────────────────────────  │
-│ Fotografo · Marco Bianchi                  │
-│   📞 +39 340 …                             │
-│ …                                          │
-│                                            │
-│ ⚠ Non condividere questi recapiti.        │
-└────────────────────────────────────────────┘
-```
+## Cambi al template `weekly-digest.tsx`
 
-Note UX:
-- I contatti sono renderizzati **solo dopo click** (state `revealed`), quindi non presenti nell'HTML iniziale.
-- Numeri e email sono `tel:` / `mailto:` cliccabili.
-- Nessun pulsante "stampa/esporta" per non incentivare la diffusione.
+Riscrittura per struttura multi-wedding:
+- Hero personale: `recipientName`, messaggio motivazionale, consiglio settimanale (basato sul wedding con data più vicina).
+- Per ogni wedding: card con nome coppia + giorni al matrimonio + sezioni condizionali (task / pagamenti / appuntamenti) rese solo se presenti nei dati di quel blocco.
+- KPI aggregati in hero (opzionale): totale task scaduti tra tutti i wedding visibili, totale € scaduti (solo se il destinatario ha visibilità finanziaria almeno su un wedding).
+- Nessun blocco finanziario compare se nessun wedding include pagamenti.
 
-## C. Estensione edge function `progress-public-data`
+## Idempotency
 
-Aggiungo al payload (solo se `tok.show_vendor_contacts = true`) un nuovo array `vendorContacts`:
+`idempotencyKey`: da `weekly-digest-{wedding_id}-{user_id}-{date}` diventa `weekly-digest-{user_id}-{date}`. Una sola send per persona al giorno.
 
-```ts
-{
-  category: string | null,
-  name: string,           // company_name o contact_name
-  phone: string | null,
-  email: string | null,
-}[]
-```
+## Dettagli tecnici
 
-Fetch da `vendors` filtrato per `wedding_id` e stato "confermato/prenotato" (uso lo stesso criterio già in vigore in `Vendors.tsx` — verifico il campo esatto prima dell'implementazione, tipicamente `status IN ('booked','confirmed')`). Nessun costo, indirizzo IBAN o dato finanziario nel payload.
+- File: `supabase/functions/weekly-digest/index.ts` — refactor del flusso da nested a "collect → group by user → send once".
+- File: `supabase/functions/_shared/transactional-email-templates/weekly-digest.tsx` — nuova prop `weddings: WeddingBlock[]`.
+- Aggiungere `permissions_config` alla select su `user_roles` (già disponibile in tabella).
+- Helper locale `canView(role, cfg, area)` mirror di `hasPermission` client-side (co_planner/planner sempre `true`).
+- Nessuna modifica RLS: la funzione gira come service_role; enforcement applicativo.
+- Nessun invio di test in produzione. Effetto dal prossimo lunedì.
 
-## D. Anti-indicizzazione della pagina pubblica
+## Verifica pre-implementazione (da fare in build mode)
 
-In `src/pages/ProgressPublic.tsx`:
-
-- Setto dinamicamente in `<head>`:
-  - `<meta name="robots" content="noindex, nofollow, noarchive">`
-  - `<meta name="googlebot" content="noindex, nofollow">`
-- Rimuovo/evito qualsiasi `og:` che possa esporre dati sensibili nel preview link (title generico "Briefing evento", nessuna descrizione con nomi).
-- Aggiungo `Referrer-Policy: no-referrer` via meta.
-
-E aggiorno `public/robots.txt` con:
-```
-User-agent: *
-Disallow: /progress/
-```
-
-Combinazione: motori di ricerca non lo indicizzano, e anche se qualcuno condivide il link, i numeri di telefono non sono nel markup finché non si clicca "Mostra".
-
-## E. File toccati
-
-- `src/components/progress/VendorsProgressView.tsx` — restyle completo + nuova card "Rubrica fornitori" con reveal
-- `supabase/functions/progress-public-data/index.ts` — aggiunta `vendorContacts` gated sul flag
-- `src/pages/ProgressPublic.tsx` — meta robots/referrer + title neutro
-- `public/robots.txt` — disallow `/progress/`
-
-Nessuna migration necessaria: il flag `show_vendor_contacts` esiste già sulla tabella `progress_tokens`.
-
----
-
-## Domanda aperta
-
-Il flag `show_vendor_contacts` oggi controlla i **contatti della coppia/planner**. Due opzioni:
-
-1. **Riuso lo stesso flag** anche per la rubrica fornitori (semplice, un solo toggle nel dialog di condivisione).
-2. **Aggiungo un flag separato** `show_vendor_directory` così la coppia può decidere indipendentemente (più granulare, richiede una piccola migration + UI nel `ShareProgressDialog`).
-
-Di default vado con l'**opzione 1** (semplicità e coerenza); dimmi se preferisci la 2 e la includo.
+- Confermare con una query il valore reale di `checklist_tasks.assigned_to` per i manager: se contiene user_id UUID, filtrare per user_id; se contiene solo `partner_role`, i manager riceveranno solo task condivisi.
+- Confermare l'esistenza del campo `partner_role` sul record `user_roles` selezionato (già usato oggi).
