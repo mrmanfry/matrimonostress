@@ -1,57 +1,37 @@
-## Obiettivo
+# Bug: nome nucleo disallineato con nome ospite
 
-Il weekly digest deve:
-1. Rispettare la Segregation of Duty (SoD): ogni destinatario riceve solo le sezioni per cui ha permesso di visualizzazione, e i task filtrati per assegnazione.
-2. Aggregare in **una sola mail per persona** tutti i matrimoni di sua competenza (fondamentale per i planner con portfolio ampio).
+## Causa
 
-## Nuovo flusso (aggregazione per destinatario)
+Ci sono **due campi separati** in database:
+- `guests.first_name` + `guests.last_name` → il nome dell'ospite (fonte di verità)
+- `invite_parties.party_name` → un'etichetta testuale del nucleo, salvata una volta sola all'import/creazione
 
-Oggi il loop esterno è `for wedding → for recipient`, quindi un planner con 10 matrimoni riceve 10 mail. Va invertito:
+La sezione **Regali** (e altre viste per-nucleo) mostrano `party_name`. Quando correggi il cognome sulla scheda ospite, `guests.last_name` viene aggiornato ma `invite_parties.party_name` resta invariato.
 
-1. Prima pass: raccogliere tutti i `(wedding, role, permissions_config)` di ogni user che ha `digest_enabled != false`.
-2. Aggregare per `user_id` → una mappa `user → [ {wedding, role, cfg, tasks, payments, appointments}, ... ]`.
-3. Invio: **una sola invoke** di `send-transactional-email` per user, con payload che contiene un array `weddings[]`.
+Caso reale: la guest è `Marina Castrini` (corretta), ma il nucleo è ancora `Marina Castroni` (typo originario).
 
-Dedup: già oggi si deduplica per email; con l'aggregazione per user_id la dedup diventa naturale.
+## Soluzione
 
-## Regole SoD per sezione (applicate per ciascun wedding del blocco)
+Sincronizzare automaticamente `party_name` quando si tratta di un nucleo mono-persona, e allineare il nucleo di Marina.
 
-- **Checklist / task** → richiede `checklist.view`.
-  - `co_planner`/`planner` → tutti i task del wedding, con evidenza di quelli assegnati (`partner_role` o `assigned_to = user_id`).
-  - `manager` con `checklist.view` → solo task assegnati a lui + task condivisi (nessun assegnatario). Nessun task dell'altro partner.
-- **Pagamenti** → richiede `budget.view` **e** `vendor_costs.view`. Se manca, sezione + KPI "rate scadute" omessi per quel wedding.
-- **Appuntamenti fornitori** → richiede `vendors.view` (o `appointments.view` se area separata). Altrimenti omessi.
-- **Contatore ospiti/RSVP** → richiede `guests.view`.
+### 1. Data fix immediato
+Aggiornare `invite_parties.party_name` = `Marina Castrini` per il nucleo `8270474c-…`.
 
-Se in un wedding tutte le sezioni sono vuote/omesse → il blocco di quel wedding non compare nel digest del destinatario. Se dopo il filtro tutti i wedding sono vuoti → nessuna mail.
+### 2. Trigger di sync (nuovo)
+Trigger su `guests AFTER UPDATE OF first_name, last_name`:
+- se il nucleo ha **un solo membro non-coppia**, ricalcola `party_name` come `TRIM(first_name || ' ' || last_name)`.
+- se il nucleo ha più membri, non tocca nulla (il nome del nucleo è un'etichetta di famiglia, non riducibile a un singolo ospite).
 
-## Ruoli esclusi a monte
+Trigger anche su `guests AFTER INSERT/DELETE` sul `party_id`, per lo stesso motivo: quando un nucleo torna a 1 membro dopo eliminazione, si allinea il nome.
 
-- `manager` senza alcun permesso di view utile → skip di quel wedding.
-- Un `manager` che è anche co_planner altrove riceve comunque **una** mail aggregata: co_planner blocks + manager blocks (con permessi rispettati).
+### 3. UI (opzionale, ma consigliato)
+Nell'elenco Regali mostrare come titolo del nucleo la lista dei nomi effettivi (`guests`) quando il `party_name` diverge dal set dei membri. In alternativa: pulsante "Sincronizza nome nucleo" nella scheda del nucleo. Facciamo solo il trigger per ora — riduce il rischio di regressione UI.
 
-## Cambi al template `weekly-digest.tsx`
+## File toccati
 
-Riscrittura per struttura multi-wedding:
-- Hero personale: `recipientName`, messaggio motivazionale, consiglio settimanale (basato sul wedding con data più vicina).
-- Per ogni wedding: card con nome coppia + giorni al matrimonio + sezioni condizionali (task / pagamenti / appuntamenti) rese solo se presenti nei dati di quel blocco.
-- KPI aggregati in hero (opzionale): totale task scaduti tra tutti i wedding visibili, totale € scaduti (solo se il destinatario ha visibilità finanziaria almeno su un wedding).
-- Nessun blocco finanziario compare se nessun wedding include pagamenti.
+- Migrazione DB: UPDATE mirato + funzione + trigger su `public.guests`.
+- Nessuna modifica frontend necessaria per il fix (la UI leggerà il valore aggiornato).
 
-## Idempotency
+## Fuori scopo
 
-`idempotencyKey`: da `weekly-digest-{wedding_id}-{user_id}-{date}` diventa `weekly-digest-{user_id}-{date}`. Una sola send per persona al giorno.
-
-## Dettagli tecnici
-
-- File: `supabase/functions/weekly-digest/index.ts` — refactor del flusso da nested a "collect → group by user → send once".
-- File: `supabase/functions/_shared/transactional-email-templates/weekly-digest.tsx` — nuova prop `weddings: WeddingBlock[]`.
-- Aggiungere `permissions_config` alla select su `user_roles` (già disponibile in tabella).
-- Helper locale `canView(role, cfg, area)` mirror di `hasPermission` client-side (co_planner/planner sempre `true`).
-- Nessuna modifica RLS: la funzione gira come service_role; enforcement applicativo.
-- Nessun invio di test in produzione. Effetto dal prossimo lunedì.
-
-## Verifica pre-implementazione (da fare in build mode)
-
-- Confermare con una query il valore reale di `checklist_tasks.assigned_to` per i manager: se contiene user_id UUID, filtrare per user_id; se contiene solo `partner_role`, i manager riceveranno solo task condivisi.
-- Confermare l'esistenza del campo `partner_role` sul record `user_roles` selezionato (già usato oggi).
+- Rinomina bulk di tutti i nuclei "obsoleti" del progetto: non tocchiamo nuclei multi-membro per non sovrascrivere etichette di famiglia (es. "Famiglia Rossi").
